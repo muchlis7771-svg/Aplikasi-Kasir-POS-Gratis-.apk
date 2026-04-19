@@ -22,9 +22,13 @@ Tinggalkan buku catatan manual Anda. J-DATA POS didesain khusus untuk **Cafe, Wa
 ---
 
 ## 📥 CARA DOWNLOAD & INSTALL (Sangat Mudah)
-Aplikasi ini siap pakai! Silakan klik tautan di bawah ini untuk mendownload APK-nya langsung ke HP Anda:
+Aplikasi ini siap pakai! Silakan klik tombol di bawah ini untuk mendownload APK-nya langsung ke HP Anda:
 
-### 👉 [ 📥 DOWNLOAD APK J-DATA POS SEKARANG (GRATIS) ](https://github.com/muchlis7771-svg/Aplikasi-Kasir-POS-Gratis/raw/main/POS%20J-DATA) 👈
+<div align="center">
+
+### 👉 [ 📥 DOWNLOAD APK J-DATA POS SEKARANG (GRATIS) ](https://github.com/muchlis7771-svg/Aplikasi-Kasir-POS-Gratis-.apk/raw/main/POSJ2%20(1).apk) 👈
+
+</div>
 
 **Langkah Install:**
 1. Download file APK melalui link di atas.
