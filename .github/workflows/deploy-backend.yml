@@ -1,28 +1,25 @@
 name: Deploy Backend
 on:
   workflow_dispatch:
+  push:
+    branches: [jpos, main]
+    paths: ['worker/**', 'public/**', 'scripts/deploy-backend.sh', '.github/workflows/deploy-backend.yml']
 jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 20 }
-      - name: Cek secret
-        run: |
-          for v in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID JPOS_SECRET JPOS_ADMIN_USER JPOS_ADMIN_PASS; do
-            eval "val=\$$v"; [ -n "$val" ] || { echo "::error::Secret $v belum diisi (Settings > Secrets and variables > Actions)"; exit 1; }
-          done
+        with: { node-version: 22 }
+      - name: Token Cloudflare sudah diisi?
+        run: '[ -n "$CLOUDFLARE_API_TOKEN" ] || { echo "::error::Secret CLOUDFLARE_API_TOKEN belum diisi"; exit 1; }'
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          JPOS_SECRET: ${{ secrets.JPOS_SECRET }}
-          JPOS_ADMIN_USER: ${{ secrets.JPOS_ADMIN_USER }}
-          JPOS_ADMIN_PASS: ${{ secrets.JPOS_ADMIN_PASS }}
-      - run: bash scripts/deploy-backend.sh
+      - name: Deploy database + server
+        run: bash scripts/deploy-backend.sh
         env:
+          CI: 'true'
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          JPOS_SECRET: ${{ secrets.JPOS_SECRET }}
-          JPOS_ADMIN_USER: ${{ secrets.JPOS_ADMIN_USER }}
-          JPOS_ADMIN_PASS: ${{ secrets.JPOS_ADMIN_PASS }}
+      - name: Tes server hidup
+        run: sleep 8; curl -fsS https://jpos-api.muchlis7771.workers.dev/api/ping

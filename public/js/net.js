@@ -11,7 +11,7 @@ async function api(path, opt = {}, token) {
   try { r = await fetch(AP + path, { ...opt, headers: h, signal: AbortSignal.timeout ? AbortSignal.timeout(25000) : undefined }); }
   catch (e) { const er = new Error('Tidak bisa terhubung ke server'); er.net = true; throw er; }
   const j = await r.json().catch(() => ({}));
-  if (!r.ok) { const er = new Error(j.e || 'Error ' + r.status); er.status = r.status; throw er; }
+  if (!r.ok) { const er = new Error(j.e || (r.status == 404 ? 'Server belum aktif (404)' : 'Error ' + r.status)); er.status = r.status; er.body = j; throw er; }
   return j;
 }
 const post = (p, b, t) => api(p, { method: 'POST', body: JSON.stringify(b) }, t);
@@ -25,8 +25,8 @@ async function sync() {
   if (syncing || !S || !S.srv || !canNet() || !TK() || S.locked) return;
   syncing = true; SY.state = 'sync'; updBadge(); let n = 0;
   try {
-    while (S.eq.length) {
-      const batch = S.eq.slice(0, 100), r = await post('/api/ev', { items: batch }), dn = new Set(r.done);
+    while (S.eq.length && !isExp()) {
+      const batch = S.eq.slice(0, 100), r = await post('/api/ev', { items: batch }), dn = new Set(r.done); stApply(r.st);
       S.eq = S.eq.filter((e) => !dn.has(e.no));
       if (r.rej && r.rej.length) toast('Server menolak sebagian data: ' + r.rej[0].e, 5000);
       if (!dn.size) break;
@@ -34,13 +34,15 @@ async function sync() {
     for (let more = true; more;) {
       const r = await api('/api/ev?since=' + S.ec);
       for (const e of r.items) if (apply(e)) n++;
-      S.ec = r.cur; more = r.more;
+      S.ec = r.cur; more = r.more; stApply(r.st);
+      if (r.role && U && r.role != U.r) { U.r = r.role; const me = S.users.find((x) => x.n == U.n); if (me) me.r = r.role; n++; }
     }
     await chatFlush();
     SY.state = 'ok'; SY.last = Date.now(); S.reauth = false; save();
   } catch (e) {
     SY.state = e.net ? 'off' : 'err'; SY.err = e.message;
     if (e.status == 401) { S.reauth = true; }
+    else if (e.status == 402) { stApply(e.body); SY.state = 'exp'; }
     else if (e.status == 403 && /suspend/i.test(e.message)) { S.locked = e.message; save(); }
   } finally { syncing = false; updBadge(); if (n) afterPull(); if (S.locked) R(); }
 }
@@ -54,6 +56,7 @@ function updBadge() {
     if (S.reauth) { t = 'Masuk ulang'; c = 'off'; }
     else if (!navigator.onLine || SY.state == 'off') { t = 'Offline' + (q ? ' · ' + q + ' antrian' : ''); c = 'off'; }
     else if (SY.state == 'sync') { t = 'Menyinkron…'; c = 'wa'; }
+    else if (isExp() || SY.state == 'exp') { t = 'Masa aktif habis'; c = 'off'; }
     else if (SY.state == 'err') { t = 'Gagal sinkron'; c = 'wa'; }
     else { t = q ? q + ' antrian' : 'Online'; c = q ? 'wa' : 'on'; }
   }
@@ -64,10 +67,15 @@ addEventListener('online', () => { updBadge(); kick(); if (typeof R == 'function
 addEventListener('offline', () => { updBadge(); if (U) toast('Mode offline: transaksi tetap tersimpan'); });
 document.addEventListener('visibilitychange', () => { if (!document.hidden && U) kick(); });
 
+// status toko dari server: masa aktif, paket, nama
+function stApply(st) { if (!st || !S) return; const was = isExp(); if (st.exp != null) S.exp = +st.exp || 0; if (st.plan) S.plan = st.plan; if (st.sn) S.name = st.sn; save(); if (U && was != isExp()) setTimeout(R, 0); }
+// info pemilik aplikasi (WA & harga) — disimpan agar tampil juga saat offline
+async function appInfo() { try { const r = await api('/api/info', {}, ''); LS.set('jpos:info', r); return r; } catch (e) { return LS.get('jpos:info', { wa: '', price: '', trial: 30 }); } }
+
 /* ---------- login & pendaftaran ---------- */
 async function enterStore(id, r, pin) {
   if (!loadStore(id)) { SID = id; S = newStore(id, r.sn, '', true); }
-  S.srv = true; S.name = r.sn || S.name; S.locked = ''; S.reauth = false;
+  S.srv = true; S.name = r.sn || S.name; S.locked = ''; S.reauth = false; stApply(r);
   LS.set('jpos:tk:' + id, r.token); setReg(id, S.name);
   const h = await sha(id + ':' + r.name.toLowerCase() + ':' + pin);
   S.users = S.users.filter((u) => u.n.toLowerCase() != r.name.toLowerCase()); S.users.push({ n: r.name, r: r.role, h });
@@ -93,7 +101,7 @@ async function doLogin(id, name, pin) {
   }
   return loginLocal(id, name, pin);
 }
-async function registerStore(name, owner, email, pin, code) {
+async function registerStore(name, owner, email, pin, code, phone) {
   let id = String(code || '').trim().toLowerCase();
   if (id && !/^[a-z0-9]{6,20}$/.test(id)) throw new Error('Kode toko: 6–20 huruf kecil/angka');
   if (!/^\d{4,8}$/.test(pin)) throw new Error('PIN harus 4–8 angka');
@@ -101,22 +109,22 @@ async function registerStore(name, owner, email, pin, code) {
     let down = false;
     for (let i = 0; i < 4; i++) {
       const cid = id || Math.random().toString(36).slice(2, 8).padEnd(6, 'x');
-      try { const r = await post('/api/register', { id: cid, store: name, owner, email, pin }, ''); await enterStore(cid, r, pin); toast('Toko dibuat. Kode toko: ' + cid, 9000); return; }
+      try { const r = await post('/api/register', { id: cid, store: name, owner, email, pin, phone }, ''); await enterStore(cid, r, pin); toast('Toko dibuat. Kode toko: ' + cid, 9000); return; }
       catch (e) { if (e.status == 409 && !id && /kode/i.test(e.message)) continue; if (e.net || e.status == 404 || e.status >= 500) { toast('Server belum aktif — toko dibuat dalam mode lokal di HP ini', 6000); down = true; break; } throw e; }
     }
     if (!down) throw new Error('Gagal membuat kode toko, coba lagi');
   }
   id = id || 'lokal' + Math.random().toString(36).slice(2, 6); // tanpa server: toko lokal
   SID = id; S = newStore(id, name, email, false);
-  S.users.push({ n: owner, r: 'admin', h: await sha(id + ':' + owner.toLowerCase() + ':' + pin) });
-  setReg(id, name); U = { n: owner, r: 'admin' }; V = 'dash'; save(); flushSave(); R(); toast('Toko lokal dibuat (belum terhubung server). Kode: ' + id, 7000);
+  S.users.push({ n: owner, r: 'owner', h: await sha(id + ':' + owner.toLowerCase() + ':' + pin) }); S.exp = Date.now() + 30 * 864e5; S.plan = 'trial';
+  setReg(id, name); U = { n: owner, r: 'owner' }; V = 'dash'; save(); flushSave(); R(); toast('Toko lokal dibuat (belum terhubung server). Kode: ' + id, 7000);
 }
 function logout() { flushSave(); stopChat(); U = null; S = null; SID = null; V = 'dash'; R(); }
 async function reauth() {
   const m = modal(`<h3>Masuk ulang</h3><small class="mu">Sesi berakhir. Masukkan PIN untuk melanjutkan sinkron.</small><input id="rp" type="password" inputmode="numeric" placeholder="PIN" autocomplete="off"><button class="pr" id="rg">Masuk</button>`);
   $('#rg', m).onclick = async () => { try { const r = await post('/api/login', { id: SID, name: U.n, pin: $('#rp', m).value }, ''); LS.set('jpos:tk:' + SID, r.token); U.r = r.role; S.reauth = false; m.close(); kick(); toast('Tersambung'); } catch (e) { toast(e.message); } };
 }
-const defView = (r) => (r == 'kasir' ? 'pos' : r == 'sales' ? 'dash' : 'dash');
+const defView = (r) => 'dash';
 
 /* ---------- Head Admin (developer) ---------- */
 let HT = sessionStorage.getItem('jpos:ht') || '';

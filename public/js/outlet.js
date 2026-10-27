@@ -35,13 +35,13 @@ function drawMap() {
   setTimeout(() => omap && omap.invalidateSize(), 200);
 }
 function outletForm(id, cb) {
-  const c = id ? cust(id) : null, boss = U.r == 'admin';
+  const c = id ? cust(id) : null, boss = U.r == 'owner';
   let loc = c && c.lat != null ? { lat: c.lat, lng: c.lng } : null;
   const m = modal(`<h3>${c ? 'Edit' : 'Tambah'} outlet / toko langganan</h3>
 <input id="on" placeholder="Nama toko *" value="${esc(c ? c.n : '')}"><div class="fm2"><input id="op" type="tel" placeholder="Telepon / WA" value="${esc(c ? c.ph || '' : '')}"><input id="oa" placeholder="Alamat" value="${esc(c ? c.ad || '' : '')}"></div><input id="oc" placeholder="Catatan" value="${esc(c ? c.note || '' : '')}">
 <div><b>Titik lokasi</b> <small class="mu">ketuk peta atau geser pin</small></div><div class="map" id="fmap"></div>
 <div class="fm2"><input id="ola" type="number" step="any" placeholder="Latitude" value="${loc ? loc.lat : ''}"><input id="oln" type="number" step="any" placeholder="Longitude" value="${loc ? loc.lng : ''}"></div><button class="gh" id="gps">📍 Pakai lokasi saya sekarang</button>
-${boss ? `<div class="seg"><button data-t="cash" class="${!c || c.term != 'kredit' ? 'a' : ''}">Tunai saja</button><button data-t="kredit" class="${c && c.term == 'kredit' ? 'a' : ''}">Boleh kredit</button></div><div class="fm2" id="kr"><input id="ol" type="number" placeholder="Limit kredit (Rp)" value="${c ? c.lim || '' : ''}"><input id="ot" type="number" placeholder="Tempo (hari)" value="${c ? c.tempo || S.set.tempo : S.set.tempo || 30}"></div><select id="os"><option value="">— sales penanggung jawab —</option>${salesNames().map((n) => `<option ${c && c.sl == n ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>` : `<small class="mu">${c ? '' : 'Outlet baru dimulai sebagai tunai saja. '}Fasilitas kredit & limit hanya diatur oleh pemilik toko.</small>`}
+${boss ? `<div class="seg"><button data-t="cash" class="${!c || c.term != 'kredit' ? 'a' : ''}">Tunai saja</button><button data-t="kredit" class="${c && c.term == 'kredit' ? 'a' : ''}">Boleh kredit</button></div><div class="fm2" id="kr"><input id="ol" type="number" placeholder="Limit kredit (Rp)" value="${c ? c.lim || '' : ''}"><input id="ot" type="number" placeholder="Tempo (hari)" value="${c ? c.tempo || S.set.tempo : S.set.tempo || 30}"></div>` : `<small class="mu">${c ? '' : 'Outlet baru dimulai sebagai tunai saja. '}Fasilitas kredit & limit hanya diatur oleh pemilik toko (owner).</small>`}${MGR(U.r) ? `<select id="os"><option value="">— sales penanggung jawab —</option>${salesNames().map((n) => `<option ${c && c.sl == n ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>` : ''}
 <button class="pr" id="ok">Simpan</button>${c && boss ? '<button class="gh d" id="del">Hapus outlet</button>' : ''}`, 'w');
   let term = c ? c.term : 'cash', mk = null, mp = null;
   const setLoc = (la, ln, ctr) => { loc = { lat: +(+la).toFixed(6), lng: +(+ln).toFixed(6) }; $('#ola', m).value = loc.lat; $('#oln', m).value = loc.lng; if (mp) { if (mk) mk.setLatLng([loc.lat, loc.lng]); else { mk = L.marker([loc.lat, loc.lng], { icon: mapPin(), draggable: true }).addTo(mp); mk.on('dragend', () => { const p = mk.getLatLng(); setLoc(p.lat, p.lng); }); } if (ctr) mp.setView([loc.lat, loc.lng], Math.max(mp.getZoom(), 16)); } };
@@ -54,11 +54,12 @@ ${boss ? `<div class="seg"><button data-t="cash" class="${!c || c.term != 'kredi
   $('#ok', m).onclick = () => {
     const n = $('#on', m).value.trim(); if (!n) return toast('Nama toko wajib diisi');
     const d = { id: c ? c.id : 'c' + uid(), n, ph: $('#op', m).value.trim(), ad: $('#oa', m).value.trim(), note: $('#oc', m).value.trim(), lat: loc ? loc.lat : null, lng: loc ? loc.lng : null };
-    if (boss) { d.term = term; d.lim = term == 'kredit' ? num($('#ol', m).value) : 0; d.tempo = num($('#ot', m).value) || 30; d.sl = $('#os', m).value; }
+    if (boss) { d.term = term; d.lim = term == 'kredit' ? num($('#ol', m).value) : 0; d.tempo = num($('#ot', m).value) || 30; }
+    if (MGR(U.r) && $('#os', m)) d.sl = $('#os', m).value;
     emit('cu', { c: d }); m.close(); toast('Outlet disimpan'); if (typeof cb == 'function') cb(d.id); else R();
   };
   const del = $('#del', m); if (del) del.onclick = () => { if (outOf(c.id)) return toast('Masih ada piutang ' + rp(outOf(c.id)) + ', lunasi dulu'); if (confirm('Hapus outlet ' + c.n + '?')) { emit('cu', { c: { id: c.id, x: 1 } }); m.close(); R(); } };
-  if (boss && !(S.staff || []).length && S.srv && canNet()) api('/api/staff').then((r) => { S.staff = r.staff; save(); const sel = $('#os', m); if (sel) { const cur = sel.value; sel.innerHTML = '<option value="">— sales penanggung jawab —</option>' + salesNames().map((n) => `<option ${cur == n ? 'selected' : ''}>${esc(n)}</option>`).join(''); } }).catch(() => { });
+  if (MGR(U.r) && !(S.staff || []).length && S.srv && canNet()) api('/api/staff').then((r) => { S.staff = r.staff; save(); const sel = $('#os', m); if (sel) { const cur = sel.value; sel.innerHTML = '<option value="">— sales penanggung jawab —</option>' + salesNames().map((n) => `<option ${cur == n ? 'selected' : ''}>${esc(n)}</option>`).join(''); } }).catch(() => { });
 }
 async function visitOutlet(id) {
   const c = cust(id); toast('Mengambil lokasi…', 1500); const p = await getPos(); MYPOS = p || MYPOS;

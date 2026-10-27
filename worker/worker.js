@@ -1,6 +1,7 @@
-// J-POS API v3 — Cloudflare Worker + D1 (SQLite)
-// Multi-tenant: 1 toko = 1 tenant. Semua data bisnis disimpan sebagai LOG KEJADIAN (tabel ev) yang
-// diputar ulang oleh tiap perangkat (offline-first). Server memeriksa peran, bukan isi akuntansi.
+// J-POS API v4 — Cloudflare Worker + D1 (SQLite)
+// Multi-tenant: 1 toko = 1 tenant. Data bisnis = LOG KEJADIAN (tabel ev) yang diputar ulang tiap perangkat (offline-first).
+// v4: peran owner/admin/akuntan/kasir/sales, masa aktif toko (trial 30 hari + perpanjangan oleh Head Admin),
+//     kredensial Head Admin dari hash (tanpa secret wajib), kunci token dibuat otomatis di D1.
 const E = new TextEncoder(), D = new TextDecoder();
 const b64 = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const ub64 = (s) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
@@ -9,23 +10,49 @@ async function hmac(secret, data) {
   return b64(await crypto.subtle.sign('HMAC', k, E.encode(data)));
 }
 const same = async (a, c) => (await hmac('cmp', String(a))) === (await hmac('cmp', String(c))); // banding waktu-konstan
-async function sign(env, payload) { const b = b64(E.encode(JSON.stringify(payload))); return b + '.' + (await hmac(env.SECRET, b)); }
+async function pbkdf2(pass, salt, it) {
+  const k = await crypto.subtle.importKey('raw', E.encode(pass), 'PBKDF2', false, ['deriveBits']);
+  return b64(await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: E.encode(salt), iterations: it }, k, 256));
+}
+const hp = (pin, sid, name) => pbkdf2(String(pin), sid + ':' + name.toLowerCase(), 20000);
+const PIN = /^\d{4,8}$/, SID = /^[a-z0-9]{6,20}$/, NO = /^[A-Za-z0-9_-]{3,40}$/, NAME = /^[\p{L}\p{N} ._-]{2,40}$/u;
+const ROLES = ['owner', 'admin', 'akuntan', 'kasir', 'sales'];
+const KINDS = new Set(['sale', 'pay', 'retur', 'stk', 'apay', 'opn', 'exp', 'cap', 'jm', 'pu', 'cu', 'set', 'in', 'out', 'visit']);
+// Jenis kejadian yang boleh dikirim tiap peran (null = semua).
+const ALLOW = {
+  owner: null,
+  admin: ['sale', 'pay', 'retur', 'stk', 'apay', 'opn', 'exp', 'jm', 'pu', 'cu', 'in', 'out', 'visit'],
+  akuntan: ['pay', 'apay', 'exp', 'jm', 'opn', 'in', 'out'],
+  kasir: ['sale', 'pay', 'in', 'out'],
+  sales: ['sale', 'pay', 'in', 'out', 'visit', 'cu'],
+};
+const DAY = 864e5;
+
+let CFG = null, CFGT = 0;
+async function cfgAll(env) {
+  if (CFG && Date.now() - CFGT < 15000) return CFG;
+  const r = await env.DB.prepare('SELECT k,v FROM cfg').all(); CFG = {}; for (const x of r.results) CFG[x.k] = x.v; CFGT = Date.now(); return CFG;
+}
+async function cfgSet(env, k, v) { await env.DB.prepare('INSERT INTO cfg(k,v) VALUES(?,?) ON CONFLICT(k) DO UPDATE SET v=excluded.v').bind(k, String(v)).run(); CFG = null; }
+async function secret(env) {
+  if (env.SECRET) return env.SECRET;
+  const c = await cfgAll(env); if (c.secret) return c.secret;
+  const s = b64(crypto.getRandomValues(new Uint8Array(32)));
+  await env.DB.prepare('INSERT OR IGNORE INTO cfg(k,v) VALUES(?,?)').bind('secret', s).run(); CFG = null;
+  return (await cfgAll(env)).secret;
+}
+async function sign(env, payload) { const b = b64(E.encode(JSON.stringify(payload))); return b + '.' + (await hmac(await secret(env), b)); }
 async function verify(env, token) {
   const [b, s] = String(token || '').split('.');
-  if (!b || !s || s !== (await hmac(env.SECRET, b))) return null;
+  if (!b || !s || s !== (await hmac(await secret(env), b))) return null;
   try { const p = JSON.parse(D.decode(ub64(b))); return p.exp > Date.now() ? p : null; } catch { return null; }
 }
-async function hashPin(pin, salt) {
-  const k = await crypto.subtle.importKey('raw', E.encode(pin), 'PBKDF2', false, ['deriveBits']);
-  return b64(await crypto.subtle.deriveBits({ name: 'PBKDF2', hash: 'SHA-256', salt: E.encode(salt), iterations: 20000 }, k, 256));
+async function adminOk(env, user, pass) {
+  const c = await cfgAll(env), U = c.admin_user || env.ADMIN_USER || 'headadmin', H = c.admin_hash || env.ADMIN_PASS_HASH;
+  if (!(await same(String(user || '').toLowerCase(), U.toLowerCase()))) return false;
+  if (H) { const [, it, salt, h] = H.split('$'); return same(await pbkdf2(String(pass || ''), salt, +it), h); }
+  return !!env.ADMIN_PASS && same(pass || '', env.ADMIN_PASS);
 }
-const hp = (pin, sid, name) => hashPin(String(pin), sid + ':' + name.toLowerCase());
-const PIN = /^\d{4,8}$/, SID = /^[a-z0-9]{6,20}$/, NO = /^[A-Za-z0-9_-]{3,40}$/, NAME = /^[\p{L}\p{N} ._-]{2,40}$/u;
-const ROLES = ['admin', 'akuntan', 'kasir', 'sales'];
-const KINDS = new Set(['sale', 'pay', 'retur', 'stk', 'apay', 'opn', 'exp', 'cap', 'jm', 'pu', 'cu', 'set', 'in', 'out', 'visit']);
-// Peran yang dibatasi hanya boleh mengirim jenis kejadian tertentu (admin/akuntan: semua).
-const ALLOW = { admin: null, akuntan: null, kasir: ['sale', 'pay', 'in', 'out'], sales: ['sale', 'pay', 'in', 'out', 'visit', 'cu'] };
-
 async function limited(env, key, max, win) {
   const now = Date.now();
   if (Math.random() < 0.02) await env.DB.prepare('DELETE FROM rl WHERE t<?').bind(now - 36e5).run();
@@ -34,6 +61,8 @@ async function limited(env, key, max, win) {
   await env.DB.prepare('INSERT INTO rl(k,t) VALUES(?,?)').bind(key, now).run();
   return false;
 }
+const expired = (s) => !!s.exp && s.exp < Date.now();
+const stInfo = (s) => ({ exp: s.exp || 0, plan: s.plan || 'trial', status: s.status, sn: s.sn || s.name });
 
 export default {
   async fetch(req, env) {
@@ -42,76 +71,108 @@ export default {
     const cors = { 'Access-Control-Allow-Origin': env.ORIGIN || '*', 'Access-Control-Allow-Headers': 'Authorization,Content-Type', 'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS' };
     const J = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
     if (M == 'OPTIONS') return new Response(null, { headers: cors });
-    if (!env.SECRET) return J({ e: 'SECRET belum diatur di server' }, 500);
     let b = {};
     if (M == 'POST' || M == 'PUT' || M == 'PATCH') { try { b = await req.json(); } catch { } }
     const bearer = (req.headers.get('Authorization') || '').slice(7);
     try {
       // ---------- publik ----------
-      if (p == '/api/ping') return J({ ok: 1 });
+      if (p == '/api/ping') return J({ ok: 1, v: 4 });
+      if (p == '/api/info') { const c = await cfgAll(env); return J({ wa: c.wa || '', price: c.price || '', trial: +(c.trial_days || 30), app: c.app_name || 'J-POS' }); }
       if (p == '/api/register' && M == 'POST') {
         if (await limited(env, 'reg:' + ip, 5, 36e5)) return J({ e: 'Terlalu banyak pendaftaran, coba lagi nanti' }, 429);
         const id = String(b.id || ''), store = String(b.store || '').trim().slice(0, 60), owner = String(b.owner || '').trim();
-        const email = String(b.email || '').trim().toLowerCase(), pin = String(b.pin || '');
+        const email = String(b.email || '').trim().toLowerCase(), pin = String(b.pin || ''), phone = String(b.phone || '').replace(/[^\d+]/g, '').slice(0, 20);
         if (!SID.test(id) || !store || !NAME.test(owner) || (email && !/^\S+@\S+\.\S+$/.test(email)) || !PIN.test(pin)) return J({ e: 'Data tidak valid (nama pemilik, email, atau PIN 4-8 angka)' }, 400);
+        const c = await cfgAll(env), now = Date.now(), exp = now + (+(c.trial_days || 30)) * DAY;
         try {
           await env.DB.batch([
-            env.DB.prepare('INSERT INTO stores(id,name,owner,email,created) VALUES(?,?,?,?,?)').bind(id, store, owner, email || null, Date.now()),
-            env.DB.prepare('INSERT INTO staff(store_id,name,role,pin_hash,created) VALUES(?,?,?,?,?)').bind(id, owner, 'admin', await hp(pin, id, owner), Date.now()),
+            env.DB.prepare("INSERT INTO stores(id,name,owner,email,phone,created,exp,plan) VALUES(?,?,?,?,?,?,?,'trial')").bind(id, store, owner, email || null, phone, now, exp),
+            env.DB.prepare('INSERT INTO staff(store_id,name,role,pin_hash,created) VALUES(?,?,?,?,?)').bind(id, owner, 'owner', await hp(pin, id, owner), now),
           ]);
         } catch { return J({ e: 'Email atau kode toko sudah terdaftar' }, 409); }
-        return J({ token: await sign(env, { sid: id, name: owner, exp: Date.now() + 2592e6 }), role: 'admin', name: owner, sn: store });
+        return J({ token: await sign(env, { sid: id, name: owner, exp: now + 30 * DAY }), role: 'owner', name: owner, sn: store, exp, plan: 'trial', status: 'active' });
       }
       if (p == '/api/login' && M == 'POST') {
         const id = String(b.id || '').toLowerCase(), name = String(b.name || '').trim();
         if ((await limited(env, 'login:' + ip, 40, 6e5)) || (await limited(env, 'login:' + id + ':' + name.toLowerCase(), 8, 6e5))) return J({ e: 'Terlalu banyak percobaan, coba lagi 10 menit' }, 429);
-        const r = await env.DB.prepare('SELECT st.name,st.role,st.pin_hash,s.status,s.name sn FROM staff st JOIN stores s ON s.id=st.store_id WHERE st.store_id=? AND st.name=?').bind(id, name).first();
-        if (!r || r.pin_hash !== (await hp(b.pin || '', id, r.name))) return J({ e: 'Kode toko, nama, atau PIN salah' }, 401);
-        if (r.status != 'active') return J({ e: 'Toko disuspend oleh developer' }, 403);
-        return J({ token: await sign(env, { sid: id, name: r.name, exp: Date.now() + 2592e6 }), role: r.role, name: r.name, sn: r.sn });
+        const r = await env.DB.prepare('SELECT st.name,st.role,st.pin_hash,s.status,s.name sn,s.exp,s.plan FROM staff st JOIN stores s ON s.id=st.store_id WHERE st.store_id=? AND st.name=?').bind(id, name).first();
+        if (!r || !(await same(r.pin_hash, await hp(b.pin || '', id, r.name)))) return J({ e: 'Kode toko, nama, atau PIN salah' }, 401);
+        if (r.status != 'active') return J({ e: 'Toko disuspend oleh pemilik aplikasi' }, 403);
+        return J({ token: await sign(env, { sid: id, name: r.name, exp: Date.now() + 30 * DAY }), role: r.role, name: r.name, ...stInfo(r) });
       }
 
-      // ---------- Head Admin (developer) ----------
+      // ---------- Head Admin (pemilik aplikasi) ----------
       if (p == '/api/admin/login' && M == 'POST') {
-        if (await limited(env, 'adm:' + ip, 6, 9e5)) return J({ e: 'Terlalu banyak percobaan, coba lagi 15 menit' }, 429);
-        const okU = env.ADMIN_USER && (await same(b.user || '', env.ADMIN_USER)), okP = env.ADMIN_PASS && (await same(b.pass || '', env.ADMIN_PASS));
-        if (!okU || !okP) return J({ e: 'User atau password salah' }, 401);
-        return J({ token: await sign(env, { role: 'super', exp: Date.now() + 432e5 }) });
+        if (await limited(env, 'adm:' + ip, 8, 9e5)) return J({ e: 'Terlalu banyak percobaan, coba lagi 15 menit' }, 429);
+        if (!(await adminOk(env, b.user, b.pass))) return J({ e: 'Username atau password salah' }, 401);
+        return J({ token: await sign(env, { role: 'super', exp: Date.now() + 12 * 36e5 }) });
       }
       if (p.startsWith('/api/admin/')) {
         const a = await verify(env, bearer);
         if (!a || a.role != 'super') return J({ e: 'Unauthorized' }, 401);
         if (p == '/api/admin/stores' && M == 'GET') {
-          const r = await env.DB.prepare(`SELECT s.id,s.name,s.owner,s.email,s.status,s.created,
+          const r = await env.DB.prepare(`SELECT s.id,s.name,s.owner,s.email,s.phone,s.status,s.created,s.exp,s.plan,s.note,
               (SELECT COUNT(*) FROM staff WHERE store_id=s.id) users, COALESCE(e.n,0) tx, COALESCE(e.o,0) omzet, e.last
             FROM stores s LEFT JOIN (SELECT store_id,SUM(CASE WHEN k='sale' THEN 1 ELSE 0 END) n,SUM(tot) o,MAX(t) last FROM ev GROUP BY store_id) e ON e.store_id=s.id
-            ORDER BY s.created DESC LIMIT 1000`).all();
-          return J({ stores: r.results });
+            ORDER BY s.created DESC LIMIT 2000`).all();
+          return J({ stores: r.results, now: Date.now() });
         }
         if (p == '/api/admin/stats' && M == 'GET') {
-          const tz = (+u.searchParams.get('tz') || 0) * 60, since = Date.now() - 14 * 864e5, m30 = Date.now() - 30 * 864e5;
+          const tz = (+u.searchParams.get('tz') || 0) * 60, now = Date.now(), since = now - 14 * DAY, m30 = now - 30 * DAY;
           const [tt, dd, ns, top] = await Promise.all([
             env.DB.prepare(`SELECT (SELECT COUNT(*) FROM stores) stores,(SELECT COUNT(*) FROM stores WHERE status='active') active,(SELECT COUNT(*) FROM staff) users,
-              COALESCE((SELECT SUM(tot) FROM ev),0) omzet,(SELECT COUNT(*) FROM ev WHERE k='sale') tx`).first(),
+              (SELECT COUNT(*) FROM stores WHERE exp<?1) expired,(SELECT COUNT(*) FROM stores WHERE exp>=?1 AND exp<?2) soon,(SELECT COUNT(*) FROM stores WHERE plan='trial' AND exp>=?1) trial,
+              (SELECT COUNT(*) FROM stores WHERE plan!='trial' AND exp>=?1) paid,
+              COALESCE((SELECT SUM(tot) FROM ev),0) omzet,(SELECT COUNT(*) FROM ev WHERE k='sale') tx`).bind(now, now + 7 * DAY).first(),
             env.DB.prepare(`SELECT strftime('%Y-%m-%d',(t/1000)+?,'unixepoch') d,SUM(tot) v FROM ev WHERE k IN('sale','retur') AND t>? GROUP BY d ORDER BY d`).bind(tz, since).all(),
             env.DB.prepare(`SELECT strftime('%Y-%m-%d',(created/1000)+?,'unixepoch') d,COUNT(*) v FROM stores WHERE created>? GROUP BY d ORDER BY d`).bind(tz, since).all(),
             env.DB.prepare(`SELECT s.name,SUM(e.tot) v FROM ev e JOIN stores s ON s.id=e.store_id WHERE e.t>? GROUP BY e.store_id ORDER BY v DESC LIMIT 5`).bind(m30).all(),
           ]);
           return J({ totals: tt, daily: dd.results, signups: ns.results, top: top.results });
         }
+        if (p == '/api/admin/cfg') {
+          if (M == 'PUT') {
+            if (b.wa != null) await cfgSet(env, 'wa', String(b.wa).replace(/[^\d]/g, '').slice(0, 20));
+            if (b.price != null) await cfgSet(env, 'price', String(b.price).slice(0, 300));
+            if (b.trial_days != null) await cfgSet(env, 'trial_days', Math.max(1, Math.min(365, Math.round(+b.trial_days) || 30)));
+          }
+          const c = await cfgAll(env); return J({ wa: c.wa || '', price: c.price || '', trial_days: +(c.trial_days || 30), user: c.admin_user || env.ADMIN_USER || 'headadmin' });
+        }
+        if (p == '/api/admin/password' && M == 'POST') {
+          const c = await cfgAll(env);
+          if (!(await adminOk(env, c.admin_user || env.ADMIN_USER || 'headadmin', b.old))) return J({ e: 'Password lama salah' }, 400);
+          const nu = String(b.user || '').trim().toLowerCase(), np = String(b.pass || '');
+          if (nu && !/^[a-z0-9._-]{3,30}$/.test(nu)) return J({ e: 'Username 3-30 huruf kecil/angka' }, 400);
+          if (np.length < 10) return J({ e: 'Password baru minimal 10 karakter' }, 400);
+          const salt = b64(crypto.getRandomValues(new Uint8Array(12)));
+          await cfgSet(env, 'admin_hash', `pbkdf2$100000$${salt}$${await pbkdf2(np, salt, 100000)}`);
+          if (nu) await cfgSet(env, 'admin_user', nu);
+          return J({ ok: 1 });
+        }
         let m = p.match(/^\/api\/admin\/stores\/([a-z0-9]+)(?:\/(staff|resetpin))?$/);
         if (m) {
           const id = m[1];
-          if (!m[2] && M == 'PATCH' && ['active', 'suspended'].includes(b.status)) { await env.DB.prepare('UPDATE stores SET status=? WHERE id=?').bind(b.status, id).run(); return J({ ok: 1 }); }
+          if (!m[2] && M == 'PATCH') {
+            const s = await env.DB.prepare('SELECT exp FROM stores WHERE id=?').bind(id).first();
+            if (!s) return J({ e: 'Toko tidak ditemukan' }, 404);
+            const st = [];
+            if (['active', 'suspended'].includes(b.status)) st.push(env.DB.prepare('UPDATE stores SET status=? WHERE id=?').bind(b.status, id));
+            if (b.add_days != null) { const d = Math.round(+b.add_days) || 0; st.push(env.DB.prepare('UPDATE stores SET exp=? WHERE id=?').bind(Math.max(Date.now(), s.exp || 0) + d * DAY, id)); }
+            else if (b.exp != null && Number.isFinite(+b.exp)) st.push(env.DB.prepare('UPDATE stores SET exp=? WHERE id=?').bind(Math.round(+b.exp), id));
+            if (b.plan != null) st.push(env.DB.prepare('UPDATE stores SET plan=? WHERE id=?').bind(String(b.plan).slice(0, 30) || 'trial', id));
+            if (b.note != null) st.push(env.DB.prepare('UPDATE stores SET note=? WHERE id=?').bind(String(b.note).slice(0, 300), id));
+            if (st.length) await env.DB.batch(st);
+            return J({ ok: 1, store: await env.DB.prepare('SELECT id,status,exp,plan,note FROM stores WHERE id=?').bind(id).first() });
+          }
           if (!m[2] && M == 'DELETE') {
             await env.DB.batch([env.DB.prepare('DELETE FROM ev WHERE store_id=?').bind(id), env.DB.prepare('DELETE FROM staff WHERE store_id=?').bind(id), env.DB.prepare('DELETE FROM chat WHERE sid=?').bind(id), env.DB.prepare('DELETE FROM stores WHERE id=?').bind(id)]);
             return J({ ok: 1 });
           }
-          if (m[2] == 'staff' && M == 'GET') return J({ staff: (await env.DB.prepare('SELECT name,role,created FROM staff WHERE store_id=?').bind(id).all()).results });
+          if (m[2] == 'staff' && M == 'GET') return J({ staff: (await env.DB.prepare('SELECT name,role,created FROM staff WHERE store_id=? ORDER BY created').bind(id).all()).results });
           if (m[2] == 'resetpin' && M == 'POST') {
             if (!PIN.test(String(b.pin || ''))) return J({ e: 'PIN 4-8 angka' }, 400);
             const s = b.name ? await env.DB.prepare('SELECT name FROM staff WHERE store_id=? AND name=?').bind(id, String(b.name)).first()
-              : await env.DB.prepare("SELECT name FROM staff WHERE store_id=? AND role='admin' ORDER BY created LIMIT 1").bind(id).first();
+              : await env.DB.prepare("SELECT name FROM staff WHERE store_id=? AND role='owner' ORDER BY created LIMIT 1").bind(id).first();
             if (!s) return J({ e: 'Pengguna tidak ditemukan' }, 404);
             await env.DB.prepare('UPDATE staff SET pin_hash=? WHERE store_id=? AND name=?').bind(await hp(b.pin, id, s.name), id, s.name).run();
             return J({ ok: 1, name: s.name });
@@ -120,7 +181,7 @@ export default {
         if (p == '/api/admin/announce' && M == 'POST') {
           const tx = String(b.text || '').trim().slice(0, 500);
           if (!tx) return J({ e: 'Pesan kosong' }, 400);
-          await env.DB.prepare('INSERT INTO chat(room,sid,sn,un,tx,t) VALUES(?,?,?,?,?,?)').bind('net', 'hq', 'Head Admin', 'Developer', tx, Date.now()).run();
+          await env.DB.prepare('INSERT INTO chat(room,sid,sn,un,tx,t) VALUES(?,?,?,?,?,?)').bind('net', 'hq', 'Pemilik Aplikasi', 'Head Admin', tx, Date.now()).run();
           return J({ ok: 1 });
         }
         return J({ e: 'Not found' }, 404);
@@ -129,12 +190,13 @@ export default {
       // ---------- terautentikasi (staf toko) ----------
       const t = await verify(env, bearer);
       if (!t || !t.sid) return J({ e: 'Unauthorized' }, 401);
-      const me = await env.DB.prepare('SELECT s.status,s.name sn,st.role FROM stores s JOIN staff st ON st.store_id=s.id AND st.name=? WHERE s.id=?').bind(t.name, t.sid).first();
+      const me = await env.DB.prepare('SELECT s.status,s.name sn,s.exp,s.plan,st.role FROM stores s JOIN staff st ON st.store_id=s.id AND st.name=? WHERE s.id=?').bind(t.name, t.sid).first();
       if (!me) return J({ e: 'Akun tidak ditemukan' }, 401);
-      if (me.status != 'active') return J({ e: 'Toko disuspend oleh developer' }, 403);
-      const sid = t.sid, uname = t.name, role = me.role;
+      if (me.status != 'active') return J({ e: 'Toko disuspend oleh pemilik aplikasi' }, 403);
+      const sid = t.sid, uname = t.name, role = me.role, EXP = expired(me);
+      const RO = () => J({ e: 'Masa aktif toko habis. Hubungi pemilik aplikasi untuk perpanjangan.', expired: 1, ...stInfo(me) }, 402);
 
-      if (p == '/api/me') return J({ sid, name: uname, role, sn: me.sn });
+      if (p == '/api/me') return J({ sid, name: uname, role, ...stInfo(me) });
 
       if (p == '/api/me/pin' && M == 'POST') {
         if (!PIN.test(String(b.pin || ''))) return J({ e: 'PIN baru harus 4-8 angka' }, 400);
@@ -147,6 +209,7 @@ export default {
 
       if (p == '/api/ev') {
         if (M == 'POST') {
+          if (EXP) return RO();
           const allow = ALLOW[role], done = [], rej = [], st = [];
           for (const x of (Array.isArray(b.items) ? b.items : []).slice(0, 100)) {
             if (!x || typeof x != 'object' || !NO.test(x.no || '') || !KINDS.has(x.k) || !Number.isFinite(x.t)) { rej.push({ no: x && x.no, e: 'format' }); if (x && x.no) done.push(x.no); continue; }
@@ -158,39 +221,44 @@ export default {
             st.push(env.DB.prepare('INSERT OR IGNORE INTO ev(store_id,no,k,t,tot,data) VALUES(?,?,?,?,?,?)').bind(sid, x.no, x.k, Math.round(x.t), tot, d));
           }
           if (st.length) await env.DB.batch(st);
-          return J({ done, rej });
+          return J({ done, rej, st: stInfo(me) });
         }
         if (M == 'GET') {
           const since = +u.searchParams.get('since') || 0;
           const r = await env.DB.prepare('SELECT seq,data FROM ev WHERE store_id=? AND seq>? ORDER BY seq LIMIT 500').bind(sid, since).all();
           const items = r.results.map((x) => { const o = JSON.parse(x.data); o.seq = x.seq; return o; });
-          return J({ items, cur: items.length ? items[items.length - 1].seq : since, more: items.length == 500 });
+          return J({ items, cur: items.length ? items[items.length - 1].seq : since, more: items.length == 500, st: stInfo(me), role });
         }
       }
 
       const sm = p.match(/^\/api\/staff(?:\/(.+))?$/);
       if (sm) {
-        if (role != 'admin') return J({ e: 'Khusus admin toko' }, 403);
-        const nm = sm[1] ? decodeURIComponent(sm[1]) : '';
+        if (role != 'owner' && role != 'admin') return J({ e: 'Khusus pemilik / admin toko' }, 403);
+        const LOW = ['kasir', 'sales'], nm = sm[1] ? decodeURIComponent(sm[1]) : '';
         if (M == 'GET') return J({ staff: (await env.DB.prepare('SELECT name,role FROM staff WHERE store_id=? ORDER BY created').bind(sid).all()).results });
+        if (EXP) return RO();
+        const NEWR = role == 'owner' ? ['admin', 'akuntan', 'kasir', 'sales'] : LOW;
         if (M == 'POST') {
           const n = String(b.name || '').trim();
-          if (!NAME.test(n) || !ROLES.includes(b.role) || !PIN.test(String(b.pin || ''))) return J({ e: 'Data tidak valid (PIN 4-8 angka)' }, 400);
+          if (!NAME.test(n) || !PIN.test(String(b.pin || ''))) return J({ e: 'Data tidak valid (nama 2-40 huruf, PIN 4-8 angka)' }, 400);
+          if (!NEWR.includes(b.role)) return J({ e: 'Anda tidak boleh membuat pengguna dengan peran itu' }, 403);
           try { await env.DB.prepare('INSERT INTO staff(store_id,name,role,pin_hash,created) VALUES(?,?,?,?,?)').bind(sid, n, b.role, await hp(b.pin, sid, n), Date.now()).run(); } catch { return J({ e: 'Nama sudah dipakai' }, 409); }
           return J({ ok: 1 });
         }
-        if (M == 'PATCH' && nm) {
+        const row = nm && (await env.DB.prepare('SELECT name,role FROM staff WHERE store_id=? AND name=?').bind(sid, nm).first());
+        if (nm && !row) return J({ e: 'Pengguna tidak ditemukan' }, 404);
+        const self = row && row.name.toLowerCase() == uname.toLowerCase();
+        if (row && !self && (row.role == 'owner' || (role == 'admin' && !LOW.includes(row.role)))) return J({ e: 'Anda tidak boleh mengubah pengguna ini' }, 403);
+        if (M == 'PATCH' && row) {
           if (b.pin != null && !PIN.test(String(b.pin))) return J({ e: 'PIN 4-8 angka' }, 400);
-          if (b.role != null && (!ROLES.includes(b.role) || nm.toLowerCase() == uname.toLowerCase())) return J({ e: 'Peran tidak valid / tidak bisa mengubah peran sendiri' }, 400);
-          const row = await env.DB.prepare('SELECT name FROM staff WHERE store_id=? AND name=?').bind(sid, nm).first();
-          if (!row) return J({ e: 'Pengguna tidak ditemukan' }, 404);
+          if (b.role != null && (self || !NEWR.includes(b.role))) return J({ e: 'Peran tidak valid / tidak bisa mengubah peran sendiri' }, 400);
           if (b.pin != null) await env.DB.prepare('UPDATE staff SET pin_hash=? WHERE store_id=? AND name=?').bind(await hp(b.pin, sid, row.name), sid, row.name).run();
           if (b.role != null) await env.DB.prepare('UPDATE staff SET role=? WHERE store_id=? AND name=?').bind(b.role, sid, row.name).run();
           return J({ ok: 1 });
         }
-        if (M == 'DELETE' && nm) {
-          if (nm.toLowerCase() == uname.toLowerCase()) return J({ e: 'Tidak bisa menghapus akun sendiri' }, 400);
-          await env.DB.prepare('DELETE FROM staff WHERE store_id=? AND name=?').bind(sid, nm).run();
+        if (M == 'DELETE' && row) {
+          if (self) return J({ e: 'Tidak bisa menghapus akun sendiri' }, 400);
+          await env.DB.prepare('DELETE FROM staff WHERE store_id=? AND name=?').bind(sid, row.name).run();
           return J({ ok: 1 });
         }
       }
@@ -215,6 +283,7 @@ export default {
           key = 'dm:' + [sid, o].sort().join(':'); peer = { id: o, name: s.name };
         } else return J({ e: 'Ruang tidak valid' }, 400);
         if (M == 'POST') {
+          if (EXP) return RO();
           const tx = String(b.text || '').trim().slice(0, 500);
           if (!tx) return J({ e: 'Pesan kosong' }, 400);
           if (await limited(env, 'chat:' + sid + ':' + uname, 20, 3e4)) return J({ e: 'Terlalu cepat, tunggu sebentar' }, 429);

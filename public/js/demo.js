@@ -4,10 +4,10 @@ async function makeDemo() {
   const id = 'demo', rnd = ((a) => () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; })(20240601);
   const ri = (a, b) => a + Math.floor(rnd() * (b - a + 1)), pick = (L) => L[Math.floor(rnd() * L.length)];
   LS.del('jpos:s:' + id); SID = id; S = newStore(id, 'Toko Demo Grosir', 'demo@example.com', false);
-  const pins = [['Admin', 'admin', '1234'], ['Kasir', 'kasir', '1111'], ['Akuntan', 'akuntan', '2222'], ['Sales', 'sales', '3333'], ['Budi', 'sales', '4444']];
+  const pins = [['Owner', 'owner', '1234'], ['Admin', 'admin', '5555'], ['Kasir', 'kasir', '1111'], ['Akuntan', 'akuntan', '2222'], ['Sales', 'sales', '3333'], ['Budi', 'sales', '4444']];
   for (const [n, r, p] of pins) S.users.push({ n, r, h: await sha(id + ':' + n.toLowerCase() + ':' + p) });
   S.set.addr = 'Jl. Pasar Terong No. 12, Makassar'; S.set.tel = '0411-000000';
-  const adm = { n: 'Admin', r: 'admin' }, ksr = { n: 'Kasir', r: 'kasir' }, akn = { n: 'Akuntan', r: 'akuntan' }, sls = [{ n: 'Sales', r: 'sales' }, { n: 'Budi', r: 'sales' }];
+  const adm = { n: 'Owner', r: 'owner' }, ksr = { n: 'Kasir', r: 'kasir' }, akn = { n: 'Akuntan', r: 'akuntan' }, sls = [{ n: 'Sales', r: 'sales' }, { n: 'Budi', r: 'sales' }];
   const D = 864e5, T0 = Date.now() - 30 * D;
   U = adm;
   const at = (d, h, m) => { const x = new Date(T0 + d * D); x.setHours(h, m || 0, 0, 0); return x.getTime(); };
@@ -39,7 +39,7 @@ async function makeDemo() {
     (Q[d] || []).forEach((x) => { const sl = S.sales.find((y) => y.no == x.no); if (sl && sOut(sl) > 0) emit('pay', { sale: x.no, amt: Math.max(1, Math.round(sOut(sl) * x.f)), m: x.m }, at(d, 14), adm); });
     // absensi
     [ksr, akn, adm, ...sls].forEach((u, k) => {
-      if (u.n != 'Admin' && rnd() < 0.08) return;
+      if (u.n != 'Owner' && rnd() < 0.08) return;
       const late = rnd() < 0.15;
       emit('in', { lat: -5.147 + (rnd() - .5) * .002, lng: 119.432 + (rnd() - .5) * .002, note: '' }, at(d, 8 + (late ? 1 : 0), late ? ri(15, 40) : ri(0, 8)), u);
       emit('out', { lat: -5.147, lng: 119.432, note: '' }, at(d, 17, ri(0, 40)), u);

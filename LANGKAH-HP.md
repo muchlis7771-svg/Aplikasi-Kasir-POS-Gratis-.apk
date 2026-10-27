@@ -1,35 +1,20 @@
-# Cara paling mudah (cukup dari HP)
+# Mengaktifkan server J-POS (sekali saja, ±5 menit dari HP)
 
-Backend dan APK dibuat otomatis oleh GitHub. Anda tidak perlu menjalankan wrangler di Termux (tidak didukung di Android).
+Server dipasang otomatis oleh GitHub. Anda hanya perlu memberi 1 token Cloudflare.
 
-## A. Kirim file ke GitHub (lewat Termux)
-1. Di GitHub (browser HP): **New repository** → nama `jpos-app` → pilih **Private** → Create (jangan centang README).
-2. GitHub → Settings → Developer settings → Personal access tokens → **Tokens (classic)** → Generate → centang **repo** dan **workflow** → salin tokennya.
-3. Simpan `jpos-app.zip` ke folder Download HP. Buka Termux, tempel satu per satu:
-```
-pkg install -y git unzip
-termux-setup-storage
-cd ~ && unzip -o /sdcard/Download/jpos-app.zip && cd jpos-app
-git init -b main && git add -A && git -c user.name=muchlis -c user.email=muchlis7771@gmail.com commit -m awal
-git remote add origin https://muchlis7771-svg:TOKEN_ANDA@github.com/muchlis7771-svg/jpos-app.git
-git push -u origin main
-```
-(ganti `TOKEN_ANDA` dengan token langkah 2)
+## 1. Buat token Cloudflare
+1. Buka **dash.cloudflare.com** → ikon profil (kanan atas) → **Profil** → **Token API** → **Buat Token**.
+2. Pilih template **Edit Cloudflare Workers** → **Gunakan templat**.
+3. Di bagian **Izin**, tekan **+ Tambah lainnya** → pilih **Akun** · **D1** · **Edit**.
+4. **Sumber Daya Akun**: pilih akun Anda (Muchlis7771@…). **Sumber daya zona**: Semua zona.
+5. **Lanjutkan ke ringkasan** → **Buat Token** → **Salin** tokennya.
 
-## B. Buat token Cloudflare
-Cloudflare → ikon profil → Profil → **API Tokens** → Create Token → template **Edit Cloudflare Workers** → tambahkan izin **Account → D1 → Edit** → Create. Salin tokennya.
-Account ID: Cloudflare → Workers & Pages → di kanan ada *Account ID*.
+## 2. Simpan token di GitHub
+1. Buka repo **Aplikasi-Kasir-POS-Gratis-.apk** → **Settings** → **Secrets and variables** → **Actions**.
+2. **New repository secret** → Name: `CLOUDFLARE_API_TOKEN` → Secret: tempel token → **Add secret**.
 
-## C. Isi 5 Secret di GitHub
-Repo → Settings → Secrets and variables → Actions → New repository secret:
-| Nama | Isi |
-|---|---|
-| CLOUDFLARE_API_TOKEN | token langkah B |
-| CLOUDFLARE_ACCOUNT_ID | Account ID |
-| JPOS_SECRET | string acak panjang (dari chat) |
-| JPOS_ADMIN_USER | headadmin |
-| JPOS_ADMIN_PASS | password Head Admin (dari chat) |
+## 3. Jalankan
+Repo → tab **Actions** → **Deploy Backend** → **Run workflow** → pilih branch **jpos** → Run.
+Tunggu tanda ✓ hijau (±2 menit). Server aktif di: https://jpos-api.muchlis7771.workers.dev
 
-## D. Jalankan
-Repo → tab **Actions** → **Deploy Backend** → Run workflow (tunggu hijau ✓).
-Lalu **Build APK** → Run workflow → unduh `J-POS.apk` dari **Releases → apk-latest**.
+Login Head Admin: username `headadmin`, password dari chat (ganti setelah login lewat panel Head Admin).
