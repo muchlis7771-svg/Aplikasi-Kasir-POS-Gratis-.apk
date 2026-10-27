@@ -7,7 +7,7 @@ getid() { $W d1 list --json 2>/dev/null | node -e 'let s="";process.stdin.on("da
 ID=$(getid)
 if [ -z "$ID" ]; then echo "Membuat database jpos…"; $W d1 create jpos; ID=$(getid); fi
 [ -n "$ID" ] || { echo "::error::Gagal membuat/menemukan database D1. Pastikan token punya izin D1 Edit."; exit 1; }
-sed -i "s/ISI_DATABASE_ID/$ID/" wrangler.toml
+grep -q database_id wrangler.toml || sed -i "s/database_name = \"jpos\"/database_name = \"jpos\"\ndatabase_id = \"$ID\"/" wrangler.toml
 $W d1 execute jpos --remote --file=schema.sql
 # migrasi kolom baru (abaikan jika sudah ada)
 for c in "phone TEXT" "exp INTEGER" "plan TEXT DEFAULT 'trial'" "note TEXT"; do $W d1 execute jpos --remote --command "ALTER TABLE stores ADD COLUMN $c" >/dev/null 2>&1 || true; done

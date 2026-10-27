@@ -28,6 +28,25 @@ const ALLOW = {
 };
 const DAY = 864e5;
 
+// Tabel dibuat otomatis saat server pertama kali dipakai (tidak perlu menjalankan schema.sql manual).
+const SCHEMA = [
+  "CREATE TABLE IF NOT EXISTS stores(id TEXT PRIMARY KEY,name TEXT NOT NULL,owner TEXT,email TEXT UNIQUE,phone TEXT,status TEXT DEFAULT 'active',created INTEGER,exp INTEGER,plan TEXT DEFAULT 'trial',note TEXT)",
+  'CREATE TABLE IF NOT EXISTS staff(store_id TEXT NOT NULL,name TEXT COLLATE NOCASE,role TEXT NOT NULL,pin_hash TEXT NOT NULL,created INTEGER,PRIMARY KEY(store_id,name))',
+  'CREATE TABLE IF NOT EXISTS ev(seq INTEGER PRIMARY KEY AUTOINCREMENT,store_id TEXT NOT NULL,no TEXT NOT NULL,k TEXT NOT NULL,t INTEGER,tot INTEGER DEFAULT 0,data TEXT NOT NULL,UNIQUE(store_id,no))',
+  'CREATE INDEX IF NOT EXISTS ev_store ON ev(store_id,seq)', 'CREATE INDEX IF NOT EXISTS ev_time ON ev(t)',
+  'CREATE TABLE IF NOT EXISTS chat(seq INTEGER PRIMARY KEY AUTOINCREMENT,room TEXT NOT NULL,sid TEXT,sn TEXT,un TEXT,tx TEXT NOT NULL,t INTEGER)', 'CREATE INDEX IF NOT EXISTS chat_room ON chat(room,seq)',
+  'CREATE TABLE IF NOT EXISTS rl(k TEXT NOT NULL,t INTEGER NOT NULL)', 'CREATE INDEX IF NOT EXISTS rl_k ON rl(k,t)',
+  'CREATE TABLE IF NOT EXISTS cfg(k TEXT PRIMARY KEY,v TEXT)',
+];
+let READY = null;
+function ready(env) {
+  if (!READY) READY = (async () => {
+    await env.DB.batch(SCHEMA.map((q) => env.DB.prepare(q)));
+    for (const c of ['phone TEXT', 'exp INTEGER', "plan TEXT DEFAULT 'trial'", 'note TEXT']) { try { await env.DB.prepare('ALTER TABLE stores ADD COLUMN ' + c).run(); } catch (e) { } }
+  })().catch((e) => { READY = null; throw e; });
+  return READY;
+}
+
 let CFG = null, CFGT = 0;
 async function cfgAll(env) {
   if (CFG && Date.now() - CFGT < 15000) return CFG;
@@ -75,6 +94,8 @@ export default {
     if (M == 'POST' || M == 'PUT' || M == 'PATCH') { try { b = await req.json(); } catch { } }
     const bearer = (req.headers.get('Authorization') || '').slice(7);
     try {
+      if (!env.DB) return J({ e: 'Database D1 belum terhubung ke Worker (binding DB)' }, 500);
+      await ready(env);
       // ---------- publik ----------
       if (p == '/api/ping') return J({ ok: 1, v: 4 });
       if (p == '/api/info') { const c = await cfgAll(env); return J({ wa: c.wa || '', price: c.price || '', trial: +(c.trial_days || 30), app: c.app_name || 'J-POS' }); }

@@ -1,4 +1,4 @@
-# Deploy otomatis lewat GitHub Actions (workflow "Deploy Backend") — cukup isi secret CLOUDFLARE_API_TOKEN di GitHub.
+# Deploy termudah: Cloudflare > Workers & Pages > Create > Import a repository (root: jpos/worker). Database D1 dibuat otomatis.
 # Manual (komputer, Node 20+): npx wrangler d1 create jpos -> salin database_id -> npx wrangler d1 execute jpos --remote --file=schema.sql -> npx wrangler deploy
 name = "jpos-api"
 main = "worker.js"
@@ -18,4 +18,3 @@ ADMIN_PASS_HASH = "pbkdf2$100000$j9L_HrV2MfTTEwdR$nstEU8E9BMGVnNl-3cHm3miKS-IBT8
 [[d1_databases]]
 binding = "DB"
 database_name = "jpos"
-database_id = "ISI_DATABASE_ID"
