@@ -12,10 +12,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with: { node-version: 20 }
+        with: { node-version: 22 }
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: 21 }
-      - uses: android-actions/setup-android@v3
+      - name: Cek Android SDK (sudah terpasang di runner)
+        run: echo "ANDROID_HOME=$ANDROID_HOME" && ls $ANDROID_HOME
       - name: Atur alamat server API (opsional)
         run: |
           if [ -n "${{ vars.API_URL }}" ]; then echo "window.JPOS_API = '${{ vars.API_URL }}';" > public/config.js; fi
