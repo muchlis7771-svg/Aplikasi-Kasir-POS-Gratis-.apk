@@ -1,0 +1,19 @@
+# Server J-POS (Cloudflare Worker). Dipasang otomatis oleh Cloudflare setiap ada perubahan di branch main.
+# Kode server: jpos/worker/worker.js · aplikasi web: jpos/public · database D1 "jpos" dibuat otomatis.
+name = "aplikasi-kasir-pos-gratis--apk"
+main = "jpos/worker/worker.js"
+compatibility_date = "2025-01-01"
+workers_dev = true
+
+[assets]
+directory = "jpos/public"
+binding = "ASSETS"
+run_worker_first = true
+
+[vars]
+ADMIN_USER = "headadmin"
+ADMIN_PASS_HASH = "pbkdf2$100000$j9L_HrV2MfTTEwdR$nstEU8E9BMGVnNl-3cHm3miKS-IBT8HMirmrGQ6Hvy8"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "jpos"
