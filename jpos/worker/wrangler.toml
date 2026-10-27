@@ -1,0 +1,20 @@
+# Deploy termudah: Cloudflare > Workers & Pages > Create > Import a repository (root: jpos/worker). Database D1 dibuat otomatis.
+# Manual (komputer, Node 20+): npx wrangler d1 create jpos -> salin database_id -> npx wrangler d1 execute jpos --remote --file=schema.sql -> npx wrangler deploy
+name = "jpos-api"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+workers_dev = true
+
+[assets]
+directory = "../public"
+binding = "ASSETS"
+run_worker_first = true
+
+[vars]
+# Login Head Admin (pemilik aplikasi). Password disimpan sebagai hash; bisa diganti dari panel Head Admin.
+ADMIN_USER = "headadmin"
+ADMIN_PASS_HASH = "pbkdf2$100000$j9L_HrV2MfTTEwdR$nstEU8E9BMGVnNl-3cHm3miKS-IBT8HMirmrGQ6Hvy8"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "jpos"
