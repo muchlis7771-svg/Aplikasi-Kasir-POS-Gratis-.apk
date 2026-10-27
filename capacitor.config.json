@@ -1,0 +1,7 @@
+{
+  "appId": "id.jpos.app",
+  "appName": "J-POS",
+  "webDir": "public",
+  "server": { "androidScheme": "https" },
+  "android": { "allowMixedContent": false }
+}

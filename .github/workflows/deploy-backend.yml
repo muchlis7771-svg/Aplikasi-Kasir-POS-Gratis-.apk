@@ -1,0 +1,28 @@
+name: Deploy Backend
+on:
+  workflow_dispatch:
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Cek secret
+        run: |
+          for v in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID JPOS_SECRET JPOS_ADMIN_USER JPOS_ADMIN_PASS; do
+            eval "val=\$$v"; [ -n "$val" ] || { echo "::error::Secret $v belum diisi (Settings > Secrets and variables > Actions)"; exit 1; }
+          done
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          JPOS_SECRET: ${{ secrets.JPOS_SECRET }}
+          JPOS_ADMIN_USER: ${{ secrets.JPOS_ADMIN_USER }}
+          JPOS_ADMIN_PASS: ${{ secrets.JPOS_ADMIN_PASS }}
+      - run: bash scripts/deploy-backend.sh
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          JPOS_SECRET: ${{ secrets.JPOS_SECRET }}
+          JPOS_ADMIN_USER: ${{ secrets.JPOS_ADMIN_USER }}
+          JPOS_ADMIN_PASS: ${{ secrets.JPOS_ADMIN_PASS }}
