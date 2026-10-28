@@ -37,10 +37,10 @@ const MGR = (r) => r == 'owner' || r == 'admin' || r == 'akuntan';
 // Hak akses fitur per peran (owner = semua). Sama dengan pembatasan di server.
 const PERM = {
   owner: '*',
-  admin: 'dash pos his hisAll prod prodEdit outlet lap keu jur abs absAll chat usr retur backup set',
+  admin: 'dash pos his hisAll prod prodEdit outlet onl ana lap keu jur abs absAll chat usr retur backup set',
   akuntan: 'dash his hisAll prod lap keu jur abs absAll chat set',
   kasir: 'dash pos his abs chat set',
-  sales: 'dash pos his outlet abs chat set',
+  sales: 'dash pos his outlet ana abs chat set',
 };
 const can = (f, r) => { r = r || (U && U.r); return PERM[r] == '*' || (PERM[r] || '').split(' ').includes(f); };
 const ALLOWK = { admin: ['sale', 'pay', 'retur', 'stk', 'apay', 'opn', 'exp', 'jm', 'pu', 'cu', 'in', 'out', 'visit'], akuntan: ['pay', 'apay', 'exp', 'jm', 'opn', 'in', 'out'], kasir: ['sale', 'pay', 'in', 'out'], sales: ['sale', 'pay', 'in', 'out', 'visit', 'cu'] };
@@ -152,7 +152,7 @@ const Ap = {
       const s0 = Math.max(0, Math.round(+q.s0 || 0)); p.co = Math.round(+q.co) || 0;
       if (s0 > 0) { p.st = s0; jr(e, 'Saldo awal persediaan ' + q.n, [['1201', s0 * p.co, 0], ['3101', 0, s0 * p.co]]); }
     } else if ('co' in q) p.co = Math.round(+q.co) || 0;
-    for (const f of ['n', 'c', 'pr', 'sku', 'img', 'tiers', 'min', 'x']) if (f in q) p[f] = q[f];
+    for (const f of ['n', 'c', 'pr', 'sku', 'img', 'tiers', 'min', 'x', 'opr', 'u', 'on']) if (f in q) p[f] = q[f];
   },
   cu(e) {
     const q = e.c || {}; if (!/^[\w-]{1,40}$/.test(String(q.id))) return; let c = cust(q.id);
@@ -189,10 +189,10 @@ function emit(k, data, t, by) {
 function calc(items, cd) {
   let sub = 0, ldt = 0, net = 0;
   const lines = items.map((i) => {
-    const p = prod(i.id), q = i.q, gross = p.pr * q, tr = tierOf(p, q);
+    const p = prod(i.id), q = i.q, price = i.pp > 0 ? i.pp : p.pr, gross = price * q, tr = i.pp > 0 ? null : tierOf(p, q);
     const dd = Math.round(gross * (1 - cfac(tr && tr.d) * cfac(i.ld)));
     sub += gross; ldt += dd; net += gross - dd;
-    return { id: p.id, n: p.n, q, p: p.pr, dd, hc: p.co, tier: tr ? tr.d : '', ld: i.ld || '' };
+    return { id: p.id, n: p.n, q, p: price, dd, hc: p.co, tier: tr ? tr.d : '', ld: i.ld || '' };
   });
   const cdA = Math.round(net * (1 - cfac(cd))), disc = ldt + cdA, tax = Math.round((net - cdA) * (S.set.ppn || 0) / 100);
   return { lines, sub, ldt, cdA, disc, tax, tot: sub - disc + tax, hpp: lines.reduce((a, l) => a + l.hc * l.q, 0) };
