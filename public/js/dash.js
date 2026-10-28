@@ -119,3 +119,24 @@ async function haStore(id) {
 }
 
 async function haShip() { const v = (i) => +$('#' + i).value; try { HA.cfg = await haApi('/api/admin/cfg', { method: 'PUT', body: JSON.stringify({ ship_base: v('s1'), ship_per_m: v('s2'), ship_road: v('s3'), ship_min: v('s4'), ship_max_km: v('s5'), ship_round: v('s6') }) }); toast('Tarif ongkir disimpan'); R(); } catch (e) { toast(e.message); } }
+
+/* ---------- Head Admin: pantau pengunjung & aktivitas ---------- */
+const HAA = { d: null, typ: '', q: '', t: null };
+async function haAct() {
+  try { HAA.d = await haApi('/api/admin/activity?typ=' + HAA.typ + '&q=' + encodeURIComponent(HAA.q)); } catch (e) { if (e.status == 401) return haOut(); toast(e.message); }
+  if (HA.tab == 'act' && MODE == 'ha' && !$('.md')) R();
+}
+const ROLEI = { pembeli: '🛍️', owner: '👑', admin: '🧑‍💼', akuntan: '🧮', kasir: '🧾', sales: '🚚', 'head admin': '🛠' };
+const PGN = (p) => ({ dash: 'Beranda', pos: 'Kasir', onl: 'Toko Online', prod: 'Produk', outlet: 'Outlet', ana: 'Analisa', lap: 'Laporan', keu: 'Keuangan', jur: 'Jurnal', abs: 'Absensi', chat: 'Chat', usr: 'Pengguna', set: 'Pengaturan', his: 'Riwayat', ha: 'Panel Head Admin', login: 'Baru login', 'b:home': 'Beranda belanja', 'b:search': 'Mencari produk', 'b:prod': 'Lihat produk', 'b:store': 'Lihat toko', 'b:cart': 'Keranjang', 'b:ord': 'Pesanan', 'b:feed': 'Feed Untukmu', 'b:acc': 'Akun', 'b:chat': 'Chat' }[p] || p || '-');
+function haActView() {
+  const d = HAA.d; if (!d) return '<div class="cd"><p class="mu">Memuat aktivitas…</p></div>';
+  const on = d.online, by = (r) => on.filter((x) => (x.role || x.typ) == r).length, ago = (t) => { const s = Math.round((Date.now() - t) / 1000); return s < 60 ? s + ' dtk' : Math.round(s / 60) + ' mnt'; };
+  const tod = {}; d.today.forEach((x) => (tod[x.role || x.typ] = (tod[x.role || x.typ] || 0) + x.n));
+  const hours = Array.from({ length: 24 }, (_, h) => ({ l: String(h).padStart(2, '0'), v: (d.hourly.find((x) => +x.h == h) || {}).n || 0 }));
+  return `<div class="cd hero"><small>Sedang online (5 menit terakhir)</small><h2>${on.length} orang</h2><small>${['pembeli', 'owner', 'admin', 'kasir', 'sales', 'akuntan'].map((r) => ROLEI[r] + ' ' + by(r)).join(' · ')}</small></div>
+${kpi(Object.entries(tod).map(([r, n]) => [(ROLEI[r] || '') + ' ' + r + ' aktif hari ini', n]))}
+<div class="cd"><h3>🟢 Online sekarang</h3>${on.map((x) => `<div class="row"><span>${ROLEI[x.role] || '•'} <b>${esc(x.name)}</b> <small class="mu">${esc(x.role || x.typ)}${x.sn ? ' · ' + esc(x.sn) : ''}</small><br><small class="mu">📍 ${esc(PGN(x.page))}${x.dev ? ' · ' + esc(x.dev.slice(0, 40)) : ''}</small></span><small class="gr">${ago(x.t)}</small></div>`).join('') || '<small class="mu">Tidak ada yang online.</small>'}</div>
+<div class="cd"><h3>Aktivitas per jam (24 jam)</h3>${vbars(hours, (v) => v)}</div>
+<div class="cd"><h3>📜 Log aktivitas</h3><div class="srch"><input id="aq" placeholder="Cari nama / toko / aktivitas" value="${esc(HAA.q)}" onkeydown="if(event.key=='Enter'){HAA.q=this.value;haAct()}"><button class="gh" onclick="HAA.q=$('#aq').value;haAct()">🔍</button></div><div class="seg">${[['', 'Semua'], ['buyer', '🛍️ Pembeli'], ['staff', '🏪 Toko'], ['admin', '🛠 Head Admin']].map((x) => `<button class="${HAA.typ == x[0] ? 'a' : ''}" onclick="HAA.typ='${x[0]}';haAct()">${x[1]}</button>`).join('')}</div>
+${d.log.map((a) => `<div class="je"><small>${tstr(a.t)} · ${a.typ == 'buyer' ? '🛍️' : a.typ == 'admin' ? '🛠' : '🏪'} <b>${esc(a.name)}</b>${a.sn ? ' · ' + esc(a.sn) : ''}</small><p><span>${esc(a.act)}</span><small class="mu">${esc(a.det || '')}</small></p></div>`).join('') || '<small class="mu">Belum ada aktivitas.</small>'}</div>`;
+}

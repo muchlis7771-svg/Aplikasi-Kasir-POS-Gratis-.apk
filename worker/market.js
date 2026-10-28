@@ -1,3 +1,4 @@
+import { socialPublic, socialBuyer, socialShop, logAct, voucherDisc, PSEL, PJOIN, pfix } from './social.js';
 // J-POS Pasar Online: akun pembeli, katalog semua toko, pesanan, tawar harga, ongkir per jarak,
 // kredit pembeli (ACC toko) + skor kelayakan, chat pembeli <-> toko.
 const DAY = 864e5;
@@ -37,6 +38,7 @@ export async function creditScore(env, bid) {
   const why = [`${done.length} pesanan selesai (nilai ${val.toLocaleString('id-ID')})`, `akun ${age} hari`, cr.length ? `${ontime}/${cr.length} kredit lunas tepat waktu` : 'belum pernah kredit', ...(late ? [`${late} kali telat bayar`] : []), ...(overdue.length ? [`${overdue.length} tagihan lewat jatuh tempo`] : []), ...(cancel ? [`${cancel} pesanan dibatalkan`] : [])];
   return { score: s, grade: g, label: { A: 'Layak kredit', B: 'Layak (limit terbatas)', C: 'Hati-hati', D: 'Tidak disarankan' }[g], rec, owing, overdue: overdue.length, done: done.length, why };
 }
+const addSold = (env, o) => env.DB.batch(JSON.parse(o.items).map((i) => env.DB.prepare('UPDATE catalog SET sold=COALESCE(sold,0)+? WHERE store_id=? AND pid=?').bind(i.q, o.store_id, i.pid)));
 const bOut = (o) => ({ ...o, items: JSON.parse(o.items || '[]'), hist: JSON.parse(o.hist || '[]') });
 const push = (o, who, txt) => { const h = JSON.parse(o.hist || '[]'); h.push({ t: Date.now(), who, txt }); return JSON.stringify(h.slice(-40)); };
 async function owing(env, sid, bid) { return (await env.DB.prepare("SELECT COALESCE(SUM(tot),0) v FROM orders WHERE store_id=? AND buyer_id=? AND pay='kredit' AND paid=0 AND status IN('diproses','dikirim','selesai')").bind(sid, bid).first()).v; }
@@ -52,7 +54,7 @@ export async function buyerRoutes(x) {
     if (!/^0\d{8,13}$/.test(phone) || name.length < 2 || !/^\d{4,8}$/.test(pin)) return J({ e: 'Isi nomor HP (08…), nama, dan PIN 4–8 angka' }, 400);
     try {
       const r = await env.DB.prepare('INSERT INTO buyers(phone,name,pin_hash,addr,lat,lng,created) VALUES(?,?,?,?,?,?,?)').bind(phone, name, await pbk(pin, 'b:' + phone), String(b.addr || '').slice(0, 200), okLL(b.lat, b.lng) ? +b.lat : null, okLL(b.lat, b.lng) ? +b.lng : null, now).run();
-      const id = r.meta.last_row_id; return J({ token: await sign({ bid: id, role: 'buyer', exp: now + 90 * DAY }), me: { id, phone, name, addr: b.addr || '', lat: b.lat, lng: b.lng } });
+      const id = r.meta.last_row_id; await logAct(env, 'buyer', id, name, null, 'daftar pembeli', phone); return J({ token: await sign({ bid: id, role: 'buyer', exp: now + 90 * DAY }), me: { id, phone, name, addr: b.addr || '', lat: b.lat, lng: b.lng } });
     } catch { return J({ e: 'Nomor HP sudah terdaftar, silakan masuk' }, 409); }
   }
   if (p == '/api/b/login' && M == 'POST') {
@@ -61,10 +63,13 @@ export async function buyerRoutes(x) {
     const r = await env.DB.prepare('SELECT * FROM buyers WHERE phone=?').bind(phone).first();
     if (!r || !(await same(r.pin_hash, await pbk(String(b.pin || ''), 'b:' + phone)))) return J({ e: 'Nomor HP atau PIN salah' }, 401);
     if (r.status != 'active') return J({ e: 'Akun pembeli diblokir' }, 403);
+    await logAct(env, 'buyer', r.id, r.name, null, 'login pembeli', null);
     return J({ token: await sign({ bid: r.id, role: 'buyer', exp: now + 90 * DAY }), me: { id: r.id, phone: r.phone, name: r.name, addr: r.addr, lat: r.lat, lng: r.lng } });
   }
   // katalog publik (tanpa login pun bisa melihat)
   const lat = +u.searchParams.get('lat'), lng = +u.searchParams.get('lng'), hasLL = okLL(lat, lng);
+  const ob = bearer ? await verify(bearer) : null, obid = ob && ob.role == 'buyer' ? ob.bid : null;
+  const sp = await socialPublic({ ...x, hav, lat, lng, hasLL, shopOpen }, obid); if (sp) return sp;
   if (p == '/api/b/stores' && M == 'GET') {
     const r = (await env.DB.prepare(`SELECT s.id,s.name,sh.lat,sh.lng,sh.addr,sh.descr,sh.cod,sh.credit,sh.minorder,sh.ships,(SELECT COUNT(*) FROM catalog c WHERE c.store_id=s.id AND c.st>0) np FROM stores s JOIN shop sh ON sh.store_id=s.id WHERE ${shopOpen} LIMIT 500`).bind(now).all()).results;
     r.forEach((s) => (s.dist = hasLL && s.lat != null ? Math.round(hav(lat, lng, s.lat, s.lng)) : null)); r.sort((a, c) => (a.dist ?? 9e9) - (c.dist ?? 9e9));
@@ -72,13 +77,14 @@ export async function buyerRoutes(x) {
   }
   if (p == '/api/b/products' && M == 'GET') {
     const q = String(u.searchParams.get('q') || '').trim().slice(0, 50), cat = String(u.searchParams.get('cat') || ''), st = String(u.searchParams.get('store') || '');
-    let sql = `SELECT c.store_id sid,s.name sn,c.pid,c.n,c.c,c.pr,c.opr,c.st,c.img,c.unit,sh.lat,sh.lng FROM catalog c JOIN stores s ON s.id=c.store_id JOIN shop sh ON sh.store_id=c.store_id WHERE ${shopOpen} AND c.st>0`; const a = [now];
+    let sql = `SELECT ${PSEL(now)} ${PJOIN} WHERE ${shopOpen} AND c.st>0`; const a = [now];
     if (q) { sql += ' AND (c.n LIKE ? OR c.c LIKE ? OR c.sku=?)'; a.push('%' + q + '%', '%' + q + '%', q); }
     if (cat) { sql += ' AND c.c=?'; a.push(cat); }
     if (st) { sql += ' AND c.store_id=?'; a.push(st); }
     const r = (await env.DB.prepare(sql + ' LIMIT 600').bind(...a).all()).results;
-    r.forEach((x) => { x.price = x.opr || x.pr; x.dist = hasLL && x.lat != null ? Math.round(hav(lat, lng, x.lat, x.lng)) : null; delete x.lat; delete x.lng; });
-    r.sort((x, y) => (x.dist ?? 9e9) - (y.dist ?? 9e9) || x.price - y.price);
+    r.forEach((y) => pfix(y, hav, lat, lng, hasLL));
+    const so = u.searchParams.get('sort') || 'near', S = { near: (x, y) => (x.dist ?? 9e9) - (y.dist ?? 9e9) || x.price - y.price, cheap: (x, y) => x.price - y.price, sold: (x, y) => y.sold - x.sold, rating: (x, y) => (y.rt || 0) - (x.rt || 0) || y.rc - x.rc, promo: (x, y) => (y.fsp ? 1 : 0) - (x.fsp ? 1 : 0) };
+    r.sort(S[so] || S.near);
     const cats = st ? [] : (await env.DB.prepare(`SELECT c.c,COUNT(*) n FROM catalog c JOIN stores s ON s.id=c.store_id JOIN shop sh ON sh.store_id=c.store_id WHERE ${shopOpen} AND c.st>0 GROUP BY c.c ORDER BY n DESC LIMIT 20`).bind(now).all()).results;
     return J({ items: r.slice(0, 300), cats });
   }
@@ -93,6 +99,7 @@ export async function buyerRoutes(x) {
   if (!t || t.role != 'buyer') return J({ e: 'Silakan masuk sebagai pembeli' }, 401);
   const bid = t.bid, me = await env.DB.prepare('SELECT * FROM buyers WHERE id=?').bind(bid).first();
   if (!me || me.status != 'active') return J({ e: 'Akun pembeli tidak aktif' }, 403);
+  const sb = await socialBuyer({ ...x, hav, lat, lng, hasLL }, bid, me); if (sb) return sb;
   if (p == '/api/b/me') {
     if (M == 'PUT') {
       const nm = String(b.name ?? me.name).trim().slice(0, 50), ad = String(b.addr ?? me.addr ?? '').slice(0, 200), ll = okLL(b.lat, b.lng);
@@ -109,10 +116,10 @@ export async function buyerRoutes(x) {
     const L = (Array.isArray(b.items) ? b.items : []).slice(0, 50), items = []; let sub = 0, nego = false;
     for (const it of L) {
       const q = Math.round(+it.q); if (!(q > 0)) continue;
-      const c = await env.DB.prepare('SELECT * FROM catalog WHERE store_id=? AND pid=?').bind(sid, String(it.pid)).first();
+      const c = await env.DB.prepare('SELECT c.*,CASE WHEN f.end>? THEN f.price END fsp FROM catalog c LEFT JOIN flash f ON f.store_id=c.store_id AND f.pid=c.pid WHERE c.store_id=? AND c.pid=?').bind(now, sid, String(it.pid)).first();
       if (!c) return J({ e: 'Produk tidak ditemukan / sudah tidak dijual' }, 400);
       if (c.st < q) return J({ e: 'Stok ' + c.n + ' tidak cukup (sisa ' + c.st + ')' }, 400);
-      const price = c.opr || c.pr, offer = Math.round(+it.offer) || 0;
+      const price = c.fsp || c.opr || c.pr, offer = Math.round(+it.offer) || 0;
       if (offer && offer < price) nego = true;
       items.push({ pid: c.pid, n: c.n, q, price, offer: offer && offer < price ? offer : 0, unit: c.unit || '' }); sub += price * q;
     }
@@ -127,14 +134,17 @@ export async function buyerRoutes(x) {
       const qv = await quote(env, cfgAll, sh, ll[0], ll[1]); dist = qv.dist;
       if (METHODS[method][1] == 'instant') { if (qv.fee == null) return J({ e: 'Jarak terlalu jauh untuk kurir instan (' + (dist / 1000).toFixed(1) + ' km)' }, 400); ship = qv.fee; }
     }
+    const vd = await voucherDisc(env, sid, b.voucher, sub); if (vd.e) return J({ e: vd.e }, 400); const disc = vd.disc || 0;
     const pay = ['cod', 'transfer', 'kredit'].includes(b.pay) ? b.pay : 'transfer';
     if (pay == 'cod' && !sh.cod) return J({ e: 'Toko tidak menerima COD' }, 400);
     if (pay == 'kredit' && !sh.credit) return J({ e: 'Toko tidak menerima pembayaran kredit' }, 400);
     const days = pay == 'kredit' ? Math.max(1, Math.min(90, Math.round(+b.days) || 14)) : 0;
     const status = nego ? 'nego' : pay == 'kredit' ? 'acc_kredit' : 'baru';
     const hist = JSON.stringify([{ t: now, who: 'pembeli', txt: nego ? 'Pesanan dibuat dengan penawaran harga' : 'Pesanan dibuat' }]);
-    const r = await env.DB.prepare('INSERT INTO orders(store_id,buyer_id,items,sub,ship,tot,status,pay,method,dist,addr,lat,lng,note,days,hist,t,upd) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
-      .bind(sid, bid, JSON.stringify(items), sub, ship, sub + ship, status, pay, method, dist, String(b.addr || me.addr || '').slice(0, 200), ll[0], ll[1], String(b.note || '').slice(0, 300), days, hist, now, now).run();
+    const r = await env.DB.prepare('INSERT INTO orders(store_id,buyer_id,items,sub,ship,tot,status,pay,method,dist,addr,lat,lng,note,days,hist,t,upd,disc,vcode) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+      .bind(sid, bid, JSON.stringify(items), sub, ship, sub - disc + ship, status, pay, method, dist, String(b.addr || me.addr || '').slice(0, 200), ll[0], ll[1], String(b.note || '').slice(0, 300), days, hist, now, now, disc, vd.code || null).run();
+    if (vd.v) await env.DB.prepare('UPDATE vouchers SET used=used+1 WHERE id=?').bind(vd.v.id).run();
+    await logAct(env, 'buyer', bid, me.name, sid, 'buat pesanan', '#' + r.meta.last_row_id + ' · ' + (sub - disc + ship).toLocaleString('id-ID') + ' · ' + pay);
     return J({ ok: 1, id: r.meta.last_row_id, status });
   }
   if (p == '/api/b/orders' && M == 'GET') {
@@ -145,10 +155,11 @@ export async function buyerRoutes(x) {
   if (m && M == 'POST') {
     const o = await env.DB.prepare('SELECT * FROM orders WHERE id=? AND buyer_id=?').bind(+m[1], bid).first();
     if (!o) return J({ e: 'Pesanan tidak ditemukan' }, 404);
+    await logAct(env, 'buyer', bid, me.name, o.store_id, 'pesanan ' + b.act, '#' + o.id);
     const set = async (st, txt, extra = '') => { await env.DB.prepare(`UPDATE orders SET status=?,hist=?,upd=?${extra} WHERE id=?`).bind(st, push(o, 'pembeli', txt), Date.now(), o.id).run(); return J({ ok: 1 }); };
     if (b.act == 'cancel' && ['nego', 'nego_toko', 'baru', 'acc_kredit'].includes(o.status)) return set('batal', 'Dibatalkan pembeli');
-    if (b.act == 'accept_counter' && o.status == 'nego_toko') { const items = JSON.parse(o.items).map((i) => ({ ...i, price: i.counter || i.price, offer: 0 })); const sub = items.reduce((a, i) => a + i.price * i.q, 0); await env.DB.prepare('UPDATE orders SET items=?,sub=?,tot=?+ship WHERE id=?').bind(JSON.stringify(items), sub, sub, o.id).run(); return set(o.pay == 'kredit' ? 'acc_kredit' : 'baru', 'Pembeli setuju harga tawaran toko'); }
-    if (b.act == 'received' && o.status == 'dikirim') return set('selesai', 'Pesanan diterima pembeli');
+    if (b.act == 'accept_counter' && o.status == 'nego_toko') { const items = JSON.parse(o.items).map((i) => ({ ...i, price: i.counter || i.price, offer: 0 })); const sub = items.reduce((a, i) => a + i.price * i.q, 0); await env.DB.prepare('UPDATE orders SET items=?,sub=?,tot=?+ship-COALESCE(disc,0) WHERE id=?').bind(JSON.stringify(items), sub, sub, o.id).run(); return set(o.pay == 'kredit' ? 'acc_kredit' : 'baru', 'Pembeli setuju harga tawaran toko'); }
+    if (b.act == 'received' && o.status == 'dikirim') { await addSold(env, o); return set('selesai', 'Pesanan diterima pembeli'); }
     if (b.act == 'paid_claim' && !o.paid) { await env.DB.prepare('UPDATE orders SET hist=?,upd=? WHERE id=?').bind(push(o, 'pembeli', 'Pembeli menyatakan sudah transfer' + (b.note ? ': ' + String(b.note).slice(0, 100) : '')), Date.now(), o.id).run(); return J({ ok: 1 }); }
     return J({ e: 'Aksi tidak bisa dilakukan pada status ini' }, 400);
   }
@@ -180,6 +191,7 @@ async function quote(env, cfgAll, sh, la, ln) {
 export async function shopRoutes(x) {
   const { env, p, M, b, u, J, sid, role, uname, EXP } = x;
   const now = Date.now(), boss = role == 'owner' || role == 'admin';
+  const ss = await socialShop(x); if (ss) return ss;
   if (p == '/api/shop/profile') {
     if (M == 'PUT') {
       if (!boss) return J({ e: 'Khusus owner/admin' }, 403);
@@ -194,13 +206,17 @@ export async function shopRoutes(x) {
   }
   if (p == '/api/shop/catalog' && M == 'POST') {
     if (!['owner', 'admin', 'akuntan'].includes(role)) return J({ e: 'Khusus owner/admin' }, 403);
-    const L = (Array.isArray(b.items) ? b.items : []).slice(0, 3000), st = [env.DB.prepare('DELETE FROM catalog WHERE store_id=?').bind(sid)];
+    const L = (Array.isArray(b.items) ? b.items : []).slice(0, 3000), st = [];
+    // toko otomatis tampil di pasar saat pertama kali mengirim katalog (bisa ditutup di pengaturan)
+    const sh0 = b.shop || {}; await env.DB.prepare('INSERT OR IGNORE INTO shop(store_id,open,lat,lng,addr,cod,credit,ships,upd) VALUES(?,1,?,?,?,1,0,?,?)').bind(sid, okLL(sh0.lat, sh0.lng) ? +sh0.lat : null, okLL(sh0.lat, sh0.lng) ? +sh0.lng : null, String(sh0.addr || '').slice(0, 200), 'ambil,kurir', now).run();
+    if (okLL(sh0.lat, sh0.lng)) await env.DB.prepare('UPDATE shop SET lat=?,lng=? WHERE store_id=? AND lat IS NULL').bind(+sh0.lat, +sh0.lng, sid).run();
     for (const it of L) {
       if (!/^[\w-]{1,40}$/.test(String(it.id)) || !it.n) continue;
-      st.push(env.DB.prepare('INSERT INTO catalog(store_id,pid,n,c,pr,opr,st,img,sku,unit,upd) VALUES(?,?,?,?,?,?,?,?,?,?,?)').bind(sid, String(it.id), String(it.n).slice(0, 80), String(it.c || 'Umum').slice(0, 40), Math.max(0, Math.round(+it.pr) || 0), Math.max(0, Math.round(+it.opr) || 0), Math.max(0, Math.round(+it.st) || 0), String(it.img || '').slice(0, 40000), String(it.sku || '').slice(0, 40), String(it.u || '').slice(0, 15), now));
+      st.push(env.DB.prepare('INSERT INTO catalog(store_id,pid,n,c,pr,opr,st,img,sku,unit,upd) VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(store_id,pid) DO UPDATE SET n=excluded.n,c=excluded.c,pr=excluded.pr,opr=excluded.opr,st=excluded.st,img=excluded.img,sku=excluded.sku,unit=excluded.unit,upd=excluded.upd').bind(sid, String(it.id), String(it.n).slice(0, 80), String(it.c || 'Umum').slice(0, 40), Math.max(0, Math.round(+it.pr) || 0), Math.max(0, Math.round(+it.opr) || 0), Math.max(0, Math.round(+it.st) || 0), String(it.img || '').slice(0, 150000), String(it.sku || '').slice(0, 40), String(it.u || '').slice(0, 15), now));
     }
     for (let i = 0; i < st.length; i += 90) await env.DB.batch(st.slice(i, i + 90));
-    return J({ ok: 1, n: st.length - 1 });
+    await env.DB.prepare('DELETE FROM catalog WHERE store_id=? AND upd<?').bind(sid, now).run();
+    return J({ ok: 1, n: st.length, open: (await env.DB.prepare('SELECT open FROM shop WHERE store_id=?').bind(sid).first()).open });
   }
   if (p == '/api/shop/orders' && M == 'GET') {
     const since = +u.searchParams.get('since') || 0;
@@ -212,7 +228,7 @@ export async function shopRoutes(x) {
     if (EXP) return J({ e: 'Masa aktif toko habis', expired: 1 }, 402);
     const o = await env.DB.prepare('SELECT * FROM orders WHERE id=? AND store_id=?').bind(+m[1], sid).first();
     if (!o) return J({ e: 'Pesanan tidak ditemukan' }, 404);
-    const who = uname + ' (toko)', act = b.act;
+    const who = uname + ' (toko)', act = b.act; await logAct(env, 'staff', uname, uname, sid, 'pesanan online ' + act, '#' + o.id);
     const set = async (st, txt, sql = '', ...v) => { await env.DB.prepare(`UPDATE orders SET status=?,hist=?,upd=?${sql} WHERE id=?`).bind(st, push(o, who, txt), Date.now(), ...v, o.id).run(); return J({ ok: 1 }); };
     const shipFeeIn = Math.max(0, Math.round(+b.ship) || 0);
     if (act == 'reject' && !['selesai', 'batal', 'ditolak'].includes(o.status)) return set('ditolak', 'Ditolak toko' + (b.reason ? ': ' + String(b.reason).slice(0, 150) : ''));
@@ -222,7 +238,7 @@ export async function shopRoutes(x) {
     }
     if (act == 'accept_offer' && o.status == 'nego') {
       const items = JSON.parse(o.items).map((i) => ({ ...i, price: i.offer || i.price, offer: 0 })), sub = items.reduce((a, i) => a + i.price * i.q, 0);
-      await env.DB.prepare('UPDATE orders SET items=?,sub=?,tot=?+ship WHERE id=?').bind(JSON.stringify(items), sub, sub, o.id).run();
+      await env.DB.prepare('UPDATE orders SET items=?,sub=?,tot=?+ship-COALESCE(disc,0) WHERE id=?').bind(JSON.stringify(items), sub, sub, o.id).run();
       return set(o.pay == 'kredit' ? 'acc_kredit' : 'baru', 'Toko menyetujui harga tawaran');
     }
     if (act == 'acc_credit' && o.status == 'acc_kredit') {
@@ -232,12 +248,12 @@ export async function shopRoutes(x) {
       await env.DB.prepare('INSERT INTO bcredit(store_id,buyer_id,lim,days,t) VALUES(?,?,?,?,?) ON CONFLICT(store_id,buyer_id) DO UPDATE SET lim=excluded.lim,days=excluded.days,t=excluded.t').bind(sid, o.buyer_id, lim, days, now).run();
       return set('diproses', `Kredit di-ACC: tempo ${days} hari, limit ${lim.toLocaleString('id-ID')}`, ',days=?,due=?', days, now + days * DAY);
     }
-    if (act == 'accept' && o.status == 'baru') return set('diproses', 'Pesanan diterima & diproses toko' + (shipFeeIn && o.ship == 0 ? ' · ongkir ' + shipFeeIn.toLocaleString('id-ID') : ''), ',ship=CASE WHEN ship=0 THEN ? ELSE ship END,tot=sub+CASE WHEN ship=0 THEN ? ELSE ship END', shipFeeIn, shipFeeIn);
+    if (act == 'accept' && o.status == 'baru') return set('diproses', 'Pesanan diterima & diproses toko' + (shipFeeIn && o.ship == 0 ? ' · ongkir ' + shipFeeIn.toLocaleString('id-ID') : ''), ',ship=CASE WHEN ship=0 THEN ? ELSE ship END,tot=sub-COALESCE(disc,0)+CASE WHEN ship=0 THEN ? ELSE ship END', shipFeeIn, shipFeeIn);
     if (act == 'ship' && o.status == 'diproses') {
       const cour = METHODS[b.courier] ? b.courier : o.method, resi = String(b.resi || '').slice(0, 60);
-      return set('dikirim', (o.method == 'ambil' ? 'Siap diambil' : 'Dikirim via ' + METHODS[cour][0]) + (resi ? ' · resi ' + resi : ''), ',courier=?,resi=?,ship=CASE WHEN ?>0 THEN ? ELSE ship END,tot=sub+CASE WHEN ?>0 THEN ? ELSE ship END', cour, resi, shipFeeIn, shipFeeIn, shipFeeIn, shipFeeIn);
+      return set('dikirim', (o.method == 'ambil' ? 'Siap diambil' : 'Dikirim via ' + METHODS[cour][0]) + (resi ? ' · resi ' + resi : ''), ',courier=?,resi=?,ship=CASE WHEN ?>0 THEN ? ELSE ship END,tot=sub-COALESCE(disc,0)+CASE WHEN ?>0 THEN ? ELSE ship END', cour, resi, shipFeeIn, shipFeeIn, shipFeeIn, shipFeeIn);
     }
-    if (act == 'done' && ['dikirim', 'diproses'].includes(o.status)) return set('selesai', 'Pesanan selesai');
+    if (act == 'done' && ['dikirim', 'diproses'].includes(o.status)) { await addSold(env, o); return set('selesai', 'Pesanan selesai'); }
     if (act == 'paid' && !o.paid) { await env.DB.prepare('UPDATE orders SET paid=1,paid_t=?,hist=?,upd=? WHERE id=?').bind(now, push(o, who, 'Pembayaran diterima toko'), now, o.id).run(); return J({ ok: 1 }); }
     if (act == 'sale' && b.no) { await env.DB.prepare('UPDATE orders SET sale_no=? WHERE id=?').bind(String(b.no).slice(0, 40), o.id).run(); return J({ ok: 1 }); }
     return J({ e: 'Aksi tidak bisa dilakukan pada status ini' }, 400);

@@ -1,6 +1,6 @@
 'use strict';
 /* ============ TOKO ONLINE (sisi toko): katalog otomatis, pesanan pembeli, tawar, ACC kredit, kirim, chat ============ */
-const ONL = { orders: [], shop: null, methods: {}, tab: 'ord', f: 'act', t: null, seen: 0, cat: '', pubT: null };
+const ONL = { orders: [], shop: null, methods: {}, tab: 'sum', f: 'act', t: null, seen: 0, cat: '', pubT: null };
 const OST = { nego: ['Tawar harga', 'o'], nego_toko: ['Menunggu pembeli', ''], acc_kredit: ['Minta kredit', 'o'], baru: ['Pesanan baru', 'o'], diproses: ['Diproses', ''], dikirim: ['Dikirim', 'g'], selesai: ['Selesai', 'g'], batal: ['Dibatalkan', 'r'], ditolak: ['Ditolak', 'r'] };
 const PAYN = { cod: 'COD (bayar di tempat)', transfer: 'Transfer', kredit: 'Kredit / tempo' };
 const MNAME = (k) => (ONL.methods[k] || BMETHODS[k] || [k])[0];
@@ -14,9 +14,9 @@ function publishCatalog(force) {
   clearTimeout(ONL.pubT);
   ONL.pubT = setTimeout(async () => {
     const items = S.p.filter((p) => !p.x && p.on !== false).map((p) => ({ id: p.id, n: p.n, c: p.c, pr: p.pr, opr: p.opr || 0, st: Math.max(0, p.st), img: p.img || '', sku: p.sku || '', u: p.u || '' }));
-    const key = 'jpos:cat:' + SID, h = String(items.length) + ':' + (await sha(JSON.stringify(items))).slice(0, 16);
+    const key = 'jpos:cat2:' + SID, h = String(items.length) + ':' + (await sha(JSON.stringify(items))).slice(0, 16);
     if (!force && LS.get(key, '') == h) return;
-    try { await post('/api/shop/catalog', { items }); LS.set(key, h); if (force) toast(items.length + ' produk tampil di pasar online'); } catch (e) { if (force) toast(e.message); }
+    try { await post('/api/shop/catalog', { items, shop: { lat: S.set.glat, lng: S.set.glng, addr: S.set.addr || '' } }); LS.set(key, h); if (force) toast(items.length + ' produk tampil di pasar online'); } catch (e) { if (force) toast(e.message); }
   }, force ? 10 : 4000);
 }
 async function pollOrders(render) {
@@ -33,8 +33,9 @@ setInterval(() => { if (U && S && S.srv) pollOrders(true); }, 30000);
 
 VW.onl = () => {
   if (!S.srv) return `<div class="cd"><h3>Toko online</h3><p class="mu">Fitur pasar online butuh toko yang terdaftar di server (bukan mode lokal/demo).</p></div>`;
-  const tabs = `<div class="seg" style="margin-top:0">${[['ord', 'Pesanan'], ['chat', 'Chat pembeli'], ['set', 'Pengaturan']].map((t) => `<button class="${ONL.tab == t[0] ? 'a' : ''}" onclick="ONL.tab='${t[0]}';R()">${t[1]}${t[0] == 'ord' && ONL.orders.filter(needAct).length ? ' (' + ONL.orders.filter(needAct).length + ')' : ''}</button>`).join('')}</div>`;
+  const tabs = `<div class="seg sc-tabs" style="margin-top:0">${[['sum', '📊 Ringkasan'], ['ord', '📦 Pesanan'], ['promo', '⚡ Promo'], ['konten', '🎬 Konten'], ['ulasan', '⭐ Ulasan'], ['chat', '💬 Chat'], ['set', '⚙️ Toko']].map((t) => `<button class="${ONL.tab == t[0] ? 'a' : ''}" onclick="ONL.tab='${t[0]}';R()">${t[1]}${t[0] == 'ord' && ONL.orders.filter(needAct).length ? ' (' + ONL.orders.filter(needAct).length + ')' : ''}</button>`).join('')}</div>`;
   if (ONL.tab == 'set') return tabs + `<div id="onlset" class="cd"><p class="mu">Memuat pengaturan…</p></div>`;
+  if (['sum', 'promo', 'konten', 'ulasan'].includes(ONL.tab)) return tabs + `<div id="onlx"><div class="cd"><p class="mu">Memuat…</p></div></div>`;
   if (ONL.tab == 'chat') return tabs + `<div id="onlchat" class="cd"><p class="mu">Memuat chat…</p></div>`;
   const F = { act: (o) => needAct(o) || ['nego_toko', 'diproses', 'dikirim'].includes(o.status) || (!o.paid && o.status == 'selesai'), run: (o) => ['nego_toko', 'diproses', 'dikirim'].includes(o.status), done: (o) => o.status == 'selesai', unpaid: (o) => !o.paid && !['batal', 'ditolak'].includes(o.status), x: (o) => ['batal', 'ditolak'].includes(o.status), all: () => 1 };
   const L = ONL.orders.filter(F[ONL.f]), cnt = (k) => ONL.orders.filter(F[k]).length;
@@ -46,7 +47,7 @@ VW.onl = () => {
 };
 VW.onl.after = () => {
   if (!S.srv) return;
-  if (ONL.tab == 'set') onlSettings(); else if (ONL.tab == 'chat') onlChats();
+  if (ONL.tab == 'set') onlSettings(); else if (ONL.tab == 'chat') onlChats(); else if (SC[ONL.tab]) SC[ONL.tab]();
   else if (!ONL.loaded) { ONL.loaded = 1; pollOrders(true); }
 };
 function ordCard(o) {
@@ -152,3 +153,46 @@ function bChatOpen(bid, name) {
   $('#cs', m).onclick = send; $('#ci', m).onkeydown = (e) => { if (e.key == 'Enter') send(); }; $('#cx', m).onclick = () => m.close();
   m.onclose = () => clearInterval(timer); load(); timer = setInterval(load, 4000);
 }
+
+/* ============ SELLER CENTER: ringkasan, promo (flash sale & voucher), konten, ulasan ============ */
+const scEl = () => $('#onlx');
+const SC = {
+  async sum() {
+    let d; try { d = await api('/api/shop/stats'); } catch (e) { return scEl() && (scEl().innerHTML = '<p class="rd">' + esc(e.message) + '</p>'); }
+    if (!scEl()) return; const need = ONL.orders.filter(needAct).length;
+    const days14 = days(14).map((x) => ({ l: x.l, v: (d.daily.find((y) => y.d == x.k) || {}).v || 0 }));
+    scEl().innerHTML = `<div class="cd hero"><small>Seller Center · ${esc(S.name)}</small><h2>${rp(d.omz)}</h2><small>omzet online 30 hari · ${d.orders} pesanan · ${d.buyers} pembeli</small></div>
+${need ? `<div class="cd info"><div class="row" style="margin:0"><b>📦 ${need} pesanan perlu tindakan</b><button class="gh a" onclick="ONL.tab='ord';R()">Proses</button></div></div>` : ''}
+${kpi([['Dilihat (7 hari)', d.views, d.uniq + ' pengunjung unik'], ['Konversi', d.conv + '%', 'pengunjung → pembeli'], ['Pengikut', d.followers], ['Rating toko', d.rt ? '⭐ ' + d.rt : '-', d.rc + ' ulasan'], ['Kunjungan toko', d.shopViews], ['Dibatalkan', d.cancel]])}
+<div class="cd"><h3>Pengunjung 14 hari</h3>${area(days14, (v) => v + ' x')}</div>
+<div class="two"><div class="cd"><h3>👀 Paling sering dilihat</h3>${d.topViews.map((x) => row(esc(x.n), x.cnt + 'x')).join('') || '<small class="mu">Belum ada</small>'}</div><div class="cd"><h3>🔥 Terlaris online</h3>${d.topSold.filter((x) => x.sold).map((x) => row(esc(x.n), x.sold + ' terjual')).join('') || '<small class="mu">Belum ada</small>'}</div></div>
+<div class="cd"><h3>Tips naikkan penjualan</h3><small class="mu">• Pasang foto produk yang jelas (Produk → Edit → Foto)<br>• Buat Flash Sale & voucher di tab Promo<br>• Posting promo di tab Konten agar muncul di feed "Untukmu" pembeli<br>• Balas chat & ulasan dengan cepat</small></div>`;
+  },
+  async promo() {
+    let f, v; try { [f, v] = await Promise.all([api('/api/shop/flash'), api('/api/shop/vouchers')]); } catch (e) { return scEl() && (scEl().innerHTML = '<p class="rd">' + esc(e.message) + '</p>'); }
+    if (!scEl()) return; const P = S.p.filter((p) => !p.x && p.on !== false && p.st > 0), boss = ['owner', 'admin'].includes(U.r);
+    scEl().innerHTML = `<div class="cd"><h3>⚡ Flash Sale</h3><small class="mu">Harga promo terbatas waktu, tampil di bagian Flash Sale beranda pembeli dengan hitung mundur.</small>
+${boss ? `<div class="fm" style="margin-top:8px"><select id="fp">${P.map((p) => `<option value="${esc(p.id)}">${esc(p.n)} — ${rp(p.opr || p.pr)}</option>`).join('')}</select><div class="fm2"><input id="fh" type="number" placeholder="Harga flash sale"><select id="fd"><option value="3">3 jam</option><option value="6">6 jam</option><option value="24" selected>24 jam</option><option value="72">3 hari</option><option value="168">7 hari</option></select></div><button class="pr" onclick="scFlash()">Mulai flash sale</button></div>` : ''}
+${f.flash.map((x) => `<div class="row"><span>${esc(x.n || x.pid)}<br><small class="mu">${rp(x.price)} <s>${rp(x.opr || x.pr || 0)}</s> · ${x.end > Date.now() ? 'sampai ' + tstr(x.end) : '<span class="rd">berakhir</span>'}</small></span>${boss ? `<button class="gh d" onclick="scDel('flash','pid=${esc(x.pid)}')">Hapus</button>` : ''}</div>`).join('') || '<small class="mu">Belum ada flash sale.</small>'}</div>
+<div class="cd"><h3>🎟️ Voucher toko</h3><small class="mu">Pembeli memasukkan kode saat checkout.</small>
+${boss ? `<div class="fm" style="margin-top:8px"><div class="fm2"><input id="vc" placeholder="Kode (mis. HEMAT10)" style="text-transform:uppercase"><select id="vt"><option value="pct">Diskon %</option><option value="amt">Potongan Rp</option></select></div><div class="fm2"><input id="vv" type="number" placeholder="Nilai (10 = 10% / Rp)"><input id="vm" type="number" placeholder="Min. belanja (Rp)"></div><div class="fm2"><input id="vx" type="number" placeholder="Maks. potongan (Rp, opsional)"><input id="vq" type="number" placeholder="Kuota (0 = tak terbatas)"></div><label><small class="mu">Berlaku sampai (opsional)</small><input id="ve" type="date"></label><button class="pr" onclick="scVoucher()">Buat voucher</button></div>` : ''}
+${v.vouchers.map((x) => `<div class="row"><span><b>${esc(x.code)}</b> · ${x.typ == 'pct' ? x.val + '%' : rp(x.val)}${x.maxd ? ' (maks ' + rp(x.maxd) + ')' : ''}<br><small class="mu">min ${rp(x.min || 0)} · dipakai ${x.used}${x.quota ? '/' + x.quota : ''}${x.exp ? ' · s/d ' + dstr(x.exp) : ''}</small></span>${boss ? `<button class="gh d" onclick="scDel('vouchers','id=${x.id}')">Hapus</button>` : ''}</div>`).join('') || '<small class="mu">Belum ada voucher.</small>'}</div>`;
+  },
+  async konten() {
+    let r; try { r = await api('/api/shop/posts'); } catch (e) { return scEl() && (scEl().innerHTML = '<p class="rd">' + esc(e.message) + '</p>'); }
+    if (!scEl()) return; const P = S.p.filter((p) => !p.x && p.on !== false);
+    scEl().innerHTML = `<div class="cd"><h3>🎬 Buat postingan</h3><small class="mu">Tampil di feed "Untukmu" & banner beranda pembeli (seperti konten TikTok Shop).</small><div class="fm" style="margin-top:8px"><label class="gh">📷 Pilih foto<input id="ki" type="file" accept="image/*"></label><img id="kpv" style="display:none;width:100%;border-radius:12px"><textarea id="kt" rows="3" placeholder="Tulis promo… mis. 'Stok baru datang! Diskon grosir min 10 dus 🔥'"></textarea><select id="kp"><option value="">— tautkan produk (opsional) —</option>${P.map((p) => `<option value="${esc(p.id)}">${esc(p.n)}</option>`).join('')}</select><button class="pr" onclick="scPost()">Posting</button></div></div>
+${r.posts.map((p) => `<div class="cd">${p.img ? `<img src="${esc(p.img)}" style="width:100%;border-radius:12px">` : ''}<p>${esc(p.txt)}</p><div class="row"><small class="mu">❤️ ${p.likes} suka · ${tstr(p.t)}</small><button class="gh d" onclick="scDel('posts','id=${p.id}')">Hapus</button></div></div>`).join('')}`;
+    $('#ki').onchange = async (e) => { const f = e.target.files[0]; if (!f) return; ONL.kimg = await imgData(f, 720); const pv = $('#kpv'); pv.src = ONL.kimg; pv.style.display = 'block'; };
+  },
+  async ulasan() {
+    let r; try { r = await api('/api/shop/reviews'); } catch (e) { return scEl() && (scEl().innerHTML = '<p class="rd">' + esc(e.message) + '</p>'); }
+    if (!scEl()) return; const avg = r.reviews.length ? (r.reviews.reduce((a, x) => a + x.stars, 0) / r.reviews.length).toFixed(1) : '-';
+    scEl().innerHTML = `<div class="cd hero"><small>Rating toko</small><h2>⭐ ${avg}</h2><small>${r.reviews.length} ulasan</small></div>` + (r.reviews.map((x) => `<div class="cd"><small><b>${esc(x.bn)}</b> · ${'⭐'.repeat(x.stars)} · ${esc(x.n || '')} · ${dstr(x.t)}</small><p style="margin:4px 0">${esc(x.txt || '(tanpa komentar)')}</p>${x.reply ? `<small class="mu">↳ Balasan Anda: ${esc(x.reply)}</small>` : `<button class="gh" onclick="scReply(${x.id})">Balas</button>`}</div>`).join('') || '<div class="cd"><p class="mu">Belum ada ulasan.</p></div>');
+  },
+};
+async function scFlash() { try { await post('/api/shop/flash', { pid: $('#fp').value, price: num($('#fh').value), end: Date.now() + num($('#fd').value) * 36e5 }); toast('Flash sale dimulai ⚡'); SC.promo(); } catch (e) { toast(e.message); } }
+async function scVoucher() { try { const e = $('#ve').value; await post('/api/shop/vouchers', { code: $('#vc').value, typ: $('#vt').value, val: num($('#vv').value), min: num($('#vm').value), maxd: num($('#vx').value), quota: num($('#vq').value), exp: e ? new Date(e + 'T23:59:59').getTime() : 0 }); toast('Voucher dibuat 🎟️'); SC.promo(); } catch (e) { toast(e.message); } }
+async function scPost() { try { await post('/api/shop/posts', { img: ONL.kimg || '', txt: $('#kt').value, pid: $('#kp').value }); ONL.kimg = ''; toast('Postingan tayang 🎬'); SC.konten(); } catch (e) { toast(e.message); } }
+async function scDel(k, q) { if (!confirm('Hapus?')) return; try { await api('/api/shop/' + k + '?' + q, { method: 'DELETE' }); SC[k == 'posts' ? 'konten' : 'promo'](); } catch (e) { toast(e.message); } }
+async function scReply(id) { const t = prompt('Balasan untuk ulasan ini:'); if (!t) return; try { await post('/api/shop/reviews', { id, reply: t }); SC.ulasan(); } catch (e) { toast(e.message); } }

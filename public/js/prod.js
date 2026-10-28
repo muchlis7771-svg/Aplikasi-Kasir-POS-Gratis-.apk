@@ -33,7 +33,7 @@ function prodForm(id, sku) {
     const sk = $('#fk', m).value.trim(); if (sk && S.p.some((x) => !x.x && x.sku == sk && x.id != (p && p.id))) return toast('SKU sudah dipakai produk lain');
     const f = $('#fi', m).files[0], d = { id: p ? p.id : 'p' + uid(), n, c: $('#fc', m).value.trim() || 'Umum', pr, sku: sk, min: num($('#fm', m).value), opr: num($('#fo', m).value) || 0, u: $('#fu', m).value.trim(), on: $('#fon', m).checked, tiers: tr.filter((t) => t.min > 1 && cfac(t.d) < 1).map((t) => ({ min: t.min, d: t.d })) };
     const co = num($('#fh', m).value); if (!p) { d.co = co; d.s0 = num(($('#fs', m) || {}).value); } else if (co != p.co) d.co = co;
-    if (f) d.img = await imgData(f);
+    if (f) d.img = await imgData(f, 360);
     emit('pu', { p: d }); m.close(); R(); toast('Produk disimpan');
   };
   const ar = $('#ar', m); if (ar) ar.onclick = () => { if (confirm('Arsipkan ' + p.n + '? Produk disembunyikan dari kasir (riwayat tetap ada).')) { emit('pu', { p: { id: p.id, x: 1 } }); m.close(); R(); } };

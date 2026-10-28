@@ -1,4 +1,5 @@
 import { MSCHEMA, buyerRoutes, shopRoutes, shipCfg } from './market.js';
+import { SSCHEMA, SALTER, logAct, heartbeat, adminActivity } from './social.js';
 // J-POS API v4 — Cloudflare Worker + D1 (SQLite)
 // Multi-tenant: 1 toko = 1 tenant. Data bisnis = LOG KEJADIAN (tabel ev) yang diputar ulang tiap perangkat (offline-first).
 // v4: peran owner/admin/akuntan/kasir/sales, masa aktif toko (trial 30 hari + perpanjangan oleh Head Admin),
@@ -42,7 +43,8 @@ const SCHEMA = [
 let READY = null;
 function ready(env) {
   if (!READY) READY = (async () => {
-    await env.DB.batch([...SCHEMA, ...MSCHEMA].map((q) => env.DB.prepare(q)));
+    await env.DB.batch([...SCHEMA, ...MSCHEMA, ...SSCHEMA].map((q) => env.DB.prepare(q)));
+    for (const c of SALTER) { try { await env.DB.prepare('ALTER TABLE ' + c).run(); } catch (e) { } }
     for (const c of ['phone TEXT', 'exp INTEGER', "plan TEXT DEFAULT 'trial'", 'note TEXT']) { try { await env.DB.prepare('ALTER TABLE stores ADD COLUMN ' + c).run(); } catch (e) { } }
   })().catch((e) => { READY = null; throw e; });
   return READY;
@@ -112,6 +114,7 @@ export default {
             env.DB.prepare('INSERT INTO staff(store_id,name,role,pin_hash,created) VALUES(?,?,?,?,?)').bind(id, owner, 'owner', await hp(pin, id, owner), now),
           ]);
         } catch { return J({ e: 'Email atau kode toko sudah terdaftar' }, 409); }
+        await logAct(env, 'staff', owner, owner, id, 'daftar toko baru', store);
         return J({ token: await sign(env, { sid: id, name: owner, exp: now + 30 * DAY }), role: 'owner', name: owner, sn: store, exp, plan: 'trial', status: 'active' });
       }
       if (p == '/api/login' && M == 'POST') {
@@ -120,7 +123,20 @@ export default {
         const r = await env.DB.prepare('SELECT st.name,st.role,st.pin_hash,s.status,s.name sn,s.exp,s.plan FROM staff st JOIN stores s ON s.id=st.store_id WHERE st.store_id=? AND st.name=?').bind(id, name).first();
         if (!r || !(await same(r.pin_hash, await hp(b.pin || '', id, r.name)))) return J({ e: 'Kode toko, nama, atau PIN salah' }, 401);
         if (r.status != 'active') return J({ e: 'Toko disuspend oleh pemilik aplikasi' }, 403);
+        await logAct(env, 'staff', r.name, r.name, id, 'login ' + r.role, null);
         return J({ token: await sign(env, { sid: id, name: r.name, exp: Date.now() + 30 * DAY }), role: r.role, name: r.name, ...stInfo(r) });
+      }
+
+      // ---------- kehadiran (siapa sedang online) ----------
+      if (p == '/api/hb' && M == 'POST') {
+        const tk = await verify(env, bearer); if (!tk) return J({ ok: 0 });
+        let who;
+        if (tk.role == 'buyer') { const r = await env.DB.prepare('SELECT name FROM buyers WHERE id=?').bind(tk.bid).first(); if (!r) return J({ ok: 0 }); who = { k: 'b' + tk.bid, typ: 'buyer', name: r.name, role: 'pembeli' }; }
+        else if (tk.role == 'super') who = { k: 'hq', typ: 'admin', name: 'Head Admin', role: 'head admin' };
+        else if (tk.sid) { const r = await env.DB.prepare('SELECT role FROM staff WHERE store_id=? AND name=?').bind(tk.sid, tk.name).first(); if (!r) return J({ ok: 0 }); who = { k: 's:' + tk.sid + ':' + tk.name.toLowerCase(), typ: 'staff', name: tk.name, sid: tk.sid, role: r.role }; }
+        else return J({ ok: 0 });
+        await heartbeat(env, who, b.page, (req.headers.get('User-Agent') || '').replace(/^.*\((.*?)\).*$/, '$1'));
+        return J({ ok: 1 });
       }
 
       // ---------- pasar online: pembeli ----------
@@ -130,11 +146,13 @@ export default {
       if (p == '/api/admin/login' && M == 'POST') {
         if (await limited(env, 'adm:' + ip, 8, 9e5)) return J({ e: 'Terlalu banyak percobaan, coba lagi 15 menit' }, 429);
         if (!(await adminOk(env, b.user, b.pass))) return J({ e: 'Username atau password salah' }, 401);
+        await logAct(env, 'admin', 'hq', 'Head Admin', null, 'login head admin', ip);
         return J({ token: await sign(env, { role: 'super', exp: Date.now() + 12 * 36e5 }) });
       }
       if (p.startsWith('/api/admin/')) {
         const a = await verify(env, bearer);
         if (!a || a.role != 'super') return J({ e: 'Unauthorized' }, 401);
+        if (p == '/api/admin/activity' && M == 'GET') return J(await adminActivity(env, u));
         if (p == '/api/admin/stores' && M == 'GET') {
           const r = await env.DB.prepare(`SELECT s.id,s.name,s.owner,s.email,s.phone,s.status,s.created,s.exp,s.plan,s.note,
               (SELECT COUNT(*) FROM staff WHERE store_id=s.id) users, COALESCE(e.n,0) tx, COALESCE(e.o,0) omzet, e.last
@@ -243,11 +261,11 @@ export default {
             done.push(x.no);
             if (allow && !allow.includes(x.k)) { rej.push({ no: x.no, e: 'peran ' + role + ' tidak boleh ' + x.k }); continue; }
             const ev = { ...x, u: uname, r: role }, d = JSON.stringify(ev);
-            if (d.length > 30000) { rej.push({ no: x.no, e: 'terlalu besar' }); continue; }
+            if (d.length > 150000) { rej.push({ no: x.no, e: 'terlalu besar' }); continue; }
             const tot = x.k == 'sale' ? Math.round(+x.tot) || 0 : x.k == 'retur' ? -Math.abs(Math.round(+x.tot) || 0) : 0;
             st.push(env.DB.prepare('INSERT OR IGNORE INTO ev(store_id,no,k,t,tot,data) VALUES(?,?,?,?,?,?)').bind(sid, x.no, x.k, Math.round(x.t), tot, d));
           }
-          if (st.length) await env.DB.batch(st);
+          if (st.length) { await env.DB.batch(st); const kinds = {}; for (const x of b.items || []) if (x && x.k) kinds[x.k] = (kinds[x.k] || 0) + 1; await logAct(env, 'staff', uname, uname, sid, 'sinkron data', Object.entries(kinds).map(([k, n]) => k + '×' + n).join(', ')); }
           return J({ done, rej, st: stInfo(me) });
         }
         if (M == 'GET') {

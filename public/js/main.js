@@ -11,7 +11,15 @@ const TABS = { owner: ['dash', 'pos', 'onl', 'prod'], admin: ['dash', 'pos', 'on
 const pages = () => ORDER.filter((k) => can(k));
 const pgName = (k) => (k == 'pos' && U && U.r == 'sales' ? 'Order' : PAGES[k][1]);
 let MODE = 'home', SRV = '';
-function go(v) { const m = $('.md.menu'); if (m) m.close(); V = v; R(); window.scrollTo(0, 0); }
+function go(v) { const m = $('.md.menu'); if (m) m.close(); V = v; R(); window.scrollTo(0, 0); hb(v); }
+// laporan kehadiran ke server (dipantau Head Admin): halaman aktif tiap pengguna
+function hb(page) {
+  try {
+    const tk = MODE == 'buyer' ? BY.tk : HT && MODE == 'ha' ? HT : U && S && S.srv ? TK() : '';
+    if (!tk || !canNet()) return; api('/api/hb', { method: 'POST', body: JSON.stringify({ page: page || (MODE == 'buyer' ? 'b:' + BY.pg : MODE == 'ha' ? 'ha' : V) }) }, tk).catch(() => { });
+  } catch (e) { }
+}
+setInterval(() => hb(), 60000);
 function mode(m) { MODE = m; R(); }
 const expTxt = () => { const d = daysLeft(); return d == null ? '-' : (S.plan == 'trial' ? 'Masa coba · ' : (S.plan ? S.plan + ' · ' : '')) + (d < 0 ? '<b class="rd">habis ' + dstr(S.exp) + '</b>' : 's/d ' + dstr(S.exp) + ' (' + d + ' hari)'); };
 
@@ -27,6 +35,7 @@ function expBanner() {
 function R() {
   const app = $('#app'); if (!app) return;
   document.body.classList.toggle('in', MODE == 'buyer' || !!(U && S && !(HT && MODE == 'ha')));
+  if (MODE != 'buyer') document.body.classList.remove('buyer');
   if (HT && MODE == 'ha') { app.innerHTML = haShell(); return; }
   if (MODE == 'buyer') { app.innerHTML = buyerShell(); bAfter(); return; }
   if (!U || !S) { app.innerHTML = homeView(); if (MODE == 'home') checkSrv(); return; }
@@ -85,7 +94,9 @@ async function startDemo() {
   quickLogin('demo'); $('#lnm').value = 'Owner'; $('#lpn').value = '1234'; toast('Demo siap. Login: Owner/1234 · Admin/5555 · Kasir/1111 · Akuntan/2222 · Sales/3333', 8000);
 }
 function haShell() {
-  return `<div class="ha"><div class="row"><h2 class="lg1">🛠 Head Admin</h2><span class="wrap"><button class="gh" onclick="haLoad()">⟳</button><button class="gh d" onclick="haOut();MODE='home';R()">Keluar</button></span></div>${haView()}</div>`;
+  const t = HA.tab || 'dash';
+  if (t == 'act') { clearInterval(HAA.t); HAA.t = setInterval(() => { if (MODE == 'ha' && HA.tab == 'act') haAct(); else clearInterval(HAA.t); }, 20000); if (!HAA.d) haAct(); }
+  return `<div class="ha"><div class="row"><h2 class="lg1">🛠 Head Admin</h2><span class="wrap"><button class="gh" onclick="${t == 'act' ? 'haAct()' : 'haLoad()'}">⟳</button><button class="gh d" onclick="haOut();MODE='home';R()">Keluar</button></span></div><div class="seg" style="margin:0">${[['dash', '📊 Toko & langganan'], ['act', '👁️ Pengunjung & aktivitas']].map((x) => `<button class="${t == x[0] ? 'a' : ''}" onclick="HA.tab='${x[0]}';R()">${x[1]}</button>`).join('')}</div>${t == 'act' ? haActView() : haView()}</div>`;
 }
 
 /* ---------- boot ---------- */
