@@ -1,7 +1,7 @@
 // Service worker: cache aplikasi agar bisa dibuka offline. API tidak di-cache.
-const V = 'jpos-v4', ASSETS = ['./', 'index.html', 'config.js', 'manifest.webmanifest', 'css/app.css', 'icons/icon-192.png', 'icons/icon-512.png',
+const V = 'jpos-v5', ASSETS = ['./', 'index.html', 'config.js', 'manifest.webmanifest', 'css/app.css', 'icons/icon-192.png', 'icons/icon-512.png',
   'vendor/leaflet.js', 'vendor/leaflet.css', 'vendor/xlsx.full.min.js', 'vendor/jspdf.umd.min.js', 'vendor/jspdf.plugin.autotable.min.js', 'vendor/zxing.min.js',
-  ...['core', 'native', 'net', 'charts', 'pos', 'prod', 'outlet', 'report', 'export', 'team', 'dash', 'demo', 'main'].map((n) => 'js/' + n + '.js')];
+  ...['core', 'native', 'net', 'charts', 'pos', 'prod', 'outlet', 'report', 'export', 'team', 'dash', 'online', 'ana', 'buyer', 'demo', 'main'].map((n) => 'js/' + n + '.js')];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(V).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((k) => Promise.all(k.filter((x) => x != V).map((x) => caches.delete(x)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', (e) => {

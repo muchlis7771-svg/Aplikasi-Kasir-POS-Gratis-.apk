@@ -39,6 +39,7 @@ async function sync() {
     }
     await chatFlush();
     SY.state = 'ok'; SY.last = Date.now(); S.reauth = false; save();
+    if (typeof publishCatalog == 'function') publishCatalog();
   } catch (e) {
     SY.state = e.net ? 'off' : 'err'; SY.err = e.message;
     if (e.status == 401) { S.reauth = true; }
@@ -82,7 +83,7 @@ async function enterStore(id, r, pin) {
   U = { n: r.name, r: r.role }; LS.set('jpos:last', { id, name: r.name }); save();
   V = defView(U.r);
   if (!S.ec) { R(); $('#app').insertAdjacentHTML('afterbegin', '<div class="lo cd"><h3>Mengunduh data toko…</h3><small class="mu">Pertama kali di perangkat ini</small></div>'); }
-  await sync(); R(); chatPoll(true);
+  await sync(); R(); chatPoll(true); if (typeof pollOrders == 'function') { ONL.seen = -1; pollOrders(); }
 }
 async function loginOnline(id, name, pin) { const r = await post('/api/login', { id, name, pin }, ''); await enterStore(id, r, pin); }
 async function loginLocal(id, name, pin) {

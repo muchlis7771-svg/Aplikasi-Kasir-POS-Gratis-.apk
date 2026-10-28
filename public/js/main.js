@@ -4,10 +4,10 @@ const PAGES = {
   dash: ['🏠', 'Beranda', 'Ringkasan hari ini'], pos: ['🛒', 'Kasir', 'Jual & cetak struk'], his: ['🧾', 'Riwayat', 'Transaksi & pelunasan'],
   prod: ['📦', 'Produk', 'Stok, harga, barcode'], outlet: ['📍', 'Outlet', 'Pelanggan, peta, kredit'], lap: ['📊', 'Laporan', 'Penjualan & keuangan'],
   keu: ['💰', 'Keuangan', 'Kas, piutang, utang'], jur: ['📒', 'Jurnal', 'Biaya & jurnal manual'], abs: ['🕒', 'Absensi', 'Masuk / pulang'],
-  chat: ['💬', 'Chat', 'Tim & antar toko'], usr: ['👥', 'Pengguna', 'Karyawan & PIN'], set: ['⚙️', 'Pengaturan', 'Toko, akun, data'],
+  chat: ['💬', 'Chat', 'Tim & antar toko'], onl: ['🛍️', 'Toko Online', 'Pesanan pembeli online'], ana: ['🎯', 'Analisa', 'Saran order & kredit'], usr: ['👥', 'Pengguna', 'Karyawan & PIN'], set: ['⚙️', 'Pengaturan', 'Toko, akun, data'],
 };
-const ORDER = ['dash', 'pos', 'his', 'prod', 'outlet', 'lap', 'keu', 'jur', 'abs', 'chat', 'usr', 'set'];
-const TABS = { owner: ['dash', 'pos', 'prod', 'lap'], admin: ['dash', 'pos', 'prod', 'lap'], akuntan: ['dash', 'keu', 'lap', 'jur'], kasir: ['pos', 'dash', 'his', 'abs'], sales: ['dash', 'outlet', 'pos', 'abs'] };
+const ORDER = ['dash', 'pos', 'onl', 'his', 'prod', 'outlet', 'ana', 'lap', 'keu', 'jur', 'abs', 'chat', 'usr', 'set'];
+const TABS = { owner: ['dash', 'pos', 'onl', 'prod'], admin: ['dash', 'pos', 'onl', 'prod'], akuntan: ['dash', 'keu', 'lap', 'jur'], kasir: ['pos', 'dash', 'his', 'abs'], sales: ['dash', 'outlet', 'ana', 'pos'] };
 const pages = () => ORDER.filter((k) => can(k));
 const pgName = (k) => (k == 'pos' && U && U.r == 'sales' ? 'Order' : PAGES[k][1]);
 let MODE = 'home', SRV = '';
@@ -26,8 +26,9 @@ function expBanner() {
 
 function R() {
   const app = $('#app'); if (!app) return;
-  document.body.classList.toggle('in', !!(U && S && !(HT && MODE == 'ha')));
+  document.body.classList.toggle('in', MODE == 'buyer' || !!(U && S && !(HT && MODE == 'ha')));
   if (HT && MODE == 'ha') { app.innerHTML = haShell(); return; }
+  if (MODE == 'buyer') { app.innerHTML = buyerShell(); bAfter(); return; }
   if (!U || !S) { app.innerHTML = homeView(); if (MODE == 'home') checkSrv(); return; }
   if (!can(V) || !VW[V]) V = can('dash') ? 'dash' : pages()[0];
   let body;
@@ -36,9 +37,10 @@ function R() {
   const tabs = TABS[U.r].filter((k) => can(k));
   app.innerHTML = `<header><button class="av" onclick="acctMenu()">${S.logo ? `<img src="${esc(S.logo)}" alt="">` : esc((S.name || '?')[0].toUpperCase())}</button><div class="hn"><b>${esc(S.name)}</b><small>${esc(U.n)} · ${esc(ROLE[U.r])}</small></div><span class="sp"></span><span id="sy" class="bd" onclick="sync().then(R)"></span></header>
 <main><div class="pt"><span>${PAGES[V][0]}</span><h2>${esc(pgName(V))}</h2></div>${banner}${expBanner()}${body}</main>
-<nav class="bn">${tabs.map((k) => `<button class="${V == k ? 'a' : ''}" onclick="go('${k}')"><i>${PAGES[k][0]}</i><span>${esc(pgName(k))}</span>${k == 'chat' ? '<em id="nb-chat"></em>' : ''}</button>`).join('')}<button class="${tabs.includes(V) ? '' : 'a'}" onclick="menuSheet()"><i>☰</i><span>Menu</span><em id="nb-menu"></em></button></nav>`;
+<nav class="bn">${tabs.map((k) => `<button class="${V == k ? 'a' : ''}" onclick="go('${k}')"><i>${PAGES[k][0]}</i><span>${esc(pgName(k))}</span>${k == 'chat' ? '<em id="nb-chat"></em>' : k == 'onl' ? '<em id="nb-onl"></em>' : ''}</button>`).join('')}<button class="${tabs.includes(V) ? '' : 'a'}" onclick="menuSheet()"><i>☰</i><span>Menu</span><em id="nb-menu"></em></button></nav>`;
   updBadge();
   const f = VW[V].after; if (f) try { f(); } catch (e) { console.error(e); }
+  if (S.srv && can('onl')) onlBadge();
   if (typeof CH != 'undefined' && CH.unread && V != 'chat') { const nb = $('#nb-chat') || $('#nb-menu'); if (nb) { nb.textContent = CH.unread; nb.style.display = 'grid'; } }
 }
 function menuSheet() {
@@ -66,7 +68,7 @@ function homeView() {
   if (MODE == 'ha') return head + `<div class="cd fm" style="text-align:left"><h3>🛠 Head Admin (pemilik aplikasi)</h3><input id="hu" placeholder="Username" autocapitalize="none" autocomplete="off"><input id="hp" type="password" placeholder="Password" onkeydown="if(event.key=='Enter')doHaUi()"><button class="pr" onclick="doHaUi()">Masuk</button>${back}<small class="mu" id="srvst">${srvTxt()}</small></div></div>`;
   if (MODE == 'srv') return head + `<div class="cd fm" style="text-align:left"><h3>Alamat server</h3><input id="sv" placeholder="https://jpos-api.akun.workers.dev" value="${esc(AP)}" autocapitalize="none"><button class="pr" onclick="saveApi().then(()=>{checkSrv.t=0;R()})">Simpan & tes koneksi</button><small class="mu">Biasanya tidak perlu diubah.</small>${back}</div></div>`;
   return head + `<div class="fm" style="text-align:left">${reg.length ? '<small class="mu">Toko di HP ini — ketuk untuk masuk</small>' : ''}${reg.map((r) => `<button class="us2" onclick="quickLogin('${esc(r.id)}')"><em>${esc((r.n || '?')[0].toUpperCase())}</em><span>${esc(r.n)}<br><small class="mu">${esc(r.id)}${r.demo ? ' · demo' : ''}</small></span><span class="sp"></span>›</button>`).join('')}
-<button class="pr" onclick="mode('login')">Masuk toko</button><button class="gh big" onclick="mode('reg')">+ Daftarkan toko baru (gratis ${info.trial || 30} hari)</button><button class="gh big" onclick="startDemo()">▶ Coba toko demo</button></div>
+<button class="pr shop" onclick="startBuyer()">🛍️ Belanja (pembeli)<br><small>Cari & pesan produk dari semua toko</small></button><small class="mu" style="margin-top:6px">Untuk pemilik & karyawan toko:</small><button class="pr" onclick="mode('login')">Masuk toko</button><button class="gh big" onclick="mode('reg')">+ Daftarkan toko baru (gratis ${info.trial || 30} hari)</button><button class="gh big" onclick="startDemo()">▶ Coba toko demo</button></div>
 <small class="mu" id="srvst">${srvTxt()}</small><div class="lnk"><button class="gh" onclick="mode('srv')">⚙ Server</button><button class="gh" onclick="mode('ha')">🛠 Head Admin</button></div></div>`;
 }
 function quickLogin(id) { const l = LS.get('jpos:last', {}) || {}; LS.set('jpos:last', { id, name: l.id == id ? l.name : '' }); MODE = 'login'; R(); setTimeout(() => { const n = $('#lnm'); if (!n) return; const e = n.value ? $('#lpn') : n; if (e) e.focus(); }, 50); }

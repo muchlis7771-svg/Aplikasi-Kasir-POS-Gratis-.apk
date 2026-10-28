@@ -1,3 +1,4 @@
+import { MSCHEMA, buyerRoutes, shopRoutes, shipCfg } from './market.js';
 // J-POS API v4 — Cloudflare Worker + D1 (SQLite)
 // Multi-tenant: 1 toko = 1 tenant. Data bisnis = LOG KEJADIAN (tabel ev) yang diputar ulang tiap perangkat (offline-first).
 // v4: peran owner/admin/akuntan/kasir/sales, masa aktif toko (trial 30 hari + perpanjangan oleh Head Admin),
@@ -41,7 +42,7 @@ const SCHEMA = [
 let READY = null;
 function ready(env) {
   if (!READY) READY = (async () => {
-    await env.DB.batch(SCHEMA.map((q) => env.DB.prepare(q)));
+    await env.DB.batch([...SCHEMA, ...MSCHEMA].map((q) => env.DB.prepare(q)));
     for (const c of ['phone TEXT', 'exp INTEGER', "plan TEXT DEFAULT 'trial'", 'note TEXT']) { try { await env.DB.prepare('ALTER TABLE stores ADD COLUMN ' + c).run(); } catch (e) { } }
   })().catch((e) => { READY = null; throw e; });
   return READY;
@@ -122,6 +123,9 @@ export default {
         return J({ token: await sign(env, { sid: id, name: r.name, exp: Date.now() + 30 * DAY }), role: r.role, name: r.name, ...stInfo(r) });
       }
 
+      // ---------- pasar online: pembeli ----------
+      if (p.startsWith('/api/b/')) return await buyerRoutes({ env, p, M, b, u, J, ip, bearer, limited, cfgAll, same, sign: (o) => sign(env, o), verify: (tk) => verify(env, tk), pbk: (pin, salt) => pbkdf2(pin, salt, 20000) });
+
       // ---------- Head Admin (pemilik aplikasi) ----------
       if (p == '/api/admin/login' && M == 'POST') {
         if (await limited(env, 'adm:' + ip, 8, 9e5)) return J({ e: 'Terlalu banyak percobaan, coba lagi 15 menit' }, 429);
@@ -144,7 +148,8 @@ export default {
             env.DB.prepare(`SELECT (SELECT COUNT(*) FROM stores) stores,(SELECT COUNT(*) FROM stores WHERE status='active') active,(SELECT COUNT(*) FROM staff) users,
               (SELECT COUNT(*) FROM stores WHERE exp<?1) expired,(SELECT COUNT(*) FROM stores WHERE exp>=?1 AND exp<?2) soon,(SELECT COUNT(*) FROM stores WHERE plan='trial' AND exp>=?1) trial,
               (SELECT COUNT(*) FROM stores WHERE plan!='trial' AND exp>=?1) paid,
-              COALESCE((SELECT SUM(tot) FROM ev),0) omzet,(SELECT COUNT(*) FROM ev WHERE k='sale') tx`).bind(now, now + 7 * DAY).first(),
+              COALESCE((SELECT SUM(tot) FROM ev),0) omzet,(SELECT COUNT(*) FROM ev WHERE k='sale') tx,
+              (SELECT COUNT(*) FROM buyers) buyers,(SELECT COUNT(*) FROM orders) orders,COALESCE((SELECT SUM(tot) FROM orders WHERE status='selesai'),0) gmv,(SELECT COUNT(*) FROM shop WHERE open=1) shops`).bind(now, now + 7 * DAY).first(),
             env.DB.prepare(`SELECT strftime('%Y-%m-%d',(t/1000)+?,'unixepoch') d,SUM(tot) v FROM ev WHERE k IN('sale','retur') AND t>? GROUP BY d ORDER BY d`).bind(tz, since).all(),
             env.DB.prepare(`SELECT strftime('%Y-%m-%d',(created/1000)+?,'unixepoch') d,COUNT(*) v FROM stores WHERE created>? GROUP BY d ORDER BY d`).bind(tz, since).all(),
             env.DB.prepare(`SELECT s.name,SUM(e.tot) v FROM ev e JOIN stores s ON s.id=e.store_id WHERE e.t>? GROUP BY e.store_id ORDER BY v DESC LIMIT 5`).bind(m30).all(),
@@ -156,8 +161,9 @@ export default {
             if (b.wa != null) await cfgSet(env, 'wa', String(b.wa).replace(/[^\d]/g, '').slice(0, 20));
             if (b.price != null) await cfgSet(env, 'price', String(b.price).slice(0, 300));
             if (b.trial_days != null) await cfgSet(env, 'trial_days', Math.max(1, Math.min(365, Math.round(+b.trial_days) || 30)));
+            for (const k of ['ship_base', 'ship_per_m', 'ship_road', 'ship_min', 'ship_max_km', 'ship_round']) if (b[k] != null && Number.isFinite(+b[k]) && +b[k] >= 0) await cfgSet(env, k, +b[k]);
           }
-          const c = await cfgAll(env); return J({ wa: c.wa || '', price: c.price || '', trial_days: +(c.trial_days || 30), user: c.admin_user || env.ADMIN_USER || 'headadmin' });
+          const c = await cfgAll(env); return J({ wa: c.wa || '', price: c.price || '', trial_days: +(c.trial_days || 30), user: c.admin_user || env.ADMIN_USER || 'headadmin', ship: shipCfg(c) });
         }
         if (p == '/api/admin/password' && M == 'POST') {
           const c = await cfgAll(env);
@@ -283,6 +289,8 @@ export default {
           return J({ ok: 1 });
         }
       }
+
+      if (p.startsWith('/api/shop/')) { const r = await shopRoutes({ env, p, M, b, u, J, sid, role, uname, EXP }); if (r) return r; }
 
       if (p == '/api/chat/rooms' && M == 'GET') {
         const r = await env.DB.prepare(`SELECT room,MAX(seq) last FROM chat WHERE room LIKE ? OR room LIKE ? GROUP BY room ORDER BY last DESC LIMIT 30`).bind('dm:' + sid + ':%', 'dm:%:' + sid).all();
