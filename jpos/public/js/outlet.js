@@ -24,20 +24,7 @@ async function nearMe() { toast('Mencari lokasi…', 1500); MYPOS = await getPos
 function orderFor(id) { cCu = id; V = 'pos'; R(); }
 function leafletOk() { return typeof L !== 'undefined' && L.map; }
 const mapPin = () => L.divIcon({ className: '', html: '<div style="width:22px;height:22px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#6c5ce7;border:3px solid #fff;box-shadow:0 2px 6px #0006"></div>', iconSize: [22, 22], iconAnchor: [11, 22] });
-/* Peta dasar: beberapa server cadangan. tile.openstreetmap.org sering menolak permintaan dari aplikasi Android (WebView) sehingga peta abu-abu. */
-const TILESRC = [
-  ['https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 20, attribution: '© OpenStreetMap © CARTO' }],
-  ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: '© Esri' }],
-  ['https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }],
-];
-let TILEI = Math.min(+(LS.get('jpos:tile', 0)) || 0, TILESRC.length - 1);
-function tiles(m, i, tried) {
-  const Lf = window.L; i = i == null ? TILEI : i; tried = tried || 0;
-  const ly = Lf.tileLayer(TILESRC[i][0], TILESRC[i][1]); let ok = 0, bad = 0;
-  ly.on('tileload', () => { if (!ok++ && TILEI != i) { TILEI = i; LS.set('jpos:tile', i); } });
-  ly.on('tileerror', () => { if (!ok && ++bad == 3 && m.hasLayer(ly) && tried + 1 < TILESRC.length) { m.removeLayer(ly); tiles(m, (i + 1) % TILESRC.length, tried + 1); } });
-  ly.addTo(m);
-}
+function tiles(m) { try { window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(m); } catch (e) { } }
 function drawMap() {
   const el = $('#omap'); if (!el) return;
   if (!leafletOk()) { el.innerHTML = '<p class="mu" style="padding:14px">Peta tidak tersedia.</p>'; return; }

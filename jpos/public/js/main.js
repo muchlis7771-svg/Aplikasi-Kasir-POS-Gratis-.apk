@@ -20,6 +20,24 @@ function hb(page) {
   } catch (e) { }
 }
 setInterval(() => hb(), 60000);
+/* ---- berbagi lokasi karyawan di lapangan (sales/kasir) ke pemilik toko, selama jam kerja & aplikasi dibuka ---- */
+let LOCG = { t: 0, lat: 0, lng: 0 };
+function clockedIn() { try { const td = (typeof myToday == 'function' ? myToday() : []); const last = td[td.length - 1]; return !!(last && last.k == 'in'); } catch (e) { return false; } }
+async function locPing(force) {
+  try {
+    if (!U || !S || !S.srv || MODE == 'buyer' || (HT && MODE == 'ha') || !canNet() || isExp()) return;
+    if (!['sales', 'kasir', 'admin'].includes(U.r)) return;
+    if (LS.get('jpos:sharing', '1') == '0') return;        // karyawan bisa menonaktifkan
+    if (!force && !clockedIn()) return;                     // hanya saat sudah absen masuk
+    if (!force && Date.now() - LOCG.t < 285000) return;     // maksimal tiap ~5 menit
+    const p = await getPos(); if (!p) return;
+    const moved = LOCG.t && haversine(LOCG.lat, LOCG.lng, p.lat, p.lng) < 60;
+    if (!force && moved && Date.now() - LOCG.t < 9e5) return; // diam di tempat: cukup tiap 15 mnt
+    LOCG = { t: Date.now(), lat: p.lat, lng: p.lng };
+    emit('loc', { lat: +p.lat.toFixed(6), lng: +p.lng.toFixed(6), acc: p.acc ? Math.round(p.acc) : null, pg: V });
+  } catch (e) { }
+}
+setInterval(() => locPing(), 60000);
 function mode(m) { MODE = m; R(); }
 const expTxt = () => { const d = daysLeft(); return d == null ? '-' : (S.plan == 'trial' ? 'Masa coba · ' : (S.plan ? S.plan + ' · ' : '')) + (d < 0 ? '<b class="rd">habis ' + dstr(S.exp) + '</b>' : 's/d ' + dstr(S.exp) + ' (' + d + ' hari)'); };
 
@@ -70,15 +88,18 @@ async function checkSrv() {
 const srvTxt = () => ({ ok: '<span class="gr">● Server online</span>', down: '<span class="rd">● Server belum aktif / tidak bisa dihubungi</span> — toko yang pernah dibuka tetap bisa dipakai offline', off: '<span class="or">● Offline</span> — toko yang pernah dibuka tetap bisa dipakai', none: '○ Mode lokal (server belum diatur)' }[SRV] || '○ Memeriksa server…');
 function homeView() {
   const reg = REG(), last = LS.get('jpos:last', null), info = LS.get('jpos:info', {}) || {};
-  const head = `<div class="lo"><div class="logo">🛒</div><h1 class="lg1">J-POS</h1><small class="mu">Kasir, stok & akuntansi untuk toko grosir / distributor<br>bisa online & offline</small>`;
+  const splash = `<div class="splash"><div class="logo">🛒</div><h1>J-POS</h1><span class="tag">Kasir • Stok • Akuntansi • Grosir &amp; Distributor</span><div class="feat"><i>⚡ Online &amp; Offline</i><i>👥 Multi-user</i><i>🛍️ Pasar online</i><i>📊 Analisa cerdas</i></div></div>`;
+  const head = `<div class="lo">${splash}`;
   const back = `<button class="gh big" onclick="mode('home')">← Kembali</button>`;
   if (MODE == 'login') return head + `<div class="cd fm" style="text-align:left"><h3>Masuk ke toko</h3><label><small class="mu">Kode toko (dari pemilik toko)</small><input id="lid" placeholder="mis. tokomaju" autocapitalize="none" autocomplete="off" value="${esc(last ? last.id : '')}"></label><label><small class="mu">Nama pengguna</small><input id="lnm" placeholder="Nama Anda" autocomplete="off" value="${esc(last ? last.name : '')}"></label><label><small class="mu">PIN</small><input id="lpn" type="password" inputmode="numeric" placeholder="••••" onkeydown="if(event.key=='Enter')doLoginUi()"></label><button class="pr" onclick="doLoginUi()">Masuk</button>${back}<small class="mu">Login pertama di HP baru butuh internet. Setelah itu bisa dipakai offline.</small></div></div>`;
   if (MODE == 'reg') return head + `<div class="cd fm" style="text-align:left"><h3>Daftarkan toko baru</h3><div class="info cd" style="padding:10px"><b>🎁 Gratis ${info.trial || 30} hari</b><br><small>Setelah masa coba, perpanjang langganan lewat pemilik aplikasi.</small></div><input id="rn" placeholder="Nama toko / distributor *"><input id="ro" placeholder="Nama Anda (pemilik) *"><input id="rh" type="tel" inputmode="tel" placeholder="No. WhatsApp (untuk info perpanjangan)"><input id="re" type="email" placeholder="Email (opsional)"><input id="rp" type="password" inputmode="numeric" maxlength="8" placeholder="Buat PIN 4–8 angka *"><input id="rc" placeholder="Kode toko (opsional, 6–20 huruf/angka)" autocapitalize="none"><button class="pr" onclick="doRegUi()">Daftar & mulai</button>${back}</div></div>`;
   if (MODE == 'ha') return head + `<div class="cd fm" style="text-align:left"><h3>🛠 Head Admin (pemilik aplikasi)</h3><input id="hu" placeholder="Username" autocapitalize="none" autocomplete="off"><input id="hp" type="password" placeholder="Password" onkeydown="if(event.key=='Enter')doHaUi()"><button class="pr" onclick="doHaUi()">Masuk</button>${back}<small class="mu" id="srvst">${srvTxt()}</small></div></div>`;
   if (MODE == 'srv') return head + `<div class="cd fm" style="text-align:left"><h3>Alamat server</h3><input id="sv" placeholder="https://jpos-api.akun.workers.dev" value="${esc(AP)}" autocapitalize="none"><button class="pr" onclick="saveApi().then(()=>{checkSrv.t=0;R()})">Simpan & tes koneksi</button><small class="mu">Biasanya tidak perlu diubah.</small>${back}</div></div>`;
   return head + `<div class="fm" style="text-align:left">${reg.length ? '<small class="mu">Toko di HP ini — ketuk untuk masuk</small>' : ''}${reg.map((r) => `<button class="us2" onclick="quickLogin('${esc(r.id)}')"><em>${esc((r.n || '?')[0].toUpperCase())}</em><span>${esc(r.n)}<br><small class="mu">${esc(r.id)}${r.demo ? ' · demo' : ''}</small></span><span class="sp"></span>›</button>`).join('')}
-<button class="pr shop" onclick="startBuyer()">🛍️ Belanja (pembeli)<br><small>Cari & pesan produk dari semua toko</small></button><small class="mu" style="margin-top:6px">Untuk pemilik & karyawan toko:</small><button class="pr" onclick="mode('login')">Masuk toko</button><button class="gh big" onclick="mode('reg')">+ Daftarkan toko baru (gratis ${info.trial || 30} hari)</button><button class="gh big" onclick="startDemo()">▶ Coba toko demo</button></div>
-<small class="mu" id="srvst">${srvTxt()}</small><div class="lnk"><button class="gh" onclick="mode('srv')">⚙ Server</button><button class="gh" onclick="mode('ha')">🛠 Head Admin</button></div></div>`;
+<button class="pr shop" onclick="startBuyer()">🛍️ Belanja (pembeli)<br><small>Cari & pesan produk dari semua toko</small></button>
+<div class="lodiv">untuk pemilik &amp; karyawan toko</div>
+<button class="pr" onclick="mode('login')">Masuk toko</button><button class="gh big" onclick="mode('reg')">+ Daftarkan toko baru <small class="mu">(gratis ${info.trial || 30} hari)</small></button><button class="gh big" onclick="startDemo()">▶ Coba toko demo</button></div>
+<div class="c"><span class="srvpill" id="srvst">${srvTxt()}</span></div><div class="lnk"><button class="gh" onclick="mode('srv')">⚙ Server</button><button class="gh" onclick="mode('ha')">🛠 Head Admin</button></div></div>`;
 }
 function quickLogin(id) { const l = LS.get('jpos:last', {}) || {}; LS.set('jpos:last', { id, name: l.id == id ? l.name : '' }); MODE = 'login'; R(); setTimeout(() => { const n = $('#lnm'); if (!n) return; const e = n.value ? $('#lpn') : n; if (e) e.focus(); }, 50); }
 async function busy(btn, fn) { const t = btn.textContent; btn.disabled = true; btn.textContent = 'Memproses…'; try { await fn(); } catch (e) { toast(e.message || 'Gagal', 5000); } finally { btn.disabled = false; btn.textContent = t; } }

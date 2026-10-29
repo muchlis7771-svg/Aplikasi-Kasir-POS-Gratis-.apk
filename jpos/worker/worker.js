@@ -19,14 +19,14 @@ async function pbkdf2(pass, salt, it) {
 const hp = (pin, sid, name) => pbkdf2(String(pin), sid + ':' + name.toLowerCase(), 20000);
 const PIN = /^\d{4,8}$/, SID = /^[a-z0-9]{6,20}$/, NO = /^[A-Za-z0-9_-]{3,40}$/, NAME = /^[\p{L}\p{N} ._-]{2,40}$/u;
 const ROLES = ['owner', 'admin', 'akuntan', 'kasir', 'sales'];
-const KINDS = new Set(['sale', 'pay', 'retur', 'stk', 'apay', 'opn', 'exp', 'cap', 'jm', 'pu', 'cu', 'set', 'in', 'out', 'visit']);
+const KINDS = new Set(['sale', 'pay', 'retur', 'stk', 'apay', 'opn', 'exp', 'cap', 'jm', 'pu', 'cu', 'set', 'in', 'out', 'visit', 'loc']);
 // Jenis kejadian yang boleh dikirim tiap peran (null = semua).
 const ALLOW = {
   owner: null,
-  admin: ['sale', 'pay', 'retur', 'stk', 'apay', 'opn', 'exp', 'jm', 'pu', 'cu', 'in', 'out', 'visit'],
+  admin: ['sale', 'pay', 'retur', 'stk', 'apay', 'opn', 'exp', 'jm', 'pu', 'cu', 'in', 'out', 'visit', 'loc'],
   akuntan: ['pay', 'apay', 'exp', 'jm', 'opn', 'in', 'out'],
-  kasir: ['sale', 'pay', 'in', 'out'],
-  sales: ['sale', 'pay', 'in', 'out', 'visit', 'cu'],
+  kasir: ['sale', 'pay', 'in', 'out', 'loc'],
+  sales: ['sale', 'pay', 'in', 'out', 'visit', 'cu', 'loc'],
 };
 const DAY = 864e5;
 
@@ -265,7 +265,7 @@ export default {
             const tot = x.k == 'sale' ? Math.round(+x.tot) || 0 : x.k == 'retur' ? -Math.abs(Math.round(+x.tot) || 0) : 0;
             st.push(env.DB.prepare('INSERT OR IGNORE INTO ev(store_id,no,k,t,tot,data) VALUES(?,?,?,?,?,?)').bind(sid, x.no, x.k, Math.round(x.t), tot, d));
           }
-          if (st.length) { await env.DB.batch(st); const kinds = {}; for (const x of b.items || []) if (x && x.k) kinds[x.k] = (kinds[x.k] || 0) + 1; await logAct(env, 'staff', uname, uname, sid, 'sinkron data', Object.entries(kinds).map(([k, n]) => k + '×' + n).join(', ')); }
+          if (st.length) { await env.DB.batch(st); const kinds = {}; for (const x of b.items || []) if (x && x.k) kinds[x.k] = (kinds[x.k] || 0) + 1; if (kinds.loc) { try { await env.DB.prepare("DELETE FROM ev WHERE store_id=? AND k='loc' AND json_extract(data,'$.u')=? AND seq < (SELECT MAX(seq) FROM ev WHERE store_id=? AND k='loc' AND json_extract(data,'$.u')=?)").bind(sid, uname, sid, uname).run(); } catch (e) { } } await logAct(env, 'staff', uname, uname, sid, 'sinkron data', Object.entries(kinds).map(([k, n]) => k + '×' + n).join(', ')); }
           return J({ done, rej, st: stInfo(me) });
         }
         if (M == 'GET') {
