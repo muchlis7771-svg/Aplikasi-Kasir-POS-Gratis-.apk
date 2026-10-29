@@ -240,6 +240,7 @@ const Ap = {
   dlv(e) {
     const s = S.sales.find((x) => x.no == e.sale);
     if (!s) { (S.pend[e.sale] = S.pend[e.sale] || []).push(e); return; }
+    if (e.st == 'baru' && !s.kirim) { if (s.rtot >= s.tot) return; s.kirim = 1; } // order lama dimasukkan ke papan pengantaran
     const d = (s.dl = s.dl || { st: 'baru', log: [] });
     if (d.st == 'selesai' && e.st != 'selesai') return;
     d.st = e.st; d.t = e.t; if (e.as) d.by = e.as; else if (e.st != 'baru' && !d.by) d.by = e.u;

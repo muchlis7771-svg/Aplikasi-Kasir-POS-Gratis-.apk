@@ -285,7 +285,7 @@ export default {
           for (const x of (Array.isArray(b.items) ? b.items : []).slice(0, 100)) {
             if (!x || typeof x != 'object' || !NO.test(x.no || '') || !KINDS.has(x.k) || !Number.isFinite(x.t)) { rej.push({ no: x && x.no, e: 'format' }); if (x && x.no) done.push(x.no); continue; }
             done.push(x.no);
-            if (!kindOk(feats, role, x.k)) { rej.push({ no: x.no, e: 'peran ' + role + ' tidak boleh ' + x.k + ' (hak akses / paket)' }); continue; }
+            if (!kindOk(feats, role, x.k) && !(x.k == 'dlv' && x.st == 'baru' && feats.includes('pos'))) { rej.push({ no: x.no, e: 'peran ' + role + ' tidak boleh ' + x.k + ' (hak akses / paket)' }); continue; }
             if (x.k == 'face' && role != 'owner') {
               if (x.fu != uname || x.x) { rej.push({ no: x.no, e: 'wajah acuan hanya bisa diatur pemilik' }); continue; }
               const last = await env.DB.prepare("SELECT data FROM ev WHERE store_id=? AND k='face' AND json_extract(data,'$.fu')=? ORDER BY seq DESC LIMIT 1").bind(sid, uname).first();
