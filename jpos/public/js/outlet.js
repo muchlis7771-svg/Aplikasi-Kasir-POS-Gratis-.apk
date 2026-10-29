@@ -94,7 +94,8 @@ ${c.term == 'kredit' ? row('Limit kredit', rp(c.lim)) + row('Piutang berjalan', 
 <b>Faktur belum lunas</b>${inv.map((s) => `<div class="row"><span>${esc(s.no)}<br><small>${dstr(s.t)} · jatuh tempo ${dstr(s.due)}${s.due < Date.now() ? ' <b class="rd">lewat</b>' : ''}</small></span><span><b>${rp(sOut(s))}</b> <button class="gh" onclick="this.closest('.md').close();payModal('${esc(s.no)}')">Terima</button></span></div>`).join('') || '<small class="mu">Tidak ada</small>'}
 <b>Transaksi terakhir</b>${ss.map((s) => `<div class="row"><small>${dstr(s.t)} · ${esc(s.no)}</small><span>${rp(s.tot)}</span></div>`).join('') || '<small class="mu">Belum ada</small>'}
 ${vs.length ? '<b>Kunjungan terakhir</b>' + vs.map((v) => `<div class="row"><small>${tstr(v.t)} · ${esc(v.u)}${v.note ? ' · ' + esc(v.note) : ''}</small></div>`).join('') : ''}
-<div class="wrap"><button class="gh a" id="e1">Order</button>${MGR(U.r) || U.r == 'sales' ? '<button class="gh" id="e2">Edit</button>' : ''}${out > 0 ? '<button class="gh" id="e3">Kirim tagihan</button>' : ''}</div>`);
+<div class="wrap"><button class="gh a" id="e1">Order</button>${can('retur') ? '<button class="gh" id="e9">↩️ Retur</button>' : ''}${MGR(U.r) || U.r == 'sales' ? '<button class="gh" id="e2">Edit</button>' : ''}${out > 0 ? '<button class="gh" id="e3">Kirim tagihan</button>' : ''}</div>`);
+  { const e9 = $('#e9', m); if (e9) e9.onclick = () => { m.close(); RTO.cu = id; RTO.L = []; RTO.tab = 'baru'; go('retur'); }; }
   $('#e1', m).onclick = () => { m.close(); orderFor(id); };
   const e2 = $('#e2', m); if (e2) e2.onclick = () => { m.close(); outletForm(id); };
   const e3 = $('#e3', m); if (e3) e3.onclick = () => shareText('Tagihan ' + c.n, 'Yth. ' + c.n + ',\nRincian tagihan ' + (S.name || '') + ':\n' + inv.map((s) => s.no + ' (' + dstr(s.t) + ') ' + rp(sOut(s)) + ' — tempo ' + dstr(s.due)).join('\n') + '\nTotal: ' + rp(out) + '\nMohon konfirmasi pembayaran. Terima kasih 🙏');
