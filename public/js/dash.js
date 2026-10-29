@@ -69,7 +69,7 @@ function dashAdmin() {
   const fl = can('aud') ? S.att.filter((a) => dkey(a.t) == dkey(Date.now()) && (fxTxt(a).length || (a.dist != null && a.dist > CIR()))).length + (S.sec || []).filter((x) => dkey(x.t) == dkey(Date.now())).length : 0;
   const poW = can('beli') ? (S.po || []).filter((x) => x.st == 'dipesan' || x.st == 'sebagian').length : 0, apOd = (can('beli') || can('keu')) ? S.ap.filter((a) => apOut(a) > 0 && a.due < Date.now()) : [];
   const todo = [
-    fl ? lineItem('🛡️', '#e17055', fl + ' catatan mencurigakan hari ini', 'Jam HP diubah, lokasi janggal, di luar radius', 'Audit', 'rd', "go('aud')") : '',
+    fl ? lineItem('🛡️', '#e17055', fl + ' catatan mencurigakan hari ini', 'Jam HP diubah, wajah tidak cocok, lokasi janggal', 'Audit', 'rd', "go('aud')") : '',
     dq ? lineItem('🚚', '#e17055', dq + ' order menunggu pengantaran', dgo + ' sedang diantar', 'Papan', 'or', "go('kirim')") : '',
     apOd.length ? lineItem('🏦', '#ff5d73', apOd.length + ' utang supplier lewat tempo', apOd.slice(0, 2).map((a) => esc(a.sup)).join(', '), rp(apOd.reduce((t, a) => t + apOut(a), 0)), 'rd', can('beli') ? "bTab='ut';go('beli')" : "go('keu')") : '',
     poW ? lineItem('📥', '#6c5ce7', poW + ' PO menunggu barang', 'Terima barang saat tiba', 'Lihat', '', "bTab='po';go('beli')") : '',

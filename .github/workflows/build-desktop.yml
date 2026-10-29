@@ -37,4 +37,5 @@ jobs:
           name: J-POS Desktop (laptop) terbaru
           files: |
             desktop/dist/*.exe
+            desktop/dist/*.zip
             desktop/dist/*.AppImage

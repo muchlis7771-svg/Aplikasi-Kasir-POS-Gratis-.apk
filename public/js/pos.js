@@ -4,12 +4,12 @@ const VW = {};
 let cart = [], cCd = '', cPay = 'Tunai', cCu = '', cDp = 0, cDpm = 'Tunai', cNote = '', cKr = false, pQ = '', pCat = '';
 const resetCart = () => { cart = []; cCd = ''; cPay = 'Tunai'; cCu = ''; cDp = 0; cDpm = 'Tunai'; cNote = ''; cKr = false; };
 const actProds = () => S.p.filter((p) => !p.x);
-const bySku = (v) => S.p.find((p) => !p.x && p.sku && String(p.sku).toLowerCase() == String(v).trim().toLowerCase());
+const bySku = (v) => { const k = String(v).trim().toLowerCase(); return S.p.find((p) => !p.x && p.sku && String(p.sku).toLowerCase() == k) || S.p.find((p) => !p.x && p.kd && p.kd.toLowerCase() == k); };
 const tierTxt = (p) => (p.tiers || []).slice().sort((a, b) => a.min - b.min).map((t) => '≥' + t.min + ': ' + t.d + '%').join(' · ');
 function gridH() {
   const t = pQ.toLowerCase();
-  const L = actProds().filter((p) => (!pCat || p.c == pCat) && (!t || p.n.toLowerCase().includes(t) || String(p.sku || '').toLowerCase().includes(t)));
-  return L.map((p) => `<button class="pc" ${p.st < 1 ? 'disabled' : ''} onclick="padd('${p.id}')"><em style="background:${COL[p.c.length % COL.length]}">${p.img ? `<img src="${esc(p.img)}" alt="">` : esc(p.n[0] || '?')}</em><b>${esc(p.n)}</b><small>${esc(p.c)} · stok ${p.st}</small>${p.tiers && p.tiers.length ? `<small class="or">${esc(tierTxt(p))}</small>` : ''}<span>${rp(p.pr)}</span></button>`).join('') || '<p class="mu">Produk tidak ditemukan</p>';
+  const L = actProds().filter((p) => (!pCat || p.c == pCat) && (!t || p.n.toLowerCase().includes(t) || String(p.sku || '').toLowerCase().includes(t) || String(p.kd || '').toLowerCase().includes(t)));
+  return L.map((p) => `<button class="pc" ${p.st < 1 ? 'disabled' : ''} onclick="padd('${p.id}')"><em style="background:${COL[p.c.length % COL.length]}">${p.img ? `<img src="${esc(p.img)}" alt="">` : esc(p.n[0] || '?')}</em><b>${esc(p.n)}</b><small>${p.kd ? esc(p.kd) + ' · ' : ''}stok ${p.st}</small>${p.tiers && p.tiers.length ? `<small class="or">${esc(tierTxt(p))}</small>` : ''}<span>${rp(p.pr)}</span></button>`).join('') || '<p class="mu">Produk tidak ditemukan</p>';
 }
 const catsH = () => { const cs = [...new Set(actProds().map((p) => p.c))].sort(); return cs.length > 1 ? `<div class="seg"><button class="${pCat ? '' : 'a'}" onclick="pcat('')">Semua</button>${cs.map((c) => `<button class="${pCat == c ? 'a' : ''}" onclick="pcat(this.dataset.c)" data-c="${esc(c)}">${esc(c)}</button>`).join('')}</div>` : ''; };
 function creditInfo() {

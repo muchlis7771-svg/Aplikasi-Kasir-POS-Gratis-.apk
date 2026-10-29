@@ -22,4 +22,4 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN || vars.CLOUDFLARE_API_TOKEN || secrets.CLOUDFLARE_API_TOKEN_ }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
       - name: Tes server hidup
-        run: sleep 8; curl -fsS https://aplikasi-kasir-pos-gratis--apk.muchlis7771.workers.dev/api/ping
+        run: sleep 8; curl -fsS https://j-data-mucus.muchlis7771.workers.dev/api/ping

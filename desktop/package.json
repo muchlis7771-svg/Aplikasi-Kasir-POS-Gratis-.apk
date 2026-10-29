@@ -1,7 +1,7 @@
 {
   "name": "jpos-desktop",
   "productName": "J-POS",
-  "version": "1.13.0",
+  "version": "1.14.0",
   "description": "J-POS untuk laptop: kasir, stok, akuntansi, grosir & distributor",
   "author": "J-POS",
   "main": "main.js",
@@ -11,8 +11,8 @@
     "dist": "electron-builder --publish never"
   },
   "devDependencies": {
-    "electron": "^33.4.11",
-    "electron-builder": "25.1.8"
+    "electron": "^22.3.27",
+    "electron-builder": "24.13.3"
   },
   "build": {
     "appId": "id.jpos.desktop",
@@ -29,7 +29,8 @@
         {
           "target": "nsis",
           "arch": [
-            "x64"
+            "x64",
+            "ia32"
           ]
         },
         {
@@ -37,17 +38,28 @@
           "arch": [
             "x64"
           ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64"
+          ]
         }
       ],
       "icon": "app/icons/icon-512.png",
-      "artifactName": "J-POS-${version}-${target}.${ext}"
+      "artifactName": "J-POS-${version}-${arch}.${ext}",
+      "requestedExecutionLevel": "asInvoker"
     },
     "nsis": {
       "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
       "shortcutName": "J-POS",
-      "artifactName": "J-POS-Setup-${version}.${ext}"
+      "artifactName": "J-POS-Setup-${version}.${ext}",
+      "unicode": true
     },
     "portable": {
       "artifactName": "J-POS-Portable-${version}.${ext}"

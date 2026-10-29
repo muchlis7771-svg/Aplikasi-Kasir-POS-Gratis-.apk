@@ -87,7 +87,7 @@ function acctMenu() {
 /* ---------- layar awal ---------- */
 async function checkSrv() {
   if (!AP) { SRV = 'none'; return; } if (checkSrv.t && Date.now() - checkSrv.t < 15000) return; checkSrv.t = Date.now();
-  try { const r = await fetch(AP + '/api/ping', { signal: AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined }); SRV = r.ok ? 'ok' : 'down'; if (r.ok) appInfo(); } catch (e) { SRV = navigator.onLine ? 'down' : 'off'; }
+  try { let r = await fetch(AP + '/api/ping', { signal: AbortSignal.timeout ? AbortSignal.timeout(8000) : undefined }).catch(() => null); if ((!r || !r.ok) && (await apiSwitch())) r = await fetch(AP + '/api/ping'); SRV = r && r.ok ? 'ok' : navigator.onLine ? 'down' : 'off'; if (r && r.ok) appInfo(); } catch (e) { SRV = navigator.onLine ? 'down' : 'off'; }
   const el = $('#srvst'); if (el) el.innerHTML = srvTxt();
 }
 const srvTxt = () => ({ ok: '<span class="gr">● Server online</span>', down: '<span class="rd">● Server belum aktif / tidak bisa dihubungi</span> — toko yang pernah dibuka tetap bisa dipakai offline', off: '<span class="or">● Offline</span> — toko yang pernah dibuka tetap bisa dipakai', none: '○ Mode lokal (server belum diatur)' }[SRV] || '○ Memeriksa server…');
