@@ -417,3 +417,7 @@ main.gate{display:grid;place-items:center;min-height:78vh;padding:16px}
 .autoshot.flash{animation:flsh .18s}@keyframes flsh{0%{background:#fff}100%{background:#000c}}
 .mlg{display:flex;flex-wrap:wrap;gap:6px 12px;margin-top:8px;font-size:11.5px;color:var(--mu)}.mlg span{display:flex;align-items:center;gap:5px}.mlg i{width:12px;height:12px;border-radius:50%;display:inline-block;border:1px solid #0002}
 .odot{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:7px;vertical-align:1px}
+.opick{justify-content:flex-start;text-align:left;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.opl{display:grid;gap:6px;max-height:55vh;overflow:auto}
+.opl button{display:flex;justify-content:space-between;align-items:center;gap:10px;text-align:left;padding:10px 12px;border:1px solid var(--bd);border-radius:14px;background:var(--cd);color:var(--tx)}
+.opl button.a{border-color:var(--ac);box-shadow:0 0 0 2px color-mix(in srgb,var(--ac) 30%,transparent)}
