@@ -30,8 +30,8 @@ const haversine = (a, b, c, d) => { const r = Math.PI / 180, x = (c - a) * r, y 
 const distStr = (m) => (m < 1000 ? Math.round(m) + ' m' : (m / 1000).toFixed(1) + ' km');
 
 /* ============ akun ============ */
-const AC = { 1101: 'Kas', 1102: 'Bank & QRIS', 1103: 'Piutang Usaha', 1201: 'Persediaan', 2101: 'Utang PPN', 2102: 'Utang Usaha', 2103: 'Utang Pinjaman', 4201: 'Pendapatan Lain-lain', 3101: 'Modal Pemilik', 3102: 'Prive', 4101: 'Penjualan', 4102: 'Diskon Penjualan', 5101: 'Harga Pokok Penjualan', 6101: 'Beban Gaji', 6102: 'Beban Sewa', 6103: 'Beban Listrik & Air', 6104: 'Beban Lain-lain', 6105: 'Selisih Stok', 6106: 'Beban Transport & BBM', 6107: 'Komisi Sales', 6108: 'Beban Pemasaran', 6109: 'Beban Pengiriman & Dropping', 6110: 'Beban Pajak & Perizinan', 6111: 'Beban Perawatan & Perbaikan' };
-const EXPA = ['6101', '6102', '6103', '6104', '6106', '6107', '6108', '6109', '6110', '6111'];
+const AC = { 1101: 'Kas', 1102: 'Bank & QRIS', 1103: 'Piutang Usaha', 1201: 'Persediaan', 2101: 'Utang PPN', 2102: 'Utang Usaha', 2103: 'Utang Pinjaman', 4201: 'Pendapatan Lain-lain', 3101: 'Modal Pemilik', 3102: 'Prive', 4101: 'Penjualan', 4102: 'Diskon Penjualan', 5101: 'Harga Pokok Penjualan', 6101: 'Beban Gaji', 6102: 'Beban Sewa', 6103: 'Beban Listrik & Air', 6104: 'Beban Lain-lain', 6105: 'Selisih Stok', 6106: 'Beban Transport & BBM', 6107: 'Komisi Sales', 6108: 'Beban Pemasaran', 6109: 'Beban Pengiriman & Dropping', 6110: 'Beban Pajak & Perizinan', 6111: 'Beban Perawatan & Perbaikan', 6112: 'Beban Barang Rusak / Expired' };
+const EXPA = ['6101', '6102', '6103', '6104', '6106', '6107', '6108', '6109', '6110', '6111', '6112'];
 const ROLE = { owner: 'Pemilik (Owner)', admin: 'Admin Toko', akuntan: 'Akuntan', kasir: 'Kasir', sales: 'Sales', dropping: 'Tim Dropping' };
 const MGR = (r) => r == 'owner' || r == 'admin' || r == 'akuntan';
 // Hak akses = (fitur peran) ∩ (fitur paket toko). Paket diatur Head Admin, matrix peran diatur Owner. Server memakai aturan yang sama.
@@ -78,7 +78,7 @@ let saveT = null;
 function save() { if (!S) return; clearTimeout(saveT); saveT = setTimeout(flushSave, 400); }
 function flushSave() { clearTimeout(saveT); saveT = null; if (S && !LS.set('jpos:s:' + SID, S) && !flushSave.w) { flushSave.w = 1; toast('Penyimpanan perangkat penuh! Ekspor backup lalu kosongkan data lama.', 7000); } }
 addEventListener('pagehide', flushSave); document.addEventListener('visibilitychange', () => { if (document.hidden) flushSave(); });
-function loadStore(id) { const s = LS.get('jpos:s:' + id, null); if (!s) return false; SID = id; S = s; for (const k of ['p', 'c', 'sales', 'j', 'ap', 'att', 'users', 'eq', 'cq', 'hold', 'staff', 'sup', 'po', 'kn']) S[k] = S[k] || []; S.done = S.done || {}; S.pend = S.pend || {}; S.cs = S.cs || {}; S.set = Object.assign({ ppn: 11, tempo: 30, jin: '08:00' }, S.set || {});
+function loadStore(id) { const s = LS.get('jpos:s:' + id, null); if (!s) return false; SID = id; S = s; for (const k of ['p', 'c', 'sales', 'j', 'ap', 'att', 'users', 'eq', 'cq', 'hold', 'staff', 'sup', 'po', 'kn', 'rtr']) S[k] = S[k] || []; S.done = S.done || {}; S.pend = S.pend || {}; S.cs = S.cs || {}; S.set = Object.assign({ ppn: 11, tempo: 30, jin: '08:00' }, S.set || {});
   { const old = Date.now() - 14 * 864e5; S.att.forEach((a) => { if (a.ph && a.t < old) delete a.ph; }); S.sales.forEach((x) => { if (x.dl) x.dl.log.forEach((l) => { if (l.ph && l.t < old) delete l.ph; }); }); } // foto bukti lama dibuang agar penyimpanan HP tidak penuh
   if (!S.v4) { const o = S.users.find((u) => u.r == 'admin'); if (o && !S.users.some((u) => u.r == 'owner')) o.r = 'owner'; S.v4 = 1; }
   kdFill(); return true; }
@@ -126,12 +126,12 @@ const Ap = {
     const s = S.sales.find((x) => x.no == e.sale);
     if (!s) { (S.pend[e.sale] = S.pend[e.sale] || []).push(e); return; }
     const net0 = s.L.reduce((a, i) => a + i.p * i.q - i.dd, 0), cdA = s.cdA || 0;
-    let g = 0, dd = 0, hc = 0;
+    let g = 0, dd = 0, hc = 0; const rl = [];
     for (const r of e.L) {
       const i = s.L.find((x) => x.id == r.id); if (!i) continue;
       const q = Math.min(r.q, i.q - (i.rq || 0)); if (q <= 0) continue;
-      g += i.p * q; dd += Math.round(i.dd * q / i.q); hc += i.hc * q; i.rq = (i.rq || 0) + q;
-      const p = prod(i.id); if (p) p.st += q;
+      g += i.p * q; dd += Math.round(i.dd * q / i.q); hc += i.hc * q; i.rq = (i.rq || 0) + q; rl.push({ id: i.id, n: i.n, q, p: i.p });
+      const p = prod(i.id); if (p) { if (e.bad) p.bad = (p.bad || 0) + q; else p.st += q; } // barang expired / rusak tidak kembali ke stok jual
     }
     if (!g) return;
     const lnet = g - dd, cs = net0 ? Math.round(cdA * lnet / net0) : 0, tr = net0 - cdA ? Math.round(s.tax * (lnet - cs) / (net0 - cdA)) : 0;
@@ -141,7 +141,8 @@ const Ap = {
     if (s.pay == 'Piutang') ar = Math.min(tot, Math.max(0, s.tot - before - (s.pa || 0)));
     const cash = tot - ar, acc = payAcc(s.pay == 'Piutang' ? e.m || 'Tunai' : s.pay);
     jr(e, 'Retur ' + s.no, [['4101', g, 0], ['2101', tr, 0], ['4102', 0, discr], ['1103', 0, ar], [acc, 0, cash]]);
-    jr(e, 'HPP retur ' + s.no, [['1201', hc, 0], ['5101', 0, hc]]);
+    jr(e, (e.bad ? 'Barang rusak/expired dari retur ' : 'HPP retur ') + s.no, [[e.bad ? '6112' : '1201', hc, 0], ['5101', 0, hc]]);
+    (S.rtr = S.rtr || []).push({ no: e.no, t: e.t, u: e.u, sale: s.no, st: s.t, su: s.u, cu: s.cu, cn: s.cn, why: e.why || '', bad: !!e.bad, L: rl, val: tot, note: e.note || '', ph: e.ph, grp: e.grp || e.no });
   },
   stk(e) {
     const p = prod(e.p); if (!p || !(e.qty > 0)) return;
