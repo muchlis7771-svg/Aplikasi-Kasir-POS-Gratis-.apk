@@ -10,6 +10,7 @@ if (!x.includes('BLUETOOTH_SCAN')) add += '    <uses-permission android:name="an
 if (!x.includes('"android.permission.BLUETOOTH"')) add += '    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />\n    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />\n';
 for (const p of perms) if (!x.includes('"' + p + '"')) add += `    <uses-permission android:name="${p}" />\n`;
 for (const f of feats) if (!x.includes(f.match(/name="([^"]+)"/)[1])) add += '    ' + f + '\n';
+if (!x.includes('ru.a402d.rawbtprinter')) add += '    <queries>\n        <package android:name="ru.a402d.rawbtprinter" />\n        <intent><action android:name="android.intent.action.VIEW" /><data android:scheme="rawbt" /></intent>\n    </queries>\n';
 if (add) x = x.replace(/<\/manifest>\s*$/, add + '</manifest>\n');
 if (!/android:usesCleartextTraffic/.test(x)) x = x.replace('<application', '<application android:usesCleartextTraffic="false"');
 fs.writeFileSync(mf, x);
