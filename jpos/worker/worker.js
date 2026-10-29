@@ -30,9 +30,12 @@ const DEFPERM = {
   dropping: 'dash kirim cek terima abs chat set',
 };
 const PKG0 = {
-  biasa: { n: 'Biasa', max: 5, f: 'dash pos his prod prodEdit outlet abs chat set usr' },
-  standar: { n: 'Standar', max: 15, f: 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur onl ana lap keu jur backup beli xls kas perm' },
-  high: { n: 'High', max: 100, f: 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur onl ana lap keu jur backup beli xls kas perm kirim cek terima anti aud' },
+  // BIASA: toko eceran kecil — kasir, stok dasar, absen, chat
+  biasa: { n: 'Biasa', max: 3, f: 'dash pos his prod prodEdit outlet abs chat set usr' },
+  // STANDAR: + laporan, keuangan, buku kas, pembelian, Excel, toko online, backup, retur, hak akses
+  standar: { n: 'Standar', max: 10, f: 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm' },
+  // HIGH: + analisa, jurnal akuntansi, pengantaran/dropping, check-in outlet, anti-curang, audit
+  high: { n: 'High', max: 100, f: 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana jur kirim cek terima anti aud' },
 };
 const ALLF = [...new Set(Object.values(PKG0).flatMap((x) => x.f.split(' ')).concat('terima'))];
 const KNEED = { sale: ['pos'], pay: ['pos', 'keu', 'terima'], retur: ['retur'], stk: ['prodEdit', 'beli'], apay: ['keu', 'beli'], opn: ['prodEdit', 'keu'], exp: ['jur', 'keu'], jm: ['jur'], pu: ['prodEdit'], cu: ['outlet'], visit: ['outlet', 'cek'], vout: ['cek'], sup: ['beli'], po: ['beli'], rcv: ['beli'], dlv: ['kirim'], kas: ['kas'], sec: null, in: null, out: null, loc: null, cap: 'owner', set: 'owner' };
@@ -198,6 +201,7 @@ export default {
             if (b.wa != null) await cfgSet(env, 'wa', String(b.wa).replace(/[^\d]/g, '').slice(0, 20));
             if (b.price != null) await cfgSet(env, 'price', String(b.price).slice(0, 300));
             if (b.trial_days != null) await cfgSet(env, 'trial_days', Math.max(1, Math.min(365, Math.round(+b.trial_days) || 30)));
+            if (b.pkg_reset) await cfgSet(env, 'pkg_feat', '');
             if (b.pkg && typeof b.pkg == 'object') { const cur = pkgAll(), o = {}; for (const t of Object.keys(PKG0)) { const x = b.pkg[t] || {}; o[t] = { n: String(x.n || cur[t].n).slice(0, 20), max: Math.max(1, Math.min(9999, Math.round(+x.max) || cur[t].max)), f: String(x.f != null ? x.f : cur[t].f).split(' ').filter((f) => ALLF.includes(f)).join(' ') }; } await cfgSet(env, 'pkg_feat', JSON.stringify(o)); }
             if (['biasa', 'standar', 'high'].includes(b.trial_tier)) await cfgSet(env, 'trial_tier', b.trial_tier);
             for (const k of ['ship_base', 'ship_per_m', 'ship_road', 'ship_min', 'ship_max_km', 'ship_round']) if (b[k] != null && Number.isFinite(+b[k]) && +b[k] >= 0) await cfgSet(env, k, +b[k]);

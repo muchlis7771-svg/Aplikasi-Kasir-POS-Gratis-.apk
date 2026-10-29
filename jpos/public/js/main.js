@@ -58,6 +58,7 @@ function R() {
   if (HT && MODE == 'ha') { app.innerHTML = haShell(); return; }
   if (MODE == 'buyer') { app.innerHTML = buyerShell(); bAfter(); return; }
   if (!U || !S) { app.innerHTML = homeView(); if (MODE == 'home') checkSrv(); return; }
+  if (typeof absGate == 'function' && absGate()) { app.innerHTML = absGateView(); absGateAfter(); almSync(); return; }
   if (!can(V) || !VW[V]) V = can('dash') ? 'dash' : pages()[0];
   let body;
   try { body = VW[V](); } catch (e) { console.error(e); body = `<div class="cd"><h3>Terjadi kesalahan</h3><p class="rd">${esc(e.message)}</p></div>`; }
@@ -66,7 +67,7 @@ function R() {
   app.innerHTML = `<header><button class="av" onclick="acctMenu()">${S.logo ? `<img src="${esc(S.logo)}" alt="">` : esc((S.name || '?')[0].toUpperCase())}</button><div class="hn"><b>${esc(S.name)}</b><small>${esc(U.n)} · ${esc(ROLE[U.r])}</small></div><span class="sp"></span><span id="sy" class="bd" onclick="sync().then(R)"></span></header>
 <main><div class="pt"><span>${PAGES[V][0]}</span><h2>${esc(pgName(V))}</h2></div>${banner}${expBanner()}${body}</main>
 <nav class="bn">${tabs.map((k) => `<button class="${V == k ? 'a' : ''}" onclick="go('${k}')"><i>${PAGES[k][0]}</i><span>${esc(pgName(k))}</span>${k == 'chat' ? '<em id="nb-chat"></em>' : k == 'onl' ? '<em id="nb-onl"></em>' : ''}</button>`).join('')}<button class="${tabs.includes(V) ? '' : 'a'}" onclick="menuSheet()"><i>☰</i><span>Menu</span><em id="nb-menu"></em></button></nav>`;
-  updBadge();
+  updBadge(); if (typeof almSync == 'function') almSync();
   const f = VW[V].after; if (f) try { f(); } catch (e) { console.error(e); }
   if (S.srv && can('onl')) onlBadge();
   if (typeof CH != 'undefined' && CH.unread && V != 'chat') { const nb = $('#nb-chat') || $('#nb-menu'); if (nb) { nb.textContent = CH.unread; nb.style.display = 'grid'; } }

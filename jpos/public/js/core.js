@@ -43,7 +43,7 @@ const DEFPERM = {
   sales: 'dash pos his outlet ana abs chat set cek',
   dropping: 'dash kirim cek terima abs chat set',
 };
-const PKGHI = 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur onl ana lap keu jur backup beli xls kas perm kirim cek terima anti aud';
+const PKGHI = 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana jur kirim cek terima anti aud';
 const FEAT = {
   dash: 'Beranda', pos: 'Kasir / Order', his: 'Riwayat transaksi', hisAll: 'Lihat transaksi semua orang', prod: 'Lihat produk & stok', prodEdit: 'Ubah produk & stok', outlet: 'Outlet / pelanggan',
   onl: 'Toko Online', ana: 'Analisa', lap: 'Laporan', keu: 'Keuangan & utang piutang', jur: 'Jurnal & biaya', abs: 'Absensi sendiri', absAll: 'Lihat absensi semua', chat: 'Chat', usr: 'Kelola pengguna',
