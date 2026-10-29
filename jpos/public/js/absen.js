@@ -62,7 +62,7 @@ async function almSync(force) {
 let ringCtx = null, ringT = null, ringVib = null;
 function ringStop() { clearInterval(ringT); clearInterval(ringVib); ringT = ringVib = null; try { ringCtx && ringCtx.close(); } catch (e) { } ringCtx = null; const e = $('#almring'); if (e) e.remove(); }
 function ringStart() {
-  if ($('#almring') || $('.md[open],.scan')) return;   // jangan menutupi kamera selfie / dialog yang sedang dipakai
+  if ($('#almring') || $('.md,.scan')) return;   // jangan menutupi kamera selfie / dialog yang sedang dipakai
   const el = document.createElement('div'); el.id = 'almring';
   el.innerHTML = `<div class="rg"><div class="rb">⏰</div><h2>Waktunya absen masuk!</h2><p>${hm(gNow())} · ${esc(U.n)}</p><button class="gbtn" onclick="ringStop();clock('in')">Absen sekarang</button><button class="gh" onclick="ringSnooze()">Tunda 5 menit</button><button class="gh d" onclick="ringOff()">Matikan alarm hari ini</button></div>`;
   document.body.appendChild(el);

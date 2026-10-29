@@ -103,8 +103,8 @@ function payModal(no) {
 }
 function returModal(no) {
   const s = S.sales.find((x) => x.no == no); if (!s) return;
-  const m = modal(`<h3>Retur ${esc(s.no)}</h3><small>Isi jumlah yang dikembalikan</small>${s.L.map((i, n) => `<div class="row"><span>${esc(i.n)} <small>(maks ${i.q - (i.rq || 0)})</small></span><input type="number" min="0" max="${i.q - (i.rq || 0)}" id="rq${n}" style="width:80px" value="0"></div>`).join('')}<select id="rm"><option>Tunai</option><option>Transfer</option></select><small>Metode pengembalian uang (jika sudah dibayar)</small><button class="pr" id="ok">Proses retur</button>`);
-  $('#ok', m).onclick = () => { const L = s.L.map((i, n) => ({ id: i.id, q: Math.min(num($('#rq' + n, m).value), i.q - (i.rq || 0)) })).filter((x) => x.q > 0); if (!L.length) return toast('Isi jumlah retur'); emit('retur', { sale: no, L, m: $('#rm', m).value }); m.close(); toast('Retur dicatat'); R(); };
+  const m = modal(`<h3>Retur ${esc(s.no)}</h3><small>Isi jumlah yang dikembalikan</small>${s.L.map((i, n) => `<div class="row"><span>${esc(i.n)} <small>(maks ${i.q - (i.rq || 0)})</small></span><input type="number" min="0" max="${i.q - (i.rq || 0)}" id="rq${n}" style="width:80px" value="0"></div>`).join('')}<label><small class="mu">Kondisi / alasan barang</small><select id="rw">${Object.entries(RWHY).map(([k, v]) => `<option value="${k}">${v[0]} ${v[1]} → ${v[3] ? 'stok layak jual' : 'bad stock'}</option>`).join('')}</select></label><select id="rm"><option>Tunai</option><option>Transfer</option></select><small>Metode pengembalian uang (jika sudah dibayar)</small><button class="pr" id="ok">Proses retur</button>`);
+  $('#ok', m).onclick = () => { const L = s.L.map((i, n) => ({ id: i.id, q: Math.min(num($('#rq' + n, m).value), i.q - (i.rq || 0)) })).filter((x) => x.q > 0); if (!L.length) return toast('Isi jumlah retur'); const w = $('#rw', m).value; emit('retur', { sale: no, L, m: $('#rm', m).value, why: w, bad: rGood(w) ? undefined : 1, cu: s.cu }); m.close(); toast('Retur dicatat'); R(); };
 }
 let hQ = '', hD = '';
 VW.his = () => {
