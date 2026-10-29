@@ -61,7 +61,14 @@ const RPT = {
     ];
   },
   utang() { return [{ title: 'Utang Usaha', head: ['Supplier', 'Keterangan', 'Tanggal', 'Jatuh tempo', 'Total', 'Sisa'], fmt: ['t', 't', 'd', 'd', 'm', 'm'], rows: S.ap.filter((a) => apOut(a) > 0).map((a) => [a.sup, a.d, a.t, a.due, a.amt, apOut(a)]) }]; },
-  stok() { const L = actProds().sort((a, b) => a.c.localeCompare(b.c) || a.n.localeCompare(b.n)); return [{ title: 'Stok & Nilai Persediaan', head: ['SKU', 'Produk', 'Kategori', 'Stok', 'HPP', 'Harga', 'Nilai'], fmt: ['t', 't', 't', 'q', 'm', 'm', 'm'], rows: [...L.map((p) => [p.sku || '', p.n, p.c, p.st, p.co, p.pr, Math.max(0, p.st) * p.co]), ['', 'TOTAL', '', L.reduce((a, p) => a + p.st, 0), '', '', stockValue(), 'b']] }]; },
+  stok(f, t) {
+    const L = actProds().sort((a, b) => a.c.localeCompare(b.c) || a.n.localeCompare(b.n)), bv = (p) => (p.bad > 0 ? p.bv || p.bad * p.co : 0);
+    const mut = [...(S.rtr || []).filter((r) => r.bad && r.t >= f && r.t <= t).flatMap((r) => r.L.map((l) => [r.t, 'Retur masuk bad stock (' + ((typeof RWHY != 'undefined' && RWHY[r.why]) ? RWHY[r.why][1] : r.why) + ')', l.n, r.cn || '', l.q, ''])),
+      ...(S.bst || []).filter((b) => b.t >= f && b.t <= t).map((b) => [b.t, { pindah: 'Pindah layak jual → bad stock', layak: 'Bad stock → layak jual (sortir)', musnah: 'Pemusnahan' + (b.src == 'good' ? ' (dari stok layak jual)' : '') }[b.act], b.n, b.u + (b.saksi ? ', saksi ' + b.saksi : ''), b.act == 'layak' ? -b.q : b.q, b.v])].sort((a, b) => a[0] - b[0]);
+    return [{ title: 'Stok Layak Jual (Good Stock) & Bad Stock', head: ['Kode', 'Produk', 'Kategori', 'Layak jual', 'HPP', 'Nilai layak jual', 'Bad stock', 'Nilai bad stock'], fmt: ['t', 't', 't', 'q', 'm', 'm', 'q', 'm'],
+      rows: [...L.map((p) => [p.kd || p.sku || '', p.n, p.c, p.st, p.co, Math.max(0, p.st) * p.co, p.bad || 0, bv(p)]), ['', 'TOTAL', '', L.reduce((a, p) => a + p.st, 0), '', stockValue(), badUnits(), badValue(), 'b']] },
+      { title: 'Mutasi Bad Stock & Pemusnahan · ' + perLabel(), head: ['Tanggal', 'Kejadian', 'Produk', 'Outlet / petugas', 'Qty', 'Nilai'], fmt: ['d', 't', 't', 't', 'q', 'm'], rows: mut.length ? mut : [['', 'Tidak ada mutasi pada periode ini', '', '', '', '']] }];
+  },
   outlet() { return [{ title: 'Daftar Outlet', head: ['Outlet', 'Alamat', 'Telepon', 'Sales', 'Fasilitas', 'Limit', 'Piutang'], fmt: ['t', 't', 't', 't', 't', 'm', 'm'], rows: S.c.filter((c) => !c.x).map((c) => [c.n, c.ad || '', c.ph || '', c.sl || '', c.term == 'kredit' ? 'Kredit ' + (c.tempo || 30) + ' hr' : 'Tunai', c.lim || 0, outOf(c.id)]) }]; },
   absen(f, t) { return [{ title: 'Rekap Absensi · ' + perLabel(), head: ['Karyawan', 'Hari hadir', 'Terlambat', 'Total jam', 'Kunjungan'], fmt: ['t', 'q', 'q', 'q', 'q'], rows: attRecap(f, t).map((r) => [r.u, r.days, r.late, +r.hours.toFixed(1), r.visits]) }]; },
 };

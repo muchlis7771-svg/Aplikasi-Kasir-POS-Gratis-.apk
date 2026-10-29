@@ -1,4 +1,6 @@
 'use strict';
+// kompatibilitas browser lama (Safari < 16, Firefox < 100)
+if (typeof AbortSignal != 'undefined' && !AbortSignal.timeout) AbortSignal.timeout = (ms) => { const c = new AbortController(); setTimeout(() => c.abort(), ms); return c.signal; };
 /* ============ util ============ */
 const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -30,7 +32,7 @@ const haversine = (a, b, c, d) => { const r = Math.PI / 180, x = (c - a) * r, y 
 const distStr = (m) => (m < 1000 ? Math.round(m) + ' m' : (m / 1000).toFixed(1) + ' km');
 
 /* ============ akun ============ */
-const AC = { 1101: 'Kas', 1102: 'Bank & QRIS', 1103: 'Piutang Usaha', 1201: 'Persediaan', 2101: 'Utang PPN', 2102: 'Utang Usaha', 2103: 'Utang Pinjaman', 4201: 'Pendapatan Lain-lain', 3101: 'Modal Pemilik', 3102: 'Prive', 4101: 'Penjualan', 4102: 'Diskon Penjualan', 5101: 'Harga Pokok Penjualan', 6101: 'Beban Gaji', 6102: 'Beban Sewa', 6103: 'Beban Listrik & Air', 6104: 'Beban Lain-lain', 6105: 'Selisih Stok', 6106: 'Beban Transport & BBM', 6107: 'Komisi Sales', 6108: 'Beban Pemasaran', 6109: 'Beban Pengiriman & Dropping', 6110: 'Beban Pajak & Perizinan', 6111: 'Beban Perawatan & Perbaikan', 6112: 'Beban Barang Rusak / Expired' };
+const AC = { 1101: 'Kas', 1102: 'Bank & QRIS', 1103: 'Piutang Usaha', 1201: 'Persediaan', 2101: 'Utang PPN', 2102: 'Utang Usaha', 2103: 'Utang Pinjaman', 4201: 'Pendapatan Lain-lain', 3101: 'Modal Pemilik', 3102: 'Prive', 4101: 'Penjualan', 4102: 'Diskon Penjualan', 5101: 'Harga Pokok Penjualan', 6101: 'Beban Gaji', 6102: 'Beban Sewa', 6103: 'Beban Listrik & Air', 6104: 'Beban Lain-lain', 6105: 'Selisih Stok', 6106: 'Beban Transport & BBM', 6107: 'Komisi Sales', 6108: 'Beban Pemasaran', 6109: 'Beban Pengiriman & Dropping', 6110: 'Beban Pajak & Perizinan', 6111: 'Beban Perawatan & Perbaikan', 6112: 'Beban Pemusnahan Barang', 1202: 'Persediaan Bad Stock' };
 const EXPA = ['6101', '6102', '6103', '6104', '6106', '6107', '6108', '6109', '6110', '6111', '6112'];
 const ROLE = { owner: 'Pemilik (Owner)', admin: 'Admin Toko', akuntan: 'Akuntan', kasir: 'Kasir', sales: 'Sales', dropping: 'Tim Dropping' };
 const MGR = (r) => r == 'owner' || r == 'admin' || r == 'akuntan';
@@ -78,7 +80,7 @@ let saveT = null;
 function save() { if (!S) return; clearTimeout(saveT); saveT = setTimeout(flushSave, 400); }
 function flushSave() { clearTimeout(saveT); saveT = null; if (S && !LS.set('jpos:s:' + SID, S) && !flushSave.w) { flushSave.w = 1; toast('Penyimpanan perangkat penuh! Ekspor backup lalu kosongkan data lama.', 7000); } }
 addEventListener('pagehide', flushSave); document.addEventListener('visibilitychange', () => { if (document.hidden) flushSave(); });
-function loadStore(id) { const s = LS.get('jpos:s:' + id, null); if (!s) return false; SID = id; S = s; for (const k of ['p', 'c', 'sales', 'j', 'ap', 'att', 'users', 'eq', 'cq', 'hold', 'staff', 'sup', 'po', 'kn', 'rtr']) S[k] = S[k] || []; S.done = S.done || {}; S.pend = S.pend || {}; S.cs = S.cs || {}; S.set = Object.assign({ ppn: 11, tempo: 30, jin: '08:00' }, S.set || {});
+function loadStore(id) { const s = LS.get('jpos:s:' + id, null); if (!s) return false; SID = id; S = s; for (const k of ['p', 'c', 'sales', 'j', 'ap', 'att', 'users', 'eq', 'cq', 'hold', 'staff', 'sup', 'po', 'kn', 'rtr', 'bst']) S[k] = S[k] || []; S.done = S.done || {}; S.pend = S.pend || {}; S.cs = S.cs || {}; S.set = Object.assign({ ppn: 11, tempo: 30, jin: '08:00' }, S.set || {});
   { const old = Date.now() - 14 * 864e5; S.att.forEach((a) => { if (a.ph && a.t < old) delete a.ph; }); S.sales.forEach((x) => { if (x.dl) x.dl.log.forEach((l) => { if (l.ph && l.t < old) delete l.ph; }); }); } // foto bukti lama dibuang agar penyimpanan HP tidak penuh
   if (!S.v4) { const o = S.users.find((u) => u.r == 'admin'); if (o && !S.users.some((u) => u.r == 'owner')) o.r = 'owner'; S.v4 = 1; }
   kdFill(); return true; }
@@ -131,7 +133,7 @@ const Ap = {
       const i = s.L.find((x) => x.id == r.id); if (!i) continue;
       const q = Math.min(r.q, i.q - (i.rq || 0)); if (q <= 0) continue;
       g += i.p * q; dd += Math.round(i.dd * q / i.q); hc += i.hc * q; i.rq = (i.rq || 0) + q; rl.push({ id: i.id, n: i.n, q, p: i.p });
-      const p = prod(i.id); if (p) { if (e.bad) p.bad = (p.bad || 0) + q; else p.st += q; } // barang expired / rusak tidak kembali ke stok jual
+      const p = prod(i.id); if (p) { if (e.bad) { p.bad = (p.bad || 0) + q; p.bv = (p.bv || 0) + i.hc * q; } else p.st += q; } // expired / rusak → bad stock, bukan stok layak jual
     }
     if (!g) return;
     const lnet = g - dd, cs = net0 ? Math.round(cdA * lnet / net0) : 0, tr = net0 - cdA ? Math.round(s.tax * (lnet - cs) / (net0 - cdA)) : 0;
@@ -141,7 +143,7 @@ const Ap = {
     if (s.pay == 'Piutang') ar = Math.min(tot, Math.max(0, s.tot - before - (s.pa || 0)));
     const cash = tot - ar, acc = payAcc(s.pay == 'Piutang' ? e.m || 'Tunai' : s.pay);
     jr(e, 'Retur ' + s.no, [['4101', g, 0], ['2101', tr, 0], ['4102', 0, discr], ['1103', 0, ar], [acc, 0, cash]]);
-    jr(e, (e.bad ? 'Barang rusak/expired dari retur ' : 'HPP retur ') + s.no, [[e.bad ? '6112' : '1201', hc, 0], ['5101', 0, hc]]);
+    jr(e, (e.bad ? 'Retur bad stock ' : 'HPP retur ') + s.no, [[e.bad ? '1202' : '1201', hc, 0], ['5101', 0, hc]]);
     (S.rtr = S.rtr || []).push({ no: e.no, t: e.t, u: e.u, sale: s.no, st: s.t, su: s.u, cu: s.cu, cn: s.cn, why: e.why || '', bad: !!e.bad, L: rl, val: tot, note: e.note || '', ph: e.ph, grp: e.grp || e.no });
   },
   stk(e) {
@@ -190,6 +192,18 @@ const Ap = {
   out(e) { S.att.push({ no: e.no, k: 'out', t: e.t, u: e.u, lat: e.lat, lng: e.lng, acc: e.acc, note: e.note, ph: e.ph, fl: e.fl, fx: e.fx, sk: e.sk, rt: e.rt, fm: e.fm }); },
   visit(e) { S.att.push({ no: e.no, k: 'visit', t: e.t, u: e.u, cid: e.cid, cn: e.cn, lat: e.lat, lng: e.lng, dist: e.dist, acc: e.acc, note: e.note, ph: e.ph, fl: e.fl, fx: e.fx, sk: e.sk, why: e.why }); },
   vout(e) { S.att.push({ no: e.no, k: 'vout', t: e.t, u: e.u, cid: e.cid, cn: e.cn, lat: e.lat, lng: e.lng, dist: e.dist, acc: e.acc, note: e.note, fl: e.fl, fx: e.fx, sk: e.sk, why: e.why }); },
+  // bad stock: pindah (layak jual → bad), layak (bad → layak jual setelah sortir), musnah (dari bad / layak jual). Hanya pemilik & admin.
+  bst(e) {
+    if (e.r != 'owner' && e.r != 'admin') return; const p = prod(e.id), q = Math.round(+e.q || 0); if (!p || q <= 0) return;
+    const avgB = () => (p.bad > 0 ? Math.round((p.bv || 0) / p.bad) : p.co); let v = 0;
+    if (e.act == 'pindah') { if (q > p.st) return; v = q * p.co; p.st -= q; p.bad = (p.bad || 0) + q; p.bv = (p.bv || 0) + v; jr(e, 'Pindah ke bad stock: ' + p.n + ' ×' + q, [['1202', v, 0], ['1201', 0, v]]); }
+    else if (e.act == 'layak') { if (q > (p.bad || 0)) return; v = q * avgB(); p.bad -= q; p.bv = Math.max(0, (p.bv || 0) - v); p.st += q; jr(e, 'Bad stock layak jual kembali: ' + p.n + ' ×' + q, [['1201', v, 0], ['1202', 0, v]]); }
+    else if (e.act == 'musnah') {
+      if (e.src == 'good') { if (q > p.st) return; v = q * p.co; p.st -= q; jr(e, 'Pemusnahan (stok layak jual) ' + p.n + ' ×' + q, [['6112', v, 0], ['1201', 0, v]]); }
+      else { if (q > (p.bad || 0)) return; v = q * avgB(); p.bad -= q; p.bv = Math.max(0, (p.bv || 0) - v); jr(e, 'Pemusnahan bad stock ' + p.n + ' ×' + q, [['6112', v, 0], ['1202', 0, v]]); }
+    } else return;
+    (S.bst = S.bst || []).push({ no: e.no, t: e.t, u: e.u, act: e.act, src: e.src || 'bad', id: p.id, n: p.n, q, v, why: e.why || '', saksi: e.saksi || '', ph: e.ph });
+  },
   face(e) { S.face = S.face || {}; const u = e.fu; if (!u || (e.r != 'owner' && u != e.u)) return; if (e.x) { delete S.face[u]; return; } if (!Array.isArray(e.d) || e.d.length != 128) return; if (S.face[u] && e.r != 'owner') return; S.face[u] = { d: e.d, ph: e.ph, t: e.t, by: e.u }; },
   sec(e) { (S.sec = S.sec || []).push({ t: e.t, u: e.u, w: e.w, d: e.d }); if (S.sec.length > 300) S.sec.shift(); },
   sup(e) {
@@ -310,7 +324,7 @@ function lr(f = 0, t = 1e15) {
 }
 function neraca(t = 1e15) {
   const b = (a) => bal(a, 0, t), L = lr(0, t);
-  const as = ['1101', '1102', '1103', '1201'].map((a) => [a, AC[a], b(a)]), ta = as.reduce((a, x) => a + x[2], 0);
+  const as = ['1101', '1102', '1103', '1201', '1202'].map((a) => [a, AC[a], b(a)]), ta = as.reduce((a, x) => a + x[2], 0);
   const li = ['2101', '2102', '2103'].map((a) => [a, AC[a], -b(a)]), tl = li.reduce((a, x) => a + x[2], 0);
   const eq = [['3101', AC['3101'], -b('3101')], ['3102', AC['3102'], -b('3102')], ['', 'Laba (rugi) berjalan', L.laba]], te = eq.reduce((a, x) => a + x[2], 0);
   return { as, ta, li, tl, eq, te, ok: Math.round(ta) == Math.round(tl + te) };
@@ -332,4 +346,6 @@ function cashflow(f = 0, t = 1e15) {
   return { open, rows, inn, out, close: open + inn + out };
 }
 const stockValue = () => S.p.reduce((a, p) => a + Math.max(0, p.st) * p.co, 0);
+const badValue = () => S.p.reduce((a, p) => a + (p.bad > 0 ? p.bv || p.bad * p.co : 0), 0);
+const badUnits = () => S.p.reduce((a, p) => a + (p.bad > 0 ? p.bad : 0), 0);
 const salesIn = (f = 0, t = 1e15) => S.sales.filter((s) => s.t >= f && s.t <= t);
