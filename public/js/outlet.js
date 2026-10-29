@@ -15,7 +15,7 @@ function outlets() {
 VW.outlet = () => {
   const L = outlets(), tot = S.c.filter((c) => !c.x).reduce((a, c) => a + outOf(c.id), 0);
   return `${kpi([['Outlet', S.c.filter((c) => !c.x).length], ['Kredit aktif', S.c.filter((c) => !c.x && c.term == 'kredit').length], ['Total piutang', rp(tot)], ['Kunjungan hari ini', S.att.filter((a) => a.k == 'visit' && dkey(a.t) == dkey(Date.now())).length]])}
-<div class="cd"><div class="wrap" style="margin-bottom:10px"><button class="gh a" onclick="outletForm()">+ Outlet</button><button class="gh ${oMap ? 'a' : ''}" onclick="oMap=!oMap;R()">🗺 Peta</button><button class="gh" onclick="nearMe()">📍 Terdekat</button><button class="gh ${oSort == 'debt' ? 'a' : ''}" onclick="oSort=oSort=='debt'?'name':'debt';R()">Piutang terbesar</button></div>
+<div class="cd"><div class="wrap" style="margin-bottom:10px"><button class="gh a" onclick="outletForm()">+ Outlet</button><button class="gh ${oMap ? 'a' : ''}" onclick="oMap=!oMap;R()">🗺 Peta</button><button class="gh" onclick="nearMe()">📍 Terdekat</button>${MGR(U.r) || U.r == 'sales' ? '<button class="gh a" onclick="scanOutlets()">🔎 Cari outlet sekitar</button>' : ''}<button class="gh ${oSort == 'debt' ? 'a' : ''}" onclick="oSort=oSort=='debt'?'name':'debt';R()">Piutang terbesar</button></div>
 <input placeholder="Cari nama / alamat / sales" value="${esc(oQ)}" onchange="oQ=this.value;R()">${oMap ? '<div class="map" id="omap" style="margin-top:10px"></div>' : ''}</div>
 ${L.map((c) => { const out = outOf(c.id), od = overdue(c.id), d = MYPOS && c.lat != null ? haversine(MYPOS.lat, MYPOS.lng, c.lat, c.lng) : null; return `<div class="cd"><div class="row"><b>${esc(c.n)}</b><span>${c.term == 'kredit' ? '<span class="chip g">Kredit</span>' : '<span class="chip">Tunai</span>'}${od ? ' <span class="chip r">Jatuh tempo</span>' : ''}</span></div><small>${esc(c.ad || 'Alamat belum diisi')}${c.ph ? ' · ' + esc(c.ph) : ''}${c.sl ? ' · Sales: ' + esc(c.sl) : ''}${d != null ? ' · ' + distStr(d) : ''}</small>${c.term == 'kredit' ? `<div class="row"><small>Limit ${rp(c.lim)} · Piutang ${rp(out)}</small><b class="${c.lim - out < 0 ? 'rd' : 'gr'}">Sisa ${rp(c.lim - out)}</b></div>` : out ? `<small class="or">Piutang ${rp(out)}</small>` : ''}<div class="wrap" style="margin-top:8px"><button class="gh a" onclick="orderFor('${c.id}')">Order</button><button class="gh" onclick="visitOutlet('${c.id}')">Check-in</button>${c.lat != null ? `<a class="gh" style="text-decoration:none;color:inherit" href="${esc(mapsUrl(c))}" target="_blank" rel="noopener">Navigasi</a>` : ''}<button class="gh" onclick="outletDetail('${c.id}')">Detail</button></div></div>`; }).join('') || '<div class="cd mu">Belum ada outlet. Tambahkan toko langganan pertama Anda.</div>'}`;
 };
@@ -79,4 +79,53 @@ ${vs.length ? '<b>Kunjungan terakhir</b>' + vs.map((v) => `<div class="row"><sma
   $('#e1', m).onclick = () => { m.close(); orderFor(id); };
   const e2 = $('#e2', m); if (e2) e2.onclick = () => { m.close(); outletForm(id); };
   const e3 = $('#e3', m); if (e3) e3.onclick = () => shareText('Tagihan ' + c.n, 'Yth. ' + c.n + ',\nRincian tagihan ' + (S.name || '') + ':\n' + inv.map((s) => s.no + ' (' + dstr(s.t) + ') ' + rp(sOut(s)) + ' — tempo ' + dstr(s.due)).join('\n') + '\nTotal: ' + rp(out) + '\nMohon konfirmasi pembayaran. Terima kasih 🙏');
+}
+
+/* ============ CARI OUTLET OTOMATIS dari peta (OpenStreetMap) di sekitar titik GPS, radius s/d 10 km ============ */
+const SHOPT = { convenience: 'Toko kelontong/minimarket', supermarket: 'Supermarket', grocery: 'Toko sembako', general: 'Toko serba ada', kiosk: 'Kios', wholesale: 'Grosir', variety_store: 'Toko serba ada', beverages: 'Toko minuman', bakery: 'Toko roti', greengrocer: 'Sayur & buah', butcher: 'Daging', deli: 'Makanan', frozen_food: 'Makanan beku', confectionery: 'Toko kue', tobacco: 'Rokok', chemist: 'Toko kebutuhan', cosmetics: 'Kosmetik', houseware: 'Perabot', hardware: 'Toko bangunan', stationery: 'ATK', department_store: 'Toserba', mall: 'Mal', water: 'Depot air', rice: 'Toko beras', seafood: 'Ikan', dairy: 'Susu', farm: 'Hasil tani', pastry: 'Kue', spices: 'Bumbu', tea: 'Teh', coffee: 'Kopi' };
+const SCAN = { r: 3000, all: false, list: [], at: null };
+async function scanOutlets() {
+  const m = modal(`<h3>🔎 Cari outlet di sekitar</h3><small class="mu">Mengambil toko/warung dari peta OpenStreetMap di sekitar lokasi GPS Anda. Data peta dibuat komunitas — tidak semua warung tercatat.</small>
+<label><small class="mu">Radius pencarian</small><select id="sr">${[500, 1000, 3000, 5000, 10000].map((r) => `<option value="${r}" ${SCAN.r == r ? 'selected' : ''}>${r >= 1000 ? r / 1000 + ' km' : r + ' m'}</option>`).join('')}</select></label>
+<label class="row"><span>Tampilkan semua jenis toko (bukan hanya kelontong/grosir)</span><input type="checkbox" id="sa" ${SCAN.all ? 'checked' : ''}></label>
+<button class="pr" id="go">📍 Ambil GPS & cari</button><div id="sres"></div>`, 'w');
+  $('#go', m).onclick = async () => {
+    SCAN.r = +$('#sr', m).value; SCAN.all = $('#sa', m).checked; const out = $('#sres', m); out.innerHTML = '<p class="mu">Mengambil lokasi GPS…</p>';
+    const p = await getPos(); if (!p) { out.innerHTML = '<p class="rd">Lokasi tidak tersedia. Aktifkan GPS & izin lokasi.</p>'; return; }
+    SCAN.at = p; out.innerHTML = '<p class="mu">Mencari toko di peta (radius ' + distStr(SCAN.r) + ')… bisa sampai 20 detik.</p>';
+    const types = SCAN.all ? '' : '["shop"~"^(' + ['convenience', 'supermarket', 'grocery', 'general', 'kiosk', 'wholesale', 'variety_store', 'beverages', 'bakery', 'greengrocer', 'deli', 'frozen_food', 'confectionery', 'tobacco', 'chemist', 'water', 'rice', 'department_store', 'dairy', 'spices'].join('|') + ')$"]';
+    const q = `[out:json][timeout:25];(node["shop"]${types}(around:${SCAN.r},${p.lat},${p.lng});way["shop"]${types}(around:${SCAN.r},${p.lat},${p.lng}););out center 600;`;
+    let js = null;
+    for (const ep of ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter', 'https://maps.mail.ru/osm/tools/overpass/api/interpreter']) {
+      try { const r = await fetch(ep, { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, signal: AbortSignal.timeout ? AbortSignal.timeout(30000) : undefined }); if (r.ok) { js = await r.json(); break; } } catch (e) { }
+    }
+    if (!js) { out.innerHTML = '<p class="rd">Server peta tidak bisa dihubungi. Periksa internet lalu coba lagi.</p>'; return; }
+    const seen = new Set();
+    SCAN.list = js.elements.map((e) => { const t = e.tags || {}, lat = e.lat ?? (e.center && e.center.lat), lng = e.lon ?? (e.center && e.center.lon); return { id: e.type + e.id, n: t.name || t['name:id'] || t.brand || '', type: t.shop, lat, lng, ad: [t['addr:street'], t['addr:housenumber'], t['addr:suburb'] || t['addr:village'], t['addr:city']].filter(Boolean).join(' '), ph: t.phone || t['contact:phone'] || t['contact:whatsapp'] || '', d: haversine(p.lat, p.lng, lat, lng) }; })
+      .filter((x) => x.lat != null && x.n && !seen.has(x.n.toLowerCase() + Math.round(x.lat * 1e3)) && seen.add(x.n.toLowerCase() + Math.round(x.lat * 1e3)))
+      .map((x) => ({ ...x, dup: S.c.find((c) => !c.x && ((c.lat != null && haversine(c.lat, c.lng, x.lat, x.lng) < 60) || c.n.toLowerCase() == x.n.toLowerCase())) }))
+      .sort((a, b) => a.d - b.d);
+    scanList(out, m);
+  };
+}
+function scanList(out, m) {
+  const L = SCAN.list, nw = L.filter((x) => !x.dup);
+  out.innerHTML = `<div class="row"><b>${L.length} toko ditemukan · ${nw.length} belum jadi outlet</b><label class="row" style="margin:0;gap:6px"><small>Pilih semua</small><input type="checkbox" id="sall"></label></div><div id="smap" class="map" style="height:220px"></div>
+${MGR(U.r) ? `<label><small class="mu">Sales penanggung jawab (opsional)</small><select id="ssl"><option value="">—</option>${salesNames().map((n) => `<option>${esc(n)}</option>`).join('')}</select></label>` : ''}
+<div style="max-height:40vh;overflow:auto">${L.map((x, i) => `<label class="row sitem" style="${x.dup ? 'opacity:.55' : ''}"><span><b>${esc(x.n)}</b><br><small class="mu">${esc(SHOPT[x.type] || x.type || 'Toko')} · ${distStr(x.d)}${x.ad ? ' · ' + esc(x.ad) : ''}${x.ph ? ' · ' + esc(x.ph) : ''}${x.dup ? ' · <b>sudah ada: ' + esc(x.dup.n) + '</b>' : ''}</small></span>${x.dup ? '' : `<input type="checkbox" data-i="${i}">`}</label>`).join('') || '<p class="mu">Tidak ada toko bernama di radius ini. Coba radius lebih besar.</p>'}</div>
+<button class="pr" id="sadd">Tambahkan outlet terpilih</button>`;
+  $('#sall', m).onchange = (e) => $$('[data-i]', m).forEach((c) => (c.checked = e.target.checked));
+  $('#sadd', m).onclick = () => {
+    const pick = $$('[data-i]', m).filter((c) => c.checked).map((c) => SCAN.list[+c.dataset.i]); if (!pick.length) return toast('Centang toko yang mau ditambahkan');
+    const sl = ($('#ssl', m) || {}).value || (U.r == 'sales' ? U.n : '');
+    pick.forEach((x) => emit('cu', { c: { id: 'c' + uid(), n: x.n, ph: x.ph, ad: x.ad, lat: x.lat, lng: x.lng, note: 'Dari peta: ' + (SHOPT[x.type] || x.type || 'toko'), ...(sl ? { sl } : {}) } }));
+    m.close(); toast(pick.length + ' outlet ditambahkan ✓'); R();
+  };
+  setTimeout(() => {
+    if (!window.L || !$('#smap', m)) return; const mp = window.L.map($('#smap', m)).setView([SCAN.at.lat, SCAN.at.lng], SCAN.r > 3000 ? 12 : 14);
+    window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(mp);
+    window.L.circle([SCAN.at.lat, SCAN.at.lng], { radius: SCAN.r, color: '#6c5ce7', weight: 1, fillOpacity: 0.05 }).addTo(mp);
+    window.L.circleMarker([SCAN.at.lat, SCAN.at.lng], { radius: 7, color: '#fff', fillColor: '#6c5ce7', fillOpacity: 1, weight: 3 }).addTo(mp).bindPopup('Posisi Anda');
+    SCAN.list.slice(0, 400).forEach((x) => window.L.circleMarker([x.lat, x.lng], { radius: 5, color: x.dup ? '#999' : '#ff5d73', fillOpacity: 0.8, weight: 1 }).addTo(mp).bindPopup(esc(x.n)));
+  }, 80);
 }

@@ -104,9 +104,10 @@ export async function buyerRoutes(x) {
     if (M == 'PUT') {
       const nm = String(b.name ?? me.name).trim().slice(0, 50), ad = String(b.addr ?? me.addr ?? '').slice(0, 200), ll = okLL(b.lat, b.lng);
       await env.DB.prepare('UPDATE buyers SET name=?,addr=?,lat=?,lng=? WHERE id=?').bind(nm || me.name, ad, ll ? +b.lat : me.lat, ll ? +b.lng : me.lng, bid).run();
+      if (Array.isArray(b.addrs)) await env.DB.prepare('UPDATE buyers SET addrs=? WHERE id=?').bind(JSON.stringify(b.addrs.slice(0, 10).map((x) => ({ label: String(x.label || '').slice(0, 30), name: String(x.name || '').slice(0, 50), phone: String(x.phone || '').slice(0, 20), addr: String(x.addr || '').slice(0, 200), lat: okLL(x.lat, x.lng) ? +x.lat : null, lng: okLL(x.lat, x.lng) ? +x.lng : null, main: !!x.main }))), bid).run();
       if (b.pin) { if (!/^\d{4,8}$/.test(String(b.pin)) || !(await same(me.pin_hash, await pbk(String(b.old || ''), 'b:' + me.phone)))) return J({ e: 'PIN lama salah / PIN baru 4–8 angka' }, 400); await env.DB.prepare('UPDATE buyers SET pin_hash=? WHERE id=?').bind(await pbk(String(b.pin), 'b:' + me.phone), bid).run(); }
     }
-    const r = await env.DB.prepare('SELECT id,phone,name,addr,lat,lng,created FROM buyers WHERE id=?').bind(bid).first();
+    const r = await env.DB.prepare('SELECT id,phone,name,addr,lat,lng,created,addrs FROM buyers WHERE id=?').bind(bid).first(); r.addrs = JSON.parse(r.addrs || '[]');
     return J({ me: r, credit: await creditScore(env, bid), lim: (await env.DB.prepare('SELECT bc.store_id,s.name,bc.lim,bc.days FROM bcredit bc JOIN stores s ON s.id=bc.store_id WHERE bc.buyer_id=?').bind(bid).all()).results });
   }
   if (p == '/api/b/orders' && M == 'POST') {

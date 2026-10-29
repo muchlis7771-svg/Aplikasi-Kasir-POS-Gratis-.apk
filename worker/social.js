@@ -12,8 +12,9 @@ export const SSCHEMA = [
   'CREATE TABLE IF NOT EXISTS flash(store_id TEXT,pid TEXT,price INTEGER,end INTEGER,PRIMARY KEY(store_id,pid))',
   'CREATE TABLE IF NOT EXISTS posts(id INTEGER PRIMARY KEY AUTOINCREMENT,store_id TEXT,img TEXT,txt TEXT,pid TEXT,likes INTEGER DEFAULT 0,t INTEGER)',
   'CREATE TABLE IF NOT EXISTS plikes(post_id INTEGER,bid INTEGER,PRIMARY KEY(post_id,bid))',
+  'CREATE TABLE IF NOT EXISTS qa(id INTEGER PRIMARY KEY AUTOINCREMENT,store_id TEXT,pid TEXT,bid INTEGER,bn TEXT,q TEXT,a TEXT,t INTEGER,at INTEGER)', 'CREATE INDEX IF NOT EXISTS qa_sp ON qa(store_id,pid)',
 ];
-export const SALTER = ['catalog ADD COLUMN sold INTEGER DEFAULT 0', 'orders ADD COLUMN disc INTEGER DEFAULT 0', 'orders ADD COLUMN vcode TEXT', 'shop ADD COLUMN banner TEXT'];
+export const SALTER = ['buyers ADD COLUMN addrs TEXT', 'catalog ADD COLUMN sold INTEGER DEFAULT 0', 'orders ADD COLUMN disc INTEGER DEFAULT 0', 'orders ADD COLUMN vcode TEXT', 'shop ADD COLUMN banner TEXT'];
 export async function logAct(env, typ, uid, name, sid, act, det) {
   try {
     await env.DB.prepare('INSERT INTO act(t,typ,uid,name,sid,act,det) VALUES(?,?,?,?,?,?,?)').bind(Date.now(), typ, String(uid || ''), String(name || '').slice(0, 60), sid || null, String(act).slice(0, 60), det ? String(det).slice(0, 200) : null).run();
@@ -66,7 +67,8 @@ export async function socialPublic(x, bid) {
     ]);
     await env.DB.prepare('INSERT INTO views(t,store_id,pid,bid,kind) VALUES(?,?,?,?,?)').bind(now, sid, pid, bid || null, 'p').run();
     if (Math.random() < 0.01) await env.DB.prepare('DELETE FROM views WHERE t<?').bind(now - 90 * DAY).run();
-    return J({ item: it, reviews: rev.results, shop, followed: !!fol, fav: !!fav, more: lite(more.results), vouchers: (await env.DB.prepare('SELECT code,typ,val,min,maxd,exp FROM vouchers WHERE store_id=? AND active=1 AND (exp IS NULL OR exp>?) AND (quota=0 OR used<quota) LIMIT 5').bind(sid, now).all()).results });
+    const qa = (await env.DB.prepare('SELECT id,bn,q,a,t,at FROM qa WHERE store_id=? AND pid=? ORDER BY id DESC LIMIT 30').bind(sid, pid).all()).results;
+    return J({ item: it, qa, reviews: rev.results, shop, followed: !!fol, fav: !!fav, more: lite(more.results), vouchers: (await env.DB.prepare('SELECT code,typ,val,min,maxd,exp FROM vouchers WHERE store_id=? AND active=1 AND (exp IS NULL OR exp>?) AND (quota=0 OR used<quota) LIMIT 5').bind(sid, now).all()).results });
   }
   if (p == '/api/b/shop' && M == 'GET') {
     const sid = String(u.searchParams.get('s') || '');
@@ -115,6 +117,11 @@ export async function socialBuyer(x, bid, me) {
     const st = JSON.parse(o.items).map((i) => env.DB.prepare('INSERT INTO reviews(order_id,store_id,pid,bid,bn,stars,txt,t) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(order_id,pid) DO UPDATE SET stars=excluded.stars,txt=excluded.txt,t=excluded.t').bind(o.id, o.store_id, i.pid, bid, me.name, stars, txt, now));
     await env.DB.batch(st); await logAct(env, 'buyer', bid, me.name, o.store_id, 'ulasan', stars + '★ pesanan #' + o.id);
     return J({ ok: 1 });
+  }
+  if (p == '/api/b/qa' && M == 'POST') {
+    const q = String(b.q || '').trim().slice(0, 300); if (q.length < 3) return J({ e: 'Tulis pertanyaan' }, 400);
+    await env.DB.prepare('INSERT INTO qa(store_id,pid,bid,bn,q,t) VALUES(?,?,?,?,?,?)').bind(String(b.s || ''), String(b.p || ''), bid, me.name, q, now).run();
+    await logAct(env, 'buyer', bid, me.name, String(b.s || ''), 'diskusi produk', q.slice(0, 60)); return J({ ok: 1 });
   }
   if (p == '/api/b/reviewed' && M == 'GET') return J({ ids: (await env.DB.prepare('SELECT DISTINCT order_id FROM reviews WHERE bid=?').bind(bid).all()).results.map((r) => r.order_id) });
   return null;
@@ -169,6 +176,10 @@ export async function socialShop(x) {
     }
     if (M == 'DELETE' && boss) await env.DB.prepare('DELETE FROM posts WHERE store_id=? AND id=?').bind(sid, +u.searchParams.get('id')).run();
     return J({ posts: (await env.DB.prepare('SELECT id,img,txt,pid,likes,t FROM posts WHERE store_id=? ORDER BY id DESC LIMIT 50').bind(sid).all()).results });
+  }
+  if (p == '/api/shop/qa') {
+    if (M == 'POST' && boss) await env.DB.prepare('UPDATE qa SET a=?,at=? WHERE store_id=? AND id=?').bind(String(b.a || '').slice(0, 300), now, sid, +b.id).run();
+    return J({ qa: (await env.DB.prepare('SELECT q.id,q.pid,c.n,q.bn,q.q,q.a,q.t FROM qa q LEFT JOIN catalog c ON c.store_id=q.store_id AND c.pid=q.pid WHERE q.store_id=? ORDER BY (q.a IS NULL) DESC,q.id DESC LIMIT 100').bind(sid).all()).results });
   }
   if (p == '/api/shop/reviews') {
     if (M == 'POST' && boss) await env.DB.prepare('UPDATE reviews SET reply=? WHERE store_id=? AND id=?').bind(String(b.reply || '').slice(0, 300), sid, +b.id).run();

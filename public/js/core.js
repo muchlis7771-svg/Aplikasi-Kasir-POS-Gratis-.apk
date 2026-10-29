@@ -38,7 +38,7 @@ const MGR = (r) => r == 'owner' || r == 'admin' || r == 'akuntan';
 const PERM = {
   owner: '*',
   admin: 'dash pos his hisAll prod prodEdit outlet onl ana lap keu jur abs absAll chat usr retur backup set',
-  akuntan: 'dash his hisAll prod lap keu jur abs absAll chat set',
+  akuntan: 'dash his hisAll prod ana lap keu jur abs absAll chat set',
   kasir: 'dash pos his abs chat set',
   sales: 'dash pos his outlet ana abs chat set',
 };
