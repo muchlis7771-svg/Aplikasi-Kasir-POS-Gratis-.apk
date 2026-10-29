@@ -1,6 +1,6 @@
 # Server J-POS (Cloudflare Worker). Dipasang otomatis oleh Cloudflare setiap ada perubahan di branch main.
 # Kode server: jpos/worker/worker.js · aplikasi web: jpos/public · database D1 "jpos" dibuat otomatis.
-name = "j-data-mucus"
+name = "sistem-penjualan--apk"
 main = "jpos/worker/worker.js"
 compatibility_date = "2025-01-01"
 workers_dev = true
