@@ -33,9 +33,9 @@ setInterval(() => { if (U && S && S.srv) pollOrders(true); }, 30000);
 
 VW.onl = () => {
   if (!S.srv) return `<div class="cd"><h3>Toko online</h3><p class="mu">Fitur pasar online butuh toko yang terdaftar di server (bukan mode lokal/demo).</p></div>`;
-  const tabs = `<div class="seg sc-tabs" style="margin-top:0">${[['sum', '📊 Ringkasan'], ['ord', '📦 Pesanan'], ['promo', '⚡ Promo'], ['konten', '🎬 Konten'], ['ulasan', '⭐ Ulasan'], ['chat', '💬 Chat'], ['set', '⚙️ Toko']].map((t) => `<button class="${ONL.tab == t[0] ? 'a' : ''}" onclick="ONL.tab='${t[0]}';R()">${t[1]}${t[0] == 'ord' && ONL.orders.filter(needAct).length ? ' (' + ONL.orders.filter(needAct).length + ')' : ''}</button>`).join('')}</div>`;
+  const tabs = `<div class="seg sc-tabs" style="margin-top:0">${[['sum', '📊 Ringkasan'], ['ord', '📦 Pesanan'], ['promo', '⚡ Promo'], ['konten', '🎬 Konten'], ['ulasan', '⭐ Ulasan'], ['qa', '❓ Diskusi'], ['chat', '💬 Chat'], ['set', '⚙️ Toko']].map((t) => `<button class="${ONL.tab == t[0] ? 'a' : ''}" onclick="ONL.tab='${t[0]}';R()">${t[1]}${t[0] == 'ord' && ONL.orders.filter(needAct).length ? ' (' + ONL.orders.filter(needAct).length + ')' : ''}</button>`).join('')}</div>`;
   if (ONL.tab == 'set') return tabs + `<div id="onlset" class="cd"><p class="mu">Memuat pengaturan…</p></div>`;
-  if (['sum', 'promo', 'konten', 'ulasan'].includes(ONL.tab)) return tabs + `<div id="onlx"><div class="cd"><p class="mu">Memuat…</p></div></div>`;
+  if (['sum', 'promo', 'konten', 'ulasan', 'qa'].includes(ONL.tab)) return tabs + `<div id="onlx"><div class="cd"><p class="mu">Memuat…</p></div></div>`;
   if (ONL.tab == 'chat') return tabs + `<div id="onlchat" class="cd"><p class="mu">Memuat chat…</p></div>`;
   const F = { act: (o) => needAct(o) || ['nego_toko', 'diproses', 'dikirim'].includes(o.status) || (!o.paid && o.status == 'selesai'), run: (o) => ['nego_toko', 'diproses', 'dikirim'].includes(o.status), done: (o) => o.status == 'selesai', unpaid: (o) => !o.paid && !['batal', 'ditolak'].includes(o.status), x: (o) => ['batal', 'ditolak'].includes(o.status), all: () => 1 };
   const L = ONL.orders.filter(F[ONL.f]), cnt = (k) => ONL.orders.filter(F[k]).length;
@@ -195,4 +195,11 @@ async function scFlash() { try { await post('/api/shop/flash', { pid: $('#fp').v
 async function scVoucher() { try { const e = $('#ve').value; await post('/api/shop/vouchers', { code: $('#vc').value, typ: $('#vt').value, val: num($('#vv').value), min: num($('#vm').value), maxd: num($('#vx').value), quota: num($('#vq').value), exp: e ? new Date(e + 'T23:59:59').getTime() : 0 }); toast('Voucher dibuat 🎟️'); SC.promo(); } catch (e) { toast(e.message); } }
 async function scPost() { try { await post('/api/shop/posts', { img: ONL.kimg || '', txt: $('#kt').value, pid: $('#kp').value }); ONL.kimg = ''; toast('Postingan tayang 🎬'); SC.konten(); } catch (e) { toast(e.message); } }
 async function scDel(k, q) { if (!confirm('Hapus?')) return; try { await api('/api/shop/' + k + '?' + q, { method: 'DELETE' }); SC[k == 'posts' ? 'konten' : 'promo'](); } catch (e) { toast(e.message); } }
+SC.qa = async function () {
+  try {
+    const r = await api('/api/shop/qa'), open = r.qa.filter((x) => !x.a).length;
+    scEl().innerHTML = `<div class="cd hero"><small>Diskusi produk</small><h2>${open}</h2><small>pertanyaan belum dijawab · ${r.qa.length} total</small></div>` + (r.qa.map((x) => `<div class="cd"><small><b>${esc(x.bn)}</b> · ${esc(x.n || x.pid)} · ${dstr(x.t)}</small><p style="margin:4px 0">❓ ${esc(x.q)}</p>${x.a ? `<small class="mu">↳ Jawaban Anda: ${esc(x.a)}</small> <button class="gh" onclick="scAnswer(${x.id})">Ubah</button>` : `<button class="gh a" onclick="scAnswer(${x.id})">Jawab</button>`}</div>`).join('') || '<div class="cd"><p class="mu">Belum ada pertanyaan dari pembeli.</p></div>');
+  } catch (e) { scEl().innerHTML = '<div class="cd"><p class="rd">' + esc(e.message) + '</p></div>'; }
+};
+async function scAnswer(id) { const t = prompt('Jawaban untuk pertanyaan pembeli:'); if (!t) return; try { await post('/api/shop/qa', { id, a: t }); SC.qa(); } catch (e) { toast(e.message); } }
 async function scReply(id) { const t = prompt('Balasan untuk ulasan ini:'); if (!t) return; try { await post('/api/shop/reviews', { id, reply: t }); SC.ulasan(); } catch (e) { toast(e.message); } }
