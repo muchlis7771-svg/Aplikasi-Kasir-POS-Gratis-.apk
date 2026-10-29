@@ -24,14 +24,14 @@ async function shareText(title, text) {
 }
 
 // Lokasi GPS: {lat,lng,acc} atau null
-async function getPos() {
+async function getPos(fresh) {
   const G = plug('Geolocation');
   if (isNative() && G) {
-    try { if (G.requestPermissions) await G.requestPermissions(); const p = await G.getCurrentPosition({ enableHighAccuracy: true, timeout: 12000 }); return { lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy }; } catch (e) { console.warn(e); }
+    try { if (G.requestPermissions) await G.requestPermissions(); const p = await G.getCurrentPosition({ enableHighAccuracy: true, timeout: 12000, maximumAge: fresh ? 0 : 10000 }); return { lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy }; } catch (e) { console.warn(e); }
   }
   return new Promise((ok) => {
     if (!navigator.geolocation) return ok(null);
-    navigator.geolocation.getCurrentPosition((p) => ok({ lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy }), () => ok(null), { enableHighAccuracy: true, timeout: 12000, maximumAge: 20000 });
+    navigator.geolocation.getCurrentPosition((p) => ok({ lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy }), () => ok(null), { enableHighAccuracy: true, timeout: 12000, maximumAge: fresh ? 0 : 20000 });
   });
 }
 

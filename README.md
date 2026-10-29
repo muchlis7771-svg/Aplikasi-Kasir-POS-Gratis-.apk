@@ -53,3 +53,6 @@ APK ini adalah build *debug* (cukup untuk dipakai & dibagikan langsung). Untuk G
 - Login online pertama kali butuh internet; setelah itu bisa offline. Toko mode lokal (tanpa server) datanya hanya ada di perangkat — gunakan Backup.
 - Peta memakai OpenStreetMap (butuh internet untuk menampilkan peta; koordinat tetap tersimpan offline).
 - Notifikasi push belum ada (chat memakai polling saat aplikasi terbuka).
+
+## v10
+Pembelian stok (supplier/PO/terima barang), Excel outlet+stok, trial per hari kalender, absen anti-curang (jam server, selfie, GPS), akuntansi + buku kas, role Dropping, check-in/out radius 3 km, hak akses per peran, paket Biasa/Standar/High (diatur Head Admin).

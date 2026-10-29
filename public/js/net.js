@@ -45,9 +45,9 @@ async function sync() {
     if (e.status == 401) { S.reauth = true; }
     else if (e.status == 402) { stApply(e.body); SY.state = 'exp'; }
     else if (e.status == 403 && /suspend/i.test(e.message)) { S.locked = e.message; save(); }
-  } finally { syncing = false; updBadge(); if (n) afterPull(); if (S.locked) R(); }
+  } finally { syncing = false; updBadge(); if (n) afterPull(); if (S && S.locked) R(); }
 }
-const LIVE = new Set(['dash', 'his', 'keu', 'abs', 'outlet', 'prod']);
+const LIVE = new Set(['dash', 'his', 'keu', 'abs', 'outlet', 'prod', 'kirim', 'kas', 'beli', 'aud']);
 function afterPull() { if (U && LIVE.has(V) && !$('.md') && !$('.scan') && !/INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName || '')) R(); }
 function updBadge() {
   const b = $('#sy'); if (!b || !S) return;
@@ -69,7 +69,7 @@ addEventListener('offline', () => { updBadge(); if (U) toast('Mode offline: tran
 document.addEventListener('visibilitychange', () => { if (!document.hidden && U) kick(); });
 
 // status toko dari server: masa aktif, paket, nama
-function stApply(st) { if (!st || !S) return; const was = isExp(); if (st.exp != null) S.exp = +st.exp || 0; if (st.plan) S.plan = st.plan; if (st.sn) S.name = st.sn; save(); if (U && was != isExp()) setTimeout(R, 0); }
+function stApply(st) { if (!st || !S) return; const was = isExp(); if (st.exp != null) S.exp = +st.exp || 0; if (st.plan) S.plan = st.plan; if (st.sn) S.name = st.sn; if (st.tier) { S.tier = st.tier; S.tn = st.tn; S.pf = st.pf; S.lim = st.lim; S.pm = st.pm || {}; } save(); if (U && was != isExp()) setTimeout(R, 0); }
 // info pemilik aplikasi (WA & harga) — disimpan agar tampil juga saat offline
 async function appInfo() { try { const r = await api('/api/info', {}, ''); LS.set('jpos:info', r); return r; } catch (e) { return LS.get('jpos:info', { wa: '', price: '', trial: 30 }); } }
 

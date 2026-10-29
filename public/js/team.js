@@ -1,14 +1,14 @@
 'use strict';
 /* ============ PENGGUNA ============ */
-const newRoles = () => (U.r == 'owner' ? ['kasir', 'sales', 'akuntan', 'admin'] : ['kasir', 'sales']);
-const canEditUser = (u) => u.name == U.n || (u.role != 'owner' && (U.r == 'owner' || ['kasir', 'sales'].includes(u.role)));
-const ROLEDESC = { owner: 'Semua fitur, atur kredit outlet, modal, profil toko', admin: 'Kasir, produk & stok, outlet, laporan, kelola kasir/sales', akuntan: 'Keuangan, jurnal, laporan (tanpa transaksi jual)', kasir: 'Transaksi kasir, riwayat sendiri, absensi', sales: 'Order ke outlet, kunjungan & peta, absensi' };
+const newRoles = () => (U.r == 'owner' ? ['kasir', 'sales', 'dropping', 'akuntan', 'admin'] : ['kasir', 'sales', 'dropping']);
+const canEditUser = (u) => u.name == U.n || (u.role != 'owner' && (U.r == 'owner' || ['kasir', 'sales', 'dropping'].includes(u.role)));
+const ROLEDESC = { owner: 'Semua fitur, atur kredit outlet, modal, profil toko', admin: 'Kasir, produk & stok, outlet, laporan, kelola kasir/sales', akuntan: 'Keuangan, jurnal, laporan (tanpa transaksi jual)', kasir: 'Transaksi kasir, riwayat sendiri, absensi', sales: 'Order ke outlet, check-in kunjungan & peta, absensi', dropping: 'Pengantaran barang order sales, tagih saat tiba, check-in/out outlet' };
 const rolesOpt = (sel) => (newRoles().includes(sel) ? newRoles() : [sel, ...newRoles()]).map((r) => `<option value="${r}" ${sel == r ? 'selected' : ''}>${ROLE[r]}</option>`).join('');
 const staffList = () => (S.srv ? S.staff : S.users.map((u) => ({ name: u.n, role: u.r })));
 async function loadStaff() { if (!S.srv || !canNet()) return; try { S.staff = (await api('/api/staff')).staff; save(); const el = $('#stf'); if (el) el.innerHTML = stfH(); } catch (e) { toast(e.message); } }
 const stfH = () => `<table><tr><th>Nama<th>Peran<th></tr>${staffList().map((u, i) => `<tr><td>${esc(u.name)}${u.name == U.n ? ' <span class="chip">Anda</span>' : ''}<td>${S.srv && u.name != U.n && canEditUser(u) ? `<select onchange="setRole(${i},this.value)">${rolesOpt(u.role)}</select>` : `<span class="chip">${esc(ROLE[u.role] || u.role)}</span>`}<td class="n">${canEditUser(u) ? `<button class="gh" onclick="resetPin(${i})">Ubah PIN</button>${u.name != U.n ? ` <button class="gh d" onclick="delUser(${i})">Hapus</button>` : ''}` : ''}</tr>`).join('')}</table>`;
 VW.usr = () => `<div class="cd"><h3>Kode toko</h3><div class="row"><b style="font-size:22px;letter-spacing:2px">${esc(SID)}</b><button class="gh" onclick="shareText('Kode toko','Kode toko ${esc(SID)} — buka aplikasi J-POS, pilih Masuk, lalu isi kode toko, nama, dan PIN Anda.')">Bagikan</button></div><small class="mu">Staf masuk dengan kode ini + nama + PIN yang Anda buat di bawah.${S.srv ? '' : ' (Toko lokal: data hanya di perangkat ini.)'}</small></div>
-<div class="cd"><h3>Tambah pengguna</h3><div class="fm"><input id="un" placeholder="Nama (untuk login)" autocomplete="off"><select id="ux">${rolesOpt('kasir')}</select><input id="up" type="password" inputmode="numeric" maxlength="8" placeholder="PIN 4–8 angka" autocomplete="off"><button class="pr" onclick="addUser()">Tambah</button></div><div style="margin-top:8px">${['owner', 'admin', 'akuntan', 'kasir', 'sales'].map((r) => `<div class="row"><span class="chip">${ROLE[r]}</span><small class="mu" style="text-align:right">${ROLEDESC[r]}</small></div>`).join('')}</div></div>
+<div class="cd"><h3>Tambah pengguna</h3>${S.srv && S.lim ? `<small class="mu">Paket ${esc(S.tn || '')}: ${staffList().length} dari ${S.lim} pengguna terpakai.</small>` : ''}<div class="fm"><input id="un" placeholder="Nama (untuk login)" autocomplete="off"><select id="ux">${rolesOpt('kasir')}</select><input id="up" type="password" inputmode="numeric" maxlength="8" placeholder="PIN 4–8 angka" autocomplete="off"><button class="pr" onclick="addUser()">Tambah</button></div><div style="margin-top:8px">${['owner', 'admin', 'akuntan', 'kasir', 'sales', 'dropping'].map((r) => `<div class="row"><span class="chip">${ROLE[r]}</span><small class="mu" style="text-align:right">${ROLEDESC[r]}</small></div>`).join('')}</div></div>
 <div class="cd"><h3>Pengguna ${S.srv ? '<button class="gh" onclick="loadStaff()" style="float:right">⟳</button>' : ''}</h3><div class="ov" id="stf">${stfH()}</div></div>`;
 VW.usr.after = loadStaff;
 async function addUser() {
@@ -45,30 +45,33 @@ function attRecap(f, t) {
   const m = {}, jn = String(S.set.jin || '08:00').split(':'), lim = +jn[0] * 60 + +jn[1] + 10;
   for (const a of S.att) {
     if (a.t < f || a.t > t) continue; const u = m[a.u] || (m[a.u] = { u: a.u, d: {}, visits: 0 });
-    if (a.k == 'visit') { u.visits++; continue; }
+    if (a.k == 'vout') continue; if (a.k == 'visit') { u.visits++; continue; }
     const d = u.d[dkey(a.t)] || (u.d[dkey(a.t)] = { in: 0, out: 0 });
     if (a.k == 'in' && (!d.in || a.t < d.in)) d.in = a.t; if (a.k == 'out' && a.t > d.out) d.out = a.t;
   }
   return Object.values(m).map((u) => { let days = 0, late = 0, hours = 0; for (const d of Object.values(u.d)) { if (!d.in) continue; days++; const dt = new Date(d.in); if (dt.getHours() * 60 + dt.getMinutes() > lim) late++; if (d.out > d.in) hours += (d.out - d.in) / 36e5; } return { u: u.u, days, late, hours, visits: u.visits }; }).sort((a, b) => a.u.localeCompare(b.u));
 }
-const myToday = () => S.att.filter((a) => a.u == U.n && a.k != 'visit' && dkey(a.t) == dkey(Date.now())).sort((a, b) => a.t - b.t);
+const myToday = () => S.att.filter((a) => a.u == U.n && (a.k == 'in' || a.k == 'out') && dkey(a.t) == dkey(Date.now())).sort((a, b) => a.t - b.t);
 async function clock(kind) {
   const td = myToday(), last = td[td.length - 1];
   if (kind == 'in' && last && last.k == 'in') return toast('Anda sudah absen masuk ' + hm(last.t));
   if (kind == 'out' && (!last || last.k == 'out')) return toast('Belum absen masuk');
-  toast('Mengambil lokasi…', 1200); const p = await getPos();
-  if (S.set.glat != null && p && (U.r == 'kasir' || U.r == 'akuntan')) { const d = haversine(p.lat, p.lng, S.set.glat, S.set.glng); if (d > (S.set.grad || 200) && !confirm('Anda ' + distStr(d) + ' dari lokasi toko. Tetap absen?')) return; }
-  emit(kind, { lat: p ? p.lat : null, lng: p ? p.lng : null, note: ($('#an') || {}).value ? $('#an').value.trim() : p ? '' : 'tanpa GPS' });
-  toast(kind == 'in' ? 'Absen masuk ' + hm(Date.now()) + (lateMin() > 0 ? ' (terlambat)' : '') : 'Absen pulang ' + hm(Date.now())); R();
+  const anti = antiOn(), geo = S.set.glat != null && ['kasir', 'akuntan', 'admin'].includes(U.r);
+  toast('Memverifikasi jam & lokasi…', 2500);
+  const pr = await proof({ selfie: anti && S.set.selfie !== false, needPos: anti }); if (pr.err) return alertBox(pr.err, 'Absen ditolak');
+  const fx = pr.fx.slice();
+  if (geo && pr.lat != null) { const d = haversine(pr.lat, pr.lng, S.set.glat, S.set.glng); if (d > (S.set.grad || 200)) { if (anti) return alertBox('Anda ' + distStr(d) + ' dari lokasi toko (batas ' + distStr(S.set.grad || 200) + '). Absen hanya bisa di toko.', 'Absen ditolak'); if (!confirm('Anda ' + distStr(d) + ' dari lokasi toko. Tetap absen?')) return; fx.push('lokasi'); } }
+  emit(kind, { lat: pr.lat, lng: pr.lng, acc: pr.acc, on: pr.on, sk: pr.sk, fx: fxs(fx), ph: pr.ph || undefined, note: ($('#an') || {}).value ? $('#an').value.trim() : pr.lat != null ? '' : 'tanpa GPS' }, pr.t);
+  toast(kind == 'in' ? 'Absen masuk ' + hm(pr.t) + (lateMin() > 0 ? ' (terlambat)' : '') : 'Absen pulang ' + hm(pr.t)); R();
 }
 const lateMin = () => { const jn = String(S.set.jin || '08:00').split(':'), n = new Date(); return n.getHours() * 60 + n.getMinutes() - (+jn[0] * 60 + +jn[1] + 10); };
 VW.abs = () => {
   const td = myToday(), last = td[td.length - 1], inn = last && last.k == 'in', mgr = MGR(U.r);
   const names = [...new Set([...staffList().map((u) => u.name), ...S.att.map((a) => a.u)])].sort();
-  const board = names.map((n) => { const t = S.att.filter((a) => a.u == n && a.k != 'visit' && dkey(a.t) == dkey(Date.now())).sort((a, b) => a.t - b.t), i = t.find((x) => x.k == 'in'), o = [...t].reverse().find((x) => x.k == 'out'); return [n, i, o && (!i || o.t > i.t) ? o : null]; });
-  const mine = Object.entries(S.att.filter((a) => a.u == U.n && a.k != 'visit').reduce((g, a) => { (g[dkey(a.t)] = g[dkey(a.t)] || []).push(a); return g; }, {})).sort().reverse().slice(0, 14);
+  const board = names.map((n) => { const t = S.att.filter((a) => a.u == n && (a.k == 'in' || a.k == 'out') && dkey(a.t) == dkey(Date.now())).sort((a, b) => a.t - b.t), i = t.find((x) => x.k == 'in'), o = [...t].reverse().find((x) => x.k == 'out'); return [n, i, o && (!i || o.t > i.t) ? o : null]; });
+  const mine = Object.entries(S.att.filter((a) => a.u == U.n && (a.k == 'in' || a.k == 'out')).reduce((g, a) => { (g[dkey(a.t)] = g[dkey(a.t)] || []).push(a); return g; }, {})).sort().reverse().slice(0, 14);
   return `<div class="cd"><h3>Absensi saya · ${dstr(Date.now())}</h3><div class="row"><span>Status</span><b class="${inn ? 'gr' : 'mu'}">${inn ? 'Masuk ' + hm(last.t) : last ? 'Pulang ' + hm(last.t) : 'Belum absen'}</b></div><input id="an" placeholder="Catatan (opsional)"><div class="fm2" style="margin-top:8px"><button class="pr" ${inn ? 'disabled' : ''} onclick="clock('in')">Absen masuk</button><button class="pr" style="background:linear-gradient(135deg,#ff9f43,#ff5d73)" ${inn ? '' : 'disabled'} onclick="clock('out')">Absen pulang</button></div><small class="mu">Jam masuk ${esc(S.set.jin || '08:00')} (toleransi 10 menit). Lokasi GPS dicatat saat absen.</small></div>
-${mgr ? `<div class="cd"><h3>Kehadiran hari ini</h3><table>${board.map((r) => `<tr><td>${esc(r[0])}<td>${r[1] ? '<span class="chip g">Masuk ' + hm(r[1].t) + '</span>' : '<span class="chip r">Belum hadir</span>'}<td>${r[2] ? 'Pulang ' + hm(r[2].t) : ''}</tr>`).join('') || '<tr><td class="mu">Belum ada karyawan</tr>'}</table></div>${perBar()}${secH(RPT.absen(PF, PT)[0])}<div class="cd"><div class="wrap"><button class="gh" onclick="RT='absen';expXlsx('cur')">⬇ Rekap Excel</button><button class="gh" onclick="RT='absen';expPdf('cur')">Rekap PDF</button></div></div>` : ''}
+${mgr ? `<div class="cd"><h3>Kehadiran hari ini</h3><table>${board.map((r) => `<tr><td>${esc(r[0])}<td>${r[1] ? '<span class="chip g">Masuk ' + hm(r[1].t) + '</span>' + (r[1].ph ? ` <img src="${r[1].ph}" alt="" style="width:30px;border-radius:6px;vertical-align:middle">` : '') + (fxTxt(r[1]).length ? ' <span class="chip o" title="' + esc(fxTxt(r[1]).join(', ')) + '">⚠</span>' : '') : '<span class="chip r">Belum hadir</span>'}<td>${r[2] ? 'Pulang ' + hm(r[2].t) : ''}</tr>`).join('') || '<tr><td class="mu">Belum ada karyawan</tr>'}</table></div>${perBar()}${secH(RPT.absen(PF, PT)[0])}<div class="cd"><div class="wrap"><button class="gh" onclick="RT='absen';expXlsx('cur')">⬇ Rekap Excel</button><button class="gh" onclick="RT='absen';expPdf('cur')">Rekap PDF</button></div></div>` : ''}
 <div class="cd"><h3>Riwayat saya</h3><table>${mine.map(([k, a]) => { const i = a.find((x) => x.k == 'in'), o = [...a].reverse().find((x) => x.k == 'out'); return `<tr><td>${k.split('-').reverse().join('/')}<td>${i ? hm(i.t) : '-'}<td>${o ? hm(o.t) : '-'}<td class="n">${i && o && o.t > i.t ? ((o.t - i.t) / 36e5).toFixed(1) + ' jam' : ''}</tr>`; }).join('') || '<tr><td class="mu">Belum ada riwayat</tr>'}</table></div>`;
 };
 

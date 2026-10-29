@@ -5,9 +5,10 @@ const PAGES = {
   prod: ['📦', 'Produk', 'Stok, harga, barcode'], outlet: ['📍', 'Outlet', 'Pelanggan, peta, kredit'], lap: ['📊', 'Laporan', 'Penjualan & keuangan'],
   keu: ['💰', 'Keuangan', 'Kas, piutang, utang'], jur: ['📒', 'Jurnal', 'Biaya & jurnal manual'], abs: ['🕒', 'Absensi', 'Masuk / pulang'],
   chat: ['💬', 'Chat', 'Tim & antar toko'], onl: ['🛍️', 'Toko Online', 'Pesanan pembeli online'], ana: ['🎯', 'Analisa', 'Saran order & kredit'], usr: ['👥', 'Pengguna', 'Karyawan & PIN'], set: ['⚙️', 'Pengaturan', 'Toko, akun, data'],
+  beli: ['📥', 'Pembelian', 'PO ke supplier & pabrik'], kas: ['📘', 'Buku Kas', 'Uang masuk & keluar'], kirim: ['🚚', 'Pengantaran', 'Antar order & tagih'], perm: ['🔐', 'Hak Akses', 'Peran, paket, keamanan'], aud: ['🛡️', 'Audit', 'Check-in, jam & lokasi'],
 };
-const ORDER = ['dash', 'pos', 'onl', 'his', 'prod', 'outlet', 'ana', 'lap', 'keu', 'jur', 'abs', 'chat', 'usr', 'set'];
-const TABS = { owner: ['dash', 'pos', 'onl', 'prod'], admin: ['dash', 'pos', 'onl', 'prod'], akuntan: ['dash', 'keu', 'lap', 'jur'], kasir: ['pos', 'dash', 'his', 'abs'], sales: ['dash', 'outlet', 'ana', 'pos'] };
+const ORDER = ['dash', 'kirim', 'pos', 'onl', 'his', 'prod', 'beli', 'outlet', 'ana', 'lap', 'keu', 'kas', 'jur', 'aud', 'abs', 'chat', 'usr', 'perm', 'set'];
+const TABS = { owner: ['dash', 'pos', 'onl', 'prod'], admin: ['dash', 'pos', 'onl', 'prod'], akuntan: ['dash', 'keu', 'lap', 'jur'], kasir: ['pos', 'dash', 'his', 'abs'], sales: ['dash', 'outlet', 'ana', 'pos'], dropping: ['dash', 'abs', 'chat'] };
 const pages = () => ORDER.filter((k) => can(k));
 const pgName = (k) => (k == 'pos' && U && U.r == 'sales' ? 'Order' : PAGES[k][1]);
 let MODE = 'home', SRV = '';
@@ -26,7 +27,7 @@ function clockedIn() { try { const td = (typeof myToday == 'function' ? myToday(
 async function locPing(force) {
   try {
     if (!U || !S || !S.srv || MODE == 'buyer' || (HT && MODE == 'ha') || !canNet() || isExp()) return;
-    if (!['sales', 'kasir', 'admin'].includes(U.r)) return;
+    if (!['sales', 'kasir', 'admin', 'dropping'].includes(U.r)) return;
     if (LS.get('jpos:sharing', '1') == '0') return;        // karyawan bisa menonaktifkan
     if (!force && !clockedIn()) return;                     // hanya saat sudah absen masuk
     if (!force && Date.now() - LOCG.t < 285000) return;     // maksimal tiap ~5 menit
@@ -39,14 +40,14 @@ async function locPing(force) {
 }
 setInterval(() => locPing(), 60000);
 function mode(m) { MODE = m; R(); }
-const expTxt = () => { const d = daysLeft(); return d == null ? '-' : (S.plan == 'trial' ? 'Masa coba · ' : (S.plan ? S.plan + ' · ' : '')) + (d < 0 ? '<b class="rd">habis ' + dstr(S.exp) + '</b>' : 's/d ' + dstr(S.exp) + ' (' + d + ' hari)'); };
+const expTxt = () => { const d = daysLeft(); return d == null ? '-' : (S.plan == 'trial' ? 'Masa coba · ' : (S.plan ? S.plan + ' · ' : '')) + (d < 0 ? '<b class="rd">habis ' + dstr(S.exp) + '</b>' : 's/d ' + dstr(S.exp) + ' (' + (d == 0 ? 'berakhir hari ini' : d + ' hari lagi') + ')'); };
 
 function expBanner() {
   if (!S.exp) return '';
   const d = daysLeft(), info = LS.get('jpos:info', {}) || {}, boss = U.r == 'owner' || U.r == 'admin';
   const wa = info.wa ? `<a class="gh a" target="_blank" href="${esc(waLink(info.wa, 'Halo, saya ingin perpanjang J-POS untuk toko ' + S.name + ' (kode ' + SID + ').'))}">💬 Hubungi via WhatsApp</a>` : '';
   if (isExp()) return `<div class="cd warn"><b>⛔ Masa aktif toko sudah habis</b><br><small>Data tetap aman dan bisa dilihat, tetapi transaksi baru dikunci sampai diperpanjang oleh pemilik aplikasi.${info.price ? '<br>' + esc(info.price) : ''}</small><div class="wrap" style="margin-top:8px">${wa}<button class="gh" onclick="sync().then(R)">Cek ulang</button></div></div>`;
-  if (boss && (d <= 7 || (S.plan == 'trial' && V == 'dash'))) return `<div class="cd ${d <= 7 ? 'warn' : 'info'}"><b>${S.plan == 'trial' ? '🎁 Masa coba gratis' : '⏳ Masa aktif'}: ${d} hari lagi</b> <small class="mu">(s/d ${dstr(S.exp)})</small>${d <= 7 ? `<br><small>Perpanjang sekarang agar transaksi tidak terhenti.${info.price ? ' ' + esc(info.price) : ''}</small><div class="wrap" style="margin-top:6px">${wa}</div>` : ''}</div>`;
+  if (boss && (d <= 7 || (S.plan == 'trial' && V == 'dash'))) return `<div class="cd ${d <= 7 ? 'warn' : 'info'}"><b>${S.plan == 'trial' ? '🎁 Masa coba gratis' : '⏳ Masa aktif'}: ${d == 0 ? 'berakhir hari ini' : d + ' hari lagi'}</b> <small class="mu">(s/d ${dstr(S.exp)})</small>${d <= 7 ? `<br><small>Perpanjang sekarang agar transaksi tidak terhenti.${info.price ? ' ' + esc(info.price) : ''}</small><div class="wrap" style="margin-top:6px">${wa}</div>` : ''}</div>`;
   return '';
 }
 
@@ -88,7 +89,7 @@ async function checkSrv() {
 const srvTxt = () => ({ ok: '<span class="gr">● Server online</span>', down: '<span class="rd">● Server belum aktif / tidak bisa dihubungi</span> — toko yang pernah dibuka tetap bisa dipakai offline', off: '<span class="or">● Offline</span> — toko yang pernah dibuka tetap bisa dipakai', none: '○ Mode lokal (server belum diatur)' }[SRV] || '○ Memeriksa server…');
 function homeView() {
   const reg = REG(), last = LS.get('jpos:last', null), info = LS.get('jpos:info', {}) || {};
-  const splash = `<div class="splash"><div class="logo">🛒</div><h1>J-POS</h1><span class="tag">Kasir • Stok • Akuntansi • Grosir &amp; Distributor</span><div class="feat"><i>⚡ Online &amp; Offline</i><i>👥 Multi-user</i><i>🛍️ Pasar online</i><i>📊 Analisa cerdas</i></div></div>`;
+  const splash = `<div class="splash"><div class="logo">🛒</div><h1>J-POS</h1><span class="tag">Kasir • Stok • Akuntansi • Grosir &amp; Distributor</span><div class="feat"><i>⚡ Online &amp; Offline</i><i>👥 Multi-user</i><i>🛍️ Pasar online</i><i>📊 Analisa cerdas</i><i>📥 Pembelian supplier</i><i>🚚 Dropping & check-in GPS</i><i>📘 Buku kas otomatis</i><i>🛡️ Absen anti-curang</i></div></div>`;
   const head = `<div class="lo">${splash}`;
   const back = `<button class="gh big" onclick="mode('home')">← Kembali</button>`;
   if (MODE == 'login') return head + `<div class="cd fm" style="text-align:left"><h3>Masuk ke toko</h3><label><small class="mu">Kode toko (dari pemilik toko)</small><input id="lid" placeholder="mis. tokomaju" autocapitalize="none" autocomplete="off" value="${esc(last ? last.id : '')}"></label><label><small class="mu">Nama pengguna</small><input id="lnm" placeholder="Nama Anda" autocomplete="off" value="${esc(last ? last.name : '')}"></label><label><small class="mu">PIN</small><input id="lpn" type="password" inputmode="numeric" placeholder="••••" onkeydown="if(event.key=='Enter')doLoginUi()"></label><button class="pr" onclick="doLoginUi()">Masuk</button>${back}<small class="mu">Login pertama di HP baru butuh internet. Setelah itu bisa dipakai offline.</small></div></div>`;
