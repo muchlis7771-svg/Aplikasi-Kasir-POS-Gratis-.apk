@@ -17,10 +17,10 @@ function receiptLines(s) {
   if (S.set.addr) wrap(S.set.addr).forEach((x) => L.push({ t: x, c: 1 }));
   if (S.set.tel) L.push({ t: 'Telp ' + S.set.tel, c: 1 });
   L.push(hr, { t: padLR(s.no, tstr(s.t)) }, { t: padLR('Kasir: ' + s.u, s.cn ? '' : '') });
-  if (s.cn) L.push({ t: 'Pelanggan: ' + s.cn });
+  if (s.cn) { const c = cust(s.cu); L.push({ t: 'Pelanggan: ' + s.cn + (c && c.kd ? ' (' + c.kd + ')' : '') }); if (c && c.ad) wrap(c.ad).forEach((x) => L.push({ t: x })); }
   L.push(hr);
   for (const i of s.L) {
-    wrap(i.n).forEach((x) => L.push({ t: x }));
+    const pk = (prod(i.id) || {}).kd; wrap((pk ? pk + ' ' : '') + i.n).forEach((x) => L.push({ t: x }));
     L.push({ t: padLR('  ' + i.q + ' x ' + rpp(i.p), rpp(i.p * i.q)) });
     if (i.dd) L.push({ t: padLR('  Diskon' + (i.tier ? ' grosir ' + i.tier + '%' : ''), '-' + rpp(i.dd)) });
     if (i.rq) L.push({ t: '  (retur ' + i.rq + ')' });
@@ -33,6 +33,7 @@ function receiptLines(s) {
   if (s.pay == 'Piutang') { L.push({ t: padLR('Dibayar', rpp(s.pa || 0)) }, { t: padLR('Sisa', rpp(sOut(s))) }, { t: padLR('Jatuh tempo', dstr(s.due)) }); }
   if (s.rtot) L.push({ t: padLR('Retur', '-' + rpp(s.rtot)) });
   if (s.note) wrap('Catatan: ' + s.note).forEach((x) => L.push({ t: x }));
+  if (s.pay == 'Piutang' && typeof terbilang == 'function') { L.push(hr); wrap('Terbilang: ' + terbilang(s.tot - (s.rtot || 0))).forEach((x) => L.push({ t: x })); L.push({ t: '' }, { t: padLR('Hormat kami,', 'Penerima,') }, { t: '' }, { t: '' }, { t: padLR('(' + s.u + ')', '(............)') }); }
   L.push(hr); wrap(PRN.foot || 'Terima kasih').forEach((x) => L.push({ t: x, c: 1 }));
   L.push({ t: 'J-POS', c: 1 });
   return L;
@@ -100,7 +101,8 @@ function invoicePdf(s, size) {
 async function printReceipt(s, how) {
   how = how || PRN.mode; const L = receiptLines(s);
   try {
-    if (how == 'a4' || how == 'a5') return invoicePdf(s, how);
+    if (how == 'a4' || how == 'a5' || how == 'cf' || how == 'cf2') return printFaktur(s, how);
+    if (how == 'pdf') return printFaktur(s, PRN.pdf || 'a4', true);
     if (how == 'text') return shareText('Struk ' + s.no, linesText(L));
     let data = escpos(L); if (PRN.copies > 1) { const one = data; data = new Uint8Array(one.length * PRN.copies); for (let i = 0; i < PRN.copies; i++) data.set(one, i * one.length); }
     if (how == 'ble') { toast('Mencetak…', 1500); await bleWrite(data); toast('Struk dicetak ✓'); }
@@ -108,12 +110,21 @@ async function printReceipt(s, how) {
   } catch (e) { toast(e.message || 'Gagal mencetak', 5000); }
 }
 function printMenu(s) {
-  const m = modal(`<h3>🖨️ Cetak ${esc(s.no)}</h3><div class="mg">${[['rawbt', '🧾', 'Thermal (RawBT)', 'Bluetooth/USB/LAN'], ['ble', '📶', 'Thermal BLE', PRN.ble ? esc(PRN.ble.name) : 'pilih printer'], ['a4', '📄', 'Faktur A4', 'PDF / printer besar'], ['a5', '📃', 'Faktur A5', 'PDF setengah A4'], ['text', '💬', 'Kirim teks', 'WA / lainnya']].map((x) => `<button data-h="${x[0]}"><i>${x[1]}</i><b>${x[2]}</b><small>${x[3]}</small></button>`).join('')}</div><button class="gh" id="ps">⚙️ Pengaturan printer</button>`);
-  $$('[data-h]', m).forEach((b) => (b.onclick = () => { m.close(); printReceipt(s, b.dataset.h); }));
+  const sys = sysPrint(), G = [
+    ['📶 Printer thermal Bluetooth (kertas 58 / 80 mm)', [['rawbt', '🧾', 'Thermal Bluetooth', 'lewat RawBT · semua merek'], ['ble', '📡', 'Thermal BLE', PRN.ble ? esc(PRN.ble.name) : 'langsung dari aplikasi']]],
+    ['🖨️ Printer tinta / laser', [['a4', '📄', 'Faktur A4', sys ? 'langsung ke printer' : 'PDF → cetak'], ['a5', '📃', 'Faktur A5', sys ? 'setengah A4' : 'PDF setengah A4']]],
+    ['🧮 Printer dot matrix (continuous form distributor)', [['cf', '🗒️', '9½ × 11 inci', sys ? 'kertas penuh · rangkap' : 'PDF ukuran CF'], ['cf2', '📑', '9½ × 5½ inci', sys ? 'setengah · hemat kertas' : 'PDF ½ CF']]],
+    ['📤 Kirim', [['pdf', '📎', 'Simpan / kirim PDF', 'WA, email, Drive'], ['text', '💬', 'Kirim teks', 'WA / SMS']]],
+  ];
+  const m = modal(`<h3>🖨️ Cetak faktur ${esc(s.no)}</h3><small class="mu">${esc(s.cn || 'Pelanggan umum')} · ${rp(s.tot)}${sys ? '' : ' · di HP, faktur A4/A5/dot matrix dibuat PDF lalu dicetak lewat aplikasi printer'}</small>
+${G.map((g) => `<b style="font-size:12px;margin-top:6px">${g[0]}</b><div class="mg pmg">${g[1].map((x) => `<button data-h="${x[0]}" class="${PRN.mode == x[0] ? 'a' : ''}"><i>${x[1]}</i><b>${x[2]}</b><small>${x[3]}</small></button>`).join('')}</div>`).join('')}
+<label class="row" style="margin:4px 0"><span>Jadikan pilihan utama</span><input type="checkbox" id="pdef" style="width:22px;height:22px"></label><button class="gh" id="ps">⚙️ Pengaturan printer</button>`, 'w');
+  $$('[data-h]', m).forEach((b) => (b.onclick = () => { if ($('#pdef', m).checked && b.dataset.h != 'pdf') { PRN.mode = b.dataset.h; prnSave(); } m.close(); printReceipt(s, b.dataset.h); }));
   $('#ps', m).onclick = () => { m.close(); printerSettings(); };
 }
 function printerSettings() {
-  const m = modal(`<h3>🖨️ Pengaturan printer</h3><label><small class="mu">Cara cetak utama</small><select id="pm"><option value="rawbt">Thermal via RawBT (Bluetooth klasik / USB / LAN)</option><option value="ble">Thermal Bluetooth BLE langsung</option><option value="a4">Faktur A4 (PDF → printer besar)</option><option value="a5">Faktur A5 (PDF)</option><option value="text">Bagikan teks</option></select></label>
+  const m = modal(`<h3>🖨️ Pengaturan printer</h3><label><small class="mu">Cara cetak utama</small><select id="pm"><option value="rawbt">Thermal via RawBT (Bluetooth klasik / USB / LAN)</option><option value="ble">Thermal Bluetooth BLE langsung</option><option value="a4">Faktur A4 · printer tinta/laser</option><option value="a5">Faktur A5 · printer tinta/laser</option><option value="cf">Faktur dot matrix 9½×11" (continuous form)</option><option value="cf2">Faktur dot matrix ½ (9½×5½")</option><option value="text">Bagikan teks</option></select></label>
+<div class="cd info" style="padding:10px"><small><b>Printer tinta / laser / dot matrix di laptop</b>: pasang driver printer di Windows (mis. Epson LX-310 / LQ-2190), lalu pilih format faktur di atas — dialog printer langsung terbuka. Untuk dot matrix pilih ukuran kertas <i>Fanfold 9½ × 11 in</i> di pengaturan printer Windows.<br><b>Di HP</b>: faktur A4/A5/dot matrix dibuat PDF, lalu bagikan ke aplikasi printer (mis. aplikasi bawaan printer Epson/Canon/HP) atau pilih <i>Cetak</i>.</small></div>
 <label><small class="mu">Lebar kertas thermal</small><select id="pp"><option value="58">58 mm (32 karakter)</option><option value="80">80 mm (48 karakter)</option></select></label>
 <label><small class="mu">Jumlah salinan</small><input id="pc" type="number" min="1" max="5" value="${PRN.copies}"></label>
 <label><small class="mu">Kalimat penutup struk</small><input id="pf" value="${esc(PRN.foot)}"></label>
