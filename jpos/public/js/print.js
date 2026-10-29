@@ -1,7 +1,7 @@
 'use strict';
 /* ============ CETAK STRUK: printer thermal Bluetooth (BLE langsung / RawBT untuk Bluetooth klasik, USB, LAN),
    faktur besar A4/A5 (PDF), dan bagikan teks. Format ESC/POS 58mm (32 kolom) / 80mm (48 kolom). ============ */
-const PRN = Object.assign({ mode: 'rawbt', paper: 58, auto: false, ble: null, copies: 1, logo: true, foot: 'Terima kasih 🙏' }, LS.get('jpos:prn', {}));
+const PRN = Object.assign({ mode: (typeof isNative == 'function' && !isNative() ? 'a4' : 'rawbt'), paper: 58, auto: false, ble: null, copies: 1, logo: true, foot: 'Terima kasih 🙏' }, LS.get('jpos:prn', {}));
 const prnSave = () => LS.set('jpos:prn', PRN);
 const COLS = () => (PRN.paper == 80 ? 48 : 32);
 const ascii = (s) => String(s ?? '').normalize('NFKD').replace(/[−–—]/g, '-').replace(/[^\x20-\x7E\n]/g, '');
@@ -11,13 +11,14 @@ const wrap = (s, w = COLS()) => { const o = []; let c = ''; for (const wd of asc
 const rpp = (n) => ascii(rp(n)).replace('Rp', '');
 
 // susun struk sebagai daftar baris {t, b(bold), c(center), big}
-function receiptLines(s) {
+function receiptLines(s, doc) {
   const W = COLS(), L = [], hr = { t: '-'.repeat(W) };
+  if (doc == 'sj') return sjLines(s, W, hr);
   L.push({ t: S.name || 'J-POS', c: 1, b: 1, big: 1 });
   if (S.set.addr) wrap(S.set.addr).forEach((x) => L.push({ t: x, c: 1 }));
   if (S.set.tel) L.push({ t: 'Telp ' + S.set.tel, c: 1 });
   L.push(hr, { t: padLR(s.no, tstr(s.t)) }, { t: padLR('Kasir: ' + s.u, s.cn ? '' : '') });
-  if (s.cn) { const c = cust(s.cu); L.push({ t: 'Pelanggan: ' + s.cn + (c && c.kd ? ' (' + c.kd + ')' : '') }); if (c && c.ad) wrap(c.ad).forEach((x) => L.push({ t: x })); }
+  if (s.cn) { const c = cust(s.cu); wrap('Pelanggan: ' + s.cn + (c && c.kd ? ' (' + c.kd + ')' : '')).forEach((x) => L.push({ t: x })); if (c && c.ad) wrap(c.ad).forEach((x) => L.push({ t: x })); }
   L.push(hr);
   for (const i of s.L) {
     const pk = (prod(i.id) || {}).kd; wrap((pk ? pk + ' ' : '') + i.n).forEach((x) => L.push({ t: x }));
@@ -36,6 +37,20 @@ function receiptLines(s) {
   if (s.pay == 'Piutang' && typeof terbilang == 'function') { L.push(hr); wrap('Terbilang: ' + terbilang(s.tot - (s.rtot || 0))).forEach((x) => L.push({ t: x })); L.push({ t: '' }, { t: padLR('Hormat kami,', 'Penerima,') }, { t: '' }, { t: '' }, { t: padLR('(' + s.u + ')', '(............)') }); }
   L.push(hr); wrap(PRN.foot || 'Terima kasih').forEach((x) => L.push({ t: x, c: 1 }));
   L.push({ t: 'J-POS', c: 1 });
+  return L;
+}
+function sjLines(s, W, hr) {
+  s = S.sales.find((x) => x.no == s.no) || s; const c = s.cu ? cust(s.cu) : null, L = [];
+  L.push({ t: 'SURAT JALAN', c: 1, b: 1, big: 1 }, { t: S.name || 'J-POS', c: 1 }, hr, { t: padLR(s.no, tstr(s.t)) }, { t: 'Sales: ' + s.u });
+  if (s.dl && s.dl.by) L.push({ t: 'Pengirim: ' + s.dl.by });
+  L.push(hr); wrap('Kepada: ' + (s.cn || 'Umum') + (c && c.kd ? ' (' + c.kd + ')' : '')).forEach((x) => L.push({ t: x, b: 1 }));
+  if (c && c.ad) wrap(c.ad).forEach((x) => L.push({ t: x })); if (c && c.ph) L.push({ t: 'Telp ' + c.ph });
+  L.push(hr); let tq = 0;
+  for (const i of s.L) { const q = i.q - (i.rq || 0); if (q <= 0) continue; tq += q; const p = prod(i.id) || {}; wrap((p.kd ? p.kd + ' ' : '') + i.n).forEach((x) => L.push({ t: x })); L.push({ t: padLR('  [ ] cek gudang', q + ' ' + (p.u || 'pcs')), b: 1 }); }
+  L.push(hr, { t: padLR('Total unit', String(tq)), b: 1 });
+  L.push({ t: padLR('Bayar', s.cod && sOut(s) > 0 ? 'TAGIH ' + rpp(sOut(s)) : s.pay == 'Piutang' ? 'Kredit' : 'Lunas'), b: 1 });
+  if (s.note) wrap('Catatan: ' + s.note).forEach((x) => L.push({ t: x }));
+  L.push({ t: '' }, { t: padLR('Gudang,', 'Penerima,') }, { t: '' }, { t: '' }, { t: padLR('(..........)', '(..........)') }, { t: '' });
   return L;
 }
 // ESC/POS: ESC @ init, ESC a align, ESC E bold, GS ! size, GS V cut
@@ -76,7 +91,15 @@ async function bleWrite(u8) {
   }
 }
 /* ---- RawBT: aplikasi gratis di Play Store, mendukung semua printer Bluetooth klasik, USB OTG, dan Wi-Fi/LAN ---- */
-function rawbt(u8) { const url = 'rawbt:base64,' + u8b64(u8); if (isNative()) location.href = url; else { const a = document.createElement('a'); a.href = url; a.click(); } }
+async function rawbt(u8) {
+  const url = 'rawbt:base64,' + u8b64(u8), AL = plug('AppLauncher');
+  if (isNative() && AL) {
+    let ok = true; try { ok = (await AL.canOpenUrl({ url: 'ru.a402d.rawbtprinter' })).value; } catch (e) { }
+    if (!ok) { if (confirm('Aplikasi RawBT (penghubung printer Bluetooth) belum terpasang. Buka Play Store untuk memasangnya?')) location.href = 'https://play.google.com/store/apps/details?id=ru.a402d.rawbtprinter'; return; }
+    try { await AL.openUrl({ url }); return; } catch (e) { }
+  }
+  if (isNative()) location.href = url; else { const a = document.createElement('a'); a.href = url; a.click(); }
+}
 
 /* ---- faktur besar (A4 / A5) PDF ---- */
 function invoicePdf(s, size) {
@@ -98,32 +121,37 @@ function invoicePdf(s, size) {
 }
 
 /* ---- pintu utama ---- */
-async function printReceipt(s, how) {
-  how = how || PRN.mode; const L = receiptLines(s);
+async function printReceipt(s, how, doc) {
+  how = how || PRN.mode; if (!sysPrint() && how == 'tw') how = 'rawbt'; if (sysPrint() && (how == 'rawbt' || how == 'ble')) how = 'tw';
+  const L = receiptLines(s, doc);
   try {
-    if (how == 'a4' || how == 'a5' || how == 'cf' || how == 'cf2') return printFaktur(s, how);
-    if (how == 'pdf') return printFaktur(s, PRN.pdf || 'a4', true);
-    if (how == 'text') return shareText('Struk ' + s.no, linesText(L));
+    if (how == 'a4' || how == 'a5' || how == 'cf' || how == 'cf2') return printFaktur(s, how, false, doc);
+    if (how == 'pdf') return printFaktur(s, PRN.pdf || 'a4', true, doc);
+    if (how == 'tw') return printHtml(thermalHtml(s, doc));
+    if (how == 'text') return shareText((doc == 'sj' ? 'Surat jalan ' : 'Faktur ') + s.no, linesText(L));
     let data = escpos(L); if (PRN.copies > 1) { const one = data; data = new Uint8Array(one.length * PRN.copies); for (let i = 0; i < PRN.copies; i++) data.set(one, i * one.length); }
-    if (how == 'ble') { toast('Mencetak…', 1500); await bleWrite(data); toast('Struk dicetak ✓'); }
-    else rawbt(data);
+    if (how == 'ble') { toast('Mencetak…', 1500); await bleWrite(data); toast('Tercetak ✓'); }
+    else await rawbt(data);
   } catch (e) { toast(e.message || 'Gagal mencetak', 5000); }
 }
-function printMenu(s) {
+function printMenu(s, doc) {
+  doc = doc || 'faktur'; s = S.sales.find((x) => x.no == s.no) || s;
   const sys = sysPrint(), G = [
-    ['📶 Printer thermal Bluetooth (kertas 58 / 80 mm)', [['rawbt', '🧾', 'Thermal Bluetooth', 'lewat RawBT · semua merek'], ['ble', '📡', 'Thermal BLE', PRN.ble ? esc(PRN.ble.name) : 'langsung dari aplikasi']]],
-    ['🖨️ Printer tinta / laser', [['a4', '📄', 'Faktur A4', sys ? 'langsung ke printer' : 'PDF → cetak'], ['a5', '📃', 'Faktur A5', sys ? 'setengah A4' : 'PDF setengah A4']]],
-    ['🧮 Printer dot matrix (continuous form distributor)', [['cf', '🗒️', '9½ × 11 inci', sys ? 'kertas penuh · rangkap' : 'PDF ukuran CF'], ['cf2', '📑', '9½ × 5½ inci', sys ? 'setengah · hemat kertas' : 'PDF ½ CF']]],
-    ['📤 Kirim', [['pdf', '📎', 'Simpan / kirim PDF', 'WA, email, Drive'], ['text', '💬', 'Kirim teks', 'WA / SMS']]],
+    ['📶 Printer thermal (kertas 58 / 80 mm)', sys ? [['tw', '🧾', 'Thermal USB / Bluetooth', 'printer terpasang di Windows']] : [['rawbt', '🧾', 'Thermal Bluetooth', 'lewat RawBT · semua merek'], ['ble', '📡', 'Thermal BLE', PRN.ble ? esc(PRN.ble.name) : 'langsung dari aplikasi']]],
+    ['🖨️ Printer tinta / laser (cartridge)', [['a4', '📄', 'A4', sys ? 'langsung ke printer' : 'PDF → cetak'], ['a5', '📃', 'A5', sys ? 'setengah A4' : 'PDF setengah A4']]],
+    ['🧮 Printer dot matrix (continuous form)', [['cf', '🗒️', '9½ × 11 inci', sys ? 'kertas penuh · rangkap' : 'PDF ukuran CF'], ['cf2', '📑', '9½ × 5½ inci', sys ? 'setengah · hemat' : 'PDF ½ CF']]],
+    ['📤 Kirim', [['pdf', '📎', 'PDF', 'WA, email, Drive'], ['text', '💬', 'Teks', 'WA / SMS']]],
   ];
-  const m = modal(`<h3>🖨️ Cetak faktur ${esc(s.no)}</h3><small class="mu">${esc(s.cn || 'Pelanggan umum')} · ${rp(s.tot)}${sys ? '' : ' · di HP, faktur A4/A5/dot matrix dibuat PDF lalu dicetak lewat aplikasi printer'}</small>
-${G.map((g) => `<b style="font-size:12px;margin-top:6px">${g[0]}</b><div class="mg pmg">${g[1].map((x) => `<button data-h="${x[0]}" class="${PRN.mode == x[0] ? 'a' : ''}"><i>${x[1]}</i><b>${x[2]}</b><small>${x[3]}</small></button>`).join('')}</div>`).join('')}
-<label class="row" style="margin:4px 0"><span>Jadikan pilihan utama</span><input type="checkbox" id="pdef" style="width:22px;height:22px"></label><button class="gh" id="ps">⚙️ Pengaturan printer</button>`, 'w');
-  $$('[data-h]', m).forEach((b) => (b.onclick = () => { if ($('#pdef', m).checked && b.dataset.h != 'pdf') { PRN.mode = b.dataset.h; prnSave(); } m.close(); printReceipt(s, b.dataset.h); }));
+  const m = modal(`<h3>🖨️ Cetak ${esc(s.no)}</h3><small class="mu">${esc(s.cn || 'Pelanggan umum')} · ${rp(s.tot)} · ${sOut(s) > 0 ? '<b class="or">belum lunas ' + rp(sOut(s)) + '</b>' : '<b class="gr">lunas</b>'}</small>
+<div class="seg" style="margin:6px 0"><button data-d="faktur" class="${doc == 'faktur' ? 'a' : ''}">🧾 Faktur (dengan harga)</button><button data-d="sj" class="${doc == 'sj' ? 'a' : ''}">📦 Surat jalan (gudang & dropping)</button></div>
+${G.map((g) => `<b style="font-size:12px;margin-top:4px">${g[0]}</b><div class="mg pmg">${g[1].map((x) => `<button data-h="${x[0]}" class="${PRN.mode == x[0] ? 'a' : ''}"><i>${x[1]}</i><b>${x[2]}</b><small>${x[3]}</small></button>`).join('')}</div>`).join('')}
+<label class="row" style="margin:4px 0"><span>Jadikan printer utama</span><input type="checkbox" id="pdef" style="width:22px;height:22px"></label><button class="gh" id="ps">⚙️ Pengaturan printer & cetak tes</button>`, 'w');
+  $$('[data-d]', m).forEach((b) => (b.onclick = () => { m.close(); printMenu(s, b.dataset.d); }));
+  $$('[data-h]', m).forEach((b) => (b.onclick = () => { if ($('#pdef', m).checked && !['pdf', 'text'].includes(b.dataset.h)) { PRN.mode = b.dataset.h; prnSave(); } m.close(); printReceipt(s, b.dataset.h, doc); }));
   $('#ps', m).onclick = () => { m.close(); printerSettings(); };
 }
 function printerSettings() {
-  const m = modal(`<h3>🖨️ Pengaturan printer</h3><label><small class="mu">Cara cetak utama</small><select id="pm"><option value="rawbt">Thermal via RawBT (Bluetooth klasik / USB / LAN)</option><option value="ble">Thermal Bluetooth BLE langsung</option><option value="a4">Faktur A4 · printer tinta/laser</option><option value="a5">Faktur A5 · printer tinta/laser</option><option value="cf">Faktur dot matrix 9½×11" (continuous form)</option><option value="cf2">Faktur dot matrix ½ (9½×5½")</option><option value="text">Bagikan teks</option></select></label>
+  const m = modal(`<h3>🖨️ Pengaturan printer</h3><label><small class="mu">Cara cetak utama</small><select id="pm">${sysPrint() ? '<option value="tw">Thermal USB / Bluetooth (printer Windows)</option>' : '<option value="rawbt">Thermal via RawBT (Bluetooth klasik / USB / LAN)</option><option value="ble">Thermal Bluetooth BLE langsung</option>'}<option value="a4">Faktur A4 · printer tinta/laser</option><option value="a5">Faktur A5 · printer tinta/laser</option><option value="cf">Faktur dot matrix 9½×11" (continuous form)</option><option value="cf2">Faktur dot matrix ½ (9½×5½")</option><option value="text">Bagikan teks</option></select></label>
 <div class="cd info" style="padding:10px"><small><b>Printer tinta / laser / dot matrix di laptop</b>: pasang driver printer di Windows (mis. Epson LX-310 / LQ-2190), lalu pilih format faktur di atas — dialog printer langsung terbuka. Untuk dot matrix pilih ukuran kertas <i>Fanfold 9½ × 11 in</i> di pengaturan printer Windows.<br><b>Di HP</b>: faktur A4/A5/dot matrix dibuat PDF, lalu bagikan ke aplikasi printer (mis. aplikasi bawaan printer Epson/Canon/HP) atau pilih <i>Cetak</i>.</small></div>
 <label><small class="mu">Lebar kertas thermal</small><select id="pp"><option value="58">58 mm (32 karakter)</option><option value="80">80 mm (48 karakter)</option></select></label>
 <label><small class="mu">Jumlah salinan</small><input id="pc" type="number" min="1" max="5" value="${PRN.copies}"></label>
@@ -131,10 +159,11 @@ function printerSettings() {
 <label class="row"><span>Cetak otomatis setelah transaksi</span><input type="checkbox" id="pa" ${PRN.auto ? 'checked' : ''}></label>
 <div class="cd info" style="padding:10px"><small><b>Printer Bluetooth biasa (kebanyakan printer thermal murah)</b>: pasang aplikasi gratis <b>RawBT</b> dari Play Store, sambungkan printer di RawBT sekali, lalu pilih mode RawBT. RawBT juga mendukung printer USB (OTG) dan Wi-Fi/LAN.<br><b>Printer BLE</b>: tekan tombol di bawah untuk memilih printer.</small></div>
 <button class="gh" id="pb">📶 Pilih printer BLE ${PRN.ble ? '(' + esc(PRN.ble.name) + ')' : ''}</button><a class="gh" target="_blank" href="https://play.google.com/store/apps/details?id=ru.a402d.rawbtprinter">⬇ RawBT di Play Store</a>
-<button class="gh" id="pt">🧪 Cetak tes</button><button class="pr" id="ok">Simpan</button>`);
+<b style="font-size:12px">🧪 Cetak tes</b><div class="wrap">${(sysPrint() ? [['tw', 'Thermal']] : [['rawbt', 'Thermal RawBT'], ['ble', 'Thermal BLE']]).concat([['a4', 'A4'], ['cf', 'Dot matrix']]).map((x) => `<button class="gh" data-t="${x[0]}">${x[1]}</button>`).join('')}</div><button class="pr" id="ok">Simpan</button>`);
   $('#pm', m).value = PRN.mode; $('#pp', m).value = String(PRN.paper);
   const read = () => { PRN.mode = $('#pm', m).value; PRN.paper = +$('#pp', m).value; PRN.copies = Math.max(1, Math.min(5, num($('#pc', m).value) || 1)); PRN.foot = $('#pf', m).value; PRN.auto = $('#pa', m).checked; prnSave(); };
   $('#pb', m).onclick = async () => { try { const p = await blePick(); toast('Printer terhubung: ' + p.name); $('#pb', m).textContent = '📶 ' + p.name; $('#pm', m).value = 'ble'; } catch (e) { toast(e.message || 'Gagal memilih printer', 5000); } };
-  $('#pt', m).onclick = () => { read(); printReceipt({ no: 'TES-001', t: Date.now(), u: U ? U.n : 'Kasir', L: [{ n: 'Produk contoh panjang namanya', q: 2, p: 15000, dd: 1500, tier: '5' }], sub: 30000, disc: 1500, tax: 0, tot: 28500, pay: 'Tunai' }); };
+  const TES = () => ({ no: 'TES-001', t: Date.now(), u: U ? U.n : 'Kasir', cn: 'Toko Contoh', L: [{ id: '-', n: 'Produk contoh panjang namanya', q: 2, p: 15000, dd: 1500, tier: '5' }, { id: '-', n: 'Barang kedua', q: 10, p: 4500, dd: 0 }], sub: 75000, disc: 1500, tax: 0, tot: 73500, pay: 'Tunai', pa: 73500, pays: [] });
+  $$('[data-t]', m).forEach((b) => (b.onclick = () => { read(); printReceipt(TES(), b.dataset.t); }));
   $('#ok', m).onclick = () => { read(); m.close(); toast('Pengaturan printer disimpan'); };
 }

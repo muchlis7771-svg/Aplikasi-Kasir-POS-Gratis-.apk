@@ -31,7 +31,7 @@ function cartH() {
   h += `<div class="fm2" style="margin-top:6px"><input placeholder="Diskon total % (mis. 5+2)" value="${esc(cCd)}" onchange="cCd=this.value;cartUp()"><input placeholder="Catatan" value="${esc(cNote)}" onchange="cNote=this.value"></div>`;
   h += `<div class="tt" style="margin-top:8px">${row('Subtotal', rp(r.sub))}${row('Diskon item', rp(-r.ldt))}${r.cdA ? row('Diskon total', rp(-r.cdA)) : ''}${row('PPN ' + (S.set.ppn || 0) + '%', rp(r.tax))}<h2>${rp(r.tot)}</h2></div>`;
   if (cPay == 'Piutang' && r.tot) h += `<small>Piutang baru: <b>${rp(r.tot - Math.min(cDp, r.tot))}</b></small>`;
-  h += `<div class="seg"><button onclick="ptahan()">Tahan</button><button onclick="planjut()">Lanjut (${S.hold.length})</button></div><button class="pr" ${items.length ? '' : 'disabled'} onclick="pbayar()">${U.r == 'sales' ? 'Simpan order' : 'Bayar'}</button>`;
+  h += `<div class="seg"><button onclick="ptahan()">Tahan</button><button onclick="planjut()">Lanjut (${S.hold.length})</button></div><button class="pr" ${items.length ? '' : 'disabled'} onclick="pbayar()">${U.r == 'sales' || cKr || cPay == 'Piutang' ? '📝 Simpan order' : 'Bayar'}</button>`;
   return h;
 }
 const cbarH = () => { const n = cart.reduce((a, i) => a + i.q, 0), t = cart.filter((i) => prod(i.id)).length ? calc(cart.map((i) => ({ id: i.id, q: i.q, ld: i.ld })), cCd).tot : 0; return `<span>🛒 ${n} item${S.hold.length ? ' · ' + S.hold.length + ' ditahan' : ''}</span><span>${rp(t)} ›</span>`; };
@@ -64,10 +64,19 @@ function planjut() { if (!S.hold.length) return toast('Tidak ada transaksi ditah
 function pbayar() {
   try {
     const s = mkSale({ items: cart.map((i) => ({ id: i.id, q: i.q, ld: i.ld })), cd: cCd, pay: cPay, cu: cCu, dpay: cDp, dpm: cDpm, note: cNote, kirim: cKr });
-    resetCart(); R(); receipt(s); if (PRN.auto) printReceipt(s);
+    const ord = U.r == 'sales' || cKr || s.pay == 'Piutang'; resetCart(); R(); if (ord) orderDone(s); else receipt(s); if (PRN.auto) printReceipt(s, null, 'faktur');
   } catch (e) { if (e.message != 'Dibatalkan') toast(e.message, 5000); }
 }
 
+/* ============ order tersimpan → langsung cetak (acuan gudang & tim dropping, walau belum dibayar) ============ */
+function orderDone(s) {
+  s = S.sales.find((x) => x.no == s.no) || s; const out = sOut(s);
+  const m = modal(`<div style="text-align:center"><div style="font-size:46px">✅</div><h3 style="margin:4px 0">Order tersimpan</h3><b>${esc(s.no)}</b><br><small class="mu">${esc(s.cn || 'Pelanggan umum')} · ${s.L.reduce((a, i) => a + i.q, 0)} item · ${rp(s.tot)}</small><br><span class="chip ${out > 0 ? 'o' : 'g'}" style="margin-top:6px">${s.cod && out > 0 ? '💵 Bayar saat barang tiba' : s.pay == 'Piutang' ? '🧾 Kredit · tempo ' + dstr(s.due) : '✓ Lunas'}</span>${s.kirim ? ' <span class="chip">🚚 Diantar tim dropping</span>' : ''}</div>
+<button class="pr" id="of" style="font-size:16px;padding:14px">🖨️ Cetak faktur</button><button class="pr" id="os" style="font-size:16px;padding:14px;background:linear-gradient(135deg,#0ea5a4,#10b981)">📦 Cetak surat jalan (gudang & dropping)</button>
+<div class="fm2"><button class="gh" id="od">Lihat detail</button><button class="gh" id="ox">Selesai</button></div><small class="mu">Faktur dan surat jalan bisa dicetak ulang kapan saja dari menu Riwayat atau Pengantaran.</small>`);
+  $('#of', m).onclick = () => printMenu(s, 'faktur'); $('#os', m).onclick = () => printMenu(s, 'sj');
+  $('#od', m).onclick = () => { m.close(); receipt(s); }; $('#ox', m).onclick = () => m.close();
+}
 /* ============ struk ============ */
 function receiptText(s) {
   const L = [S.name || 'J-POS', S.set.addr || '', S.set.tel ? 'Telp ' + S.set.tel : '', '-'.repeat(28), s.no + ' · ' + tstr(s.t), 'Kasir: ' + s.u + (s.cn ? ' · ' + s.cn : ''), '-'.repeat(28)].filter(Boolean);
@@ -81,8 +90,8 @@ function receiptText(s) {
 }
 function receipt(s) {
   s = S.sales.find((x) => x.no == s.no) || s;
-  const m = modal(`<div class="rc"><h3>◆ ${esc(S.name || 'J-POS')}</h3><small>${esc(S.set.addr || '')}${S.set.tel ? ' · ' + esc(S.set.tel) : ''}<br>${esc(s.no)} · ${tstr(s.t)}<br>Kasir: ${esc(s.u)}${s.cn ? ' · ' + esc(s.cn) : ''}</small><hr>${s.L.map((i) => `<p><span>${esc(i.n)} ×${i.q}${i.rq ? ` <small class="rd">(retur ${i.rq})</small>` : ''}${i.dd ? `<br><small>diskon ${rp(i.dd)}</small>` : ''}</span><b>${rp(i.p * i.q - i.dd)}</b></p>`).join('')}<hr><p>Subtotal<b>${rp(s.sub)}</b></p>${s.disc ? `<p>Diskon<b>${rp(-s.disc)}</b></p>` : ''}${s.tax ? `<p>PPN<b>${rp(s.tax)}</b></p>` : ''}<h2>${rp(s.tot)}</h2><small>${s.cod ? 'Bayar saat diantar (' + esc(s.cm || 'Tunai') + ') · sisa ' + rp(sOut(s)) : s.pay == 'Piutang' ? 'Kredit · dibayar ' + rp(s.pa || 0) + ' · sisa ' + rp(sOut(s)) + ' · tempo ' + dstr(s.due) : esc(s.pay)}${s.rtot ? ' · retur ' + rp(s.rtot) : ''}${s.note ? '<br>Catatan: ' + esc(s.note) : ''}</small></div><button class="pr" id="rp">🖨️ Cetak faktur</button><div class="fm2"><button class="gh" id="rs">Bagikan</button><button class="gh" id="rx">Tutup</button></div>${sOut(s) > 0 ? `<button class="gh a" id="rpay">Terima pembayaran</button>` : ''}${can('retur') && s.L.some((i) => i.q > (i.rq || 0)) ? `<button class="gh d" id="rret">Retur barang</button>` : ''}`);
-  $('#rp', m).onclick = () => printMenu(s);
+  const m = modal(`<div class="rc"><h3>◆ ${esc(S.name || 'J-POS')}</h3><small>${esc(S.set.addr || '')}${S.set.tel ? ' · ' + esc(S.set.tel) : ''}<br>${esc(s.no)} · ${tstr(s.t)}<br>Kasir: ${esc(s.u)}${s.cn ? ' · ' + esc(s.cn) : ''}</small><hr>${s.L.map((i) => `<p><span>${esc(i.n)} ×${i.q}${i.rq ? ` <small class="rd">(retur ${i.rq})</small>` : ''}${i.dd ? `<br><small>diskon ${rp(i.dd)}</small>` : ''}</span><b>${rp(i.p * i.q - i.dd)}</b></p>`).join('')}<hr><p>Subtotal<b>${rp(s.sub)}</b></p>${s.disc ? `<p>Diskon<b>${rp(-s.disc)}</b></p>` : ''}${s.tax ? `<p>PPN<b>${rp(s.tax)}</b></p>` : ''}<h2>${rp(s.tot)}</h2><small>${s.cod ? 'Bayar saat diantar (' + esc(s.cm || 'Tunai') + ') · sisa ' + rp(sOut(s)) : s.pay == 'Piutang' ? 'Kredit · dibayar ' + rp(s.pa || 0) + ' · sisa ' + rp(sOut(s)) + ' · tempo ' + dstr(s.due) : esc(s.pay)}${s.rtot ? ' · retur ' + rp(s.rtot) : ''}${s.note ? '<br>Catatan: ' + esc(s.note) : ''}</small></div><button class="pr" id="rp">🖨️ Cetak faktur</button><button class="gh a" id="rsj">📦 Surat jalan</button><div class="fm2"><button class="gh" id="rs">Bagikan</button><button class="gh" id="rx">Tutup</button></div>${sOut(s) > 0 ? `<button class="gh a" id="rpay">Terima pembayaran</button>` : ''}${can('retur') && s.L.some((i) => i.q > (i.rq || 0)) ? `<button class="gh d" id="rret">Retur barang</button>` : ''}`);
+  $('#rp', m).onclick = () => printMenu(s, 'faktur'); $('#rsj', m).onclick = () => printMenu(s, 'sj');
   $('#rx', m).onclick = () => m.close(); $('#rs', m).onclick = () => shareText('Struk ' + s.no, receiptText(s));
   const pb = $('#rpay', m); if (pb) pb.onclick = () => { m.close(); payModal(s.no); };
   const rb = $('#rret', m); if (rb) rb.onclick = () => { m.close(); returModal(s.no); };
@@ -100,6 +109,6 @@ function returModal(no) {
 let hQ = '', hD = '';
 VW.his = () => {
   const t = hQ.toLowerCase(), L = S.sales.filter((s) => (can('hisAll') || s.u == U.n) && (!hD || dkey(s.t) == hD) && (!t || (s.no + ' ' + (s.cn || '') + ' ' + s.u).toLowerCase().includes(t))).slice(-150).reverse();
-  return `<div class="cd"><h3>Riwayat transaksi</h3><div class="fm2"><input placeholder="Cari no / outlet / kasir" value="${esc(hQ)}" onchange="hQ=this.value;R()"><input type="date" value="${hD}" onchange="hD=this.value;R()"></div><div class="ov"><table><tr><th>No<th>Tanggal<th>Outlet<th class="n">Total<th></tr>${L.map((s) => `<tr data-go="${esc(s.no)}"><td>${esc(s.no)}<br><small>${esc(s.u)} · ${esc(s.pay == 'Piutang' ? 'Kredit' : s.pay)}</small><td>${dstr(s.t)}<br><small>${hm(s.t)}</small><td>${esc(s.cn || '-')}<td class="n">${rp(s.tot)}${s.rtot ? `<br><small class="rd">retur ${rp(s.rtot)}</small>` : ''}${sOut(s) > 0 ? `<br><small class="or">sisa ${rp(sOut(s))}</small>` : ''}<td><button class="gh" title="Cetak faktur" onclick="event.stopPropagation();printMenu(S.sales.find((x)=>x.no=='${esc(s.no)}'))">🖨️</button> ${MGR(U.r) && !(s.rtot >= s.tot) ? `<button class="gh" onclick="event.stopPropagation();returModal('${esc(s.no)}')">Retur</button>` : ''}</tr>`).join('') || '<tr><td colspan="5" class="mu">Belum ada transaksi</tr>'}</table></div></div>`;
+  return `<div class="cd"><h3>Riwayat transaksi</h3><div class="fm2"><input placeholder="Cari no / outlet / kasir" value="${esc(hQ)}" onchange="hQ=this.value;R()"><input type="date" value="${hD}" onchange="hD=this.value;R()"></div><div class="ov"><table><tr><th>No<th>Tanggal<th>Outlet<th class="n">Total<th></tr>${L.map((s) => `<tr data-go="${esc(s.no)}"><td>${esc(s.no)}<br><small>${esc(s.u)} · ${esc(s.pay == 'Piutang' ? 'Kredit' : s.pay)}</small><td>${dstr(s.t)}<br><small>${hm(s.t)}</small><td>${esc(s.cn || '-')}<td class="n">${rp(s.tot)}${s.rtot ? `<br><small class="rd">retur ${rp(s.rtot)}</small>` : ''}${sOut(s) > 0 ? `<br><small class="or">sisa ${rp(sOut(s))}</small>` : ''}<td><button class="gh" title="Cetak faktur" onclick="event.stopPropagation();printMenu(S.sales.find((x)=>x.no=='${esc(s.no)}'),'faktur')">🖨️</button><button class="gh" title="Surat jalan" onclick="event.stopPropagation();printMenu(S.sales.find((x)=>x.no=='${esc(s.no)}'),'sj')">📦</button> ${MGR(U.r) && !(s.rtot >= s.tot) ? `<button class="gh" onclick="event.stopPropagation();returModal('${esc(s.no)}')">Retur</button>` : ''}</tr>`).join('') || '<tr><td colspan="5" class="mu">Belum ada transaksi</tr>'}</table></div></div>`;
 };
 document.addEventListener('click', (e) => { const r = e.target.closest('tr[data-go]'); if (r && V == 'his') { const s = S.sales.find((x) => x.no == r.dataset.go); if (s) receipt(s); } });
