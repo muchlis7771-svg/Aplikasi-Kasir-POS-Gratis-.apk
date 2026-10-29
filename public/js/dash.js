@@ -9,29 +9,41 @@ const quick = (L) => `<div class="qk">${L.map((q) => `<button onclick="go('${q[0
 
 VW.dash = () => (U.r == 'kasir' ? dashKasir() : U.r == 'sales' ? dashSales() : dashAdmin());
 
+const greet = () => { const h = new Date().getHours(); return h < 11 ? 'Selamat pagi' : h < 15 ? 'Selamat siang' : h < 18 ? 'Selamat sore' : 'Selamat malam'; };
+const todayLong = () => new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' });
+const spark = (vals) => { const mx = Math.max(1, ...vals), w = 100, h = 30, pts = vals.map((v, i) => [(i / Math.max(1, vals.length - 1)) * w, h - (v / mx) * (h - 4) - 2]); const d = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' '); return `<svg class="spk" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><path d="${d} L${w} ${h} L0 ${h}Z" fill="#ffffff26"/><path d="${d}" fill="none" stroke="#fff" stroke-width="2" vector-effect="non-scaling-stroke" stroke-linejoin="round"/></svg>`; };
+const heroCard = (title, val, sub, chg, extra, vals) => `<div class="cd hero hero2"><div class="row" style="margin:0;align-items:flex-start"><span><b class="hg">${greet()}, ${esc(U.n)} 👋</b><br><small>${todayLong()}</small></span><span class="hbadge">${esc({ owner: 'Pemilik', admin: 'Admin', akuntan: 'Akuntan', kasir: 'Kasir', sales: 'Sales' }[U.r] || U.r)}</span></div>
+<div class="hmain"><span><small>${title}</small><h2>${val}</h2><small>${sub}${chg != null ? ` <b class="hchip">${chg >= 0 ? '▲' : '▼'} ${Math.abs(chg)}%</b>` : ''}</small></span>${vals ? spark(vals) : ''}</div>${extra ? `<div class="hsplit">${extra.map((x) => `<span><small>${x[0]}</small><b>${x[1]}</b></span>`).join('')}</div>` : ''}</div>`;
+const tiles2 = (L) => `<div class="qt2">${L.filter((q) => can(q[0])).map((q) => `<button onclick="${q[3] || `go('${q[0]}')`}"><i style="--c:${q[4] || '#5b4cdb'}">${q[1]}</i><span>${q[2]}</span>${q[5] ? `<em>${q[5]}</em>` : ''}</button>`).join('')}</div>`;
+const lineItem = (ic, col, l, sub, v, cls, on) => `<button class="li2" ${on ? `onclick="${on}"` : ''}><i style="--c:${col}">${ic}</i><span><b>${l}</b>${sub ? `<small>${sub}</small>` : ''}</span><b class="${cls || ''}">${v}</b>${on ? '<u>›</u>' : ''}</button>`;
+const pctCh = (a, b) => (b ? Math.round(((a - b) / b) * 100) : null);
 function dashAdmin() {
-  const [t0, t1] = todayR(), [m0, m1] = monthR(), A = salesAgg(t0, t1), M = salesAgg(m0, m1), L = lr(m0, m1);
+  const [t0, t1] = todayR(), [m0, m1] = monthR(), A = salesAgg(t0, t1), M = salesAgg(m0, m1), L = lr(m0, m1), Y = salesAgg(t0 - 864e5, t0 - 1);
   const low = S.p.filter((p) => !p.x && p.st <= (p.min ?? 10)), od = S.c.filter((c) => !c.x && overdue(c.id) > 0).sort((a, b) => overdue(b.id) - overdue(a.id));
   const cats = Object.entries(M.byC).map(([k, v]) => ({ l: k, v: v.v })).sort((a, b) => b.v - a.v).slice(0, 6);
   const prods = Object.entries(M.byP).map(([k, v]) => ({ l: k, v: v.v })).sort((a, b) => b.v - a.v).slice(0, 6);
   const users = Object.entries(M.byU).map(([k, v]) => ({ l: k, v: v.v })).sort((a, b) => b.v - a.v);
-  const hadir = S.att.filter((a) => a.k == 'in' && dkey(a.t) == dkey(Date.now())).length;
-  const Y = salesAgg(t0 - 864e5, t0 - 1), gr = Y.net ? Math.round(((A.net - Y.net) / Y.net) * 100) : null, hr = new Date().getHours(), sal = hr < 11 ? 'Selamat pagi' : hr < 15 ? 'Selamat siang' : hr < 18 ? 'Selamat sore' : 'Selamat malam';
-  return `<div class="cd hero hero2"><div class="row" style="margin:0;align-items:flex-start"><span><small>${sal}, ${esc(U.n)} 👋</small><br><small>${new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</small></span><span class="hbadge">${esc(U.r)}</span></div><h2>${rp(A.net)}</h2><small>omzet hari ini · ${A.n} transaksi${gr != null ? ` · <b class="hgr">${gr >= 0 ? '▲' : '▼'} ${Math.abs(gr)}% vs kemarin</b>` : ''}</small><div class="hsplit"><span><small>Laba kotor</small><b>${rp(A.profit)}</b></span><span><small>Bulan ini</small><b>${rp(M.net)}</b></span><span><small>Stok menipis</small><b>${low.length}</b></span></div></div>`
-    + kpi([['Omzet hari ini', rp(A.net), A.n + ' transaksi'], ['Laba kotor hari ini', rp(A.profit)], ['Omzet bulan ini', rp(M.net), M.n + ' transaksi'], ['Laba bersih bulan ini', rp(L.laba), 'setelah beban'], ['Kas + Bank', rp(bal('1101') + bal('1102'))], ['Piutang', rp(arTotal()), od.length + ' outlet jatuh tempo'], ['Utang usaha', rp(apTotal())], ['Nilai stok', rp(stockValue()), low.length + ' stok menipis']])
-    + quick([['pos', '🛒', 'Kasir'], ...(can('onl') && S.srv ? [['onl', '🛍️', 'Online' + (ONL.orders.filter(needAct).length ? ' (' + ONL.orders.filter(needAct).length + ')' : '')]] : [['prod', '📦', 'Produk']]), ['outlet', '📍', 'Outlet'], ['lap', '📊', 'Laporan'], ...(can('ana') ? [['ana', '🎯', 'Analisa']] : [['keu', '🧾', 'Keuangan']]), ['chat', '💬', 'Chat']])
-    + `<div class="cd"><h3>Omzet 14 hari terakhir</h3>${area(dayAgg(14))}</div>`
-    + `<div class="two"><div class="cd"><h3>Penjualan per kategori (bulan ini)</h3>${donut(cats)}</div><div class="cd"><h3>Produk terlaris</h3>${bars(prods, rp)}</div></div>`
-    + `<div class="two"><div class="cd"><h3>Kinerja kasir & sales</h3>${bars(users, rp)}<small class="mu">Kehadiran hari ini: ${hadir} orang</small></div>
-<div class="cd"><h3>⚠ Perlu perhatian</h3>${od.slice(0, 5).map((c) => row(esc(c.n) + ' <small class="mu">jatuh tempo</small>', '<span class="rd">' + rp(overdue(c.id)) + '</span>')).join('')}${low.slice(0, 6).map((p) => row(esc(p.n), '<span class="rd">' + p.st + ' ' + esc(p.u || '') + '</span>')).join('')}${od.length + low.length ? '' : '<p class="mu">Semua aman 👍</p>'}</div></div>`;
+  const hadir = S.att.filter((a) => a.k == 'in' && dkey(a.t) == dkey(Date.now())).length, d7 = dayAgg(7).map((d) => d.v);
+  const onl = typeof ONL != 'undefined' && S.srv ? ONL.orders.filter(needAct).length : 0, odSum = od.reduce((a, c) => a + overdue(c.id), 0);
+  const todo = [
+    onl ? lineItem('🛍️', '#ff6b6b', onl + ' pesanan online baru', 'Segera konfirmasi agar pembeli tidak menunggu', 'Proses', 'or', "ONL.tab='ord';go('onl')") : '',
+    od.length ? lineItem('⏰', '#ff5d73', od.length + ' outlet lewat jatuh tempo', od.slice(0, 3).map((c) => esc(c.n)).join(', '), rp(odSum), 'rd', "oSort='debt';go('outlet')") : '',
+    low.length ? lineItem('📦', '#ff9f43', low.length + ' produk stok menipis', low.slice(0, 3).map((p) => esc(p.n) + ' (' + p.st + ')').join(', '), 'Lihat', 'or', can('ana') ? "ANA.tab='stok';go('ana')" : "go('prod')") : '',
+  ].filter(Boolean);
+  return heroCard('Omzet hari ini', rp(A.net), A.n + ' transaksi', pctCh(A.net, Y.net), [['Laba kotor', rp(A.profit)], ['Omzet bulan ini', rp(M.net)], ['Hadir', hadir + ' orang']], d7)
+    + tiles2([['pos', '🛒', 'Kasir', 0, '#5b4cdb'], ...(can('onl') && S.srv ? [['onl', '🛍️', 'Toko Online', 0, '#ff6b6b', onl || '']] : [['prod', '📦', 'Produk', 0, '#ff9f43']]), ['outlet', '📍', 'Outlet', 0, '#00b894'], ['lap', '📊', 'Laporan', 0, '#54a0ff'], ...(can('ana') ? [['ana', '🎯', 'Analisa', 0, '#a55eea']] : [['keu', '🧾', 'Keuangan', 0, '#a55eea']]), ['prod', '📦', 'Produk', 0, '#ff9f43'], ['abs', '🕒', 'Absensi', 0, '#20bf6b'], ['chat', '💬', 'Chat', 0, '#4b7bec'], ['keu', '🧾', 'Keuangan', 0, '#fd9644'], ['set', '⚙️', 'Pengaturan', 0, '#778ca3']].filter((x, i, a) => a.findIndex((y) => y[0] == x[0]) == i).slice(0, 8))
+    + `<div class="cd"><div class="row" style="margin:0 0 6px"><h3 style="margin:0">✅ Perlu ditindaklanjuti</h3><small class="mu">${todo.length || 'tidak ada'}</small></div>${todo.join('') || '<div class="okbox">👍 Semua aman — tidak ada piutang lewat tempo, stok aman, dan tidak ada pesanan tertunda.</div>'}</div>`
+    + `<div class="cd"><h3>💼 Posisi keuangan</h3>${lineItem('💵', '#00b894', 'Kas + Bank', 'uang tersedia', rp(bal('1101') + bal('1102')), 'gr')}${lineItem('📈', '#5b4cdb', 'Laba bersih bulan ini', 'setelah semua beban', rp(L.laba), L.laba < 0 ? 'rd' : '')}${lineItem('🧾', '#ff9f43', 'Piutang outlet', od.length + ' jatuh tempo', rp(arTotal()), '', can('lap') ? "go('lap')" : '')}${lineItem('🏦', '#ff5d73', 'Utang usaha', 'ke supplier', rp(apTotal()))}${lineItem('📦', '#54a0ff', 'Nilai stok', S.p.filter((p) => !p.x).length + ' produk', rp(stockValue()))}</div>`
+    + `<div class="cd"><div class="row" style="margin:0"><h3 style="margin:0">Omzet 14 hari terakhir</h3><small class="mu">${M.n} transaksi bulan ini</small></div>${area(dayAgg(14))}</div>`
+    + `<div class="two"><div class="cd"><h3>🏆 Produk terlaris bulan ini</h3>${bars(prods, rp)}</div><div class="cd"><h3>Penjualan per kategori</h3>${donut(cats)}</div></div>`
+    + `<div class="cd"><h3>👥 Kinerja tim bulan ini</h3>${bars(users, rp)}<small class="mu">Kehadiran hari ini: ${hadir} orang</small></div>`;
 }
 
 function dashKasir() {
   const [t0, t1] = todayR(), mine = S.sales.filter((s) => s.u == U.n && s.t >= t0 && s.t <= t1), tot = mine.reduce((a, s) => a + s.tot - (s.rtot || 0), 0), cash = mine.filter((s) => s.pay == 'Tunai').reduce((a, s) => a + s.tot - (s.rtot || 0), 0);
   const td = myToday(), last = td[td.length - 1], inn = last && last.k == 'in', byPay = {}; mine.forEach((s) => { const k = s.pay == 'Piutang' ? 'Kredit' : s.pay; byPay[k] = (byPay[k] || 0) + s.tot - (s.rtot || 0); });
-  return `<div class="cd hero"><small>Halo, ${esc(U.n)}</small><h2>${rp(tot)}</h2><small>penjualan Anda hari ini · ${mine.length} transaksi</small></div>`
-    + kpi([['Tunai di laci', rp(cash)], ['Rata-rata/transaksi', rp(mine.length ? tot / mine.length : 0)]])
-    + quick([['pos', '🛒', 'Mulai jual'], ['his', '🧾', 'Riwayat'], ['abs', '🕒', inn ? 'Absen pulang' : 'Absen masuk'], ['chat', '💬', 'Chat']])
+  return heroCard('Penjualan Anda hari ini', rp(tot), mine.length + ' transaksi', null, [['Tunai di laci', rp(cash)], ['Rata-rata', rp(mine.length ? tot / mine.length : 0)], ['Status', inn ? 'Sudah absen' : 'Belum absen']])
+    + tiles2([['pos', '🛒', 'Mulai jual', 0, '#5b4cdb'], ['his', '🧾', 'Riwayat', 0, '#54a0ff'], ['abs', '🕒', inn ? 'Absen pulang' : 'Absen masuk', 0, '#20bf6b'], ['chat', '💬', 'Chat', 0, '#4b7bec']])
     + `<div class="cd"><div class="row"><span><b>Tutup kasir</b><br><small class="mu">Rekap setoran shift hari ini</small></span><button class="gh a" onclick="tutupKasir()">Rekap shift</button></div></div>`
     + `<div class="cd"><h3>Metode pembayaran hari ini</h3>${donut(Object.entries(byPay).map(([l, v]) => ({ l, v })), 'metode')}</div>`
     + `<div class="cd"><h3>Transaksi terakhir</h3>${mine.slice(-6).reverse().map((s) => row(esc(s.no) + ' <small class="mu">' + hm(s.t) + ' · ' + esc(s.cn || 'Umum') + '</small>', rp(s.tot))).join('') || '<p class="mu">Belum ada transaksi hari ini</p>'}</div>`;
@@ -45,9 +57,9 @@ function dashSales() {
   const perC = {}; mm.forEach((s) => { const k = s.cn || 'Umum'; perC[k] = (perC[k] || 0) + netSale(s); });
   const lastV = {}; vis.forEach((v) => (lastV[v.cid] = Math.max(lastV[v.cid] || 0, v.t)));
   const due = myc.filter((c) => !lastV[c.id] || Date.now() - lastV[c.id] > 14 * 864e5).slice(0, 5);
-  return `<div class="cd hero"><small>Halo, ${esc(U.n)}</small><h2>${rp(omz)}</h2><small>omzet Anda bulan ini · ${mm.length} order</small></div>`
-    + kpi([['Order hari ini', mine(t0, t1).length], ['Kunjungan hari ini', vToday, vMonth + ' bulan ini'], ['Outlet saya', myc.length], ['Piutang outlet saya', rp(ar)]])
-    + quick([['outlet', '📍', 'Outlet & peta'], ['pos', '📝', 'Buat order'], ['abs', '🕒', 'Absen'], ['chat', '💬', 'Chat']])
+  return heroCard('Omzet Anda bulan ini', rp(omz), mm.length + ' order', null, [['Order hari ini', mine(t0, t1).length], ['Kunjungan', vToday + ' hari ini'], ['Outlet saya', myc.length]], dayAgg(7, (s) => s.u == U.n).map((d) => d.v))
+    + tiles2([['outlet', '➕', 'Outlet baru', 'go(\'outlet\');setTimeout(()=>outletForm(),80)', '#00b894'], ['outlet', '📍', 'Outlet & peta', 0, '#5b4cdb'], ['pos', '📝', 'Buat order', 0, '#ff9f43'], ['abs', '🕒', 'Absen', 0, '#20bf6b']])
+    + `<div class="cd">${lineItem('🧾', '#ff9f43', 'Piutang outlet saya', 'tagih saat kunjungan', rp(ar), ar ? 'or' : '', "oSort='debt';go('outlet')")}${lineItem('🚶', '#5b4cdb', 'Kunjungan bulan ini', 'check-in di outlet', vMonth)}</div>`
     + (() => { const P = reorderPlan(true).filter((x) => x.st != 'aman'); return P.length ? `<div class="cd info"><div class="row" style="margin:0"><span><b>🎯 Saran order hari ini</b><br><small>${P.length} outlet perlu dikunjungi · potensi ${rp(P.reduce((a, x) => a + x.val, 0))}</small></span><button class="gh a" onclick="ANA.tab='order';go('ana')">Lihat</button></div><small class="mu">${P.slice(0, 3).map((x) => esc(x.c.n)).join(', ')}${P.length > 3 ? '…' : ''}</small></div>` : ''; })()
     + `<div class="cd"><h3>Omzet saya 14 hari</h3>${area(dayAgg(14, (s) => s.u == U.n))}</div>`
     + `<div class="two"><div class="cd"><h3>Outlet teratas bulan ini</h3>${bars(Object.entries(perC).map(([l, v]) => ({ l, v })).sort((a, b) => b.v - a.v).slice(0, 6), rp)}</div><div class="cd"><h3>Belum dikunjungi 14 hari+</h3>${due.map((c) => `<div class="row"><span>${esc(c.n)}</span><button class="gh" onclick="go('outlet');setTimeout(()=>outletDetail('${esc(c.id)}'),50)">Lihat</button></div>`).join('') || '<p class="mu">Semua outlet sudah dikunjungi 👍</p>'}</div></div>`;

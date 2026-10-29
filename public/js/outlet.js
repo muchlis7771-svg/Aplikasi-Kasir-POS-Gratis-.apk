@@ -24,7 +24,20 @@ async function nearMe() { toast('Mencari lokasi…', 1500); MYPOS = await getPos
 function orderFor(id) { cCu = id; V = 'pos'; R(); }
 function leafletOk() { return typeof L !== 'undefined' && L.map; }
 const mapPin = () => L.divIcon({ className: '', html: '<div style="width:22px;height:22px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#6c5ce7;border:3px solid #fff;box-shadow:0 2px 6px #0006"></div>', iconSize: [22, 22], iconAnchor: [11, 22] });
-function tiles(m) { L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(m); }
+/* Peta dasar: beberapa server cadangan. tile.openstreetmap.org sering menolak permintaan dari aplikasi Android (WebView) sehingga peta abu-abu. */
+const TILESRC = [
+  ['https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 20, attribution: '© OpenStreetMap © CARTO' }],
+  ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: '© Esri' }],
+  ['https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }],
+];
+let TILEI = Math.min(+(LS.get('jpos:tile', 0)) || 0, TILESRC.length - 1);
+function tiles(m, i, tried) {
+  const Lf = window.L; i = i == null ? TILEI : i; tried = tried || 0;
+  const ly = Lf.tileLayer(TILESRC[i][0], TILESRC[i][1]); let ok = 0, bad = 0;
+  ly.on('tileload', () => { if (!ok++ && TILEI != i) { TILEI = i; LS.set('jpos:tile', i); } });
+  ly.on('tileerror', () => { if (!ok && ++bad == 3 && m.hasLayer(ly) && tried + 1 < TILESRC.length) { m.removeLayer(ly); tiles(m, (i + 1) % TILESRC.length, tried + 1); } });
+  ly.addTo(m);
+}
 function drawMap() {
   const el = $('#omap'); if (!el) return;
   if (!leafletOk()) { el.innerHTML = '<p class="mu" style="padding:14px">Peta tidak tersedia.</p>'; return; }
@@ -38,6 +51,7 @@ function outletForm(id, cb) {
   const c = id ? cust(id) : null, boss = U.r == 'owner';
   let loc = c && c.lat != null ? { lat: c.lat, lng: c.lng } : null;
   const m = modal(`<h3>${c ? 'Edit' : 'Tambah'} outlet / toko langganan</h3>
+${c ? '' : `<div class="sugh"><div class="row" style="margin:0"><b>💡 Potensi outlet baru di sekitar</b><select id="srad" style="width:auto;padding:5px 8px">${[1000, 3000, 5000, 10000].map((r) => `<option value="${r}" ${r == (SCAN.fr || 10000) ? 'selected' : ''}>${r / 1000} km</option>`).join('')}</select></div><small class="mu">Toko dari peta di sekitar titik GPS Anda yang belum jadi outlet. Ketuk untuk mengisi formulir otomatis.</small><div id="sug" class="sug"><p class="mu">📡 Mengambil lokasi GPS…</p></div></div>`}
 <input id="on" placeholder="Nama toko *" value="${esc(c ? c.n : '')}"><div class="fm2"><input id="op" type="tel" placeholder="Telepon / WA" value="${esc(c ? c.ph || '' : '')}"><input id="oa" placeholder="Alamat" value="${esc(c ? c.ad || '' : '')}"></div><input id="oc" placeholder="Catatan" value="${esc(c ? c.note || '' : '')}">
 <div><b>Titik lokasi</b> <small class="mu">ketuk peta atau geser pin</small></div><div class="map" id="fmap"></div>
 <div class="fm2"><input id="ola" type="number" step="any" placeholder="Latitude" value="${loc ? loc.lat : ''}"><input id="oln" type="number" step="any" placeholder="Longitude" value="${loc ? loc.lng : ''}"></div><button class="gh" id="gps">📍 Pakai lokasi saya sekarang</button>
@@ -48,7 +62,24 @@ ${boss ? `<div class="seg"><button data-t="cash" class="${!c || c.term != 'kredi
   if (leafletOk()) { mp = L.map($('#fmap', m)).setView(loc ? [loc.lat, loc.lng] : MYPOS ? [MYPOS.lat, MYPOS.lng] : DEF_POS, loc ? 16 : 12); tiles(mp); mp.on('click', (e) => setLoc(e.latlng.lat, e.latlng.lng)); if (loc) setLoc(loc.lat, loc.lng); setTimeout(() => mp.invalidateSize(), 250); } else $('#fmap', m).outerHTML = '<small class="mu">Peta tidak tersedia — isi koordinat manual.</small>';
   const sync2 = () => { const la = parseFloat($('#ola', m).value), ln = parseFloat($('#oln', m).value); if (!isNaN(la) && !isNaN(ln)) setLoc(la, ln, true); };
   $('#ola', m).onchange = sync2; $('#oln', m).onchange = sync2;
-  $('#gps', m).onclick = async () => { toast('Mengambil lokasi…', 1500); const p = await getPos(); if (!p) return toast('GPS tidak tersedia. Aktifkan lokasi & izinkan aplikasi.'); MYPOS = p; setLoc(p.lat, p.lng, true); };
+  let from = '', sugLy = null, SG = [];
+  const fillAddr = async (p) => { if ($('#oa', m).value.trim()) return; const a = await revGeo(p); if (a && !$('#oa', m).value.trim()) $('#oa', m).value = a; };
+  const gpsNow = async (quiet) => { if (!quiet) toast('Mengambil lokasi…', 1500); const p = await getPos(); if (!p) { if (!quiet) toast('GPS tidak tersedia. Aktifkan lokasi & izinkan aplikasi.'); return null; } MYPOS = p; setLoc(p.lat, p.lng, true); fillAddr(p); return p; };
+  $('#gps', m).onclick = () => gpsNow();
+  const pick = (i) => { const x = SG[i]; if (!x) return; $('#on', m).value = x.n; if (x.ph) $('#op', m).value = x.ph; $('#oa', m).value = x.ad || ''; from = 'Dari peta: ' + (SHOPT[x.type] || x.type || 'toko'); if (!$('#oc', m).value) $('#oc', m).value = from; setLoc(x.lat, x.lng, true); if (!x.ad) fillAddr(x); $$('#sug button', m).forEach((b) => b.classList.toggle('on', +b.dataset.i == i)); toast('Diisi dari peta: ' + x.n); };
+  const loadSug = async () => {
+    const el = $('#sug', m); if (!el) return; SCAN.fr = +$('#srad', m).value;
+    let p = MYPOS && Date.now() - (MYPOS.t || 0) < 3e5 ? MYPOS : null; if (!p) { el.innerHTML = '<p class="mu">📡 Mengambil lokasi GPS…</p>'; p = await gpsNow(true); if (p) p.t = Date.now(); } else if (!loc) setLoc(p.lat, p.lng, true), fillAddr(p);
+    if (!p) { el.innerHTML = '<p class="rd">GPS tidak terbaca. Aktifkan lokasi (GPS) & izinkan aplikasi, lalu <a onclick="this.closest(\'.md\').querySelector(\'#srad\').dispatchEvent(new Event(\'change\'))">coba lagi</a>.</p>'; return; }
+    el.innerHTML = `<p class="mu">🔎 Mencari toko di peta dalam radius ${distStr(SCAN.fr)}…</p>`;
+    try { SG = (await osmShops(p, SCAN.fr, false)).filter((x) => !x.dup).slice(0, 60); } catch (e) { el.innerHTML = '<p class="rd">' + esc(e.message) + '</p>'; return; }
+    if (!$('#sug', m)) return;
+    el.innerHTML = SG.length ? `<small class="mu">${SG.length} potensi outlet · terdekat lebih dulu</small>` + SG.map((x, i) => `<button data-i="${i}"><i>🏪</i><span><b>${esc(x.n)}</b><small class="mu">${esc(SHOPT[x.type] || x.type || 'Toko')} · ${distStr(x.d)}${x.ad ? ' · ' + esc(x.ad) : ''}</small></span><small class="gh a" style="flex:none">Pakai</small></button>`).join('') + `<button class="gh" id="sgall" style="justify-content:center">📋 Tambah banyak sekaligus…</button>` : '<p class="mu">Belum ada toko tercatat di peta pada radius ini. Coba radius lebih besar, atau isi manual.</p>';
+    $$('#sug [data-i]', m).forEach((b) => (b.onclick = () => pick(+b.dataset.i)));
+    const ga = $('#sgall', m); if (ga) ga.onclick = () => { m.close(); SCAN.r = SCAN.fr; scanOutlets(true); };
+    if (mp) { if (sugLy) mp.removeLayer(sugLy); sugLy = window.L.featureGroup(SG.map((x, i) => window.L.circleMarker([x.lat, x.lng], { radius: 6, color: '#fff', weight: 2, fillColor: '#ff5d73', fillOpacity: 0.9 }).bindTooltip(esc(x.n)).on('click', () => pick(i)))).addTo(mp); }
+  };
+  if (!c) { $('#srad', m).onchange = loadSug; loadSug(); }
   $$('.seg button', m).forEach((b) => (b.onclick = () => { term = b.dataset.t; $$('.seg button', m).forEach((x) => x.classList.toggle('a', x == b)); $('#kr', m).style.display = term == 'kredit' ? 'grid' : 'none'; }));
   if (boss) $('#kr', m).style.display = term == 'kredit' ? 'grid' : 'none';
   $('#ok', m).onclick = () => {
@@ -83,31 +114,41 @@ ${vs.length ? '<b>Kunjungan terakhir</b>' + vs.map((v) => `<div class="row"><sma
 
 /* ============ CARI OUTLET OTOMATIS dari peta (OpenStreetMap) di sekitar titik GPS, radius s/d 10 km ============ */
 const SHOPT = { convenience: 'Toko kelontong/minimarket', supermarket: 'Supermarket', grocery: 'Toko sembako', general: 'Toko serba ada', kiosk: 'Kios', wholesale: 'Grosir', variety_store: 'Toko serba ada', beverages: 'Toko minuman', bakery: 'Toko roti', greengrocer: 'Sayur & buah', butcher: 'Daging', deli: 'Makanan', frozen_food: 'Makanan beku', confectionery: 'Toko kue', tobacco: 'Rokok', chemist: 'Toko kebutuhan', cosmetics: 'Kosmetik', houseware: 'Perabot', hardware: 'Toko bangunan', stationery: 'ATK', department_store: 'Toserba', mall: 'Mal', water: 'Depot air', rice: 'Toko beras', seafood: 'Ikan', dairy: 'Susu', farm: 'Hasil tani', pastry: 'Kue', spices: 'Bumbu', tea: 'Teh', coffee: 'Kopi' };
-const SCAN = { r: 3000, all: false, list: [], at: null };
-async function scanOutlets() {
+const SCAN = { r: 10000, all: false, list: [], at: null };
+async function scanOutlets(auto) {
   const m = modal(`<h3>🔎 Cari outlet di sekitar</h3><small class="mu">Mengambil toko/warung dari peta OpenStreetMap di sekitar lokasi GPS Anda. Data peta dibuat komunitas — tidak semua warung tercatat.</small>
-<label><small class="mu">Radius pencarian</small><select id="sr">${[500, 1000, 3000, 5000, 10000].map((r) => `<option value="${r}" ${SCAN.r == r ? 'selected' : ''}>${r >= 1000 ? r / 1000 + ' km' : r + ' m'}</option>`).join('')}</select></label>
+<label><small class="mu">Radius pencarian</small><select id="sr">${[1000, 3000, 5000, 10000].map((r) => `<option value="${r}" ${SCAN.r == r ? 'selected' : ''}>${r >= 1000 ? r / 1000 + ' km' : r + ' m'}</option>`).join('')}</select></label>
 <label class="row"><span>Tampilkan semua jenis toko (bukan hanya kelontong/grosir)</span><input type="checkbox" id="sa" ${SCAN.all ? 'checked' : ''}></label>
 <button class="pr" id="go">📍 Ambil GPS & cari</button><div id="sres"></div>`, 'w');
   $('#go', m).onclick = async () => {
     SCAN.r = +$('#sr', m).value; SCAN.all = $('#sa', m).checked; const out = $('#sres', m); out.innerHTML = '<p class="mu">Mengambil lokasi GPS…</p>';
     const p = await getPos(); if (!p) { out.innerHTML = '<p class="rd">Lokasi tidak tersedia. Aktifkan GPS & izin lokasi.</p>'; return; }
     SCAN.at = p; out.innerHTML = '<p class="mu">Mencari toko di peta (radius ' + distStr(SCAN.r) + ')… bisa sampai 20 detik.</p>';
-    const types = SCAN.all ? '' : '["shop"~"^(' + ['convenience', 'supermarket', 'grocery', 'general', 'kiosk', 'wholesale', 'variety_store', 'beverages', 'bakery', 'greengrocer', 'deli', 'frozen_food', 'confectionery', 'tobacco', 'chemist', 'water', 'rice', 'department_store', 'dairy', 'spices'].join('|') + ')$"]';
-    const q = `[out:json][timeout:25];(node["shop"]${types}(around:${SCAN.r},${p.lat},${p.lng});way["shop"]${types}(around:${SCAN.r},${p.lat},${p.lng}););out center 600;`;
-    let js = null;
-    for (const ep of ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter', 'https://maps.mail.ru/osm/tools/overpass/api/interpreter']) {
-      try { const r = await fetch(ep, { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, signal: AbortSignal.timeout ? AbortSignal.timeout(30000) : undefined }); if (r.ok) { js = await r.json(); break; } } catch (e) { }
-    }
-    if (!js) { out.innerHTML = '<p class="rd">Server peta tidak bisa dihubungi. Periksa internet lalu coba lagi.</p>'; return; }
-    const seen = new Set();
-    SCAN.list = js.elements.map((e) => { const t = e.tags || {}, lat = e.lat ?? (e.center && e.center.lat), lng = e.lon ?? (e.center && e.center.lon); return { id: e.type + e.id, n: t.name || t['name:id'] || t.brand || '', type: t.shop, lat, lng, ad: [t['addr:street'], t['addr:housenumber'], t['addr:suburb'] || t['addr:village'], t['addr:city']].filter(Boolean).join(' '), ph: t.phone || t['contact:phone'] || t['contact:whatsapp'] || '', d: haversine(p.lat, p.lng, lat, lng) }; })
-      .filter((x) => x.lat != null && x.n && !seen.has(x.n.toLowerCase() + Math.round(x.lat * 1e3)) && seen.add(x.n.toLowerCase() + Math.round(x.lat * 1e3)))
-      .map((x) => ({ ...x, dup: S.c.find((c) => !c.x && ((c.lat != null && haversine(c.lat, c.lng, x.lat, x.lng) < 60) || c.n.toLowerCase() == x.n.toLowerCase())) }))
-      .sort((a, b) => a.d - b.d);
+    try { SCAN.list = await osmShops(p, SCAN.r, SCAN.all); } catch (e) { out.innerHTML = '<p class="rd">' + esc(e.message) + '</p>'; return; }
     scanList(out, m);
   };
+  if (auto) $('#go', m).click();
 }
+const OSMC = LS.get('jpos:osmc', null);
+async function osmShops(p, r, all) {
+  const C = OSMC_get(p, r, all); if (C) return markDup(C, p);
+  const types = all ? '' : '["shop"~"^(' + ['convenience', 'supermarket', 'grocery', 'general', 'kiosk', 'wholesale', 'variety_store', 'beverages', 'bakery', 'greengrocer', 'deli', 'frozen_food', 'confectionery', 'tobacco', 'chemist', 'water', 'rice', 'department_store', 'dairy', 'spices', 'butcher', 'seafood', 'cosmetics', 'houseware', 'stationery'].join('|') + ')$"]';
+  const ar = `(around:${r},${p.lat},${p.lng})`;
+  const q = `[out:json][timeout:25];(node["shop"]${types}${ar};way["shop"]${types}${ar};${all ? `node["amenity"~"^(marketplace|cafe|restaurant|fast_food)$"]${ar};` : ''});out center 800;`;
+  let js = null;
+  for (const ep of ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter', 'https://maps.mail.ru/osm/tools/overpass/api/interpreter', 'https://overpass.private.coffee/api/interpreter']) {
+    try { const res = await fetch(ep, { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, signal: AbortSignal.timeout ? AbortSignal.timeout(30000) : undefined }); if (res.ok) { js = await res.json(); break; } } catch (e) { }
+  }
+  if (!js) throw new Error('Server peta tidak bisa dihubungi. Periksa internet lalu coba lagi.');
+  const seen = new Set();
+  const list = js.elements.map((e) => { const t = e.tags || {}, lat = e.lat ?? (e.center && e.center.lat), lng = e.lon ?? (e.center && e.center.lon); return { id: e.type + e.id, n: t.name || t['name:id'] || t.brand || '', type: t.shop || t.amenity, lat, lng, ad: [t['addr:street'], t['addr:housenumber'], t['addr:suburb'] || t['addr:village'], t['addr:city']].filter(Boolean).join(' '), ph: t.phone || t['contact:phone'] || t['contact:whatsapp'] || '' }; })
+    .filter((x) => x.lat != null && x.n && !seen.has(x.n.toLowerCase() + Math.round(x.lat * 1e3)) && seen.add(x.n.toLowerCase() + Math.round(x.lat * 1e3)));
+  try { LS.set('jpos:osmc', { lat: p.lat, lng: p.lng, r, all, t: Date.now(), list: list.slice(0, 600) }); } catch (e) { }
+  return markDup(list, p);
+}
+function OSMC_get(p, r, all) { const c = LS.get('jpos:osmc', null); return c && c.r >= r && c.all == all && Date.now() - c.t < 6 * 36e5 && haversine(c.lat, c.lng, p.lat, p.lng) < 300 ? c.list.filter((x) => haversine(p.lat, p.lng, x.lat, x.lng) <= r) : null; }
+function markDup(list, p) { return list.map((x) => ({ ...x, d: haversine(p.lat, p.lng, x.lat, x.lng), dup: S.c.find((c) => !c.x && ((c.lat != null && haversine(c.lat, c.lng, x.lat, x.lng) < 60) || c.n.toLowerCase() == x.n.toLowerCase())) })).sort((a, b) => a.d - b.d); }
+async function revGeo(p) { try { const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&accept-language=id&lat=${p.lat}&lon=${p.lng}`, { signal: AbortSignal.timeout ? AbortSignal.timeout(12000) : undefined }); if (!r.ok) return ''; const j = await r.json(), a = j.address || {}; return [a.road, a.house_number, a.neighbourhood || a.hamlet, a.village || a.suburb, a.city_district, a.city || a.town || a.county].filter(Boolean).join(', ') || (j.display_name || '').split(',').slice(0, 4).join(','); } catch (e) { return ''; } }
 function scanList(out, m) {
   const L = SCAN.list, nw = L.filter((x) => !x.dup);
   out.innerHTML = `<div class="row"><b>${L.length} toko ditemukan · ${nw.length} belum jadi outlet</b><label class="row" style="margin:0;gap:6px"><small>Pilih semua</small><input type="checkbox" id="sall"></label></div><div id="smap" class="map" style="height:220px"></div>
@@ -123,7 +164,7 @@ ${MGR(U.r) ? `<label><small class="mu">Sales penanggung jawab (opsional)</small>
   };
   setTimeout(() => {
     if (!window.L || !$('#smap', m)) return; const mp = window.L.map($('#smap', m)).setView([SCAN.at.lat, SCAN.at.lng], SCAN.r > 3000 ? 12 : 14);
-    window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(mp);
+    tiles(mp);
     window.L.circle([SCAN.at.lat, SCAN.at.lng], { radius: SCAN.r, color: '#6c5ce7', weight: 1, fillOpacity: 0.05 }).addTo(mp);
     window.L.circleMarker([SCAN.at.lat, SCAN.at.lng], { radius: 7, color: '#fff', fillColor: '#6c5ce7', fillOpacity: 1, weight: 3 }).addTo(mp).bindPopup('Posisi Anda');
     SCAN.list.slice(0, 400).forEach((x) => window.L.circleMarker([x.lat, x.lng], { radius: 5, color: x.dup ? '#999' : '#ff5d73', fillOpacity: 0.8, weight: 1 }).addTo(mp).bindPopup(esc(x.n)));
