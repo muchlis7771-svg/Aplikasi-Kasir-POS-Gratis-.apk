@@ -16,6 +16,7 @@
     "@capacitor/share": "7.0.4",
     "@capacitor-mlkit/barcode-scanning": "7.5.0",
     "@capacitor/app": "7.1.2",
+    "@capacitor/local-notifications": "7.0.7",
     "@capacitor-community/bluetooth-le": "7.3.2"
   },
   "devDependencies": {

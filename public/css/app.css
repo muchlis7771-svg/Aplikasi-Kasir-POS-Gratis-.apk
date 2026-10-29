@@ -317,3 +317,44 @@ body:not(.buyer) .md{backdrop-filter:blur(3px)}
 :root[data-theme="dark"] body:not(.buyer){background:radial-gradient(900px 500px at 90% -10%,#5b4cdb22,transparent 60%),radial-gradient(700px 400px at -10% 110%,#00c2a814,transparent 60%),var(--bg)}
 .chip.o{background:#ff9f4322;color:var(--or)}
 .je img{border:1px solid var(--bd)}
+
+/* ===== v11: beranda simpel & elegan, layar wajib absen, alarm ===== */
+.hero2{border-radius:28px;padding:22px 22px 18px;background:radial-gradient(120% 140% at 100% -10%,#22d3ee55,transparent 55%),linear-gradient(150deg,#1e1b4b 0%,#3730a3 55%,#4f46e5 100%);box-shadow:0 18px 44px -16px #3730a3aa;border:1px solid #ffffff22}
+.hero2 .hg{font-size:17px;font-weight:700;letter-spacing:.2px}
+.hero2 .hmain h2{font-size:38px;letter-spacing:-1px;font-weight:800;margin:2px 0 4px}
+.hero2 .hsplit{margin-top:14px;padding-top:12px;border-top:1px solid #ffffff26;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.hero2 .hsplit span{background:none;padding:0}
+.hero2 .hsplit small{opacity:.75;font-size:11px;display:block}
+.hero2 .hsplit b{font-size:15px}
+.qt2{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0}
+.qt2 button{background:var(--card,#fff);border:1px solid var(--bd,#0001);border-radius:20px;padding:12px 4px 10px;display:flex;flex-direction:column;align-items:center;gap:7px;font-size:12px;font-weight:600;box-shadow:0 6px 18px -12px #0004;position:relative}
+.qt2 button i{width:46px;height:46px;border-radius:16px;display:grid;place-items:center;font-style:normal;font-size:23px;background:color-mix(in srgb,var(--c) 16%,transparent)}
+.qt2 button em{position:absolute;top:6px;right:10px;background:#ef4444;color:#fff;border-radius:10px;font-size:10px;padding:1px 6px;font-style:normal}
+details.more{margin:6px 0 18px}
+details.more>summary{list-style:none;cursor:pointer;text-align:center;padding:13px;border-radius:18px;border:1px dashed var(--bd,#0003);font-weight:700;font-size:14px;color:var(--pr,#4f46e5);margin-bottom:12px}
+details.more>summary::-webkit-details-marker{display:none}
+details.more[open]>summary{margin-bottom:14px;opacity:.7}
+details.more[open]>summary::after{content:' ▲'}
+details.more:not([open])>summary::after{content:' ▼'}
+.okbox{padding:14px;border-radius:16px;background:color-mix(in srgb,#10b981 12%,transparent);text-align:center;font-weight:600}
+/* layar absen */
+main.gate{display:grid;place-items:center;min-height:78vh;padding:16px}
+.gc{width:100%;max-width:420px;text-align:center;padding:30px 22px;border-radius:32px;color:#fff;background:radial-gradient(120% 90% at 50% -10%,#22d3ee55,transparent 60%),linear-gradient(160deg,#0b1b4d,#312e81 60%,#4f46e5);box-shadow:0 24px 60px -18px #312e81;border:1px solid #ffffff22}
+.gc .gh1{font-size:16px;opacity:.9}
+.gclk{font-size:78px;font-weight:800;letter-spacing:-3px;line-height:1.05;margin:8px 0 0}
+.gdt{opacity:.75;margin-bottom:18px}
+.gmsg{background:#ffffff18;border-radius:18px;padding:14px;margin-bottom:14px}
+.gmsg b{display:block;font-size:17px;margin-bottom:4px}.gmsg small{opacity:.8}
+.gc input{width:100%;margin-bottom:12px;text-align:center}
+.gbtn{width:100%;border:0;border-radius:22px;padding:18px;font-size:19px;font-weight:800;color:#1e1b4b;background:linear-gradient(90deg,#fbbf24,#f97316);box-shadow:0 14px 34px -10px #f97316aa;display:flex;gap:10px;align-items:center;justify-content:center}
+.gbtn:disabled{opacity:.45}
+.gchk{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;margin-top:14px;font-size:12px}
+.gchk span{background:#ffffff1c;border-radius:20px;padding:5px 11px}
+#almring{position:fixed;inset:0;z-index:99999;background:#7f1d1dee;display:grid;place-items:center;padding:20px;animation:rgf .6s infinite alternate}
+@keyframes rgf{from{background:#7f1d1df2}to{background:#b91c1cf2}}
+#almring .rg{width:100%;max-width:380px;text-align:center;color:#fff;display:grid;gap:12px}
+#almring .rb{font-size:90px;animation:rgs .5s infinite alternate}
+@keyframes rgs{from{transform:rotate(-14deg)}to{transform:rotate(14deg)}}
+#almring h2{font-size:28px}
+.gc .gh,#almring .gh{background:#ffffff1f;color:#fff;border:1px solid #ffffff44}
+.gc .gh.d,#almring .gh.d{color:#fecaca}

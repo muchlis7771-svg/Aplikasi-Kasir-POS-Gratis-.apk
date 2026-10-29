@@ -14,7 +14,11 @@ function haPkgCard() {
   return `<div class="cd"><h3>📦 Paket aplikasi</h3><small class="mu">Tentukan fitur & batas pengguna tiap paket. Pilih paket per toko lewat tombol “Kelola” di daftar toko. “Beranda” dan “Pengaturan” selalu ada.</small>
 <label style="display:block;margin:8px 0"><small class="mu">Paket untuk masa coba (trial) toko baru</small><select id="ptt">${['biasa', 'standar', 'high'].map((t) => `<option value="${t}" ${(HA.cfg.trial_tier || 'high') == t ? 'selected' : ''}>${esc(tierName(t))}</option>`).join('')}</select></label>
 ${['biasa', 'standar', 'high'].map((t) => { const x = pk[t], fs = new Set(x.f.split(' ')); return `<details class="pkg" style="margin:6px 0"><summary><b>${esc(x.n)}</b> <small class="mu">· ${[...fs].filter((f) => FEAT[f]).length} fitur · maks ${x.max} pengguna</small></summary><div class="fm2" style="margin:8px 0"><label><small class="mu">Nama paket</small><input id="pn_${t}" value="${esc(x.n)}" maxlength="20"></label><label><small class="mu">Maks pengguna</small><input id="px_${t}" type="number" min="1" value="${x.max}"></label></div>${FGROUP.map((g) => `<b style="font-size:12px">${g[0]}</b><div class="wrap">${g[1].filter((f) => all.includes(f)).map((f) => `<label class="chip ${fs.has(f) ? 'g' : ''}" style="cursor:pointer;display:inline-flex;gap:4px;align-items:center"><input type="checkbox" style="width:auto" data-pk="${t}:${f}" ${fs.has(f) ? 'checked' : ''}>${esc(FEAT[f])}</label>`).join('')}</div>`).join('')}</details>`; }).join('')}
-<button class="pr" style="margin-top:8px" onclick="haPkgSave()">Simpan paket</button></div>`;
+<div class="wrap" style="margin-top:8px"><button class="pr" onclick="haPkgSave()">Simpan paket</button><button class="gh" onclick="haPkgReset()">Kembalikan default</button></div></div>`;
+}
+async function haPkgReset() {
+  if (!confirm('Kembalikan isi ketiga paket ke pengaturan bawaan?')) return;
+  try { HA.cfg = await haApi('/api/admin/cfg', { method: 'PUT', body: JSON.stringify({ pkg_reset: 1 }) }); toast('Paket dikembalikan ke default'); R(); } catch (e) { toast(e.message); }
 }
 async function haPkgSave() {
   const pkg = {};
