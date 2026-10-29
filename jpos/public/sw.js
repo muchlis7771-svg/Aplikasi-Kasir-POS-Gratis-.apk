@@ -1,5 +1,5 @@
 // Service worker: cache aplikasi agar bisa dibuka offline. API tidak di-cache.
-const V = 'jpos-v12', ASSETS = ['./', 'index.html', 'config.js', 'manifest.webmanifest', 'css/app.css', 'icons/icon-192.png', 'icons/icon-512.png',
+const V = 'jpos-v13', ASSETS = ['./', 'index.html', 'config.js', 'manifest.webmanifest', 'css/app.css', 'icons/icon-192.png', 'icons/icon-512.png',
   'vendor/leaflet.js', 'vendor/leaflet.css', 'vendor/xlsx.full.min.js', 'vendor/jspdf.umd.min.js', 'vendor/jspdf.plugin.autotable.min.js', 'vendor/zxing.min.js',
   ...['core', 'native', 'guard', 'net', 'charts', 'print', 'pos', 'prod', 'outlet', 'report', 'export', 'team', 'absen', 'buy', 'kas', 'kirim', 'xls', 'perm', 'dash', 'online', 'ana', 'ana2', 'buyer', 'demo', 'main'].map((n) => 'js/' + n + '.js')];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(V).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting())); });
