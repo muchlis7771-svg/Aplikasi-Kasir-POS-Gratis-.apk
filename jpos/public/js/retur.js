@@ -51,30 +51,72 @@ ${st}${A.H.length ? `<details style="margin-top:6px"><summary><small>📜 Riwaya
     }).join('')}
 <label><small class="mu">Pengembalian dana</small><select onchange="RTO.m=this.value">${['Potong tagihan', 'Tunai', 'Transfer'].map((m) => `<option ${RTO.m == m ? 'selected' : ''}>${m}</option>`).join('')}</select></label><small class="mu">Faktur kredit yang belum lunas otomatis dipotong tagihannya; sisanya dikembalikan dengan cara di atas.</small>
 <input placeholder="Catatan (opsional)" value="${esc(RTO.note)}" onchange="RTO.note=this.value" style="margin-top:6px">
-<button class="gh" style="margin-top:6px" onclick="rtrPhoto()">📸 ${RTO.ph ? 'Foto bukti ✓ (ulang)' : 'Foto bukti barang retur (disarankan)'}</button>
+<div class="cd" style="margin:8px 0 0;padding:10px;background:var(--bg)"><b>✍️ Tanda tangan outlet${sigNeed() ? ' <span class="rd">*</span>' : ''}</b><small class="mu" style="display:block">Pemilik / penjaga outlet menandatangani sebagai bukti barang sudah diambil. Foto barang diambil otomatis saat simpan.</small>
+<input id="rsn" placeholder="Nama penanda tangan di outlet" value="${esc(RTO.sn || '')}" oninput="RTO.sn=this.value" style="margin:6px 0">
+<canvas id="sigc" class="sigc" width="600" height="220"></canvas><div class="row" style="margin:4px 0 0"><small class="mu" id="sigh">${RTO.sig ? '✓ Sudah ditandatangani' : 'Tanda tangan dengan jari di kotak'}</small><button class="gh" onclick="RTO.sig=null;sigInit(1)">Hapus</button></div></div>
 <button class="pr" style="margin-top:8px" ${okAll ? '' : 'disabled'} onclick="rtrSave()">✓ Simpan retur</button>${okAll ? '' : '<small class="rd">Perbaiki barang yang ditandai ⛔ dulu.</small>'}</div>`;
   }
   return h;
 }
+const sigNeed = () => ['sales', 'dropping'].includes(U.r) || S.set.rsig === true;
+/* ---------- tanda tangan digital ---------- */
+function sigInit(clear) {
+  const c = $('#sigc'); if (!c) return; const x = c.getContext('2d'); x.lineWidth = 4; x.lineCap = 'round'; x.lineJoin = 'round'; x.strokeStyle = '#111';
+  if (clear || !RTO.sig) { x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.fillStyle = '#c7c9d1'; x.font = '22px sans-serif'; x.fillText('tanda tangan di sini', 190, 120); c.dataset.blank = '1'; if (clear) { const h = $('#sigh'); if (h) h.textContent = 'Tanda tangan dengan jari di kotak'; } }
+  else { const im = new Image(); im.onload = () => x.drawImage(im, 0, 0, c.width, c.height); im.src = RTO.sig; c.dataset.blank = '0'; }
+  let dn = false, last = null; const pt = (e) => { const r = c.getBoundingClientRect(); return [(e.clientX - r.left) * c.width / r.width, (e.clientY - r.top) * c.height / r.height]; };
+  c.onpointerdown = (e) => { e.preventDefault(); c.setPointerCapture && c.setPointerCapture(e.pointerId); if (c.dataset.blank == '1') { x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); c.dataset.blank = '0'; } dn = true; last = pt(e); x.beginPath(); x.arc(last[0], last[1], 2, 0, 7); x.fillStyle = '#111'; x.fill(); };
+  c.onpointermove = (e) => { if (!dn) return; e.preventDefault(); const p = pt(e); x.beginPath(); x.moveTo(last[0], last[1]); x.lineTo(p[0], p[1]); x.stroke(); last = p; };
+  c.onpointerup = c.onpointercancel = () => { if (!dn) return; dn = false; RTO.sig = c.toDataURL('image/jpeg', 0.6); const h = $('#sigh'); if (h) h.textContent = '✓ Sudah ditandatangani'; };
+}
+VW.retur.after = () => sigInit();
+/* ---------- foto otomatis (kamera belakang, tanpa tombol) ---------- */
+async function autoShot(label) {
+  const ov = document.createElement('div'); ov.className = 'autoshot'; ov.innerHTML = '<video playsinline muted></video><b>📸 Mengambil foto otomatis… arahkan ke barang retur</b>'; document.body.appendChild(ov);
+  let st = null;
+  try {
+    st = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 960 } }, audio: false });
+    const v = $('video', ov); v.srcObject = st; await v.play();
+    for (let i = 0; i < 40 && !v.videoWidth; i++) await new Promise((r) => setTimeout(r, 50));
+    await new Promise((r) => setTimeout(r, 650)); // beri waktu fokus & cahaya
+    const W = Math.min(720, v.videoWidth), H = Math.round(W * v.videoHeight / v.videoWidth), c = document.createElement('canvas'); c.width = W; c.height = H + 26; const x = c.getContext('2d');
+    x.drawImage(v, 0, 0, W, H); x.fillStyle = '#000'; x.fillRect(0, H, W, 26); x.fillStyle = '#fff'; x.font = '14px sans-serif'; x.fillText(String(label).slice(0, 80), 6, H + 18);
+    ov.classList.add('flash'); try { navigator.vibrate && navigator.vibrate(40); } catch (e) { }
+    await new Promise((r) => setTimeout(r, 180));
+    return c.toDataURL('image/jpeg', 0.55);
+  } catch (e) { toast('Kamera tidak bisa dibuka: ' + (e.message || e), 4000); return null; }
+  finally { if (st) st.getTracks().forEach((t) => t.stop()); ov.remove(); }
+}
 function rtrAdd(id) { if (RTO.L.some((l) => l.id == id)) return toast('Sudah ada di daftar'); RTO.L.push({ id, q: 1, why: 'exp' }); RTO.q = ''; R(); }
 async function rtrPhoto() { const ph = await selfie(U.n + ' · retur · ' + tstr(Date.now()), 'environment'); if (ph) { RTO.ph = ph; R(); } }
-function rtrSave() {
+async function rtrSave() {
   const c = cust(RTO.cu); if (!c || !RTO.L.length) return;
   for (const l of RTO.L) { const A = rtrAnalisa(c.id, l.id, l.q); if (!A.ok) return toast('Ada barang yang tidak valid'); }
+  if (sigNeed() && !RTO.sig) return toast('Minta outlet menandatangani dulu di kotak tanda tangan');
+  if (sigNeed() && !(RTO.sn || '').trim()) return toast('Isi nama penanda tangan di outlet');
+  const stamp = 'RETUR · ' + c.n + ' · ' + U.n + ' · ' + tstr((typeof trustNow == 'function' && trustNow()) || Date.now());
+  const [ph, pos] = await Promise.all([RTO.ph ? Promise.resolve(RTO.ph) : autoShot(stamp), getPos(true).catch(() => null)]);
+  if (!ph && sigNeed()) return toast('Foto bukti wajib — izinkan kamera lalu simpan lagi'); RTO.ph = ph;
+  const dist = pos && c.lat != null ? Math.round(haversine(pos.lat, pos.lng, c.lat, c.lng)) : null;
   const grp = 'rt' + uid(), ev = {}; // gabungkan per faktur + alasan
   for (const l of RTO.L) for (const a of rtrAlloc(c.id, l.id, l.q)) { const k = a.no + '|' + l.why; (ev[k] = ev[k] || { sale: a.no, why: l.why, L: [] }).L.push({ id: l.id, q: a.q }); }
-  let n = 0; for (const k in ev) { const x = ev[k]; emit('retur', { sale: x.sale, L: x.L, m: RTO.m == 'Potong tagihan' ? 'Tunai' : RTO.m, why: x.why, bad: rGood(x.why) ? undefined : 1, note: RTO.note || undefined, ph: n == 0 ? RTO.ph || undefined : undefined, grp, cu: c.id }); n++; }
+  let n = 0; for (const k in ev) { const x = ev[k]; emit('retur', { sale: x.sale, L: x.L, m: RTO.m == 'Potong tagihan' ? 'Tunai' : RTO.m, why: x.why, bad: rGood(x.why) ? undefined : 1, note: RTO.note || undefined, ph: n == 0 ? RTO.ph || undefined : undefined, sig: n == 0 ? RTO.sig || undefined : undefined, sn: (RTO.sn || '').trim() || undefined, lat: pos ? +pos.lat.toFixed(6) : undefined, lng: pos ? +pos.lng.toFixed(6) : undefined, dist: dist ?? undefined, grp, cu: c.id }); n++; }
   const recs = (S.rtr || []).filter((r) => r.grp == grp);
-  Object.assign(RTO, { L: [], note: '', ph: null, q: '' }); toast('Retur disimpan (' + n + ' faktur asal)'); R(); rtrResult(recs);
+  Object.assign(RTO, { L: [], note: '', ph: null, q: '', sig: null, sn: '' }); toast('Retur disimpan (' + n + ' faktur asal)'); R(); rtrResult(recs);
 }
 function rtrResult(recs) {
   if (!recs.length) return;
-  const m = modal(`<h3>↩️ Retur tersimpan · ${esc(recs[0].cn || '')}</h3><small class="mu">Asal barang yang diretur:</small><div class="ov"><table><tr><th>Barang<th>Alasan<th>Dikirim<th>Sales<th class="n">Qty</tr>${recs.flatMap((r) => r.L.map((l) => `<tr><td>${esc(l.n)}<td>${RWHY[r.why] ? RWHY[r.why][0] + ' ' + RWHY[r.why][1] : '-'}<td>${tglTxt(r.st)}<br><small class="mu">${esc(r.sale)}</small><td><b>${esc(r.su)}</b><td class="n">${l.q}</tr>`)).join('')}</table></div>${row('Nilai retur', '<b>' + rp(recs.reduce((a, r) => a + r.val, 0)) + '</b>')}<button class="gh" id="pp">🖨️ Cetak bukti retur</button><button class="pr" id="ok">Selesai</button>`);
+  const m = modal(`<h3>↩️ Retur tersimpan · ${esc(recs[0].cn || '')}</h3><small class="mu">Asal barang yang diretur:</small><div class="ov"><table><tr><th>Barang<th>Alasan<th>Dikirim<th>Sales<th class="n">Qty</tr>${recs.flatMap((r) => r.L.map((l) => `<tr><td>${esc(l.n)}<td>${RWHY[r.why] ? RWHY[r.why][0] + ' ' + RWHY[r.why][1] : '-'}<td>${tglTxt(r.st)}<br><small class="mu">${esc(r.sale)}</small><td><b>${esc(r.su)}</b><td class="n">${l.q}</tr>`)).join('')}</table></div>${row('Nilai retur', '<b>' + rp(recs.reduce((a, r) => a + r.val, 0)) + '</b>')}${recs[0].ph || recs[0].sig ? `<div class="row" style="gap:8px;align-items:flex-start">${recs[0].ph ? `<figure style="margin:0;flex:1"><img src="${recs[0].ph}" style="width:100%;border-radius:10px"><figcaption><small class="mu">📸 Foto otomatis</small></figcaption></figure>` : ''}${recs[0].sig ? `<figure style="margin:0;flex:1"><img src="${recs[0].sig}" style="width:100%;border-radius:10px;border:1px solid var(--bd)"><figcaption><small class="mu">✍️ ${esc(recs[0].sn || 'Outlet')}</small></figcaption></figure>` : ''}</div>` : ''}<button class="gh" id="pp">🖨️ Cetak / kirim bukti retur</button><button class="pr" id="ok">Selesai</button>`);
   $('#ok', m).onclick = () => m.close(); $('#pp', m).onclick = () => rtrPrint(recs);
 }
 function rtrPrint(recs) {
-  const html = `<!doctype html><html><head><meta charset="utf-8"><style>@page{size:A5;margin:10mm}body{font:10pt Arial,sans-serif}td,th{border-bottom:1px solid #ccc;padding:3px 5px;text-align:left}table{border-collapse:collapse;width:100%}h2{margin:0}</style></head><body><h2>BUKTI RETUR BARANG</h2><b>${esc(S.name || '')}</b><br>Outlet: <b>${esc(recs[0].cn || '')}</b> · Tanggal: ${tstr(recs[0].t)} · Petugas: ${esc(recs[0].u)}<br><br><table><tr><th>Barang</th><th>Alasan</th><th>Faktur asal</th><th>Tgl kirim</th><th>Sales</th><th>Qty</th></tr>${recs.flatMap((r) => r.L.map((l) => `<tr><td>${esc(l.n)}</td><td>${RWHY[r.why] ? RWHY[r.why][1] : ''}</td><td>${esc(r.sale)}</td><td>${dstr(r.st)}</td><td>${esc(r.su)}</td><td>${l.q}</td></tr>`)).join('')}</table><p>Nilai retur: <b>${rp(recs.reduce((a, r) => a + r.val, 0))}</b></p><br><table><tr><td style="border:0;text-align:center">Outlet,<br><br><br>(..............)</td><td style="border:0;text-align:center">Petugas,<br><br><br>(${esc(recs[0].u)})</td></tr></table></body></html>`;
-  if (sysPrint()) printHtml(html); else shareText('Bukti retur', recs.flatMap((r) => r.L.map((l) => `${l.n} ×${l.q} · ${RWHY[r.why] ? RWHY[r.why][1] : ''} · faktur ${r.sale} (${dstr(r.st)}, sales ${r.su})`)).join('\n'));
+  const html = `<!doctype html><html><head><meta charset="utf-8"><style>@page{size:A5;margin:10mm}body{font:10pt Arial,sans-serif}td,th{border-bottom:1px solid #ccc;padding:3px 5px;text-align:left}table{border-collapse:collapse;width:100%}h2{margin:0}</style></head><body><h2>BUKTI RETUR BARANG</h2><b>${esc(S.name || '')}</b><br>Outlet: <b>${esc(recs[0].cn || '')}</b> · Tanggal: ${tstr(recs[0].t)} · Petugas: ${esc(recs[0].u)}<br><br><table><tr><th>Barang</th><th>Alasan</th><th>Faktur asal</th><th>Tgl kirim</th><th>Sales</th><th>Qty</th></tr>${recs.flatMap((r) => r.L.map((l) => `<tr><td>${esc(l.n)}</td><td>${RWHY[r.why] ? RWHY[r.why][1] : ''}</td><td>${esc(r.sale)}</td><td>${dstr(r.st)}</td><td>${esc(r.su)}</td><td>${l.q}</td></tr>`)).join('')}</table><p>Nilai retur: <b>${rp(recs.reduce((a, r) => a + r.val, 0))}</b></p>${recs[0].ph ? `<p><img src="${recs[0].ph}" style="width:200px;border-radius:6px"></p>` : ''}<br><table><tr><td style="border:0;text-align:center">Outlet,<br>${recs[0].sig ? `<img src="${recs[0].sig}" style="height:60px">` : '<br><br>'}<br>(${esc(recs[0].sn || '..............')})</td><td style="border:0;text-align:center">Petugas,<br><br><br>(${esc(recs[0].u)})</td></tr></table></body></html>`;
+  if (sysPrint()) return printHtml(html);
+  const J = window.jspdf && window.jspdf.jsPDF; if (J) { try { const d = new J({ unit: 'mm', format: 'a5' }); let y = 14; d.setFontSize(13); d.text('BUKTI RETUR BARANG', 10, y); d.setFontSize(9); y += 6; d.text(ascii(S.name || '') + ' - ' + ascii(recs[0].cn || ''), 10, y); y += 5; d.text(ascii(tstr(recs[0].t) + ' - petugas ' + recs[0].u), 10, y); y += 7;
+    recs.forEach((r) => r.L.forEach((l) => { d.text(ascii(l.n + ' x' + l.q + ' - ' + ((RWHY[r.why] || [])[1] || '') + ' - faktur ' + r.sale + ' (' + dstr(r.st) + ', ' + r.su + ')').slice(0, 95), 10, y); y += 5; }));
+    y += 3; if (recs[0].ph) { d.addImage(recs[0].ph, 'JPEG', 10, y, 60, 45); } if (recs[0].sig) { d.addImage(recs[0].sig, 'JPEG', 80, y, 55, 20); d.text(ascii('(' + (recs[0].sn || 'Outlet') + ')'), 80, y + 25); }
+    saveFile('Bukti-retur-' + (recs[0].cn || '').replace(/\W+/g, '-') + '.pdf', d.output('blob')); return; } catch (e) { console.warn(e); } }
+  shareText('Bukti retur', recs.flatMap((r) => r.L.map((l) => `${l.n} ×${l.q} · ${RWHY[r.why] ? RWHY[r.why][1] : ''} · faktur ${r.sale} (${dstr(r.st)}, sales ${r.su})`)).join('\n'));
 }
 /* ---------- analisa retur ---------- */
 function rtrAnaView() {
@@ -88,7 +130,7 @@ ${kpi([['Total retur', rp(tot)], ['Jumlah retur', all.length], ['Unit', rows.red
 ${tbl('👤 Per sales yang membuat order asal', by((r) => r.su), 'Sales')}
 ${tbl('📍 Per outlet', by((r) => r.cn || '-'), 'Outlet')}
 ${tbl('🏷️ Per alasan', by((r) => (RWHY[r.why] || ['', 'Lainnya'])[1]), 'Alasan')}
-<div class="cd"><h3>📜 Rincian: barang diretur & asal pengirimannya</h3><div class="ov"><table><tr><th>Tgl retur<th>Outlet<th>Barang<th>Alasan<th>Dikirim (bulan / tgl)<th>Faktur<th>Sales<th class="n">Qty</tr>${rows.slice().reverse().map((r) => `<tr><td>${dstr(r.t)}<td>${esc(r.cn || '-')}<td>${esc(r.l.n)}<td>${RWHY[r.why] ? RWHY[r.why][0] + ' ' + RWHY[r.why][1] : '-'}<td>${blnTxt(r.st)}<br><small>${tglTxt(r.st)}</small><td>${esc(r.sale)}<td><b>${esc(r.su)}</b><td class="n">${r.l.q}</tr>`).join('') || '<tr><td colspan="8" class="mu">Belum ada retur</tr>'}</table></div>${rows.length && window.XLSX ? '<button class="gh" style="margin-top:8px" onclick="rtrXls()">⬇ Excel</button>' : ''}</div>`;
+<div class="cd"><h3>📜 Rincian: barang diretur & asal pengirimannya</h3><div class="ov"><table><tr><th>Tgl retur<th>Outlet<th>Barang<th>Alasan<th>Dikirim (bulan / tgl)<th>Faktur<th>Sales<th class="n">Qty</tr>${rows.slice().reverse().map((r) => `<tr><td>${dstr(r.t)}<td>${esc(r.cn || '-')}<td>${esc(r.l.n)}<td>${RWHY[r.why] ? RWHY[r.why][0] + ' ' + RWHY[r.why][1] : '-'}<td>${blnTxt(r.st)}<br><small>${tglTxt(r.st)}</small><td>${esc(r.sale)}<td><b>${esc(r.su)}</b><br><small class="mu">diambil ${esc(r.u)}${r.sn ? ' · ttd ' + esc(r.sn) : ''}</small>${(S.rtr || []).some((x) => x.grp == r.grp && (x.ph || x.sig)) ? ` <button class="gh" style="padding:2px 6px" onclick="rtrResult((S.rtr||[]).filter((x)=>x.grp=='${esc(r.grp)}'))">📸✍️</button>` : ''}<td class="n">${r.l.q}</tr>`).join('') || '<tr><td colspan="8" class="mu">Belum ada retur</tr>'}</table></div>${rows.length && window.XLSX ? '<button class="gh" style="margin-top:8px" onclick="rtrXls()">⬇ Excel</button>' : ''}</div>`;
 }
 function rtrXls() {
   const rows = [['Tanggal retur', 'Outlet', 'Barang', 'Alasan', 'Bulan kirim', 'Tanggal kirim', 'Faktur asal', 'Sales', 'Qty', 'Nilai faktur retur']];

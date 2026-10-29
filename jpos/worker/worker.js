@@ -26,8 +26,8 @@ const DEFPERM = {
   admin: 'dash pos his hisAll prod prodEdit outlet onl ana lap keu abs absAll chat retur set beli',
   akuntan: 'dash his hisAll prod ana lap keu jur abs absAll chat set kas',
   kasir: 'dash pos his abs chat set',
-  sales: 'dash pos his outlet ana abs chat set cek',
-  dropping: 'dash kirim cek terima abs chat set',
+  sales: 'dash pos his outlet ana abs chat set cek retur',
+  dropping: 'dash kirim cek terima abs chat set retur',
 };
 const PKG0 = {
   // BIASA: toko eceran kecil — kasir, stok dasar, absen, chat
