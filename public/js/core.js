@@ -42,8 +42,8 @@ const DEFPERM = {
   admin: 'dash pos his hisAll prod prodEdit outlet onl ana lap keu abs absAll chat retur set beli',
   akuntan: 'dash his hisAll prod ana lap keu jur abs absAll chat set kas',
   kasir: 'dash pos his abs chat set',
-  sales: 'dash pos his outlet ana abs chat set cek',
-  dropping: 'dash kirim cek terima abs chat set',
+  sales: 'dash pos his outlet ana abs chat set cek retur',
+  dropping: 'dash kirim cek terima abs chat set retur',
 };
 const PKGHI = 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana jur kirim cek terima anti aud';
 const FEAT = {
@@ -144,7 +144,7 @@ const Ap = {
     const cash = tot - ar, acc = payAcc(s.pay == 'Piutang' ? e.m || 'Tunai' : s.pay);
     jr(e, 'Retur ' + s.no, [['4101', g, 0], ['2101', tr, 0], ['4102', 0, discr], ['1103', 0, ar], [acc, 0, cash]]);
     jr(e, (e.bad ? 'Retur bad stock ' : 'HPP retur ') + s.no, [[e.bad ? '1202' : '1201', hc, 0], ['5101', 0, hc]]);
-    (S.rtr = S.rtr || []).push({ no: e.no, t: e.t, u: e.u, sale: s.no, st: s.t, su: s.u, cu: s.cu, cn: s.cn, why: e.why || '', bad: !!e.bad, L: rl, val: tot, note: e.note || '', ph: e.ph, grp: e.grp || e.no });
+    (S.rtr = S.rtr || []).push({ no: e.no, t: e.t, u: e.u, sale: s.no, st: s.t, su: s.u, cu: s.cu, cn: s.cn, why: e.why || '', bad: !!e.bad, L: rl, val: tot, note: e.note || '', ph: e.ph, sig: e.sig, sn: e.sn, lat: e.lat, lng: e.lng, dist: e.dist, grp: e.grp || e.no });
   },
   stk(e) {
     const p = prod(e.p); if (!p || !(e.qty > 0)) return;
