@@ -358,3 +358,53 @@ main.gate{display:grid;place-items:center;min-height:78vh;padding:16px}
 #almring h2{font-size:28px}
 .gc .gh,#almring .gh{background:#ffffff1f;color:#fff;border:1px solid #ffffff44}
 .gc .gh.d,#almring .gh.d{color:#fecaca}
+
+/* ===== v12: beranda premium + tata letak responsif (HP · tablet · laptop) ===== */
+.qt2 button{background:var(--cd);color:var(--tx);border:1px solid var(--bd);transition:transform .15s,box-shadow .15s}
+.qt2 button span{color:var(--tx);font-weight:650;line-height:1.2;text-align:center}
+.qt2 button:hover{transform:translateY(-2px);box-shadow:0 12px 26px -14px var(--c,#6366f1)}
+.qt2 button i{background:color-mix(in srgb,var(--c) 18%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--c) 25%,transparent)}
+.dtop{display:grid;gap:12px}
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.kpi{display:flex;gap:10px;align-items:center;text-align:left;background:var(--cd);border:1px solid var(--bd);border-radius:20px;padding:12px;min-width:0;box-shadow:var(--sh);position:relative;overflow:hidden}
+.kpi::after{content:"";position:absolute;inset:auto -20px -30px auto;width:80px;height:80px;border-radius:50%;background:color-mix(in srgb,var(--c) 14%,transparent)}
+.kpi i{flex:none;width:40px;height:40px;border-radius:14px;display:grid;place-items:center;font-style:normal;font-size:19px;background:color-mix(in srgb,var(--c) 18%,transparent)}
+.kpi span{display:grid;min-width:0}.kpi small{font-size:11px;color:var(--mu);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.kpi b{font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--tx)}
+.kpi em{font-style:normal;font-size:11px;color:var(--c)}
+.hero2{position:relative;overflow:hidden}
+.hero2::before{content:"";position:absolute;width:260px;height:260px;border-radius:50%;right:-90px;top:-110px;background:radial-gradient(#ffffff2e,transparent 70%);pointer-events:none}
+.okbox{color:var(--tx)}
+/* kartu pilihan paket (daftar toko) */
+.tiers{display:grid;gap:10px}
+.tier{position:relative;text-align:left;display:grid;gap:3px;padding:14px 14px 12px;border-radius:20px;border:1.5px solid var(--bd);background:var(--cd);color:var(--tx)}
+.tier.on{border-color:var(--tc);box-shadow:0 0 0 3px color-mix(in srgb,var(--tc) 22%,transparent),0 14px 30px -18px var(--tc);background:linear-gradient(160deg,color-mix(in srgb,var(--tc) 12%,var(--cd)),var(--cd) 60%)}
+.tier .ti{font-size:26px}.tier b{font-size:18px}.tier .tu{font-size:12px;font-weight:600;color:var(--tc)}
+.tier ul{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:3px;font-size:12.5px}.tier li.pl{color:var(--mu);font-style:italic}
+.tier em{position:absolute;top:12px;right:12px;font-style:normal;font-size:11px;font-weight:700;color:#fff;background:var(--tc);padding:3px 9px;border-radius:20px}
+.tier .rd2{font-style:normal;font-size:12px;font-weight:700;color:var(--tc);margin-top:6px}
+@media(min-width:760px){.tiers{grid-template-columns:repeat(3,1fr)}.lo:has(.tiers){max-width:980px}}
+/* sidebar layar lebar */
+.sb{display:none}
+@media(min-width:760px){.kpis{grid-template-columns:repeat(4,1fr)}}
+@media(min-width:1000px){
+  body.in .sb{display:flex;flex-direction:column;gap:2px;position:fixed;left:0;top:0;bottom:0;width:240px;padding:18px 12px;background:var(--cd);border-right:1px solid var(--bd);z-index:6;overflow-y:auto}
+  .sbh{display:grid;padding:4px 12px 16px;margin-bottom:6px;border-bottom:1px solid var(--bd)}
+  .sbh b{font-size:22px;font-weight:900;background:linear-gradient(90deg,var(--ac),var(--a2));-webkit-background-clip:text;background-clip:text;color:transparent}
+  .sb button{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:12px;font-weight:600;color:var(--mu);text-align:left}
+  .sb button i{font-style:normal;font-size:18px;width:24px;text-align:center}
+  .sb button:hover{background:color-mix(in srgb,var(--ac) 8%,transparent);color:var(--tx)}
+  .sb button.a{background:linear-gradient(90deg,color-mix(in srgb,var(--ac) 18%,transparent),transparent);color:var(--ac)}
+  .sb em:empty{display:none}.sb .sp{flex:1}
+  body.in header,body.in main{margin-left:240px}
+  body.in nav.bn{display:none}
+  body.in main{max-width:1280px;padding:0 28px 40px;margin-right:auto}
+  body.in main{margin-left:max(240px,calc(240px + (100vw - 240px - 1280px)/2))}
+  .dtop{grid-template-columns:1.25fr 1fr;align-items:stretch}
+  .dtop .kpis{grid-template-columns:1fr 1fr}
+  .dtop .kpi{padding:16px}.dtop .kpi b{font-size:18px}
+  .qt2 button{padding:16px 6px 14px}
+  .hero2 .hmain h2{font-size:44px}
+}
+@media(min-width:1400px){.two{grid-template-columns:1fr 1fr}}
+@media(min-width:760px){.qt2{grid-template-columns:repeat(8,1fr)}}

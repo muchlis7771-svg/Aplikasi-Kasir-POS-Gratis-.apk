@@ -123,21 +123,21 @@ export default {
       // ---------- publik ----------
       if (p == '/api/ping') return J({ ok: 1, v: 5 });
       if (p == '/api/time') return J({ t: Date.now() });
-      if (p == '/api/info') { const c = await cfgAll(env); return J({ wa: c.wa || '', price: c.price || '', trial: +(c.trial_days || 30), app: c.app_name || 'J-POS' }); }
+      if (p == '/api/info') { const c = await cfgAll(env); const pk = pkgAll(), pkg = {}; for (const t of Object.keys(pk)) pkg[t] = { n: pk[t].n, max: pk[t].max, f: pk[t].f }; return J({ wa: c.wa || '', price: c.price || '', trial: +(c.trial_days || 30), app: c.app_name || 'J-POS', pkg }); }
       if (p == '/api/register' && M == 'POST') {
         if (await limited(env, 'reg:' + ip, 5, 36e5)) return J({ e: 'Terlalu banyak pendaftaran, coba lagi nanti' }, 429);
         const id = String(b.id || ''), store = String(b.store || '').trim().slice(0, 60), owner = String(b.owner || '').trim();
         const email = String(b.email || '').trim().toLowerCase(), pin = String(b.pin || ''), phone = String(b.phone || '').replace(/[^\d+]/g, '').slice(0, 20);
         if (!SID.test(id) || !store || !NAME.test(owner) || (email && !/^\S+@\S+\.\S+$/.test(email)) || !PIN.test(pin)) return J({ e: 'Data tidak valid (nama pemilik, email, atau PIN 4-8 angka)' }, 400);
-        const c = await cfgAll(env), now = Date.now(), exp = now + (+(c.trial_days || 30)) * DAY;
+        const c = await cfgAll(env), now = Date.now(), exp = now + (+(c.trial_days || 30)) * DAY, tier = ['biasa', 'standar', 'high'].includes(b.tier) ? b.tier : c.trial_tier || 'high';
         try {
           await env.DB.batch([
-            env.DB.prepare("INSERT INTO stores(id,name,owner,email,phone,created,exp,plan,tier) VALUES(?,?,?,?,?,?,?,'trial',?)").bind(id, store, owner, email || null, phone, now, exp, c.trial_tier || 'high'),
+            env.DB.prepare("INSERT INTO stores(id,name,owner,email,phone,created,exp,plan,tier) VALUES(?,?,?,?,?,?,?,'trial',?)").bind(id, store, owner, email || null, phone, now, exp, tier),
             env.DB.prepare('INSERT INTO staff(store_id,name,role,pin_hash,created) VALUES(?,?,?,?,?)').bind(id, owner, 'owner', await hp(pin, id, owner), now),
           ]);
         } catch { return J({ e: 'Email atau kode toko sudah terdaftar' }, 409); }
         await logAct(env, 'staff', owner, owner, id, 'daftar toko baru', store);
-        return J({ token: await sign(env, { sid: id, name: owner, exp: now + 30 * DAY }), role: 'owner', name: owner, sn: store, exp, plan: 'trial', status: 'active', ...stInfo({ exp, plan: 'trial', status: 'active', name: store, tier: c.trial_tier || 'high' }) });
+        return J({ token: await sign(env, { sid: id, name: owner, exp: now + 30 * DAY }), role: 'owner', name: owner, sn: store, exp, plan: 'trial', status: 'active', ...stInfo({ exp, plan: 'trial', status: 'active', name: store, tier }) });
       }
       if (p == '/api/login' && M == 'POST') {
         const id = String(b.id || '').toLowerCase(), name = String(b.name || '').trim();
