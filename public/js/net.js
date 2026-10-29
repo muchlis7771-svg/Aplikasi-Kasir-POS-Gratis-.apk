@@ -83,7 +83,7 @@ async function enterStore(id, r, pin) {
   U = { n: r.name, r: r.role }; LS.set('jpos:last', { id, name: r.name }); save();
   V = defView(U.r);
   if (!S.ec) { R(); $('#app').insertAdjacentHTML('afterbegin', '<div class="lo cd"><h3>Mengunduh data toko…</h3><small class="mu">Pertama kali di perangkat ini</small></div>'); }
-  await sync(); R(); chatPoll(true); hb('login'); if (typeof pollOrders == 'function') { ONL.seen = -1; pollOrders(); }
+  await sync(); R(); window.scrollTo(0, 0); chatPoll(true); hb('login'); if (typeof pollOrders == 'function') { ONL.seen = -1; pollOrders(); }
 }
 async function loginOnline(id, name, pin) { const r = await post('/api/login', { id, name, pin }, ''); await enterStore(id, r, pin); }
 async function loginLocal(id, name, pin) {
@@ -110,7 +110,7 @@ async function registerStore(name, owner, email, pin, code, phone) {
     let down = false;
     for (let i = 0; i < 4; i++) {
       const cid = id || Math.random().toString(36).slice(2, 8).padEnd(6, 'x');
-      try { const r = await post('/api/register', { id: cid, store: name, owner, email, pin, phone }, ''); await enterStore(cid, r, pin); toast('Toko dibuat. Kode toko: ' + cid, 9000); return; }
+      try { const r = await post('/api/register', { id: cid, store: name, owner, email, pin, phone, tier: typeof regTier != 'undefined' ? regTier : undefined }, ''); await enterStore(cid, r, pin); toast('Toko dibuat. Kode toko: ' + cid, 9000); return; }
       catch (e) { if (e.status == 409 && !id && /kode/i.test(e.message)) continue; if (e.net || e.status == 404 || e.status >= 500) { toast('Server belum aktif — toko dibuat dalam mode lokal di HP ini', 6000); down = true; break; } throw e; }
     }
     if (!down) throw new Error('Gagal membuat kode toko, coba lagi');
