@@ -23,8 +23,8 @@ const KINDS = new Set(['sale', 'pay', 'retur', 'stk', 'apay', 'opn', 'exp', 'cap
 // ---- Hak akses: tiap kejadian butuh salah satu FITUR; fitur ditentukan paket toko (Head Admin) & matrix peran (Owner) ----
 const ALWAYS = 'dash set';
 const DEFPERM = {
-  admin: 'dash pos his hisAll prod prodEdit outlet onl ana lap keu jur abs absAll chat usr retur backup set beli xls kas',
-  akuntan: 'dash his hisAll prod ana lap keu jur abs absAll chat set kas xls',
+  admin: 'dash pos his hisAll prod prodEdit outlet onl ana lap keu abs absAll chat retur set beli',
+  akuntan: 'dash his hisAll prod ana lap keu jur abs absAll chat set kas',
   kasir: 'dash pos his abs chat set',
   sales: 'dash pos his outlet ana abs chat set cek',
   dropping: 'dash kirim cek terima abs chat set',
@@ -286,6 +286,7 @@ export default {
             if (!x || typeof x != 'object' || !NO.test(x.no || '') || !KINDS.has(x.k) || !Number.isFinite(x.t)) { rej.push({ no: x && x.no, e: 'format' }); if (x && x.no) done.push(x.no); continue; }
             done.push(x.no);
             if (!kindOk(feats, role, x.k)) { rej.push({ no: x.no, e: 'peran ' + role + ' tidak boleh ' + x.k + ' (hak akses / paket)' }); continue; }
+            if (role != 'owner' && ((x.k == 'pu' && x.p && x.p.x) || (x.k == 'cu' && x.c && x.c.x) || (x.k == 'sup' && x.s && x.s.x))) { rej.push({ no: x.no, e: 'hapus/arsip data hanya oleh pemilik' }); continue; }
             const ev = { ...x, u: uname, r: role, rt }; if (x.t > rt + 3e5 || (x.on && Math.abs(x.t - rt) > 3e5)) ev.fl = 'jam';
             const d = JSON.stringify(ev);
             if (d.length > 150000) { rej.push({ no: x.no, e: 'terlalu besar' }); continue; }
@@ -320,6 +321,7 @@ export default {
         if (role != 'owner' && role != 'admin') return J({ e: 'Khusus pemilik / admin toko' }, 403);
         const LOW = ['kasir', 'sales', 'dropping'], nm = sm[1] ? decodeURIComponent(sm[1]) : '';
         if (M == 'GET') return J({ staff: (await env.DB.prepare('SELECT name,role FROM staff WHERE store_id=? ORDER BY created').bind(sid).all()).results });
+        if (role == 'admin' && M != 'GET' && !featsOf(me, role).includes('usr')) return J({ e: 'Kelola pengguna hanya oleh pemilik toko' }, 403);
         if (EXP) return RO();
         const NEWR = role == 'owner' ? ['admin', 'akuntan', 'kasir', 'sales', 'dropping'] : LOW;
         if (M == 'POST') {

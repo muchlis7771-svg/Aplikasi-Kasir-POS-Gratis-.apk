@@ -37,8 +37,8 @@ const MGR = (r) => r == 'owner' || r == 'admin' || r == 'akuntan';
 // Hak akses = (fitur peran) ∩ (fitur paket toko). Paket diatur Head Admin, matrix peran diatur Owner. Server memakai aturan yang sama.
 const ALWAYS = 'dash set';
 const DEFPERM = {
-  admin: 'dash pos his hisAll prod prodEdit outlet onl ana lap keu jur abs absAll chat usr retur backup set beli xls kas',
-  akuntan: 'dash his hisAll prod ana lap keu jur abs absAll chat set kas xls',
+  admin: 'dash pos his hisAll prod prodEdit outlet onl ana lap keu abs absAll chat retur set beli',
+  akuntan: 'dash his hisAll prod ana lap keu jur abs absAll chat set kas',
   kasir: 'dash pos his abs chat set',
   sales: 'dash pos his outlet ana abs chat set cek',
   dropping: 'dash kirim cek terima abs chat set',

@@ -23,12 +23,13 @@ function hb(page) {
 setInterval(() => hb(), 60000);
 /* ---- berbagi lokasi karyawan di lapangan (sales/kasir) ke pemilik toko, selama jam kerja & aplikasi dibuka ---- */
 let LOCG = { t: 0, lat: 0, lng: 0 };
+const LOCMUST = () => !!U && ['sales', 'dropping'].includes(U.r);
 function clockedIn() { try { const td = (typeof myToday == 'function' ? myToday() : []); const last = td[td.length - 1]; return !!(last && last.k == 'in'); } catch (e) { return false; } }
 async function locPing(force) {
   try {
     if (!U || !S || !S.srv || MODE == 'buyer' || (HT && MODE == 'ha') || !canNet() || isExp()) return;
     if (!['sales', 'kasir', 'admin', 'dropping'].includes(U.r)) return;
-    if (LS.get('jpos:sharing', '1') == '0') return;        // karyawan bisa menonaktifkan
+    if (!LOCMUST() && LS.get('jpos:sharing', '1') == '0') return; // sales & dropping wajib; peran lain boleh menonaktifkan
     if (!force && !clockedIn()) return;                     // hanya saat sudah absen masuk
     if (!force && Date.now() - LOCG.t < 285000) return;     // maksimal tiap ~5 menit
     const p = await getPos(); if (!p) return;

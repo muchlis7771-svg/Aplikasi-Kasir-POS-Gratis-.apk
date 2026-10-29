@@ -91,8 +91,8 @@ function dashAdmin() {
     + teamCard()
     + `<div class="cd"><h3>👥 Kinerja tim bulan ini</h3>${bars(users, rp)}<small class="mu">Kehadiran hari ini: ${hadir} orang</small></div></details>`;
 }
-const shareBanner = () => { const on = LS.get('jpos:sharing', '1') != '0'; return `<div class="sharebar ${on ? '' : 'offb'}"><span>📍 ${on ? 'Lokasi Anda dibagikan ke pemilik toko selama jam kerja' : 'Berbagi lokasi dimatikan'}</span><button onclick="toggleShare()">${on ? 'Matikan' : 'Aktifkan'}</button></div>`; };
-function toggleShare() { const on = LS.get('jpos:sharing', '1') != '0'; LS.set('jpos:sharing', on ? '0' : '1'); if (!on) locPing(1); toast(on ? 'Berbagi lokasi dimatikan' : 'Berbagi lokasi diaktifkan'); R(); }
+const shareBanner = () => { if (LOCMUST()) return `<div class="sharebar"><span>📍 Lokasi Anda dibagikan ke pemilik toko selama jam kerja (wajib untuk peran ${esc(ROLE[U.r])})</span></div>`; const on = LS.get('jpos:sharing', '1') != '0'; return `<div class="sharebar ${on ? '' : 'offb'}"><span>📍 ${on ? 'Lokasi Anda dibagikan ke pemilik toko selama jam kerja' : 'Berbagi lokasi dimatikan'}</span><button onclick="toggleShare()">${on ? 'Matikan' : 'Aktifkan'}</button></div>`; };
+function toggleShare() { if (LOCMUST()) return toast('Berbagi lokasi wajib untuk peran Anda'); const on = LS.get('jpos:sharing', '1') != '0'; LS.set('jpos:sharing', on ? '0' : '1'); if (!on) locPing(1); toast(on ? 'Berbagi lokasi dimatikan' : 'Berbagi lokasi diaktifkan'); R(); }
 
 function dashKasir() {
   const [t0, t1] = todayR(), mine = S.sales.filter((s) => s.u == U.n && s.t >= t0 && s.t <= t1), tot = mine.reduce((a, s) => a + s.tot - (s.rtot || 0), 0), cash = mine.filter((s) => s.pay == 'Tunai').reduce((a, s) => a + s.tot - (s.rtot || 0), 0);
