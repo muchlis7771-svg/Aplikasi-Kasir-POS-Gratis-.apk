@@ -43,7 +43,7 @@ const PERM = {
   sales: 'dash pos his outlet ana abs chat set',
 };
 const can = (f, r) => { r = r || (U && U.r); return PERM[r] == '*' || (PERM[r] || '').split(' ').includes(f); };
-const ALLOWK = { admin: ['sale', 'pay', 'retur', 'stk', 'apay', 'opn', 'exp', 'jm', 'pu', 'cu', 'in', 'out', 'visit'], akuntan: ['pay', 'apay', 'exp', 'jm', 'opn', 'in', 'out'], kasir: ['sale', 'pay', 'in', 'out'], sales: ['sale', 'pay', 'in', 'out', 'visit', 'cu'] };
+const ALLOWK = { admin: ['sale', 'pay', 'retur', 'stk', 'apay', 'opn', 'exp', 'jm', 'pu', 'cu', 'in', 'out', 'visit', 'loc'], akuntan: ['pay', 'apay', 'exp', 'jm', 'opn', 'in', 'out'], kasir: ['sale', 'pay', 'in', 'out', 'loc'], sales: ['sale', 'pay', 'in', 'out', 'visit', 'cu', 'loc'] };
 // Masa aktif toko (trial / langganan) — dicek juga saat offline dari data terakhir server.
 const isExp = () => !!(S && S.exp && Date.now() > S.exp);
 const daysLeft = () => (S && S.exp ? Math.ceil((S.exp - Date.now()) / 864e5) : null);
@@ -165,6 +165,7 @@ const Ap = {
   in(e) { S.att.push({ no: e.no, k: 'in', t: e.t, u: e.u, lat: e.lat, lng: e.lng, note: e.note }); },
   out(e) { S.att.push({ no: e.no, k: 'out', t: e.t, u: e.u, lat: e.lat, lng: e.lng, note: e.note }); },
   visit(e) { S.att.push({ no: e.no, k: 'visit', t: e.t, u: e.u, cid: e.cid, cn: e.cn, lat: e.lat, lng: e.lng, dist: e.dist, note: e.note }); },
+  loc(e) { if (e.lat == null) return; S.locs = S.locs || {}; const p = S.locs[e.u]; if (!p || e.t >= p.t) S.locs[e.u] = { u: e.u, r: e.r, lat: e.lat, lng: e.lng, acc: e.acc || null, page: e.pg || '', t: e.t }; },
 };
 const NEED_MGR = new Set(['stk', 'apay', 'opn', 'exp', 'cap', 'jm', 'pu', 'retur']);
 function apply(e) {

@@ -8,6 +8,46 @@ const apTotal = () => S.ap.reduce((a, x) => a + apOut(x), 0);
 const quick = (L) => `<div class="qk">${L.map((q) => `<button onclick="go('${q[0]}')"><b>${q[1]}</b><span>${q[2]}</span></button>`).join('')}</div>`;
 
 VW.dash = () => (U.r == 'kasir' ? dashKasir() : U.r == 'sales' ? dashSales() : dashAdmin());
+VW.dash.after = () => { if (teamMapPending) { teamMapPending = 0; setTimeout(drawTeamMap, 60); } };
+
+/* ---- pantau lokasi & kehadiran tim lapangan (untuk owner/admin) ---- */
+let teamMapPending = 0, tmap = null;
+const agoTxt = (t) => { if (!t) return 'belum pernah'; const m = Math.floor((Date.now() - t) / 6e4); return m < 1 ? 'baru saja' : m < 60 ? m + ' mnt lalu' : m < 1440 ? Math.floor(m / 60) + ' jam lalu' : dstr(t); };
+function teamStatus() {
+  const field = (S.srv ? (S.staff || []).map((u) => ({ name: u.name, role: u.role })) : S.users.map((u) => ({ name: u.n, r: u.r }))).map((u) => ({ name: u.name, role: u.role || u.r }))
+    .filter((u) => u.role == 'sales' || u.role == 'kasir');
+  const td = dkey(Date.now()), locs = S.locs || {};
+  return field.map((u) => {
+    const at = S.att.filter((a) => a.u == u.name && dkey(a.t) == td), inn = at.filter((a) => a.k == 'in').sort((a, b) => a.t - b.t)[0], out = at.filter((a) => a.k == 'out').sort((a, b) => b.t - a.t)[0];
+    const vis = S.att.filter((a) => a.k == 'visit' && a.u == u.name && dkey(a.t) == td), lastV = vis.sort((a, b) => b.t - a.t)[0], loc = locs[u.name];
+    const sales = S.sales.filter((s) => s.u == u.name && dkey(s.t) == td), omz = sales.reduce((a, s) => a + netSale(s), 0);
+    const clockedIn = inn && !out, live = loc && Date.now() - loc.t < 12 * 6e4;
+    let st = 'off', lbl = 'Belum absen';
+    if (clockedIn) { st = live ? 'on' : 'idle'; lbl = live ? 'Aktif di lapangan' : 'Absen, sinyal lama'; }
+    else if (out) { st = 'done'; lbl = 'Sudah pulang'; }
+    return { ...u, inn, out, clockedIn, loc, live, lastV, visN: vis.length, omz, sales: sales.length, st, lbl };
+  }).sort((a, b) => ({ on: 0, idle: 1, off: 2, done: 3 }[a.st] - { on: 0, idle: 1, off: 2, done: 3 }[b.st]));
+}
+function teamCard() {
+  const T = teamStatus(); if (!T.length) return '';
+  teamMapPending = T.some((u) => u.loc) ? 1 : 0;
+  const on = T.filter((u) => u.st == 'on').length, mangkir = T.filter((u) => u.st == 'idle' || (hrNow() >= 9 && hrNow() < 16 && u.st == 'off'));
+  const dot = { on: '#00b894', idle: '#ff9f43', off: '#b2bec3', done: '#54a0ff' };
+  return `<div class="cd"><div class="row" style="margin:0 0 4px"><h3 style="margin:0">📍 Lokasi & kehadiran tim</h3><small class="mu">${on}/${T.length} aktif</small></div>
+<small class="mu">Posisi dibagikan oleh HP karyawan selama jam kerja (setelah absen masuk &amp; aplikasi dibuka).</small>
+${teamMapPending ? '<div class="map" id="tmap" style="margin-top:8px"></div>' : ''}
+${mangkir.length ? `<div class="warnbox">⚠️ ${mangkir.length} perlu dicek: ${mangkir.map((u) => esc(u.name)).join(', ')} — belum terlihat aktif di jam kerja.</div>` : ''}
+<div class="tlist">${T.map((u) => `<div class="trow"><em class="tav" style="background:${dot[u.st]}">${esc(u.name[0].toUpperCase())}</em><span class="ti"><b>${esc(u.name)} <small class="mu">· ${u.role}</small></b><small class="mu">${u.lbl}${u.inn ? ' · masuk ' + hm(u.inn.t) : ''}${u.out ? ' · pulang ' + hm(u.out.t) : ''}</small><small class="mu">${u.visN ? '🏬 ' + u.visN + ' kunjungan' : 'belum berkunjung'}${u.sales ? ' · ' + u.sales + ' order (' + rp(u.omz) + ')' : ''}${u.loc ? ' · 📍 ' + agoTxt(u.loc.t) : ''}</small></span>${u.loc ? `<a class="gh" href="https://www.google.com/maps?q=${u.loc.lat},${u.loc.lng}" target="_blank" rel="noopener">Peta</a>` : ''}</div>`).join('')}</div></div>`;
+}
+const hrNow = () => new Date().getHours();
+function drawTeamMap() {
+  const el = $('#tmap'); if (!el || !window.L) return; const T = teamStatus().filter((u) => u.loc);
+  if (tmap) { tmap.remove(); tmap = null; } if (!T.length) { el.innerHTML = '<p class="mu" style="padding:14px">Belum ada posisi diterima.</p>'; return; }
+  tmap = L.map(el).setView([T[0].loc.lat, T[0].loc.lng], 13); tiles(tmap);
+  const col = { on: '#00b894', idle: '#ff9f43', off: '#b2bec3', done: '#54a0ff' };
+  const g = L.featureGroup(T.map((u) => L.circleMarker([u.loc.lat, u.loc.lng], { radius: 9, color: '#fff', weight: 2, fillColor: col[u.st], fillOpacity: 1 }).bindPopup(`<b>${esc(u.name)}</b><br>${esc(u.lbl)}<br>📍 ${agoTxt(u.loc.t)}${u.lastV ? '<br>Terakhir: ' + esc(u.lastV.cn || '') : ''}`).bindTooltip(esc(u.name), { permanent: true, direction: 'top', className: 'tmt' }))).addTo(tmap);
+  tmap.fitBounds(g.getBounds().pad(0.3), { maxZoom: 15 }); setTimeout(() => tmap && tmap.invalidateSize(), 200);
+}
 
 const greet = () => { const h = new Date().getHours(); return h < 11 ? 'Selamat pagi' : h < 15 ? 'Selamat siang' : h < 18 ? 'Selamat sore' : 'Selamat malam'; };
 const todayLong = () => new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -36,13 +76,16 @@ function dashAdmin() {
     + `<div class="cd"><h3>💼 Posisi keuangan</h3>${lineItem('💵', '#00b894', 'Kas + Bank', 'uang tersedia', rp(bal('1101') + bal('1102')), 'gr')}${lineItem('📈', '#5b4cdb', 'Laba bersih bulan ini', 'setelah semua beban', rp(L.laba), L.laba < 0 ? 'rd' : '')}${lineItem('🧾', '#ff9f43', 'Piutang outlet', od.length + ' jatuh tempo', rp(arTotal()), '', can('lap') ? "go('lap')" : '')}${lineItem('🏦', '#ff5d73', 'Utang usaha', 'ke supplier', rp(apTotal()))}${lineItem('📦', '#54a0ff', 'Nilai stok', S.p.filter((p) => !p.x).length + ' produk', rp(stockValue()))}</div>`
     + `<div class="cd"><div class="row" style="margin:0"><h3 style="margin:0">Omzet 14 hari terakhir</h3><small class="mu">${M.n} transaksi bulan ini</small></div>${area(dayAgg(14))}</div>`
     + `<div class="two"><div class="cd"><h3>🏆 Produk terlaris bulan ini</h3>${bars(prods, rp)}</div><div class="cd"><h3>Penjualan per kategori</h3>${donut(cats)}</div></div>`
+    + teamCard()
     + `<div class="cd"><h3>👥 Kinerja tim bulan ini</h3>${bars(users, rp)}<small class="mu">Kehadiran hari ini: ${hadir} orang</small></div>`;
 }
+const shareBanner = () => { const on = LS.get('jpos:sharing', '1') != '0'; return `<div class="sharebar ${on ? '' : 'offb'}"><span>📍 ${on ? 'Lokasi Anda dibagikan ke pemilik toko selama jam kerja' : 'Berbagi lokasi dimatikan'}</span><button onclick="toggleShare()">${on ? 'Matikan' : 'Aktifkan'}</button></div>`; };
+function toggleShare() { const on = LS.get('jpos:sharing', '1') != '0'; LS.set('jpos:sharing', on ? '0' : '1'); if (!on) locPing(1); toast(on ? 'Berbagi lokasi dimatikan' : 'Berbagi lokasi diaktifkan'); R(); }
 
 function dashKasir() {
   const [t0, t1] = todayR(), mine = S.sales.filter((s) => s.u == U.n && s.t >= t0 && s.t <= t1), tot = mine.reduce((a, s) => a + s.tot - (s.rtot || 0), 0), cash = mine.filter((s) => s.pay == 'Tunai').reduce((a, s) => a + s.tot - (s.rtot || 0), 0);
   const td = myToday(), last = td[td.length - 1], inn = last && last.k == 'in', byPay = {}; mine.forEach((s) => { const k = s.pay == 'Piutang' ? 'Kredit' : s.pay; byPay[k] = (byPay[k] || 0) + s.tot - (s.rtot || 0); });
-  return heroCard('Penjualan Anda hari ini', rp(tot), mine.length + ' transaksi', null, [['Tunai di laci', rp(cash)], ['Rata-rata', rp(mine.length ? tot / mine.length : 0)], ['Status', inn ? 'Sudah absen' : 'Belum absen']])
+  return shareBanner() + heroCard('Penjualan Anda hari ini', rp(tot), mine.length + ' transaksi', null, [['Tunai di laci', rp(cash)], ['Rata-rata', rp(mine.length ? tot / mine.length : 0)], ['Status', inn ? 'Sudah absen' : 'Belum absen']])
     + tiles2([['pos', '🛒', 'Mulai jual', 0, '#5b4cdb'], ['his', '🧾', 'Riwayat', 0, '#54a0ff'], ['abs', '🕒', inn ? 'Absen pulang' : 'Absen masuk', 0, '#20bf6b'], ['chat', '💬', 'Chat', 0, '#4b7bec']])
     + `<div class="cd"><div class="row"><span><b>Tutup kasir</b><br><small class="mu">Rekap setoran shift hari ini</small></span><button class="gh a" onclick="tutupKasir()">Rekap shift</button></div></div>`
     + `<div class="cd"><h3>Metode pembayaran hari ini</h3>${donut(Object.entries(byPay).map(([l, v]) => ({ l, v })), 'metode')}</div>`
@@ -57,7 +100,7 @@ function dashSales() {
   const perC = {}; mm.forEach((s) => { const k = s.cn || 'Umum'; perC[k] = (perC[k] || 0) + netSale(s); });
   const lastV = {}; vis.forEach((v) => (lastV[v.cid] = Math.max(lastV[v.cid] || 0, v.t)));
   const due = myc.filter((c) => !lastV[c.id] || Date.now() - lastV[c.id] > 14 * 864e5).slice(0, 5);
-  return heroCard('Omzet Anda bulan ini', rp(omz), mm.length + ' order', null, [['Order hari ini', mine(t0, t1).length], ['Kunjungan', vToday + ' hari ini'], ['Outlet saya', myc.length]], dayAgg(7, (s) => s.u == U.n).map((d) => d.v))
+  return shareBanner() + heroCard('Omzet Anda bulan ini', rp(omz), mm.length + ' order', null, [['Order hari ini', mine(t0, t1).length], ['Kunjungan', vToday + ' hari ini'], ['Outlet saya', myc.length]], dayAgg(7, (s) => s.u == U.n).map((d) => d.v))
     + tiles2([['outlet', '➕', 'Outlet baru', 'go(\'outlet\');setTimeout(()=>outletForm(),80)', '#00b894'], ['outlet', '📍', 'Outlet & peta', 0, '#5b4cdb'], ['pos', '📝', 'Buat order', 0, '#ff9f43'], ['abs', '🕒', 'Absen', 0, '#20bf6b']])
     + `<div class="cd">${lineItem('🧾', '#ff9f43', 'Piutang outlet saya', 'tagih saat kunjungan', rp(ar), ar ? 'or' : '', "oSort='debt';go('outlet')")}${lineItem('🚶', '#5b4cdb', 'Kunjungan bulan ini', 'check-in di outlet', vMonth)}</div>`
     + (() => { const P = reorderPlan(true).filter((x) => x.st != 'aman'); return P.length ? `<div class="cd info"><div class="row" style="margin:0"><span><b>🎯 Saran order hari ini</b><br><small>${P.length} outlet perlu dikunjungi · potensi ${rp(P.reduce((a, x) => a + x.val, 0))}</small></span><button class="gh a" onclick="ANA.tab='order';go('ana')">Lihat</button></div><small class="mu">${P.slice(0, 3).map((x) => esc(x.c.n)).join(', ')}${P.length > 3 ? '…' : ''}</small></div>` : ''; })()
