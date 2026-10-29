@@ -33,6 +33,15 @@ async function dlvStep(no, st, opt = {}) {
     const p = await getPos(); dlvEmit(no, 'gagal', { lat: p ? p.lat : null, lng: p ? p.lng : null, note: why.trim() }); toast('Dicatat gagal kirim — admin akan menindaklanjuti'); return R();
   }
 }
+/* ---- cek titik outlet saat serah terima ---- */
+const DLR = () => +S.set.dlr || 300;
+async function dlvLoc(s) {
+  const c = cust(s.cu) || {}, p = await goodPos(+S.set.gacc || 150);
+  if (!p) return { err: 'GPS tidak aktif / lokasi tidak didapat. Nyalakan GPS lalu coba lagi.' };
+  if (c.lat == null) return { p, lok: 'tanpa', d: null };
+  const d = Math.round(haversine(p.lat, p.lng, c.lat, c.lng)); return { p, d, lok: d <= DLR() ? 'ok' : 'jauh' };
+}
+const lokTxt = (l) => !l ? '' : l.lok == 'ok' ? `<b class="gr">✓ Sesuai titik outlet</b> <small class="mu">(${distStr(l.d)})</small>` : l.lok == 'jauh' ? `<b class="rd">✗ Tidak sesuai titik outlet</b> <small class="mu">(${distStr(l.d)} dari titik, batas ${distStr(DLR())})</small>` : '<b class="or">⚠ Outlet belum punya titik GPS — lokasi tetap dicatat</b>';
 function dlvDone(no) {
   const s = S.sales.find((x) => x.no == no), c = cust(s.cu), cur = openCI(U.n);
   if (pkgHas('cek') && can('cek') && (!cur || cur.cid != s.cu)) { toast('Check-in di outlet dulu (radius ' + distStr(CIR()) + ')'); return dlvStep(no, 'tiba'); }
@@ -40,19 +49,23 @@ function dlvDone(no) {
   const m = modal(`<h3>Selesai kirim · ${esc(s.cn || '')}</h3><small class="mu">${esc(s.no)} · ${s.L.reduce((a, i) => a + i.q, 0)} item · ${rp(s.tot)}</small>
 ${s.cod && out > 0 ? `<div class="warnbox" style="background:#00b8941f;color:inherit"><b>💵 Tagih tunai ${rp(out)}</b><br><small>Orderan ini dibayar saat barang tiba.</small></div><div class="fm2"><input id="da" type="number" value="${out}" placeholder="Uang diterima"><select id="dm"><option>Tunai</option><option>Transfer</option><option>QRIS</option></select></div><small class="mu">Kurang dari ${rp(out)} → sisanya jadi piutang outlet.</small>` : s.pay == 'Piutang' && !s.cod ? `<div class="warnbox" style="background:#6c5ce71f;color:inherit"><b>🧾 KREDIT</b> — tidak ada penagihan untuk order ini. Jatuh tempo ${dstr(s.due)}.</div>` : '<small class="gr">Sudah lunas.</small>'}
 ${old.length ? `<b>Piutang lama outlet ini (boleh ditagih sekalian)</b>${old.map((x) => `<div class="row"><span>${esc(x.no)}<br><small class="${x.due < Date.now() ? 'rd' : 'mu'}">tempo ${dstr(x.due)}</small></span><span><b>${rp(sOut(x))}</b> <button class="gh" data-pay="${esc(x.no)}">Tagih</button></span></div>`).join('')}` : ''}
+<div class="row" id="dloc"><span>📍 Lokasi serah terima</span><small class="mu">memeriksa GPS…</small></div>
 <input id="dn" placeholder="Catatan penerima (nama yang menerima, kondisi barang)">
 ${needPh ? '<button class="gh" id="dph">📸 Foto bukti serah terima</button><img id="dpi" alt="" style="display:none;width:90px;border-radius:10px">' : ''}
 <button class="pr" id="ok">✓ Konfirmasi selesai</button>`, 'w');
-  let ph = null;
+  let ph = null, LOC = null;
+  dlvLoc(s).then((l) => { LOC = l; const e = $('#dloc', m); if (e) e.innerHTML = '<span>📍 Lokasi serah terima</span><span>' + (l.err ? '<b class="rd">' + esc(l.err) + '</b>' : lokTxt(l)) + '</span>'; });
   $$('[data-pay]', m).forEach((b) => (b.onclick = () => { m.close(); payModal(b.dataset.pay); }));
   const bp = $('#dph', m); if (bp) bp.onclick = async () => { ph = await selfie(U.n + ' · ' + s.no + ' · ' + tstr(trustNow() || Date.now()), 'environment'); if (ph) { const i = $('#dpi', m); i.src = ph; i.style.display = 'block'; } };
   $('#ok', m).onclick = async () => {
     if (needPh && !ph) return toast('Foto bukti serah terima diperlukan');
     const amt = s.cod && out > 0 ? Math.min(out, num(($('#da', m) || {}).value)) : 0;
-    const pr = await proof({ needPos: antiOn() && pkgHas('cek') });
+    const L2 = await dlvLoc(s); LOC = L2; if (L2.err) return alertBox(L2.err, 'Lokasi belum terverifikasi');
+    if (L2.lok == 'jauh' && S.set.dlb !== false) return alertBox('Anda ' + distStr(L2.d) + ' dari titik outlet ' + (s.cn || '') + ' (batas ' + distStr(DLR()) + '). Serah terima hanya bisa dilakukan di lokasi outlet. Jika titik outlet salah, minta admin/pemilik memperbaikinya.', 'Lokasi tidak sesuai');
+    const pr = await proof({ needPos: false });
     if (pr.err) return alertBox(pr.err);
     if (amt > 0) emit('pay', { sale: no, amt, m: $('#dm', m).value }, pr.t);
-    dlvEmit(no, 'selesai', { lat: pr.lat, lng: pr.lng, cash: amt, note: $('#dn', m).value.trim(), ph: ph || undefined, on: pr.on, sk: pr.sk, fx: fxs(pr.fx) });
+    dlvEmit(no, 'selesai', { lat: +L2.p.lat.toFixed(6), lng: +L2.p.lng.toFixed(6), acc: L2.p.acc ? Math.round(L2.p.acc) : null, dist: L2.d, lok: L2.lok, cash: amt, note: $('#dn', m).value.trim(), ph: ph || undefined, on: pr.on, sk: pr.sk, fx: fxs(pr.fx) });
     m.close(); toast('Pengantaran selesai' + (amt ? ' · uang ' + rp(amt) + ' tercatat' : '')); await checkOut(true); R();
   };
 }
@@ -78,7 +91,7 @@ function dlCard(s, i) {
   if (st == 'tiba' && mine) act.push(['✓ Selesai kirim', 'selesai']);
   const can_f = ['tugas', 'ambil', 'jalan', 'tiba'].includes(st) && mine;
   const dl = s.dl;
-  return `<div class="cd ${st == 'selesai' ? '' : ''}"><div class="row" style="margin:0"><b>${i != null ? '<span class="chip">' + (i + 1) + '</span> ' : ''}${esc(s.cn || 'Umum')}</b><span class="chip ${DST[st][1]}">${DST[st][0]}</span></div>
+  return `<div class="cd ${st == 'selesai' ? '' : ''}"><div class="row" style="margin:0"><b>${i != null ? '<span class="chip">' + (i + 1) + '</span> ' : ''}${esc(s.cn || 'Umum')}</b><span class="chip ${DST[st][1]}">${DST[st][0]}</span></div>${(() => { const f = s.dl && s.dl.log.slice().reverse().find((l) => l.st == 'selesai'); return f && f.lok ? '<small style="display:block;margin-top:4px">📍 ' + lokTxt({ lok: f.lok, d: f.dist }) + '</small>' : ''; })()}
 <small class="mu">${esc(c.ad || 'Alamat belum diisi')}${c.ph ? ' · ' + esc(c.ph) : ''}${d != null ? ' · <b>' + distStr(d) + '</b>' : ''}</small>
 <div style="margin:6px 0">${payTag(s)}</div>
 <details><summary class="mu" style="font-size:12px">${s.L.reduce((a, x) => a + x.q, 0)} item · ${rp(s.tot)} · ${esc(s.no)} · sales ${esc(s.u)}</summary>${s.L.map((x) => `<div class="row"><small>${esc(x.n)}</small><b>×${x.q}</b></div>`).join('')}${s.note ? `<small>Catatan sales: ${esc(s.note)}</small>` : ''}</details>

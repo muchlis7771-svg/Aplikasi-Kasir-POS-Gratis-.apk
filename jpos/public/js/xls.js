@@ -30,22 +30,22 @@ const normN = (s) => hn(s).replace(/^(toko|warung|kios|ud|cv|pt)\s+/, '');
 
 /* ---------------- OUTLET ---------------- */
 const OCOL = {
-  id: ['id', 'kode', 'kode outlet', 'id outlet'], n: ['nama', 'nama outlet', 'nama toko', 'outlet', 'toko', 'pelanggan', 'nama pelanggan'], ad: ['alamat', 'address'],
+  id: ['id', 'id outlet', 'id sistem'], kd: ['kode outlet', 'kd outlet', 'kode', 'kd'], n: ['nama', 'nama outlet', 'nama toko', 'outlet', 'toko', 'pelanggan', 'nama pelanggan'], ad: ['alamat', 'address'],
   ph: ['telepon', 'telp', 'hp', 'wa', 'no hp', 'no telepon', 'no wa', 'phone', 'whatsapp'], sl: ['sales', 'salesman', 'sales penanggung jawab', 'penanggung jawab'],
   term: ['tipe', 'pembayaran', 'tipe bayar', 'jenis', 'term', 'tunai kredit', 'kredit tunai'], lim: ['limit', 'limit kredit', 'plafon', 'plafon kredit'], tempo: ['tempo', 'tempo hari', 'jatuh tempo', 'tempo bayar'],
   lat: ['latitude', 'lat', 'lintang'], lng: ['longitude', 'lng', 'long', 'lon', 'bujur'], ll: ['koordinat', 'gps', 'lokasi', 'lat lng', 'maps', 'link maps', 'google maps', 'titik'], note: ['catatan', 'keterangan', 'note', 'notes'],
 };
 function xlsOutletExport() {
   if (!xlsOk()) return;
-  const H = ['ID', 'Nama Outlet', 'Alamat', 'Telepon', 'Sales', 'Tipe (Tunai/Kredit)', 'Limit Kredit', 'Tempo (hari)', 'Latitude', 'Longitude', 'Link Google Maps', 'Catatan', 'Piutang Berjalan', 'Jatuh Tempo'];
-  const rows = [H, ...S.c.filter((c) => !c.x).map((c) => [c.id, c.n, c.ad || '', c.ph || '', c.sl || '', c.term == 'kredit' ? 'Kredit' : 'Tunai', c.lim || 0, c.tempo || S.set.tempo || 30, c.lat ?? '', c.lng ?? '', c.lat != null ? mapsUrl(c).replace('dir/?api=1&destination=', 'search/?api=1&query=') : '', c.note || '', outOf(c.id), overdue(c.id)])];
-  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, xlsSheet(rows, [14, 28, 34, 15, 14, 12, 12, 10, 12, 12, 34, 26, 14, 14]), 'Outlet'); xlsSave(wb, 'outlet'); toast(rows.length - 1 + ' outlet diekspor');
+  const H = ['ID', 'Kode Outlet', 'Nama Outlet', 'Alamat', 'Telepon', 'Sales', 'Tipe (Tunai/Kredit)', 'Limit Kredit', 'Tempo (hari)', 'Latitude', 'Longitude', 'Link Google Maps', 'Catatan', 'Piutang Berjalan', 'Jatuh Tempo'];
+  const rows = [H, ...S.c.filter((c) => !c.x).map((c) => [c.id, c.kd || '', c.n, c.ad || '', c.ph || '', c.sl || '', c.term == 'kredit' ? 'Kredit' : 'Tunai', c.lim || 0, c.tempo || S.set.tempo || 30, c.lat ?? '', c.lng ?? '', c.lat != null ? mapsUrl(c).replace('dir/?api=1&destination=', 'search/?api=1&query=') : '', c.note || '', outOf(c.id), overdue(c.id)])];
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, xlsSheet(rows, [14, 12, 28, 34, 15, 14, 12, 12, 10, 12, 12, 34, 26, 14, 14]), 'Outlet'); xlsSave(wb, 'outlet'); toast(rows.length - 1 + ' outlet diekspor');
 }
 function xlsOutletTemplate() {
   if (!xlsOk()) return;
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, xlsSheet([['ID', 'Nama Outlet', 'Alamat', 'Telepon', 'Sales', 'Tipe (Tunai/Kredit)', 'Limit Kredit', 'Tempo (hari)', 'Latitude', 'Longitude', 'Catatan'], ['', 'Toko Berkah Jaya', 'Jl. Contoh No. 12, Makassar', '081234567890', 'Andi', 'Kredit', 5000000, 14, -5.1477, 119.4327, 'Buka jam 7 pagi'], ['', 'Warung Bu Sari', 'Jl. Mawar 3', '085211112222', '', 'Tunai', '', '', -5.1520, 119.4410, '']], [14, 28, 34, 15, 14, 18, 12, 10, 12, 12, 26]), 'Outlet');
-  XLSX.utils.book_append_sheet(wb, xlsSheet([['PETUNJUK'], ['• Kolom wajib: Nama Outlet. Kolom lain boleh kosong (sel kosong TIDAK menghapus data lama).'], ['• ID: isi bila ingin memperbarui outlet yang sudah ada (ambil dari hasil Ekspor). Kosong = dicocokkan dengan nama + telepon, jika tidak ketemu dibuat baru.'], ['• GPS: isi Latitude & Longitude (contoh -5.1477 dan 119.4327), ATAU satu kolom "Koordinat" berisi "-5.1477, 119.4327" / link Google Maps.'], ['• Tipe Tunai/Kredit, Limit, Tempo hanya berlaku bila diimpor oleh Pemilik (Owner).'], ['• Sales penanggung jawab hanya bisa diatur Owner/Admin.'], ['• Koordinat outlet yang sudah punya titik hanya bisa diubah Owner/Admin.']], [110]), 'Petunjuk');
+  XLSX.utils.book_append_sheet(wb, xlsSheet([['Kode Outlet', 'Nama Outlet', 'Alamat', 'Telepon', 'Sales', 'Tipe (Tunai/Kredit)', 'Limit Kredit', 'Tempo (hari)', 'Latitude', 'Longitude', 'Catatan'], ['', 'Toko Berkah Jaya', 'Jl. Contoh No. 12, Makassar', '081234567890', 'Andi', 'Kredit', 5000000, 14, -5.1477, 119.4327, 'Buka jam 7 pagi'], ['', 'Warung Bu Sari', 'Jl. Mawar 3', '085211112222', '', 'Tunai', '', '', -5.1520, 119.4410, '']], [14, 28, 34, 15, 14, 18, 12, 10, 12, 12, 26]), 'Outlet');
+  XLSX.utils.book_append_sheet(wb, xlsSheet([['PETUNJUK'], ['• Kolom wajib: Nama Outlet. Kolom lain boleh kosong (sel kosong TIDAK menghapus data lama).'], ['• Kode Outlet: kosongkan untuk outlet baru (dibuat otomatis OT-0001, OT-0002, …). Isi kode yang sudah ada untuk memperbarui outlet itu.'], ['• GPS: isi Latitude & Longitude (contoh -5.1477 dan 119.4327), ATAU satu kolom "Koordinat" berisi "-5.1477, 119.4327" / link Google Maps.'], ['• Tipe Tunai/Kredit, Limit, Tempo hanya berlaku bila diimpor oleh Pemilik (Owner).'], ['• Sales penanggung jawab hanya bisa diatur Owner/Admin.'], ['• Koordinat outlet yang sudah punya titik hanya bisa diubah Owner/Admin.']], [110]), 'Petunjuk');
   xlsSave(wb, 'template-outlet');
 }
 async function xlsOutletImport(el) {
@@ -56,10 +56,10 @@ async function xlsOutletImport(el) {
   rows.slice(hi + 1, hi + 1501).forEach((r, i) => {
     const line = hi + i + 2, n = sval(cell(r, map, 'n')); if (!n && r.every((x) => x === '')) return; if (!n) return errs.push('Baris ' + line + ': nama kosong');
     const id = sval(cell(r, map, 'id')), ph = sval(cell(r, map, 'ph')).replace(/[^\d+]/g, '');
-    let ex = id ? S.c.find((c) => !c.x && c.id == id) : null;
+    const kd = sval(cell(r, map, 'kd')).toUpperCase(); let ex = id ? S.c.find((c) => !c.x && c.id == id) : null; if (!ex && kd) ex = S.c.find((c) => !c.x && String(c.kd || '').toUpperCase() == kd);
     if (!ex) ex = S.c.find((c) => !c.x && normN(c.n) == normN(n) && (!ph || !c.ph || String(c.ph).replace(/[^\d+]/g, '') == ph));
     const key = normN(n) + '|' + ph; if (seen.has(key)) return errs.push('Baris ' + line + ': ' + n + ' dobel di file'); seen.add(key);
-    const d = { id: ex ? ex.id : 'c' + uid() };
+    const d = { id: ex ? ex.id : 'c' + uid() }; if (!ex && kd) d.kd = kd;
     if (!ex || n != ex.n) d.n = n;
     for (const k of ['ad', 'note']) { const v = sval(cell(r, map, k)); if (v) d[k] = v; }
     if (ph) d.ph = sval(cell(r, map, 'ph'));
@@ -82,17 +82,17 @@ async function xlsOutletImport(el) {
 
 /* ---------------- STOK / PRODUK ---------------- */
 const PCOL2 = {
-  id: ['id', 'kode', 'id produk'], sku: ['sku', 'barcode', 'kode barang', 'kode produk'], n: ['nama', 'nama produk', 'produk', 'nama barang', 'barang'], c: ['kategori', 'category', 'jenis'], u: ['satuan', 'unit'],
+  id: ['id', 'id produk', 'id sistem'], kd: ['kode item', 'kd item', 'kode', 'kd'], sku: ['sku', 'barcode', 'kode barang', 'kode produk'], n: ['nama', 'nama produk', 'produk', 'nama barang', 'barang'], c: ['kategori', 'category', 'jenis'], u: ['satuan', 'unit'],
   pr: ['harga jual', 'harga', 'harga satuan', 'price'], opr: ['harga online', 'harga toko online'], co: ['hpp', 'harga beli', 'harga pokok', 'modal', 'cost'], st: ['stok', 'stock', 'stok awal', 'stok fisik', 'stok sistem'],
   add: ['tambah stok', 'stok masuk', 'qty masuk', 'jumlah masuk', 'restok'], min: ['stok minimum', 'min', 'minimum', 'stok min'], tier: ['grosir', 'harga grosir', 'diskon grosir'], sup: ['supplier', 'pemasok'], pay: ['pembayaran', 'bayar', 'cara bayar'], tempo: ['tempo', 'tempo hari', 'tempo bayar'],
 };
 function parseTiers(v) { return String(v || '').split(/[;|\n]/).map((x) => x.trim()).filter(Boolean).map((x) => { const m = x.match(/(\d+)\s*[:=x>]+\s*([\d.,+]+)\s*%?/); return m ? { min: +m[1], d: m[2].replace(',', '.') } : null; }).filter((t) => t && t.min >= 2); }
 function xlsStockExport() {
   if (!xlsOk()) return;
-  const rows = [['ID', 'SKU', 'Nama Produk', 'Kategori', 'Satuan', 'Harga Jual', 'Harga Online', 'HPP', 'Stok', 'Stok Minimum', 'Nilai Stok (HPP)', 'Grosir (min:diskon%)', 'Tampil Online'],
-    ...actProds().map((p) => [p.id, p.sku || '', p.n, p.c, p.u || '', p.pr, p.opr || '', p.co, p.st, p.min ?? 10, Math.max(0, p.st) * p.co, (p.tiers || []).map((t) => t.min + ':' + t.d).join('; '), p.on ? 'Ya' : ''])];
-  rows.push(['', '', 'TOTAL', '', '', '', '', '', actProds().reduce((a, p) => a + p.st, 0), '', stockValue(), '', '']);
-  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, xlsSheet(rows, [12, 16, 30, 14, 8, 12, 12, 12, 8, 10, 16, 20, 10]), 'Stok'); xlsSave(wb, 'stok'); toast(actProds().length + ' produk diekspor');
+  const rows = [['ID', 'Kode Item', 'SKU', 'Nama Produk', 'Kategori', 'Satuan', 'Harga Jual', 'Harga Online', 'HPP', 'Stok', 'Stok Minimum', 'Nilai Stok (HPP)', 'Grosir (min:diskon%)', 'Tampil Online'],
+    ...actProds().map((p) => [p.id, p.kd || '', p.sku || '', p.n, p.c, p.u || '', p.pr, p.opr || '', p.co, p.st, p.min ?? 10, Math.max(0, p.st) * p.co, (p.tiers || []).map((t) => t.min + ':' + t.d).join('; '), p.on ? 'Ya' : ''])];
+  rows.push(['', '', '', 'TOTAL', '', '', '', '', '', actProds().reduce((a, p) => a + p.st, 0), '', stockValue(), '', '']);
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, xlsSheet(rows, [12, 12, 16, 30, 14, 8, 12, 12, 12, 8, 10, 16, 20, 10]), 'Stok'); xlsSave(wb, 'stok'); toast(actProds().length + ' produk diekspor');
 }
 function xlsStockTemplate(mode) {
   if (!xlsOk()) return; const wb = XLSX.utils.book_new();
@@ -104,12 +104,12 @@ function xlsStockTemplate(mode) {
 async function xlsStockImport(el, mode) {
   const f = el.files[0]; el.value = ''; if (!f || !xlsOk()) return;
   let rows; try { rows = await readXls(f); } catch (e) { return toast(e.message); }
-  const { hi, map } = colMap(rows, PCOL2); if (map.n == null && map.sku == null && map.id == null) return toast('Kolom SKU / Nama Produk tidak ditemukan. Unduh template untuk contoh format.');
+  const { hi, map } = colMap(rows, PCOL2); if (map.n == null && map.sku == null && map.id == null && map.kd == null) return toast('Kolom SKU / Nama Produk tidak ditemukan. Unduh template untuk contoh format.');
   const plan = [], errs = [];
   rows.slice(hi + 1, hi + 2501).forEach((r, i) => {
     const line = hi + i + 2; if (r.every((x) => x === '')) return;
-    const id = sval(cell(r, map, 'id')), sku = sval(cell(r, map, 'sku')), n = sval(cell(r, map, 'n'));
-    const ex = (id && S.p.find((p) => !p.x && p.id == id)) || (sku && S.p.find((p) => !p.x && String(p.sku) == sku)) || (n && S.p.find((p) => !p.x && hn(p.n) == hn(n))) || null;
+    const id = sval(cell(r, map, 'id')), sku = sval(cell(r, map, 'sku')), n = sval(cell(r, map, 'n')), kd = sval(cell(r, map, 'kd')).toUpperCase();
+    const ex = (id && S.p.find((p) => !p.x && p.id == id)) || (kd && S.p.find((p) => !p.x && String(p.kd || '').toUpperCase() == kd)) || (sku && S.p.find((p) => !p.x && String(p.sku) == sku)) || (n && S.p.find((p) => !p.x && hn(p.n) == hn(n))) || null;
     if (mode == 'opname') {
       if (!ex) return errs.push('Baris ' + line + ': produk "' + (n || sku) + '" tidak ditemukan'); const q = dec(cell(r, map, 'st')); if (!Number.isFinite(q) || q < 0) return errs.push('Baris ' + line + ' (' + ex.n + '): stok fisik tidak valid');
       const dl = Math.round(q) - ex.st; if (dl) plan.push({ k: 'opn', ex, dl, label: ex.n + ': ' + ex.st + ' → ' + Math.round(q) }); return;
@@ -120,7 +120,7 @@ async function xlsStockImport(el, mode) {
       plan.push({ k: 'stk', ex, q, cost: Number.isFinite(co) && co >= 0 ? Math.round(co) : ex.co, sup: sval(cell(r, map, 'sup')), cr: kr, m: /transfer|bank/i.test(py) ? 'Transfer' : 'Tunai', tempo: Math.round(dec(cell(r, map, 'tempo'))) || 30, label: ex.n + ' +' + q }); return;
     }
     // mode produk & harga
-    const pr = dec(cell(r, map, 'pr')), d = { id: ex ? ex.id : 'p' + uid() };
+    const pr = dec(cell(r, map, 'pr')), d = { id: ex ? ex.id : 'p' + uid() }; if (!ex && kd) d.kd = kd;
     if (!ex) { if (!n) return errs.push('Baris ' + line + ': nama kosong'); if (!(pr > 0)) return errs.push('Baris ' + line + ' (' + n + '): harga jual wajib untuk produk baru'); d.n = n; d.c = sval(cell(r, map, 'c')) || 'Umum'; d.pr = Math.round(pr); d.sku = sku; d.co = Math.round(dec(cell(r, map, 'co'))) || 0; d.s0 = Math.max(0, Math.round(dec(cell(r, map, 'st'))) || 0); d.min = Number.isFinite(dec(cell(r, map, 'min'))) ? Math.round(dec(cell(r, map, 'min'))) : 10; }
     else { if (n && n != ex.n) d.n = n; const c = sval(cell(r, map, 'c')); if (c) d.c = c; if (pr > 0) d.pr = Math.round(pr); if (sku && sku != ex.sku) d.sku = sku; const co = dec(cell(r, map, 'co')); if (Number.isFinite(co) && co >= 0 && Math.round(co) != ex.co) d.co = Math.round(co); const mn = dec(cell(r, map, 'min')); if (Number.isFinite(mn)) d.min = Math.round(mn); }
     const u = sval(cell(r, map, 'u')); if (u) d.u = u; const op = dec(cell(r, map, 'opr')); if (Number.isFinite(op) && op > 0) d.opr = Math.round(op);

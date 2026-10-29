@@ -81,10 +81,14 @@ addEventListener('pagehide', flushSave); document.addEventListener('visibilitych
 function loadStore(id) { const s = LS.get('jpos:s:' + id, null); if (!s) return false; SID = id; S = s; for (const k of ['p', 'c', 'sales', 'j', 'ap', 'att', 'users', 'eq', 'cq', 'hold', 'staff', 'sup', 'po', 'kn']) S[k] = S[k] || []; S.done = S.done || {}; S.pend = S.pend || {}; S.cs = S.cs || {}; S.set = Object.assign({ ppn: 11, tempo: 30, jin: '08:00' }, S.set || {});
   { const old = Date.now() - 14 * 864e5; S.att.forEach((a) => { if (a.ph && a.t < old) delete a.ph; }); S.sales.forEach((x) => { if (x.dl) x.dl.log.forEach((l) => { if (l.ph && l.t < old) delete l.ph; }); }); } // foto bukti lama dibuang agar penyimpanan HP tidak penuh
   if (!S.v4) { const o = S.users.find((u) => u.r == 'admin'); if (o && !S.users.some((u) => u.r == 'owner')) o.r = 'owner'; S.v4 = 1; }
-  return true; }
+  kdFill(); return true; }
 
 /* ============ akuntansi (hasil putar ulang kejadian) ============ */
 const prod = (id) => S.p.find((x) => x.id == id);
+/* kode otomatis: outlet OT-0001, item BRG-0001 */
+function nextKd(pre, arr) { let mx = 0; for (const x of arr) { const m = String(x.kd || '').match(/^([A-Z]+)-(\d+)$/); if (m && m[1] == pre) mx = Math.max(mx, +m[2]); } return pre + '-' + String(mx + 1).padStart(4, '0'); }
+const kdOk = (v, arr, self) => /^[A-Za-z0-9-]{2,20}$/.test(String(v || '')) && !arr.some((x) => x !== self && String(x.kd || '').toUpperCase() == String(v).toUpperCase());
+function kdFill() { for (const [arr, pre] of [[S.p, 'BRG'], [S.c, 'OT']]) for (const x of arr) if (!x.kd) x.kd = nextKd(pre, arr); }
 const cust = (id) => S.c.find((x) => x.id == id);
 const payAcc = (m) => (m == 'Tunai' ? '1101' : '1102');
 function jr(e, d, l) {
@@ -167,7 +171,7 @@ const Ap = {
   pu(e) {
     const q = e.p || {}; if (!/^[\w-]{1,40}$/.test(String(q.id))) return; let p = prod(q.id);
     if (!p) {
-      p = { id: q.id, n: '', c: 'Umum', pr: 0, co: 0, st: 0, sku: '', tiers: [], min: 10 }; S.p.push(p);
+      p = { id: q.id, n: '', c: 'Umum', pr: 0, co: 0, st: 0, sku: '', tiers: [], min: 10 }; p.kd = kdOk(q.kd, S.p, p) ? String(q.kd).toUpperCase() : nextKd('BRG', S.p); S.p.push(p);
       const s0 = Math.max(0, Math.round(+q.s0 || 0)); p.co = Math.round(+q.co) || 0;
       if (s0 > 0) { p.st = s0; jr(e, 'Saldo awal persediaan ' + q.n, [['1201', s0 * p.co, 0], ['3101', 0, s0 * p.co]]); }
     } else if ('co' in q) p.co = Math.round(+q.co) || 0;
@@ -175,16 +179,17 @@ const Ap = {
   },
   cu(e) {
     const q = e.c || {}; if (!/^[\w-]{1,40}$/.test(String(q.id))) return; let c = cust(q.id);
-    if (!c) { c = { id: q.id, n: '', ph: '', ad: '', lat: null, lng: null, term: 'cash', lim: 0, tempo: S.set.tempo || 30, sl: e.r == 'sales' ? e.u : '', note: '', t: e.t }; S.c.push(c); }
+    if (!c) { c = { id: q.id, n: '', ph: '', ad: '', lat: null, lng: null, term: 'cash', lim: 0, tempo: S.set.tempo || 30, sl: e.r == 'sales' ? e.u : '', note: '', t: e.t }; c.kd = kdOk(q.kd, S.c, c) ? String(q.kd).toUpperCase() : nextKd('OT', S.c); S.c.push(c); }
     for (const f of ['n', 'ph', 'ad', 'lat', 'lng', 'note']) { if ((f == 'lat' || f == 'lng') && c.lat != null && !MGR(e.r)) continue; if (f in q) c[f] = q[f]; } // titik outlet yang sudah ada hanya bisa diubah owner/admin/akuntan
     if (MGR(e.r) && 'sl' in q) c.sl = q.sl;
     if (e.r == 'owner') for (const f of ['term', 'lim', 'tempo', 'x']) if (f in q) c[f] = q[f]; // hanya pemilik yang mengatur kredit
   },
   set(e) { if (e.r != 'owner') return; Object.assign(S.set, e.set || {}); if (e.name) S.name = e.name; if ('logo' in e) S.logo = e.logo; },
-  in(e) { S.att.push({ no: e.no, k: 'in', t: e.t, u: e.u, lat: e.lat, lng: e.lng, acc: e.acc, note: e.note, ph: e.ph, fl: e.fl, fx: e.fx, sk: e.sk, rt: e.rt }); },
-  out(e) { S.att.push({ no: e.no, k: 'out', t: e.t, u: e.u, lat: e.lat, lng: e.lng, acc: e.acc, note: e.note, ph: e.ph, fl: e.fl, fx: e.fx, sk: e.sk, rt: e.rt }); },
+  in(e) { S.att.push({ no: e.no, k: 'in', t: e.t, u: e.u, lat: e.lat, lng: e.lng, acc: e.acc, note: e.note, ph: e.ph, fl: e.fl, fx: e.fx, sk: e.sk, rt: e.rt, fm: e.fm }); },
+  out(e) { S.att.push({ no: e.no, k: 'out', t: e.t, u: e.u, lat: e.lat, lng: e.lng, acc: e.acc, note: e.note, ph: e.ph, fl: e.fl, fx: e.fx, sk: e.sk, rt: e.rt, fm: e.fm }); },
   visit(e) { S.att.push({ no: e.no, k: 'visit', t: e.t, u: e.u, cid: e.cid, cn: e.cn, lat: e.lat, lng: e.lng, dist: e.dist, acc: e.acc, note: e.note, ph: e.ph, fl: e.fl, fx: e.fx, sk: e.sk, why: e.why }); },
   vout(e) { S.att.push({ no: e.no, k: 'vout', t: e.t, u: e.u, cid: e.cid, cn: e.cn, lat: e.lat, lng: e.lng, dist: e.dist, acc: e.acc, note: e.note, fl: e.fl, fx: e.fx, sk: e.sk, why: e.why }); },
+  face(e) { S.face = S.face || {}; const u = e.fu; if (!u || (e.r != 'owner' && u != e.u)) return; if (e.x) { delete S.face[u]; return; } if (!Array.isArray(e.d) || e.d.length != 128) return; if (S.face[u] && e.r != 'owner') return; S.face[u] = { d: e.d, ph: e.ph, t: e.t, by: e.u }; },
   sec(e) { (S.sec = S.sec || []).push({ t: e.t, u: e.u, w: e.w, d: e.d }); if (S.sec.length > 300) S.sec.shift(); },
   sup(e) {
     const q = e.s || {}; if (!/^[\w-]{1,40}$/.test(String(q.id))) return; S.sup = S.sup || []; let x = S.sup.find((y) => y.id == q.id);
@@ -221,7 +226,7 @@ const Ap = {
     const d = (s.dl = s.dl || { st: 'baru', log: [] });
     if (d.st == 'selesai' && e.st != 'selesai') return;
     d.st = e.st; d.t = e.t; if (e.as) d.by = e.as; else if (e.st != 'baru' && !d.by) d.by = e.u;
-    d.log.push({ t: e.t, st: e.st, u: e.u, lat: e.lat, lng: e.lng, dist: e.dist, note: e.note, cash: e.cash, fl: e.fl, fx: e.fx, ph: e.ph });
+    d.log.push({ t: e.t, st: e.st, u: e.u, lat: e.lat, lng: e.lng, dist: e.dist, lok: e.lok, acc: e.acc, note: e.note, cash: e.cash, fl: e.fl, fx: e.fx, ph: e.ph });
     if (e.st == 'selesai' || e.st == 'gagal') d.end = e.t;
   },
   kas(e) {
@@ -244,6 +249,8 @@ function apply(e) {
 function emit(k, data, t, by) {
   const a = by || U;
   if (!by && isExp()) { toast('Masa aktif toko habis — data hanya bisa dilihat. Hubungi pemilik aplikasi untuk perpanjangan.', 6000); throw new Error('Masa aktif toko habis'); }
+  if (k == 'pu' && data.p && !prod(data.p.id) && !kdOk(data.p.kd, S.p)) data = { ...data, p: { ...data.p, kd: nextKd('BRG', S.p) } };
+  if (k == 'cu' && data.c && !cust(data.c.id) && !kdOk(data.c.kd, S.c)) data = { ...data, c: { ...data.c, kd: nextKd('OT', S.c) } };
   const e = { no: k + '-' + S.dv + '-' + (S.seq++), k, t: t || Date.now(), u: a.n, r: a.r, ...data };
   apply(e); if (typeof tmark == 'function') tmark(e.t);
   if (S.srv) S.eq.push(e);

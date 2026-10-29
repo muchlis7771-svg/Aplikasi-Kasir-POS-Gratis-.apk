@@ -3,7 +3,7 @@
    Catatan jujur: ini membuat kecurangan SULIT dan TERLIHAT, bukan mustahil. Aplikasi web/APK tidak bisa
    mengunci jam Android. Yang dilakukan: stempel waktu dari SERVER, deteksi jam diubah, deteksi lokasi
    melompat, foto selfie berstempel, dan semua anomali dilaporkan ke pemilik (menu Audit). */
-const FXN = { ofl: 'Dikirim offline (jam belum terverifikasi)', mundur: 'Jam HP diputar mundur', jam: 'Jam HP beda dengan server', lompat: 'Lokasi melompat tak wajar', akur: 'GPS kurang akurat', luar: 'Check-out di luar radius', titik: 'Titik outlet dibuat saat check-in', tw: 'Jam diubah saat aplikasi dibuka', lokasi: 'Absen jauh dari lokasi toko' };
+const FXN = { 'wajah-baru': 'Wajah acuan baru didaftarkan', ofl: 'Dikirim offline (jam belum terverifikasi)', mundur: 'Jam HP diputar mundur', jam: 'Jam HP beda dengan server', lompat: 'Lokasi melompat tak wajar', akur: 'GPS kurang akurat', luar: 'Check-out di luar radius', titik: 'Titik outlet dibuat saat check-in', tw: 'Jam diubah saat aplikasi dibuka', lokasi: 'Absen jauh dari lokasi toko' };
 const fxTxt = (a) => [...new Set([...String(a.fx || '').split(','), ...String(a.fl || '').split(',')].filter(Boolean))].map((k) => FXN[k] || k);
 const CIR = () => +S.set.cir || 3000;
 const antiOn = () => pkgHas('anti') && !!S.srv; // anti-curang butuh server (jam tepercaya)
@@ -79,7 +79,9 @@ function selfie(label, facing) {
       const v = $('#sv', m); if (!v.videoWidth) return toast('Kamera belum siap');
       const w = 220, h = Math.round(w * v.videoHeight / v.videoWidth), c = document.createElement('canvas'); c.width = w; c.height = h + 22; const x = c.getContext('2d');
       x.drawImage(v, 0, 0, w, h); x.fillStyle = '#000'; x.fillRect(0, h, w, 22); x.fillStyle = '#fff'; x.font = '11px sans-serif';
-      x.fillText(String(label || '').slice(0, 34), 4, h + 15); end(c.toDataURL('image/jpeg', 0.5));
+      x.fillText(String(label || '').slice(0, 34), 4, h + 15);
+      try { const W = Math.min(640, v.videoWidth), b = document.createElement('canvas'); b.width = W; b.height = Math.round(W * v.videoHeight / v.videoWidth); b.getContext('2d').drawImage(v, 0, 0, b.width, b.height); selfie.big = b; } catch (e) { selfie.big = null; }
+      end(c.toDataURL('image/jpeg', 0.5));
     };
   });
 }
@@ -99,7 +101,7 @@ async function proof(o = {}) {
       if (teleport(p, U.n)) fx.push('lompat');
     }
   }
-  let ph = null; if (o.selfie) { ph = await selfie(U.n + ' · ' + tstr(c.t) + (c.on ? '' : ' (offline)')); if (!ph) return { err: 'Selfie diperlukan untuk absen.' }; }
+  let ph = null; if (o.selfie) { selfie.big = null; ph = await selfie(U.n + ' · ' + tstr(c.t) + (c.on ? '' : ' (offline)')); if (!ph) return { err: 'Selfie diperlukan untuk absen.' }; }
   return { t: c.t, on: c.on, sk: c.sk, fx, lat: p ? p.lat : null, lng: p ? p.lng : null, acc: p ? Math.round(p.acc || 0) : null, ph };
 }
 const fxs = (a) => a.join(',');
@@ -164,9 +166,9 @@ VW.aud = () => {
   const sec = (S.sec || []).filter((x) => dkey(x.t) == AUD.d && (!AUD.u || x.u == AUD.u));
   const ords = S.sales.filter((s) => dkey(s.t) == AUD.d && (!AUD.u || s.u == AUD.u) && s.r == 'sales');
   const noci = ords.filter((s) => !s.ci);
-  return `<div class="cd hero"><small>Audit lapangan · ${dstr(new Date(AUD.d + 'T12:00:00').getTime())}</small><h2>${rows.length} catatan</h2><small>${flagged.length || sec.length ? '<b>⚠ ' + (flagged.length + sec.length) + ' mencurigakan</b>' : '✅ Tidak ada anomali'}${sec.length ? ' · ' + sec.length + ' perubahan jam HP' : ''}</small></div>
+  return `<div class="cd hero"><small>Audit lapangan · ${dstr(new Date(AUD.d + 'T12:00:00').getTime())}</small><h2>${rows.length} catatan</h2><small>${flagged.length || sec.length ? '<b>⚠ ' + (flagged.length + sec.length) + ' mencurigakan</b>' : '✅ Tidak ada anomali'}${sec.length ? ' · ' + (sec.filter((x) => x.w != 'wajah').length ? sec.filter((x) => x.w != 'wajah').length + ' perubahan jam HP ' : '') + (sec.filter((x) => x.w == 'wajah').length ? sec.filter((x) => x.w == 'wajah').length + ' wajah tidak cocok' : '') : ''}</small></div>
 <div class="cd"><div class="fm2"><input type="date" value="${AUD.d}" onchange="AUD.d=this.value;R()"><select onchange="AUD.u=this.value;R()"><option value="">Semua karyawan</option>${names.map((n) => `<option ${AUD.u == n ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></div></div>
-${sec.length ? `<div class="cd"><h3>🕵️ Jam HP diubah</h3>${sec.map((x) => `<div class="row"><span><b>${esc(x.u)}</b> · ${hm(x.t)}</span><b class="rd">${x.d > 0 ? '+' : ''}${skTxt(x.d)}</b></div>`).join('')}</div>` : ''}
-<div class="cd"><h3>Garis waktu</h3>${rows.map((a) => { const f = fxTxt(a), far = a.dist != null && a.dist > CIR(); return `<div class="je"><small>${hm(a.t)} · ${KN[a.k][0]} <b>${esc(a.u)}</b> · ${KN[a.k][1]}${a.cn ? ' · ' + esc(a.cn) : ''}</small><p><span>${a.dist != null ? 'Jarak ' + distStr(a.dist) : a.lat != null ? 'GPS ✓' : '<span class="rd">tanpa GPS</span>'}${a.acc ? ' · ±' + a.acc + ' m' : ''}${a.note ? ' · ' + esc(a.note) : ''}</span>${a.ph ? `<img src="${a.ph}" alt="" style="width:44px;border-radius:8px">` : ''}</p>${f.length || far ? `<small class="rd">⚠ ${[...f, ...(far ? ['Di luar radius ' + distStr(CIR())] : [])].map(esc).join(' · ')}</small>` : ''}</div>`; }).join('') || '<small class="mu">Tidak ada catatan pada tanggal ini.</small>'}</div>
-${ords.length ? `<div class="cd"><h3>Order sales hari ini</h3>${ords.map((s) => `<div class="row"><span>${hm(s.t)} · ${esc(s.u)} · ${esc(s.cn || '-')}</span><b class="${s.ci ? '' : 'rd'}">${rp(s.tot)}${s.ci ? '' : ' ⚠ tanpa check-in'}</b></div>`).join('')}${noci.length ? '<small class="rd">Order tanpa check-in dibuat dari versi/aturan lama.</small>' : ''}</div>` : ''}`;
+${sec.filter((x) => x.w == 'wajah').length ? `<div class="cd"><h3>🙅 Wajah tidak cocok saat absen</h3>${sec.filter((x) => x.w == 'wajah').map((x) => `<div class="row"><span><b>${esc(x.u)}</b> · ${hm(x.t)}</span><span><b class="rd">skor ${x.d}</b> <button class="gh" style="padding:4px 8px" onclick="faceView('${esc(x.u)}')">Wajah acuan</button></span></div>`).join('')}<small class="mu">Seseorang mencoba absen atas nama karyawan ini, tetapi wajahnya tidak cocok (batas skor ${FACE_TH}).</small></div>` : ''}${sec.filter((x) => x.w != 'wajah').length ? `<div class="cd"><h3>🕵️ Jam HP diubah</h3>${sec.filter((x) => x.w != 'wajah').map((x) => `<div class="row"><span><b>${esc(x.u)}</b> · ${hm(x.t)}</span><b class="rd">${x.d > 0 ? '+' : ''}${skTxt(x.d)}</b></div>`).join('')}</div>` : ''}
+<div class="cd"><h3>Garis waktu</h3>${rows.map((a) => { const f = fxTxt(a), far = a.dist != null && a.dist > CIR(); return `<div class="je"><small>${hm(a.t)} · ${KN[a.k][0]} <b>${esc(a.u)}</b> · ${KN[a.k][1]}${a.cn ? ' · ' + esc(a.cn) : ''}</small><p><span>${a.fm != null ? '🙂 Wajah cocok (' + a.fm + ') · ' : ''}${a.dist != null ? 'Jarak ' + distStr(a.dist) : a.lat != null ? 'GPS ✓' : '<span class="rd">tanpa GPS</span>'}${a.acc ? ' · ±' + a.acc + ' m' : ''}${a.note ? ' · ' + esc(a.note) : ''}</span>${a.ph ? `<img src="${a.ph}" alt="" style="width:44px;border-radius:8px">` : ''}</p>${f.length || far ? `<small class="rd">⚠ ${[...f, ...(far ? ['Di luar radius ' + distStr(CIR())] : [])].map(esc).join(' · ')}</small>` : ''}</div>`; }).join('') || '<small class="mu">Tidak ada catatan pada tanggal ini.</small>'}</div>
+${(() => { const D = S.sales.flatMap((x) => (x.dl ? x.dl.log.filter((l) => l.st == 'selesai' && dkey(l.t) == AUD.d && (!AUD.u || l.u == AUD.u)).map((l) => [x, l]) : [])); return D.length ? `<div class="cd"><h3>🚚 Serah terima hari ini</h3>${D.map(([x, l]) => `<div class="row"><span>${hm(l.t)} · ${esc(l.u)} · ${esc(x.cn || '-')}</span><span>${l.lok ? lokTxt({ lok: l.lok, d: l.dist }) : '<small class="mu">tanpa cek titik</small>'}</span></div>`).join('')}</div>` : ''; })()}${ords.length ? `<div class="cd"><h3>Order sales hari ini</h3>${ords.map((s) => `<div class="row"><span>${hm(s.t)} · ${esc(s.u)} · ${esc(s.cn || '-')}</span><b class="${s.ci ? '' : 'rd'}">${rp(s.tot)}${s.ci ? '' : ' ⚠ tanpa check-in'}</b></div>`).join('')}${noci.length ? '<small class="rd">Order tanpa check-in dibuat dari versi/aturan lama.</small>' : ''}</div>` : ''}`;
 };

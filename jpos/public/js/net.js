@@ -1,15 +1,26 @@
 'use strict';
 /* ============ jaringan, login, sinkron ============ */
+const API_SET = () => [window.JPOS_API, ...(window.JPOS_API_ALT || [])].filter(Boolean).map((x) => String(x).replace(/\/$/, ''));
+const apiCustom = () => { const c = String(LS.get('jpos:api', '') || '').replace(/\/$/, ''); return c && !API_SET().includes(c) ? c : ''; };
 function initApi() {
-  AP = String(LS.get('jpos:api', '') || window.JPOS_API || '').replace(/\/$/, '');
+  const auto = String(LS.get('jpos:apiAuto', '') || ''); AP = apiCustom() || (API_SET().includes(auto) ? auto : '') || String(window.JPOS_API || '').replace(/\/$/, '');
   if (!AP && /^https?:$/.test(location.protocol) && !(location.hostname == 'localhost' && !location.port)) AP = location.origin;
 }
-async function api(path, opt = {}, token) {
+// pindah otomatis ke alamat server lain yang aktif (alamat utama / cadangan)
+let apiSw = 0;
+async function apiSwitch() {
+  if (apiCustom() || Date.now() - apiSw < 20000) return false; apiSw = Date.now();
+  for (const u of API_SET()) { if (u == AP) continue; try { const r = await fetch(u + '/api/ping', { signal: AbortSignal.timeout ? AbortSignal.timeout(7000) : undefined }); const j = await r.json(); if (r.ok && j.ok) { AP = u; LS.set('jpos:apiAuto', u); return true; } } catch (e) { } }
+  return false;
+}
+async function api(path, opt = {}, token, again) {
   const h = { 'Content-Type': 'application/json' }, tk = token === undefined ? TK() : token;
   if (tk) h.Authorization = 'Bearer ' + tk;
   let r;
   try { r = await fetch(AP + path, { ...opt, headers: h, signal: AbortSignal.timeout ? AbortSignal.timeout(25000) : undefined }); }
-  catch (e) { const er = new Error('Tidak bisa terhubung ke server'); er.net = true; throw er; }
+  catch (e) { if (!again && navigator.onLine !== false && (await apiSwitch())) return api(path, opt, token, 1); const er = new Error('Tidak bisa terhubung ke server'); er.net = true; throw er; }
+  const ct = r.headers.get('content-type') || '';
+  if (r.status == 404 && !/json/.test(ct) && !again && (await apiSwitch())) return api(path, opt, token, 1);
   const j = await r.json().catch(() => ({}));
   if (!r.ok) { const er = new Error(j.e || (r.status == 404 ? 'Server belum aktif (404)' : 'Error ' + r.status)); er.status = r.status; er.body = j; throw er; }
   return j;
