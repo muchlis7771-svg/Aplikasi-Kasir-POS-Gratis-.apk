@@ -15,7 +15,7 @@ function outlets() {
 VW.outlet = () => {
   const L = outlets(), tot = S.c.filter((c) => !c.x).reduce((a, c) => a + outOf(c.id), 0);
   return `${kpi([['Outlet', S.c.filter((c) => !c.x).length], ['Kredit aktif', S.c.filter((c) => !c.x && c.term == 'kredit').length], ['Total piutang', rp(tot)], ['Kunjungan hari ini', S.att.filter((a) => a.k == 'visit' && dkey(a.t) == dkey(Date.now())).length]])}
-<div class="cd"><div class="wrap" style="margin-bottom:10px"><button class="gh a" onclick="outletForm()">+ Outlet</button><button class="gh ${oMap ? 'a' : ''}" onclick="oMap=!oMap;R()">🗺 Peta</button><button class="gh" onclick="nearMe()">📍 Terdekat</button>${MGR(U.r) || U.r == 'sales' ? '<button class="gh a" onclick="scanOutlets()">🔎 Cari outlet sekitar</button>' : ''}<button class="gh ${oSort == 'debt' ? 'a' : ''}" onclick="oSort=oSort=='debt'?'name':'debt';R()">Piutang terbesar</button>${pkgHas('xls') && can('xls') ? '<button class="gh" onclick="xlsMenu(\'outlet\')">📊 Excel</button>' : ''}</div>
+<div class="cd"><div class="wrap" style="margin-bottom:10px"><button class="gh a" onclick="outletForm()">+ Outlet</button><button class="gh ${oMap ? 'a' : ''}" onclick="oMap=!oMap;R()">🗺 Peta</button><button class="gh a" onclick="nearMe()">📍 Outlet terdaftar terdekat</button><button class="gh ${oSort == 'debt' ? 'a' : ''}" onclick="oSort=oSort=='debt'?'name':'debt';R()">Piutang terbesar</button>${pkgHas('xls') && can('xls') ? '<button class="gh" onclick="xlsMenu(\'outlet\')">📊 Excel</button>' : ''}</div>
 <input placeholder="Cari nama / alamat / sales" value="${esc(oQ)}" onchange="oQ=this.value;R()">${oMap ? '<div class="map" id="omap" style="margin-top:10px"></div>' : ''}</div>
 ${L.map((c) => { const out = outOf(c.id), od = overdue(c.id), d = MYPOS && c.lat != null ? haversine(MYPOS.lat, MYPOS.lng, c.lat, c.lng) : null; return `<div class="cd"><div class="row"><b>${esc(c.n)}</b>${c.kd ? ' <small class="kd">' + esc(c.kd) + '</small>' : ''}<span>${c.term == 'kredit' ? '<span class="chip g">Kredit</span>' : '<span class="chip">Tunai</span>'}${od ? ' <span class="chip r">Jatuh tempo</span>' : ''}</span></div><small>${esc(c.ad || 'Alamat belum diisi')}${c.ph ? ' · ' + esc(c.ph) : ''}${c.sl ? ' · Sales: ' + esc(c.sl) : ''}${d != null ? ' · ' + distStr(d) : ''}</small>${c.term == 'kredit' ? `<div class="row"><small>Limit ${rp(c.lim)} · Piutang ${rp(out)}</small><b class="${c.lim - out < 0 ? 'rd' : 'gr'}">Sisa ${rp(c.lim - out)}</b></div>` : out ? `<small class="or">Piutang ${rp(out)}</small>` : ''}<div class="wrap" style="margin-top:8px"><button class="gh a" onclick="orderFor('${c.id}')">Order</button><button class="gh" onclick="visitOutlet('${c.id}')">${pkgHas('cek') && can('cek') && (openCI(U.n) || {}).cid == c.id ? 'Check-out' : 'Check-in'}</button>${c.lat != null ? `<a class="gh" style="text-decoration:none;color:inherit" href="${esc(mapsUrl(c))}" target="_blank" rel="noopener">Navigasi</a>` : ''}<button class="gh" onclick="outletDetail('${c.id}')">Detail</button></div></div>`; }).join('') || '<div class="cd mu">Belum ada outlet. Tambahkan toko langganan pertama Anda.</div>'}`;
 };
@@ -38,10 +38,10 @@ function outletForm(id, cb) {
   const c = id ? cust(id) : null, boss = U.r == 'owner';
   let loc = c && c.lat != null ? { lat: c.lat, lng: c.lng } : null;
   const m = modal(`<h3>${c ? 'Edit' : 'Tambah'} outlet / toko langganan</h3>
-${c ? '' : `<div class="sugh"><div class="row" style="margin:0"><b>💡 Potensi outlet baru di sekitar</b><select id="srad" style="width:auto;padding:5px 8px">${[1000, 3000, 5000, 10000].map((r) => `<option value="${r}" ${r == (SCAN.fr || 10000) ? 'selected' : ''}>${r / 1000} km</option>`).join('')}</select></div><small class="mu">Toko dari peta di sekitar titik GPS Anda yang belum jadi outlet. Ketuk untuk mengisi formulir otomatis.</small><div id="sug" class="sug"><p class="mu">📡 Mengambil lokasi GPS…</p></div></div>`}
+
 <input id="on" placeholder="Nama toko *" value="${esc(c ? c.n : '')}"><div class="fm2"><input id="op" type="tel" placeholder="Telepon / WA" value="${esc(c ? c.ph || '' : '')}"><input id="oa" placeholder="Alamat" value="${esc(c ? c.ad || '' : '')}"></div><input id="oc" placeholder="Catatan" value="${esc(c ? c.note || '' : '')}">
 <div><b>Titik lokasi</b> <small class="mu">ketuk peta atau geser pin</small></div><div class="map" id="fmap"></div>
-<div class="fm2"><input id="ola" type="number" step="any" placeholder="Latitude" value="${loc ? loc.lat : ''}"><input id="oln" type="number" step="any" placeholder="Longitude" value="${loc ? loc.lng : ''}"></div><button class="gh" id="gps">📍 Pakai lokasi saya sekarang</button>
+<div class="fm2"><input id="ola" type="number" step="any" placeholder="Latitude" value="${loc ? loc.lat : ''}"><input id="oln" type="number" step="any" placeholder="Longitude" value="${loc ? loc.lng : ''}"></div><button class="gh a" id="gps">📍 Ambil titik GPS outlet (akurat)</button><small id="gacc" class="mu">Berdiri tepat di depan pintu outlet saat mengambil titik. Pin bisa digeser bila perlu.</small>
 ${boss ? `<div class="seg"><button data-t="cash" class="${!c || c.term != 'kredit' ? 'a' : ''}">Tunai saja</button><button data-t="kredit" class="${c && c.term == 'kredit' ? 'a' : ''}">Boleh kredit</button></div><div class="fm2" id="kr"><input id="ol" type="number" placeholder="Limit kredit (Rp)" value="${c ? c.lim || '' : ''}"><input id="ot" type="number" placeholder="Tempo (hari)" value="${c ? c.tempo || S.set.tempo : S.set.tempo || 30}"></div>` : `<small class="mu">${c ? '' : 'Outlet baru dimulai sebagai tunai saja. '}Fasilitas kredit & limit hanya diatur oleh pemilik toko (owner).</small>`}${MGR(U.r) ? `<select id="os"><option value="">— sales penanggung jawab —</option>${salesNames().map((n) => `<option ${c && c.sl == n ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>` : ''}
 <button class="pr" id="ok">Simpan</button>${c && boss ? '<button class="gh d" id="del">Hapus outlet</button>' : ''}`, 'w');
   let term = c ? c.term : 'cash', mk = null, mp = null;
@@ -51,7 +51,17 @@ ${boss ? `<div class="seg"><button data-t="cash" class="${!c || c.term != 'kredi
   $('#ola', m).onchange = sync2; $('#oln', m).onchange = sync2;
   let from = '', sugLy = null, SG = [];
   const fillAddr = async (p) => { if ($('#oa', m).value.trim()) return; const a = await revGeo(p); if (a && !$('#oa', m).value.trim()) $('#oa', m).value = a; };
-  const gpsNow = async (quiet) => { if (!quiet) toast('Mengambil lokasi…', 1500); const p = await getPos(); if (!p) { if (!quiet) toast('GPS tidak tersedia. Aktifkan lokasi & izinkan aplikasi.'); return null; } MYPOS = p; setLoc(p.lat, p.lng, true); fillAddr(p); return p; };
+  let gpsBusy = false, gAcc = null;
+  const gpsNow = async (quiet) => {
+    if (gpsBusy) return; gpsBusy = true; const b = $('#gps', m); if (b) { b.disabled = true; b.textContent = '📡 Mengunci GPS… tetap diam di depan outlet'; }
+    const p = await precisePos(15, 20000, (x, n) => { const bb = $('#gps', m); if (bb) bb.textContent = '📡 Akurasi ±' + Math.round(x.acc || 0) + ' m · ' + n + ' pembacaan…'; if (!loc || (x.acc || 1e9) < (gAcc || 1e9)) setLoc(x.lat, x.lng, true); });
+    gpsBusy = false; const bb = $('#gps', m);
+    if (!p) { if (bb) { bb.disabled = false; bb.textContent = '📍 Ambil titik GPS outlet (akurat)'; } if (!quiet) toast('GPS tidak terbaca. Nyalakan Lokasi (mode akurasi tinggi) & izinkan aplikasi, lalu coba di luar ruangan.', 6000); return null; }
+    gAcc = Math.round(p.acc || 0); MYPOS = p; setLoc(p.lat, p.lng, true); fillAddr(p);
+    if (bb) { bb.disabled = false; bb.innerHTML = (gAcc <= 25 ? '✅' : gAcc <= 60 ? '⚠️' : '❌') + ' Titik terkunci · akurasi ±' + gAcc + ' m · <u>ulangi</u>'; }
+    const h = $('#gacc', m); if (h) h.innerHTML = gAcc <= 25 ? '<span class="gr">Akurasi sangat baik.</span>' : gAcc <= 60 ? '<span class="or">Akurasi cukup. Untuk lebih tepat, berdiri di luar bangunan lalu ulangi.</span>' : '<span class="rd">Akurasi buruk (±' + gAcc + ' m). Keluar ruangan / dekati jalan, nyalakan mode akurasi tinggi, lalu ulangi.</span>';
+    return p;
+  };
   $('#gps', m).onclick = () => gpsNow();
   const pick = (i) => { const x = SG[i]; if (!x) return; $('#on', m).value = x.n; if (x.ph) $('#op', m).value = x.ph; $('#oa', m).value = x.ad || ''; from = 'Dari peta: ' + (SHOPT[x.type] || x.type || 'toko'); if (!$('#oc', m).value) $('#oc', m).value = from; setLoc(x.lat, x.lng, true); if (!x.ad) fillAddr(x); $$('#sug button', m).forEach((b) => b.classList.toggle('on', +b.dataset.i == i)); toast('Diisi dari peta: ' + x.n); };
   const loadSug = async () => {
@@ -66,11 +76,14 @@ ${boss ? `<div class="seg"><button data-t="cash" class="${!c || c.term != 'kredi
     const ga = $('#sgall', m); if (ga) ga.onclick = () => { m.close(); SCAN.r = SCAN.fr; scanOutlets(true); };
     if (mp) { if (sugLy) mp.removeLayer(sugLy); sugLy = window.L.featureGroup(SG.map((x, i) => window.L.circleMarker([x.lat, x.lng], { radius: 6, color: '#fff', weight: 2, fillColor: '#ff5d73', fillOpacity: 0.9 }).bindTooltip(esc(x.n)).on('click', () => pick(i)))).addTo(mp); }
   };
-  if (!c) { $('#srad', m).onchange = loadSug; loadSug(); }
+  if (!c && !loc) gpsNow(true); // outlet baru: langsung ambil titik GPS akurat
   $$('.seg button', m).forEach((b) => (b.onclick = () => { term = b.dataset.t; $$('.seg button', m).forEach((x) => x.classList.toggle('a', x == b)); $('#kr', m).style.display = term == 'kredit' ? 'grid' : 'none'; }));
   if (boss) $('#kr', m).style.display = term == 'kredit' ? 'grid' : 'none';
   $('#ok', m).onclick = () => {
     const n = $('#on', m).value.trim(); if (!n) return toast('Nama toko wajib diisi');
+    if (loc && !posOk(loc)) return toast('Titik GPS tidak valid (0,0). Ambil ulang titik GPS outlet.');
+    if (!c && !loc && !confirm('Outlet belum punya titik GPS. Check-in dan pengantaran butuh titik. Simpan tanpa titik?')) return;
+    if (gAcc > 60 && !confirm('Akurasi titik GPS masih ±' + gAcc + ' m (kurang tepat). Tetap simpan?')) return;
     const d = { id: c ? c.id : 'c' + uid(), n, ph: $('#op', m).value.trim(), ad: $('#oa', m).value.trim(), note: $('#oc', m).value.trim(), lat: loc ? loc.lat : null, lng: loc ? loc.lng : null };
     if (boss) { d.term = term; d.lim = term == 'kredit' ? num($('#ol', m).value) : 0; d.tempo = num($('#ot', m).value) || 30; }
     if (MGR(U.r) && $('#os', m)) d.sl = $('#os', m).value;

@@ -23,16 +23,31 @@ async function shareText(title, text) {
   try { await navigator.clipboard.writeText(text); toast('Teks disalin'); } catch (e) { toast('Tidak bisa membagikan'); }
 }
 
-// Lokasi GPS: {lat,lng,acc} atau null
-async function getPos(fresh) {
+// Lokasi GPS: {lat,lng,acc} atau null. Koordinat tidak valid (0,0 / di luar jangkauan) ditolak —
+// beberapa HP Android sesaat memberi 0,0 saat GPS belum "fix", yang membuat jarak terbaca ribuan km.
+const posOk = (p) => !!p && Number.isFinite(p.lat) && Number.isFinite(p.lng) && Math.abs(p.lat) <= 90 && Math.abs(p.lng) <= 180 && !(Math.abs(p.lat) < 0.01 && Math.abs(p.lng) < 0.01);
+async function getPos1(fresh) {
   const G = plug('Geolocation');
   if (isNative() && G) {
-    try { if (G.requestPermissions) await G.requestPermissions(); const p = await G.getCurrentPosition({ enableHighAccuracy: true, timeout: 12000, maximumAge: fresh ? 0 : 10000 }); return { lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy }; } catch (e) { console.warn(e); }
+    try { if (G.requestPermissions) await G.requestPermissions(); const p = await G.getCurrentPosition({ enableHighAccuracy: true, timeout: 15000, maximumAge: fresh ? 0 : 10000 }); const r = { lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy }; if (posOk(r)) return r; } catch (e) { console.warn(e); }
   }
   return new Promise((ok) => {
     if (!navigator.geolocation) return ok(null);
-    navigator.geolocation.getCurrentPosition((p) => ok({ lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy }), () => ok(null), { enableHighAccuracy: true, timeout: 12000, maximumAge: fresh ? 0 : 20000 });
+    navigator.geolocation.getCurrentPosition((p) => { const r = { lat: p.coords.latitude, lng: p.coords.longitude, acc: p.coords.accuracy }; ok(posOk(r) ? r : null); }, () => ok(null), { enableHighAccuracy: true, timeout: 15000, maximumAge: fresh ? 0 : 20000 });
   });
+}
+async function getPos(fresh) { for (let i = 0; i < 3; i++) { const p = await getPos1(fresh || i > 0); if (p) return p; await new Promise((r) => setTimeout(r, 1200)); } return null; }
+// Titik paling akurat: pantau GPS sampai akurasi ≤ target meter (atau batas waktu), ambil rata-rata dari pembacaan terbaik.
+async function precisePos(target = 15, maxMs = 20000, onUpd) {
+  const fixes = [], t0 = Date.now(); let best = null;
+  while (Date.now() - t0 < maxMs) {
+    const p = await getPos1(true); if (p) { fixes.push(p); if (!best || (p.acc || 1e9) < (best.acc || 1e9)) best = p; onUpd && onUpd(best, fixes.length); if ((best.acc || 1e9) <= target && fixes.length >= 2) break; }
+    await new Promise((r) => setTimeout(r, 900));
+  }
+  if (!best) return null;
+  const good = fixes.filter((f) => (f.acc || 1e9) <= Math.max(10, (best.acc || 0) * 1.5)), w = good.reduce((a, f) => a + 1 / Math.max(1, f.acc || 1) ** 2, 0);
+  const lat = good.reduce((a, f) => a + f.lat / Math.max(1, f.acc || 1) ** 2, 0) / w, lng = good.reduce((a, f) => a + f.lng / Math.max(1, f.acc || 1) ** 2, 0) / w;
+  return { lat, lng, acc: best.acc, n: fixes.length };
 }
 
 /* ============ scan barcode ============ */
