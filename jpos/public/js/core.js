@@ -83,7 +83,7 @@ addEventListener('pagehide', flushSave); document.addEventListener('visibilitych
 function loadStore(id) { const s = LS.get('jpos:s:' + id, null); if (!s) return false; SID = id; S = s; for (const k of ['p', 'c', 'sales', 'j', 'ap', 'att', 'users', 'eq', 'cq', 'hold', 'staff', 'sup', 'po', 'kn', 'rtr', 'bst']) S[k] = S[k] || []; S.done = S.done || {}; S.pend = S.pend || {}; S.cs = S.cs || {}; S.set = Object.assign({ ppn: 11, tempo: 30, jin: '08:00' }, S.set || {});
   { const old = Date.now() - 14 * 864e5; S.att.forEach((a) => { if (a.ph && a.t < old) delete a.ph; }); S.sales.forEach((x) => { if (x.dl) x.dl.log.forEach((l) => { if (l.ph && l.t < old) delete l.ph; }); }); } // foto bukti lama dibuang agar penyimpanan HP tidak penuh
   if (!S.v4) { const o = S.users.find((u) => u.r == 'admin'); if (o && !S.users.some((u) => u.r == 'owner')) o.r = 'owner'; S.v4 = 1; }
-  kdFill(); return true; }
+  S.c.forEach((c) => { if (c.lat != null && Math.abs(c.lat) < 0.01 && Math.abs(c.lng) < 0.01) { c.lat = null; c.lng = null; } }); kdFill(); return true; }
 
 /* ============ akuntansi (hasil putar ulang kejadian) ============ */
 const prod = (id) => S.p.find((x) => x.id == id);
@@ -183,6 +183,8 @@ const Ap = {
   cu(e) {
     const q = e.c || {}; if (!/^[\w-]{1,40}$/.test(String(q.id))) return; let c = cust(q.id);
     if (!c) { c = { id: q.id, n: '', ph: '', ad: '', lat: null, lng: null, term: 'cash', lim: 0, tempo: S.set.tempo || 30, sl: e.r == 'sales' ? e.u : '', note: '', t: e.t }; c.kd = kdOk(q.kd, S.c, c) ? String(q.kd).toUpperCase() : nextKd('OT', S.c); S.c.push(c); }
+    if ('lat' in q && q.lat != null && !(Math.abs(+q.lat) <= 90 && Math.abs(+q.lng) <= 180 && !(Math.abs(+q.lat) < 0.01 && Math.abs(+q.lng) < 0.01))) { q.lat = null; q.lng = null; } // titik 0,0 = GPS belum terkunci → abaikan
+    if (c.lat != null && Math.abs(c.lat) < 0.01 && Math.abs(c.lng) < 0.01) { c.lat = null; c.lng = null; }
     for (const f of ['n', 'ph', 'ad', 'lat', 'lng', 'note']) { if ((f == 'lat' || f == 'lng') && c.lat != null && !MGR(e.r)) continue; if (f in q) c[f] = q[f]; } // titik outlet yang sudah ada hanya bisa diubah owner/admin/akuntan
     if (MGR(e.r) && 'sl' in q) c.sl = q.sl;
     if (e.r == 'owner') for (const f of ['term', 'lim', 'tempo', 'x']) if (f in q) c[f] = q[f]; // hanya pemilik yang mengatur kredit
