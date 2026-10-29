@@ -10,9 +10,10 @@ const needAct = (o) => ['nego', 'baru', 'acc_kredit'].includes(o.status);
 
 // katalog: dikirim otomatis ke pasar online setiap ada perubahan produk/stok (owner/admin/akuntan, online)
 function publishCatalog(force) {
-  if (!S || !S.srv || !U || !MGR(U.r) || !canNet() || !TK() || isExp()) return;
+  if (!S || !S.srv || !U || !(U.r == 'owner' || U.r == 'admin') || !pkgHas('onl') || !canNet() || !TK() || isExp()) return;
   clearTimeout(ONL.pubT);
   ONL.pubT = setTimeout(async () => {
+    if (!U || !(U.r == 'owner' || U.r == 'admin')) return;
     const items = S.p.filter((p) => !p.x && p.on !== false).map((p) => ({ id: p.id, n: p.n, c: p.c, pr: p.pr, opr: p.opr || 0, st: Math.max(0, p.st), img: p.img || '', sku: p.sku || '', u: p.u || '' }));
     const key = 'jpos:cat2:' + SID, h = String(items.length) + ':' + (await sha(JSON.stringify(items))).slice(0, 16);
     if (!force && LS.get(key, '') == h) return;

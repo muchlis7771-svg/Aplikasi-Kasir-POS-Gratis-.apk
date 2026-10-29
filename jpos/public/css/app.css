@@ -292,3 +292,28 @@ table tr:hover td{background:#5b4cdb08}
 .lo .gh.big{border-radius:14px;padding:13px}
 .lnk{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:4px}
 .srvpill{display:inline-flex;align-items:center;gap:6px;font-size:12px;background:var(--cd);border:1px solid var(--bd);border-radius:99px;padding:6px 12px;margin:2px auto 0;box-shadow:var(--sh)}
+/* ===== v10: pembelian, buku kas, pengantaran, hak akses, audit + polesan high-class ===== */
+.kq{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}.kq button{padding:13px 8px;border-radius:15px;font-weight:700;font-size:13.5px}
+@media(min-width:760px){.kq{grid-template-columns:repeat(4,1fr)}}
+.pmt{border-collapse:separate;border-spacing:0;min-width:100%}.pmt th{font-size:11px;padding:6px 4px;position:sticky;top:0;background:var(--cd);color:var(--mu);font-weight:700}
+.pmt td{padding:9px 2px;border-top:1px solid var(--bd);font-size:13px}.pmt td:first-child,.pmt th:first-child{position:sticky;left:0;background:var(--cd);z-index:1;min-width:112px;text-align:left;padding-right:6px}
+.pmt td.c,.pmt th.c{text-align:center}.pmt tr.gh2 td{background:color-mix(in srgb,var(--ac) 8%,var(--cd));font-size:12px;padding:6px 8px;border-top:0}
+.pmt input[type=checkbox]{accent-color:var(--ac)}
+details.pkg{border:1px solid var(--bd);border-radius:14px;padding:10px 12px;background:color-mix(in srgb,var(--ac) 3%,var(--cd))}details.pkg summary{cursor:pointer;list-style:none}
+details.pkg[open]{border-color:var(--ac)}
+.cd details summary{cursor:pointer}
+.chip.g input{accent-color:var(--gr)}
+main>*{animation:rise .38s cubic-bezier(.2,.7,.2,1) both}main>*:nth-child(2){animation-delay:.04s}main>*:nth-child(3){animation-delay:.08s}main>*:nth-child(4){animation-delay:.12s}main>*:nth-child(n+5){animation-delay:.16s}
+@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){main>*{animation:none}}
+body:not(.buyer) .cd:active{transform:scale(.995)}
+body:not(.buyer) button.gh{border-radius:12px;font-weight:600;transition:background .15s,transform .1s}body:not(.buyer) button.gh:active,body:not(.buyer) .pr:active{transform:scale(.97)}
+body:not(.buyer) .pr{border-radius:14px;letter-spacing:.01em;font-weight:700}
+body:not(.buyer) .dg{border-radius:24px;box-shadow:0 24px 60px #0000004d}
+body:not(.buyer) .md{backdrop-filter:blur(3px)}
+.pt h2{letter-spacing:-.02em}
+::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--mu) 40%,transparent);border-radius:9px}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]) body:not(.buyer){background:radial-gradient(900px 500px at 90% -10%,#5b4cdb22,transparent 60%),radial-gradient(700px 400px at -10% 110%,#00c2a814,transparent 60%),var(--bg)}}
+:root[data-theme="dark"] body:not(.buyer){background:radial-gradient(900px 500px at 90% -10%,#5b4cdb22,transparent 60%),radial-gradient(700px 400px at -10% 110%,#00c2a814,transparent 60%),var(--bg)}
+.chip.o{background:#ff9f4322;color:var(--or)}
+.je img{border:1px solid var(--bd)}

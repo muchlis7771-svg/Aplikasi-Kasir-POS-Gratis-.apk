@@ -1,8 +1,8 @@
 'use strict';
 const VW = {};
 /* ============ KASIR / ORDER ============ */
-let cart = [], cCd = '', cPay = 'Tunai', cCu = '', cDp = 0, cDpm = 'Tunai', cNote = '', pQ = '', pCat = '';
-const resetCart = () => { cart = []; cCd = ''; cPay = 'Tunai'; cCu = ''; cDp = 0; cDpm = 'Tunai'; cNote = ''; };
+let cart = [], cCd = '', cPay = 'Tunai', cCu = '', cDp = 0, cDpm = 'Tunai', cNote = '', cKr = false, pQ = '', pCat = '';
+const resetCart = () => { cart = []; cCd = ''; cPay = 'Tunai'; cCu = ''; cDp = 0; cDpm = 'Tunai'; cNote = ''; cKr = false; };
 const actProds = () => S.p.filter((p) => !p.x);
 const bySku = (v) => S.p.find((p) => !p.x && p.sku && String(p.sku).toLowerCase() == String(v).trim().toLowerCase());
 const tierTxt = (p) => (p.tiers || []).slice().sort((a, b) => a.min - b.min).map((t) => '≥' + t.min + ': ' + t.d + '%').join(' · ');
@@ -25,6 +25,8 @@ function cartH() {
   h += r.lines.length ? r.lines.map((l) => { const ci = cart.find((x) => x.id == l.id); return `<div class="ci"><div class="t"><b>${esc(l.n)}</b><b>${rp(l.p * l.q - l.dd)}</b></div><small>${rp(l.p)} × ${l.q}${l.dd ? ` · diskon ${rp(l.dd)}${l.tier ? ' (grosir ' + esc(l.tier) + '%)' : ''}` : ''}</small><div class="qt" style="margin-top:6px"><button onclick="pstep('${l.id}',-1)">−</button><input type="number" min="1" value="${l.q}" onchange="pset('${l.id}',this.value)"><button onclick="pstep('${l.id}',1)">+</button><input placeholder="Disk % (5+2)" value="${esc(ci.ld || '')}" onchange="pld('${l.id}',this.value)" style="flex:1"><button onclick="pdel('${l.id}')">✕</button></div></div>`; }).join('') : '<p class="mu">Belum ada item. Ketuk produk atau scan barcode.</p>';
   h += `<div class="wrap" style="margin-top:8px"><select style="flex:1" onchange="pcu(this.value)"><option value="">${U.r == 'sales' ? '— pilih outlet —' : 'Pelanggan umum'}</option>${outs.map((c) => `<option value="${c.id}" ${cCu == c.id ? 'selected' : ''}>${esc(c.n)}${c.term == 'kredit' ? ' ★' : ''}</option>`).join('')}</select><button class="gh" onclick="outletForm(null,function(id){pcu(id);R()})">+ Outlet</button></div>${creditInfo()}`;
   h += `<div class="seg">${['Tunai', 'QRIS', 'Transfer', 'Piutang'].map((m) => `<button class="${cPay == m ? 'a' : ''}" onclick="ppay('${m}')">${m == 'Piutang' ? 'Kredit' : m}</button>`).join('')}</div>`;
+  if (pkgHas('kirim') && S.srv && cCu) h += `<label class="row" style="margin:6px 0"><span>🚚 Diantar tim dropping${cKr && cPay != 'Piutang' ? '<br><small class="or">Dibayar ' + cPay + ' saat barang tiba (ditagih dropping)</small>' : ''}</span><input type="checkbox" style="width:auto" ${cKr ? 'checked' : ''} onchange="cKr=this.checked;cartUp()"></label>`;
+  if (ciNeeded() && U.r == 'sales' && cCu) { const cur = openCI(U.n); h += cur && cur.cid == cCu ? `<small class="gr">📍 Check-in aktif di outlet ini</small>` : `<div class="row" style="margin:6px 0"><small class="rd">Belum check-in di outlet ini</small><button class="gh a" onclick="checkIn('${cCu}').then(cartUp)">Check-in</button></div>`; }
   if (cPay == 'Piutang') h += `<div class="fm2"><input type="number" placeholder="DP dibayar (opsional)" value="${cDp || ''}" onchange="cDp=num(this.value);cartUp()"><select onchange="cDpm=this.value"><option ${cDpm == 'Tunai' ? 'selected' : ''}>Tunai</option><option ${cDpm == 'Transfer' ? 'selected' : ''}>Transfer</option><option ${cDpm == 'QRIS' ? 'selected' : ''}>QRIS</option></select></div>`;
   h += `<div class="fm2" style="margin-top:6px"><input placeholder="Diskon total % (mis. 5+2)" value="${esc(cCd)}" onchange="cCd=this.value;cartUp()"><input placeholder="Catatan" value="${esc(cNote)}" onchange="cNote=this.value"></div>`;
   h += `<div class="tt" style="margin-top:8px">${row('Subtotal', rp(r.sub))}${row('Diskon item', rp(-r.ldt))}${r.cdA ? row('Diskon total', rp(-r.cdA)) : ''}${row('PPN ' + (S.set.ppn || 0) + '%', rp(r.tax))}<h2>${rp(r.tot)}</h2></div>`;
@@ -57,11 +59,11 @@ const pld = (id, v) => { const c = cart.find((x) => x.id == id); if (c) c.ld = v
 const pcu = (id) => { cCu = id; if (!id && cPay == 'Piutang') cPay = 'Tunai'; cartUp(); };
 const ppay = (m) => { cPay = m; cartUp(); };
 function scanAdd() { scanCode((v) => { const p = bySku(v); if (p) { padd(p.id); toast('+ ' + p.n, 1200); } else toast('SKU belum terdaftar: ' + v, 3000); }, { multi: true }); }
-function ptahan() { if (!cart.length) return toast('Keranjang kosong'); S.hold.push({ cart, cCd, cPay, cCu, cDp, cDpm, cNote, t: Date.now() }); resetCart(); save(); cartUp(); toast('Transaksi ditahan'); }
-function planjut() { if (!S.hold.length) return toast('Tidak ada transaksi ditahan'); if (cart.length && !confirm('Keranjang saat ini akan diganti. Lanjutkan?')) return; const h = S.hold.pop(); ({ cart, cCd, cPay, cCu, cDp, cDpm, cNote } = h); save(); cartUp(); }
+function ptahan() { if (!cart.length) return toast('Keranjang kosong'); S.hold.push({ cart, cCd, cPay, cCu, cDp, cDpm, cNote, cKr, t: Date.now() }); resetCart(); save(); cartUp(); toast('Transaksi ditahan'); }
+function planjut() { if (!S.hold.length) return toast('Tidak ada transaksi ditahan'); if (cart.length && !confirm('Keranjang saat ini akan diganti. Lanjutkan?')) return; const h = S.hold.pop(); ({ cart, cCd, cPay, cCu, cDp, cDpm, cNote } = h); cKr = !!h.cKr; save(); cartUp(); }
 function pbayar() {
   try {
-    const s = mkSale({ items: cart.map((i) => ({ id: i.id, q: i.q, ld: i.ld })), cd: cCd, pay: cPay, cu: cCu, dpay: cDp, dpm: cDpm, note: cNote });
+    const s = mkSale({ items: cart.map((i) => ({ id: i.id, q: i.q, ld: i.ld })), cd: cCd, pay: cPay, cu: cCu, dpay: cDp, dpm: cDpm, note: cNote, kirim: cKr });
     resetCart(); R(); receipt(s); if (PRN.auto) printReceipt(s);
   } catch (e) { if (e.message != 'Dibatalkan') toast(e.message, 5000); }
 }
@@ -73,13 +75,13 @@ function receiptText(s) {
   L.push('-'.repeat(28), 'Subtotal ' + rp(s.sub));
   if (s.disc) L.push('Diskon ' + rp(-s.disc));
   if (s.tax) L.push('PPN ' + rp(s.tax));
-  L.push('TOTAL ' + rp(s.tot), 'Bayar: ' + (s.pay == 'Piutang' ? 'Kredit' : s.pay));
+  L.push('TOTAL ' + rp(s.tot), 'Bayar: ' + (s.cod ? 'Tunai saat barang tiba (' + (s.cm || 'Tunai') + ')' : s.pay == 'Piutang' ? 'Kredit' : s.pay));
   if (s.pay == 'Piutang') L.push('Dibayar ' + rp(s.pa || 0), 'Sisa ' + rp(sOut(s)), 'Jatuh tempo ' + dstr(s.due));
   L.push('', 'Terima kasih 🙏'); return L.join('\n');
 }
 function receipt(s) {
   s = S.sales.find((x) => x.no == s.no) || s;
-  const m = modal(`<div class="rc"><h3>◆ ${esc(S.name || 'J-POS')}</h3><small>${esc(S.set.addr || '')}${S.set.tel ? ' · ' + esc(S.set.tel) : ''}<br>${esc(s.no)} · ${tstr(s.t)}<br>Kasir: ${esc(s.u)}${s.cn ? ' · ' + esc(s.cn) : ''}</small><hr>${s.L.map((i) => `<p><span>${esc(i.n)} ×${i.q}${i.rq ? ` <small class="rd">(retur ${i.rq})</small>` : ''}${i.dd ? `<br><small>diskon ${rp(i.dd)}</small>` : ''}</span><b>${rp(i.p * i.q - i.dd)}</b></p>`).join('')}<hr><p>Subtotal<b>${rp(s.sub)}</b></p>${s.disc ? `<p>Diskon<b>${rp(-s.disc)}</b></p>` : ''}${s.tax ? `<p>PPN<b>${rp(s.tax)}</b></p>` : ''}<h2>${rp(s.tot)}</h2><small>${s.pay == 'Piutang' ? 'Kredit · dibayar ' + rp(s.pa || 0) + ' · sisa ' + rp(sOut(s)) + ' · tempo ' + dstr(s.due) : esc(s.pay)}${s.rtot ? ' · retur ' + rp(s.rtot) : ''}${s.note ? '<br>Catatan: ' + esc(s.note) : ''}</small></div><button class="pr" id="rp">🖨️ Cetak struk</button><div class="fm2"><button class="gh" id="rs">Bagikan</button><button class="gh" id="rx">Tutup</button></div>${sOut(s) > 0 ? `<button class="gh a" id="rpay">Terima pembayaran</button>` : ''}${can('retur') && s.L.some((i) => i.q > (i.rq || 0)) ? `<button class="gh d" id="rret">Retur barang</button>` : ''}`);
+  const m = modal(`<div class="rc"><h3>◆ ${esc(S.name || 'J-POS')}</h3><small>${esc(S.set.addr || '')}${S.set.tel ? ' · ' + esc(S.set.tel) : ''}<br>${esc(s.no)} · ${tstr(s.t)}<br>Kasir: ${esc(s.u)}${s.cn ? ' · ' + esc(s.cn) : ''}</small><hr>${s.L.map((i) => `<p><span>${esc(i.n)} ×${i.q}${i.rq ? ` <small class="rd">(retur ${i.rq})</small>` : ''}${i.dd ? `<br><small>diskon ${rp(i.dd)}</small>` : ''}</span><b>${rp(i.p * i.q - i.dd)}</b></p>`).join('')}<hr><p>Subtotal<b>${rp(s.sub)}</b></p>${s.disc ? `<p>Diskon<b>${rp(-s.disc)}</b></p>` : ''}${s.tax ? `<p>PPN<b>${rp(s.tax)}</b></p>` : ''}<h2>${rp(s.tot)}</h2><small>${s.cod ? 'Bayar saat diantar (' + esc(s.cm || 'Tunai') + ') · sisa ' + rp(sOut(s)) : s.pay == 'Piutang' ? 'Kredit · dibayar ' + rp(s.pa || 0) + ' · sisa ' + rp(sOut(s)) + ' · tempo ' + dstr(s.due) : esc(s.pay)}${s.rtot ? ' · retur ' + rp(s.rtot) : ''}${s.note ? '<br>Catatan: ' + esc(s.note) : ''}</small></div><button class="pr" id="rp">🖨️ Cetak struk</button><div class="fm2"><button class="gh" id="rs">Bagikan</button><button class="gh" id="rx">Tutup</button></div>${sOut(s) > 0 ? `<button class="gh a" id="rpay">Terima pembayaran</button>` : ''}${can('retur') && s.L.some((i) => i.q > (i.rq || 0)) ? `<button class="gh d" id="rret">Retur barang</button>` : ''}`);
   $('#rp', m).onclick = () => printMenu(s);
   $('#rx', m).onclick = () => m.close(); $('#rs', m).onclick = () => shareText('Struk ' + s.no, receiptText(s));
   const pb = $('#rpay', m); if (pb) pb.onclick = () => { m.close(); payModal(s.no); };
