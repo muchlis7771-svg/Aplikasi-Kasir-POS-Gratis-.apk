@@ -6,7 +6,7 @@ export const RSCHEMA = [
   'CREATE TABLE IF NOT EXISTS snap(store_id TEXT PRIMARY KEY,t INTEGER,data TEXT)',
   'CREATE TABLE IF NOT EXISTS rptlog(store_id TEXT NOT NULL,day TEXT NOT NULL,kind TEXT NOT NULL,t INTEGER,res TEXT,PRIMARY KEY(store_id,day,kind))',
 ];
-export const RALTER = ['stores ADD COLUMN rpt TEXT', 'buyers ADD COLUMN kind TEXT', 'buyers ADD COLUMN kname TEXT', 'buyers ADD COLUMN kvis INTEGER DEFAULT 0'];
+export const RALTER = ['stores ADD COLUMN rpt TEXT', 'buyers ADD COLUMN kind TEXT', 'buyers ADD COLUMN kname TEXT', 'buyers ADD COLUMN kvis INTEGER DEFAULT 0', 'catalog ADD COLUMN tiers TEXT', 'catalog ADD COLUMN kd TEXT', 'catalog ADD COLUMN br TEXT', 'buyers ADD COLUMN sid TEXT'];
 
 const rp = (n) => 'Rp' + Math.round(n || 0).toLocaleString('id-ID');
 const pad = (n) => String(n).padStart(2, '0');

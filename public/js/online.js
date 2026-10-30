@@ -14,7 +14,7 @@ function publishCatalog(force) {
   clearTimeout(ONL.pubT);
   ONL.pubT = setTimeout(async () => {
     if (!U || !(U.r == 'owner' || U.r == 'admin')) return;
-    const items = S.p.filter((p) => !p.x && p.on !== false).map((p) => ({ id: p.id, n: p.n, c: p.c, pr: p.pr, opr: p.opr || 0, st: Math.max(0, p.st), img: p.img || '', sku: p.sku || '', u: p.u || '' }));
+    const items = S.p.filter((p) => !p.x && p.on !== false).map((p) => ({ id: p.id, n: p.n, c: p.c, pr: p.pr, opr: p.opr || 0, st: Math.max(0, p.st), img: p.img || '', sku: p.sku || '', u: p.u || '', kd: p.kd || '', b: p.b || '', t: (p.tiers || []).filter((t) => t.min > 1).map((t) => ({ min: t.min, d: t.d })) }));
     const key = 'jpos:cat2:' + SID, h = String(items.length) + ':' + (await sha(JSON.stringify(items))).slice(0, 16);
     if (!force && LS.get(key, '') == h) return;
     try { await post('/api/shop/catalog', { items, shop: { lat: S.set.glat, lng: S.set.glng, addr: S.set.addr || '' } }); LS.set(key, h); if (force) toast(items.length + ' produk tampil di pasar online'); } catch (e) { if (force) toast(e.message); }

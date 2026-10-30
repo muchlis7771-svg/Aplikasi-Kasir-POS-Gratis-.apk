@@ -33,11 +33,11 @@ export async function voucherDisc(env, sid, code, sub) {
   return { disc: Math.min(d, sub), code, v };
 }
 // harga produk efektif (flash sale aktif > harga online > harga toko)
-export const PSEL = (now) => `c.store_id sid,s.name sn,c.pid,c.n,c.c,c.pr,c.opr,c.st,c.img,c.unit,COALESCE(c.sold,0) sold,sh.lat,sh.lng,
+export const PSEL = (now) => `c.store_id sid,s.name sn,s.tier,c.pid,c.n,c.c,c.pr,c.opr,c.st,c.img,c.unit,c.sku,c.kd,c.br,c.tiers,COALESCE(c.sold,0) sold,sh.lat,sh.lng,
   CASE WHEN f.end>${+now} THEN f.price ELSE NULL END fsp, CASE WHEN f.end>${+now} THEN f.end ELSE NULL END fse,
   (SELECT ROUND(AVG(stars),1) FROM reviews r WHERE r.store_id=c.store_id AND r.pid=c.pid) rt,(SELECT COUNT(*) FROM reviews r WHERE r.store_id=c.store_id AND r.pid=c.pid) rc`;
 export const PJOIN = 'FROM catalog c JOIN stores s ON s.id=c.store_id JOIN shop sh ON sh.store_id=c.store_id LEFT JOIN flash f ON f.store_id=c.store_id AND f.pid=c.pid';
-export const pfix = (x, hav, lat, lng, hasLL) => { x.orig = x.opr || x.pr; x.price = x.fsp || x.orig; x.dist = hasLL && x.lat != null ? Math.round(hav(lat, lng, x.lat, x.lng)) : null; delete x.lat; delete x.lng; return x; };
+export const pfix = (x, hav, lat, lng, hasLL) => { try { x.tiers = x.tiers ? JSON.parse(x.tiers) : []; } catch (e) { x.tiers = []; } x.orig = x.opr || x.pr; x.price = x.fsp || x.orig; x.dist = hasLL && x.lat != null ? Math.round(hav(lat, lng, x.lat, x.lng)) : null; delete x.lat; delete x.lng; return x; };
 
 // ---------- pembeli: publik (boleh tanpa login) ----------
 export async function socialPublic(x, bid) {

@@ -276,6 +276,17 @@ export default {
 
       if (p == '/api/me') return J({ sid, name: uname, role, ...stInfo(me) });
 
+      // ---------- toko belanja ke grosir / distributor lain (akun pembeli milik toko) ----------
+      if (p == '/api/beli-online' && M == 'POST') {
+        if (role != 'owner' && role != 'admin') return J({ e: 'Hanya pemilik / admin yang bisa order atas nama toko' }, 403);
+        const st = await env.DB.prepare('SELECT s.name,sh.lat,sh.lng,sh.addr FROM stores s LEFT JOIN shop sh ON sh.store_id=s.id WHERE s.id=?').bind(sid).first();
+        const okl = (a, c) => Math.abs(+a) <= 90 && Math.abs(+c) <= 180 && !(Math.abs(+a) < 0.01 && Math.abs(+c) < 0.01);
+        const la = okl(b.lat, b.lng) ? +b.lat : st.lat, ln = okl(b.lat, b.lng) ? +b.lng : st.lng;
+        let by = await env.DB.prepare('SELECT * FROM buyers WHERE sid=?').bind(sid).first();
+        if (!by) { await env.DB.prepare("INSERT INTO buyers(phone,name,pin_hash,addr,lat,lng,created,kind,kname,kvis,sid) VALUES(?,?,?,?,?,?,?,'toko',?,0,?)").bind('S-' + sid, st.name, '-', String(b.addr || st.addr || '').slice(0, 200), la ?? null, ln ?? null, Date.now(), st.name, sid).run(); by = await env.DB.prepare('SELECT * FROM buyers WHERE sid=?').bind(sid).first(); }
+        else await env.DB.prepare('UPDATE buyers SET name=?,kname=?,lat=COALESCE(?,lat),lng=COALESCE(?,lng) WHERE id=?').bind(st.name, st.name, la ?? null, ln ?? null, by.id).run();
+        return J({ token: await sign(env, { bid: by.id, role: 'buyer', exp: Date.now() + 30 * DAY }), me: { id: by.id, phone: by.phone, name: st.name, addr: by.addr, lat: la ?? by.lat, lng: ln ?? by.lng, kind: 'toko', kname: st.name, sid } });
+      }
       { const mr = await mitraRoutes({ env, p, M, b, J, sid, uname, role, feats: featsOf(me, role), limited }); if (mr) return mr; }
       // ---------- peta kios terdaftar (kios yang mengizinkan tampil) untuk ditawari produk ----------
       if (p == '/api/kios' && M == 'GET') {
