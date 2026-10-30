@@ -482,3 +482,4 @@ main.gate{display:grid;place-items:center;min-height:78vh;padding:16px}
 .kgro{display:flex;flex-direction:column;gap:6px;margin-top:8px}.kgro button{display:flex;align-items:center;gap:10px;text-align:left;padding:10px;border:1px solid var(--bd);border-radius:14px;background:var(--cd)}
 .kgro em{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:var(--ac);color:#fff;font-style:normal;font-weight:800;flex:none}.kgro span{flex:1;display:flex;flex-direction:column;min-width:0}.kgro i{font-style:normal;color:var(--ac);font-weight:700;font-size:13px}
 .kdot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#f59e0b;vertical-align:middle}.kdot.g{background:#10b981}
+.kdot.b{background:#3b82f6}.dntab td,.dntab th{padding:6px 6px;font-size:12.5px}.dntab td:nth-child(2){min-width:140px}

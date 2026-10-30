@@ -1,5 +1,6 @@
 import { MSCHEMA, buyerRoutes, shopRoutes, shipCfg } from './market.js';
 import { SSCHEMA, SALTER, logAct, heartbeat, adminActivity } from './social.js';
+import { MSCH2, mitraRoutes } from './mitra.js';
 import { RSCHEMA, RALTER, rptCfg, cleanCfg, dayRange, buildDaily, sendOut, cronDaily } from './lapor.js';
 // J-POS API v4 — Cloudflare Worker + D1 (SQLite)
 // Multi-tenant: 1 toko = 1 tenant. Data bisnis = LOG KEJADIAN (tabel ev) yang diputar ulang tiap perangkat (offline-first).
@@ -24,7 +25,7 @@ const KINDS = new Set(['sale', 'pay', 'retur', 'stk', 'apay', 'opn', 'exp', 'cap
 // ---- Hak akses: tiap kejadian butuh salah satu FITUR; fitur ditentukan paket toko (Head Admin) & matrix peran (Owner) ----
 const ALWAYS = 'dash set';
 const DEFPERM = {
-  admin: 'dash pos his hisAll prod prodEdit outlet onl ana lap keu abs absAll chat retur set beli tgt tgtAll tgtSet shiftSet kiosMap',
+  admin: 'dash pos his hisAll prod prodEdit outlet onl ana lap keu abs absAll chat retur set beli tgt tgtAll tgtSet shiftSet kiosMap dnet',
   akuntan: 'dash his hisAll prod ana lap keu jur abs absAll chat set kas tgt tgtAll',
   kasir: 'dash pos his abs chat set tgt',
   sales: 'dash pos his outlet ana abs chat set cek retur tgt kiosMap',
@@ -36,13 +37,13 @@ const PKG0 = {
   // MEDIUM · GROSIR: toko grosir yang sudah punya sales — + keuangan, pembelian, toko online, hak akses, sales lapangan (check-in, analisa, dropping), target, peta kios
   standar: { n: 'Medium · Grosir', max: 15, f: 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana cek kirim terima tgt tgtAll tgtSet shiftSet kiosMap' },
   // HIGH · DISTRIBUTOR / TRADER: semua fitur — + jurnal akuntansi, absen anti-curang (selfie & wajah), audit lapangan
-  high: { n: 'High · Distributor', max: 100, f: 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana jur kirim cek terima anti aud tgt tgtAll tgtSet shiftSet kiosMap' },
+  high: { n: 'High · Distributor', max: 100, f: 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana jur kirim cek terima anti aud tgt tgtAll tgtSet shiftSet kiosMap dnet' },
 };
 const ALLF = [...new Set(Object.values(PKG0).flatMap((x) => x.f.split(' ')).concat('terima'))];
 const KNEED = { sale: ['pos'], pay: ['pos', 'keu', 'terima'], retur: ['retur'], stk: ['prodEdit', 'beli'], apay: ['keu', 'beli'], opn: ['prodEdit', 'keu'], exp: ['jur', 'keu'], jm: ['jur'], pu: ['prodEdit'], cu: ['outlet'], visit: ['outlet', 'cek'], vout: ['cek'], sup: ['beli'], po: ['beli'], rcv: ['beli'], dlv: ['kirim'], kas: ['kas'], sec: null, face: null, bst: ['prodEdit'], tgt: ['tgtSet'], shf: ['pos'], shs: ['shiftSet'], in: null, out: null, loc: null, cap: 'owner', set: 'owner' };
 const pkgAll = () => { let o = null; try { o = CFG && CFG.pkg_feat ? JSON.parse(CFG.pkg_feat) : null; } catch (e) { } const r = {}; for (const t of Object.keys(PKG0)) { const ov = o && o[t] && o[t].v >= 31 ? o[t] : null; r[t] = { ...PKG0[t], ...(ov || {}) }; } return r; }; // paket disusun ulang di v31 (Standar·Kios / Medium·Grosir / High·Distributor): setelan lama diganti default baru
 // fitur baru per versi: ikut aktif di paket & peran yang sudah disesuaikan sebelumnya
-const NEWF = [[25, 'tgt tgtAll tgtSet'], [30, 'shiftSet']], NEWR = [[25, { admin: 'tgt tgtAll tgtSet', akuntan: 'tgt tgtAll', kasir: 'tgt', sales: 'tgt' }], [30, { admin: 'shiftSet' }], [31, { admin: 'kiosMap', sales: 'kiosMap' }]];
+const NEWF = [[25, 'tgt tgtAll tgtSet'], [30, 'shiftSet']], NEWR = [[25, { admin: 'tgt tgtAll tgtSet', akuntan: 'tgt tgtAll', kasir: 'tgt', sales: 'tgt' }], [30, { admin: 'shiftSet' }], [31, { admin: 'kiosMap', sales: 'kiosMap' }], [32, { admin: 'dnet' }]];
 const newRole = (ov, role) => NEWR.filter(([vv]) => !(ov._v >= vv)).map(([, m]) => m[role] || '').join(' ');
 const pkgOf = (tier) => { const a = pkgAll(); return a[tier] || a.high; };
 const permObj = (s) => { try { const o = s.perm ? JSON.parse(s.perm) : null; return o && typeof o == 'object' ? o : {}; } catch (e) { return {}; } };
@@ -68,7 +69,7 @@ const SCHEMA = [
 let READY = null;
 function ready(env) {
   if (!READY) READY = (async () => {
-    await env.DB.batch([...SCHEMA, ...MSCHEMA, ...SSCHEMA, ...RSCHEMA].map((q) => env.DB.prepare(q)));
+    await env.DB.batch([...SCHEMA, ...MSCHEMA, ...SSCHEMA, ...RSCHEMA, ...MSCH2].map((q) => env.DB.prepare(q)));
     for (const c of [...SALTER, ...RALTER]) { try { await env.DB.prepare('ALTER TABLE ' + c).run(); } catch (e) { } }
     for (const c of ['phone TEXT', 'exp INTEGER', "plan TEXT DEFAULT 'trial'", 'note TEXT', "tier TEXT DEFAULT 'high'", 'perm TEXT']) { try { await env.DB.prepare('ALTER TABLE stores ADD COLUMN ' + c).run(); } catch (e) { } }
   })().catch((e) => { READY = null; throw e; });
@@ -275,6 +276,7 @@ export default {
 
       if (p == '/api/me') return J({ sid, name: uname, role, ...stInfo(me) });
 
+      { const mr = await mitraRoutes({ env, p, M, b, J, sid, uname, role, feats: featsOf(me, role), limited }); if (mr) return mr; }
       // ---------- peta kios terdaftar (kios yang mengizinkan tampil) untuk ditawari produk ----------
       if (p == '/api/kios' && M == 'GET') {
         if (!featsOf(me, role).includes('kiosMap')) return J({ e: 'Peta kios tersedia di paket Medium / High dan butuh hak akses Peta Kios' }, 403);
@@ -284,7 +286,8 @@ export default {
         const R0 = Math.PI / 180, hv = (a, b, c, e) => { const x = (c - a) * R0, y = (e - b) * R0, h = Math.sin(x / 2) ** 2 + Math.cos(a * R0) * Math.cos(c * R0) * Math.sin(y / 2) ** 2; return 12742000 * Math.asin(Math.sqrt(h)); };
         const mine = new Set((await env.DB.prepare('SELECT DISTINCT buyer_id b FROM orders WHERE store_id=?').bind(sid).all()).results.map((x) => x.b));
         const out = rows.map((x) => ({ ...x, dist: Math.round(hv(la, ln, x.lat, x.lng)), ord: mine.has(x.id) ? 1 : 0 })).filter((x) => x.dist <= rk * 1000).sort((a, b) => a.dist - b.dist).slice(0, 500);
-        return J({ kios: out, total: out.length });
+        const sh = (await env.DB.prepare("SELECT s.id,s.name,s.tier,sh.lat,sh.lng,sh.addr FROM stores s JOIN shop sh ON sh.store_id=s.id WHERE s.status='active' AND s.id<>? AND sh.lat BETWEEN ? AND ? AND sh.lng BETWEEN ? AND ? LIMIT 1000").bind(sid, la - d, la + d, ln - d / Math.max(0.2, Math.cos(la * Math.PI / 180)), ln + d / Math.max(0.2, Math.cos(la * Math.PI / 180))).all()).results.map((x) => ({ ...x, dist: Math.round(hv(la, ln, x.lat, x.lng)) })).filter((x) => x.lat != null && x.dist <= rk * 1000).sort((a, b) => a.dist - b.dist).slice(0, 300);
+        return J({ kios: out, total: out.length, shops: sh });
       }
 
       // ---------- laporan otomatis ke WA & email pemilik ----------
@@ -355,7 +358,7 @@ export default {
         if (EXP) return RO();
         if (M == 'PUT') {
           if (!featsOf(me, 'owner').includes('perm')) return J({ e: 'Pengaturan hak akses tersedia di paket Standar / High' }, 403);
-          const o = {}; for (const r of ROLES) { if (r == 'owner') continue; if (typeof (b.pm || {})[r] == 'string') o[r] = b.pm[r].split(' ').filter((f) => ALLF.includes(f)).join(' '); } o._v = 31;
+          const o = {}; for (const r of ROLES) { if (r == 'owner') continue; if (typeof (b.pm || {})[r] == 'string') o[r] = b.pm[r].split(' ').filter((f) => ALLF.includes(f)).join(' '); } o._v = 32;
           await env.DB.prepare('UPDATE stores SET perm=? WHERE id=?').bind(JSON.stringify(o), sid).run();
           return J({ ok: 1, pm: o });
         }
