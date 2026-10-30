@@ -24,25 +24,25 @@ const KINDS = new Set(['sale', 'pay', 'retur', 'stk', 'apay', 'opn', 'exp', 'cap
 // ---- Hak akses: tiap kejadian butuh salah satu FITUR; fitur ditentukan paket toko (Head Admin) & matrix peran (Owner) ----
 const ALWAYS = 'dash set';
 const DEFPERM = {
-  admin: 'dash pos his hisAll prod prodEdit outlet onl ana lap keu abs absAll chat retur set beli tgt tgtAll tgtSet shiftSet',
+  admin: 'dash pos his hisAll prod prodEdit outlet onl ana lap keu abs absAll chat retur set beli tgt tgtAll tgtSet shiftSet kiosMap',
   akuntan: 'dash his hisAll prod ana lap keu jur abs absAll chat set kas tgt tgtAll',
   kasir: 'dash pos his abs chat set tgt',
-  sales: 'dash pos his outlet ana abs chat set cek retur tgt',
+  sales: 'dash pos his outlet ana abs chat set cek retur tgt kiosMap',
   dropping: 'dash kirim cek terima abs chat set retur',
 };
 const PKG0 = {
-  // BIASA: toko eceran kecil — kasir, stok dasar, absen, chat
-  biasa: { n: 'Biasa', max: 3, f: 'dash pos his prod prodEdit outlet abs chat set usr' },
-  // STANDAR: + laporan, keuangan, buku kas, pembelian, Excel, toko online, backup, retur, hak akses
-  standar: { n: 'Standar', max: 10, f: 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm tgt tgtAll tgtSet shiftSet' },
-  // HIGH: + analisa, jurnal akuntansi, pengantaran/dropping, check-in outlet, anti-curang, audit
-  high: { n: 'High', max: 100, f: 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana jur kirim cek terima anti aud tgt tgtAll tgtSet shiftSet' },
+  // STANDAR · KIOS: toko kecil / kios — kasir, stok, outlet, absen, retur, buku kas, laporan dasar
+  biasa: { n: 'Standar · Kios', max: 3, f: 'dash pos his prod prodEdit outlet abs chat set usr retur kas lap xls backup shiftSet' },
+  // MEDIUM · GROSIR: toko grosir yang sudah punya sales — + keuangan, pembelian, toko online, hak akses, sales lapangan (check-in, analisa, dropping), target, peta kios
+  standar: { n: 'Medium · Grosir', max: 15, f: 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana cek kirim terima tgt tgtAll tgtSet shiftSet kiosMap' },
+  // HIGH · DISTRIBUTOR / TRADER: semua fitur — + jurnal akuntansi, absen anti-curang (selfie & wajah), audit lapangan
+  high: { n: 'High · Distributor', max: 100, f: 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana jur kirim cek terima anti aud tgt tgtAll tgtSet shiftSet kiosMap' },
 };
 const ALLF = [...new Set(Object.values(PKG0).flatMap((x) => x.f.split(' ')).concat('terima'))];
 const KNEED = { sale: ['pos'], pay: ['pos', 'keu', 'terima'], retur: ['retur'], stk: ['prodEdit', 'beli'], apay: ['keu', 'beli'], opn: ['prodEdit', 'keu'], exp: ['jur', 'keu'], jm: ['jur'], pu: ['prodEdit'], cu: ['outlet'], visit: ['outlet', 'cek'], vout: ['cek'], sup: ['beli'], po: ['beli'], rcv: ['beli'], dlv: ['kirim'], kas: ['kas'], sec: null, face: null, bst: ['prodEdit'], tgt: ['tgtSet'], shf: ['pos'], shs: ['shiftSet'], in: null, out: null, loc: null, cap: 'owner', set: 'owner' };
-const pkgAll = () => { let o = null; try { o = CFG && CFG.pkg_feat ? JSON.parse(CFG.pkg_feat) : null; } catch (e) { } const r = {}; for (const t of Object.keys(PKG0)) { r[t] = { ...PKG0[t], ...((o && o[t]) || {}) }; if (o && o[t] && t != 'biasa') for (const [vv, f] of NEWF) if (!(o[t].v >= vv)) r[t].f += ' ' + f; } return r; };
+const pkgAll = () => { let o = null; try { o = CFG && CFG.pkg_feat ? JSON.parse(CFG.pkg_feat) : null; } catch (e) { } const r = {}; for (const t of Object.keys(PKG0)) { const ov = o && o[t] && o[t].v >= 31 ? o[t] : null; r[t] = { ...PKG0[t], ...(ov || {}) }; } return r; }; // paket disusun ulang di v31 (Standar·Kios / Medium·Grosir / High·Distributor): setelan lama diganti default baru
 // fitur baru per versi: ikut aktif di paket & peran yang sudah disesuaikan sebelumnya
-const NEWF = [[25, 'tgt tgtAll tgtSet'], [30, 'shiftSet']], NEWR = [[25, { admin: 'tgt tgtAll tgtSet', akuntan: 'tgt tgtAll', kasir: 'tgt', sales: 'tgt' }], [30, { admin: 'shiftSet' }]];
+const NEWF = [[25, 'tgt tgtAll tgtSet'], [30, 'shiftSet']], NEWR = [[25, { admin: 'tgt tgtAll tgtSet', akuntan: 'tgt tgtAll', kasir: 'tgt', sales: 'tgt' }], [30, { admin: 'shiftSet' }], [31, { admin: 'kiosMap', sales: 'kiosMap' }]];
 const newRole = (ov, role) => NEWR.filter(([vv]) => !(ov._v >= vv)).map(([, m]) => m[role] || '').join(' ');
 const pkgOf = (tier) => { const a = pkgAll(); return a[tier] || a.high; };
 const permObj = (s) => { try { const o = s.perm ? JSON.parse(s.perm) : null; return o && typeof o == 'object' ? o : {}; } catch (e) { return {}; } };
@@ -206,7 +206,7 @@ export default {
             if (b.price != null) await cfgSet(env, 'price', String(b.price).slice(0, 300));
             if (b.trial_days != null) await cfgSet(env, 'trial_days', Math.max(1, Math.min(365, Math.round(+b.trial_days) || 30)));
             if (b.pkg_reset) await cfgSet(env, 'pkg_feat', '');
-            if (b.pkg && typeof b.pkg == 'object') { const cur = pkgAll(), o = {}; for (const t of Object.keys(PKG0)) { const x = b.pkg[t] || {}; o[t] = { n: String(x.n || cur[t].n).slice(0, 20), max: Math.max(1, Math.min(9999, Math.round(+x.max) || cur[t].max)), f: String(x.f != null ? x.f : cur[t].f).split(' ').filter((f) => ALLF.includes(f)).join(' '), v: 30 }; } await cfgSet(env, 'pkg_feat', JSON.stringify(o)); }
+            if (b.pkg && typeof b.pkg == 'object') { const cur = pkgAll(), o = {}; for (const t of Object.keys(PKG0)) { const x = b.pkg[t] || {}; o[t] = { n: String(x.n || cur[t].n).slice(0, 20), max: Math.max(1, Math.min(9999, Math.round(+x.max) || cur[t].max)), f: String(x.f != null ? x.f : cur[t].f).split(' ').filter((f) => ALLF.includes(f)).join(' '), v: 31 }; } await cfgSet(env, 'pkg_feat', JSON.stringify(o)); }
             if (['biasa', 'standar', 'high'].includes(b.trial_tier)) await cfgSet(env, 'trial_tier', b.trial_tier);
             // gerbang laporan otomatis: token Fonnte (WhatsApp) & API key Resend (email). Kosongkan '-' untuk menghapus.
             for (const k of ['wa_tok', 'mail_key', 'mail_from']) if (b[k] != null && String(b[k]).trim() !== '') await cfgSet(env, k, String(b[k]).trim() == '-' ? '' : String(b[k]).trim().slice(0, 200));
@@ -274,6 +274,18 @@ export default {
       const RO = () => J({ e: 'Masa aktif toko habis. Hubungi pemilik aplikasi untuk perpanjangan.', expired: 1, ...stInfo(me) }, 402);
 
       if (p == '/api/me') return J({ sid, name: uname, role, ...stInfo(me) });
+
+      // ---------- peta kios terdaftar (kios yang mengizinkan tampil) untuk ditawari produk ----------
+      if (p == '/api/kios' && M == 'GET') {
+        if (!featsOf(me, role).includes('kiosMap')) return J({ e: 'Peta kios tersedia di paket Medium / High dan butuh hak akses Peta Kios' }, 403);
+        const la = +u.searchParams.get('lat'), ln = +u.searchParams.get('lng'), rk = Math.max(1, Math.min(100, +u.searchParams.get('r') || 25));
+        if (!(Math.abs(la) <= 90 && Math.abs(ln) <= 180) || (Math.abs(la) < 0.01 && Math.abs(ln) < 0.01)) return J({ e: 'Titik lokasi tidak valid' }, 400);
+        const d = rk / 111, rows = (await env.DB.prepare("SELECT id,name,kname,phone,addr,lat,lng,created FROM buyers WHERE kind='kios' AND kvis=1 AND status='active' AND lat BETWEEN ? AND ? AND lng BETWEEN ? AND ? LIMIT 2000").bind(la - d, la + d, ln - d / Math.max(0.2, Math.cos(la * Math.PI / 180)), ln + d / Math.max(0.2, Math.cos(la * Math.PI / 180))).all()).results;
+        const R0 = Math.PI / 180, hv = (a, b, c, e) => { const x = (c - a) * R0, y = (e - b) * R0, h = Math.sin(x / 2) ** 2 + Math.cos(a * R0) * Math.cos(c * R0) * Math.sin(y / 2) ** 2; return 12742000 * Math.asin(Math.sqrt(h)); };
+        const mine = new Set((await env.DB.prepare('SELECT DISTINCT buyer_id b FROM orders WHERE store_id=?').bind(sid).all()).results.map((x) => x.b));
+        const out = rows.map((x) => ({ ...x, dist: Math.round(hv(la, ln, x.lat, x.lng)), ord: mine.has(x.id) ? 1 : 0 })).filter((x) => x.dist <= rk * 1000).sort((a, b) => a.dist - b.dist).slice(0, 500);
+        return J({ kios: out, total: out.length });
+      }
 
       // ---------- laporan otomatis ke WA & email pemilik ----------
       if (p.startsWith('/api/rpt') || p == '/api/snap') {
@@ -343,7 +355,7 @@ export default {
         if (EXP) return RO();
         if (M == 'PUT') {
           if (!featsOf(me, 'owner').includes('perm')) return J({ e: 'Pengaturan hak akses tersedia di paket Standar / High' }, 403);
-          const o = {}; for (const r of ROLES) { if (r == 'owner') continue; if (typeof (b.pm || {})[r] == 'string') o[r] = b.pm[r].split(' ').filter((f) => ALLF.includes(f)).join(' '); } o._v = 30;
+          const o = {}; for (const r of ROLES) { if (r == 'owner') continue; if (typeof (b.pm || {})[r] == 'string') o[r] = b.pm[r].split(' ').filter((f) => ALLF.includes(f)).join(' '); } o._v = 31;
           await env.DB.prepare('UPDATE stores SET perm=? WHERE id=?').bind(JSON.stringify(o), sid).run();
           return J({ ok: 1, pm: o });
         }

@@ -476,3 +476,9 @@ main.gate{display:grid;place-items:center;min-height:78vh;padding:16px}
 .shrow{display:grid;grid-template-columns:1fr 1fr 44px;gap:6px;margin:8px 0;align-items:center;padding-bottom:8px;border-bottom:1px dashed var(--bd)}.shrow input:first-child{grid-column:1/-1}
 .shtab select{padding:6px 4px;font-size:12px;min-width:64px}.shtab td,.shtab th{padding:4px}
 .shpre{white-space:pre-wrap;font:12px/1.45 ui-monospace,monospace;background:var(--bg);border:1px solid var(--bd);border-radius:12px;padding:10px;max-height:40vh;overflow:auto;text-align:left}
+
+/* ===== kios ===== */
+.kioshead{border:1.5px solid var(--ac)}
+.kgro{display:flex;flex-direction:column;gap:6px;margin-top:8px}.kgro button{display:flex;align-items:center;gap:10px;text-align:left;padding:10px;border:1px solid var(--bd);border-radius:14px;background:var(--cd)}
+.kgro em{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:var(--ac);color:#fff;font-style:normal;font-weight:800;flex:none}.kgro span{flex:1;display:flex;flex-direction:column;min-width:0}.kgro i{font-style:normal;color:var(--ac);font-weight:700;font-size:13px}
+.kdot{display:inline-block;width:10px;height:10px;border-radius:50%;background:#f59e0b;vertical-align:middle}.kdot.g{background:#10b981}

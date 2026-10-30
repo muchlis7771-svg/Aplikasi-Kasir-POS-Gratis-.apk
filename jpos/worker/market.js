@@ -52,9 +52,11 @@ export async function buyerRoutes(x) {
     if (await limited(env, 'breg:' + ip, 8, 36e5)) return J({ e: 'Terlalu banyak pendaftaran, coba lagi nanti' }, 429);
     const phone = String(b.phone || '').replace(/\D/g, '').replace(/^62/, '0'), name = String(b.name || '').trim().slice(0, 50), pin = String(b.pin || '');
     if (!/^0\d{8,13}$/.test(phone) || name.length < 2 || !/^\d{4,8}$/.test(pin)) return J({ e: 'Isi nomor HP (08…), nama, dan PIN 4–8 angka' }, 400);
+    const kios = b.kind == 'kios', kname = String(b.kname || '').trim().slice(0, 60);
+    if (kios && (kname.length < 2 || !okLL(b.lat, b.lng))) return J({ e: 'Kios wajib mengisi nama kios dan titik lokasi GPS' }, 400);
     try {
-      const r = await env.DB.prepare('INSERT INTO buyers(phone,name,pin_hash,addr,lat,lng,created) VALUES(?,?,?,?,?,?,?)').bind(phone, name, await pbk(pin, 'b:' + phone), String(b.addr || '').slice(0, 200), okLL(b.lat, b.lng) ? +b.lat : null, okLL(b.lat, b.lng) ? +b.lng : null, now).run();
-      const id = r.meta.last_row_id; await logAct(env, 'buyer', id, name, null, 'daftar pembeli', phone); return J({ token: await sign({ bid: id, role: 'buyer', exp: now + 90 * DAY }), me: { id, phone, name, addr: b.addr || '', lat: b.lat, lng: b.lng } });
+      const r = await env.DB.prepare('INSERT INTO buyers(phone,name,pin_hash,addr,lat,lng,created,kind,kname,kvis) VALUES(?,?,?,?,?,?,?,?,?,?)').bind(phone, name, await pbk(pin, 'b:' + phone), String(b.addr || '').slice(0, 200), okLL(b.lat, b.lng) ? +b.lat : null, okLL(b.lat, b.lng) ? +b.lng : null, now, kios ? 'kios' : null, kios ? kname : null, kios && b.kvis ? 1 : 0).run();
+      const id = r.meta.last_row_id; await logAct(env, 'buyer', id, name, null, kios ? 'daftar kios' : 'daftar pembeli', phone); return J({ token: await sign({ bid: id, role: 'buyer', exp: now + 90 * DAY }), me: { id, phone, name, addr: b.addr || '', lat: b.lat, lng: b.lng, kind: kios ? 'kios' : null, kname: kios ? kname : null, kvis: kios && b.kvis ? 1 : 0 } });
     } catch { return J({ e: 'Nomor HP sudah terdaftar, silakan masuk' }, 409); }
   }
   if (p == '/api/b/login' && M == 'POST') {
@@ -64,7 +66,7 @@ export async function buyerRoutes(x) {
     if (!r || !(await same(r.pin_hash, await pbk(String(b.pin || ''), 'b:' + phone)))) return J({ e: 'Nomor HP atau PIN salah' }, 401);
     if (r.status != 'active') return J({ e: 'Akun pembeli diblokir' }, 403);
     await logAct(env, 'buyer', r.id, r.name, null, 'login pembeli', null);
-    return J({ token: await sign({ bid: r.id, role: 'buyer', exp: now + 90 * DAY }), me: { id: r.id, phone: r.phone, name: r.name, addr: r.addr, lat: r.lat, lng: r.lng } });
+    return J({ token: await sign({ bid: r.id, role: 'buyer', exp: now + 90 * DAY }), me: { id: r.id, phone: r.phone, name: r.name, addr: r.addr, lat: r.lat, lng: r.lng, kind: r.kind, kname: r.kname, kvis: r.kvis } });
   }
   // katalog publik (tanpa login pun bisa melihat)
   const lat = +u.searchParams.get('lat'), lng = +u.searchParams.get('lng'), hasLL = okLL(lat, lng);
@@ -104,10 +106,11 @@ export async function buyerRoutes(x) {
     if (M == 'PUT') {
       const nm = String(b.name ?? me.name).trim().slice(0, 50), ad = String(b.addr ?? me.addr ?? '').slice(0, 200), ll = okLL(b.lat, b.lng);
       await env.DB.prepare('UPDATE buyers SET name=?,addr=?,lat=?,lng=? WHERE id=?').bind(nm || me.name, ad, ll ? +b.lat : me.lat, ll ? +b.lng : me.lng, bid).run();
+      if (b.kind !== undefined || b.kname !== undefined || b.kvis !== undefined) { const k = b.kind === undefined ? me.kind : b.kind == 'kios' ? 'kios' : null; await env.DB.prepare('UPDATE buyers SET kind=?,kname=?,kvis=? WHERE id=?').bind(k, k ? String(b.kname ?? me.kname ?? nm).trim().slice(0, 60) : null, k && (b.kvis ?? me.kvis) ? 1 : 0, bid).run(); }
       if (Array.isArray(b.addrs)) await env.DB.prepare('UPDATE buyers SET addrs=? WHERE id=?').bind(JSON.stringify(b.addrs.slice(0, 10).map((x) => ({ label: String(x.label || '').slice(0, 30), name: String(x.name || '').slice(0, 50), phone: String(x.phone || '').slice(0, 20), addr: String(x.addr || '').slice(0, 200), lat: okLL(x.lat, x.lng) ? +x.lat : null, lng: okLL(x.lat, x.lng) ? +x.lng : null, main: !!x.main }))), bid).run();
       if (b.pin) { if (!/^\d{4,8}$/.test(String(b.pin)) || !(await same(me.pin_hash, await pbk(String(b.old || ''), 'b:' + me.phone)))) return J({ e: 'PIN lama salah / PIN baru 4–8 angka' }, 400); await env.DB.prepare('UPDATE buyers SET pin_hash=? WHERE id=?').bind(await pbk(String(b.pin), 'b:' + me.phone), bid).run(); }
     }
-    const r = await env.DB.prepare('SELECT id,phone,name,addr,lat,lng,created,addrs FROM buyers WHERE id=?').bind(bid).first(); r.addrs = JSON.parse(r.addrs || '[]');
+    const r = await env.DB.prepare('SELECT id,phone,name,addr,lat,lng,created,addrs,kind,kname,kvis FROM buyers WHERE id=?').bind(bid).first(); r.addrs = JSON.parse(r.addrs || '[]');
     return J({ me: r, credit: await creditScore(env, bid), lim: (await env.DB.prepare('SELECT bc.store_id,s.name,bc.lim,bc.days FROM bcredit bc JOIN stores s ON s.id=bc.store_id WHERE bc.buyer_id=?').bind(bid).all()).results });
   }
   if (p == '/api/b/orders' && M == 'POST') {
