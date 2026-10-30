@@ -7,16 +7,40 @@ const arTotal = () => S.sales.reduce((a, s) => a + sOut(s), 0);
 const apTotal = () => S.ap.reduce((a, x) => a + apOut(x), 0);
 const quick = (L) => `<div class="qk">${L.map((q) => `<button onclick="go('${q[0]}')"><b>${q[1]}</b><span>${q[2]}</span></button>`).join('')}</div>`;
 
-/* ---------- model beranda (bisa dipilih tiap pengguna) ---------- */
+/* ---------- TEMA aplikasi & MODEL beranda: diatur pemilik untuk semua karyawan, bisa diizinkan diganti sendiri ---------- */
+const THEMES = [['modern', '💎', 'Modern', 'Ungu elegan, kartu membulat', ['#4f46e5', '#a855f7', '#f4f5fb']], ['klasik', '📜', 'Klasik', 'Huruf serif, cokelat & krem, kotak tegas', ['#7c4a1e', '#c8a46a', '#f6efe1']], ['robot', '🤖', 'Robot', 'Futuristik neon, gelap, huruf mesin', ['#00e5ff', '#7cff6b', '#05070d']], ['minimalis', '⬜', 'Minimalis', 'Putih bersih, hitam, tanpa bayangan', ['#111111', '#6b7280', '#ffffff']], ['mewah', '👑', 'Mewah', 'Hitam & emas', ['#d4af37', '#8a6d1d', '#0c0b09']], ['ceria', '🌈', 'Ceria', 'Warna-warni cerah, ramah', ['#ff6b6b', '#ffd93d', '#fff7ed']], ['alam', '🌿', 'Alam', 'Hijau segar & tenang', ['#047857', '#34d399', '#f0fdf4']]];
 const DLAY = [['auto', '✨', 'Otomatis', 'Menyesuaikan peran & ukuran layar'], ['lengkap', '📊', 'Lengkap', 'Semua kartu, angka, grafik & analisis'], ['ringkas', '⚡', 'Ringkas', 'Kartu utama + tombol cepat + yang perlu perhatian'], ['angka', '🔢', 'Fokus angka', 'Kartu angka besar, tanpa grafik di atas'], ['grafik', '📈', 'Fokus grafik', 'Grafik & analisis langsung terbuka di atas'], ['lapangan', '🧭', 'Lapangan', 'Kunjungan outlet & check-in di paling atas']];
-const dlKey = () => 'jpos:dlay:' + SID + ':' + (U ? U.n : '');
-function dlayNow() { const v = LS.get(dlKey(), 'auto'); if (v != 'auto') return v; if (innerWidth >= 1000) return 'lengkap'; return ['owner', 'admin', 'akuntan'].includes(U.r) ? 'lengkap' : ['sales', 'dropping'].includes(U.r) ? 'lapangan' : 'ringkas'; }
-function dlayPick() {
-  const cur = LS.get(dlKey(), 'auto');
-  const m = modal(`<h3>🎨 Model beranda</h3><small class="mu">Pilih tampilan beranda untuk akun Anda di perangkat ini.</small><div class="mg pmg">${DLAY.map((x) => `<button data-l="${x[0]}" class="${cur == x[0] ? 'a' : ''}"><i>${x[1]}</i><b>${x[2]}</b><small>${x[3]}</small></button>`).join('')}</div>`, 'w');
-  $$('[data-l]', m).forEach((b) => (b.onclick = () => { LS.set(dlKey(), b.dataset.l); m.close(); toast('Model beranda: ' + b.querySelector('b').textContent); R(); }));
+const dlKey = () => 'jpos:dlay:' + SID + ':' + (U ? U.n : ''), thKey = () => 'jpos:thm:' + SID + ':' + (U ? U.n : '');
+const ownOk = () => U && (U.r == 'owner' || S.set.uiOwn !== false); // karyawan boleh mengganti sendiri?
+function themeNow() { const p = ownOk() ? LS.get(thKey(), '') : ''; return p || (S && S.set.uiTheme) || 'modern'; }
+function dlayNow() {
+  const p = ownOk() ? LS.get(dlKey(), '') : '', v = p && p != 'org' ? p : ((S.set.uiModel || {})[U.r] || 'auto');
+  if (v != 'auto') return v; if (innerWidth >= 1000) return 'lengkap'; return ['owner', 'admin', 'akuntan'].includes(U.r) ? 'lengkap' : ['sales', 'dropping'].includes(U.r) ? 'lapangan' : 'ringkas';
 }
-const dashWrap = (h) => { const l = dlayNow(); return `<div class="dlay dl-${l}"><div class="dlbar"><button class="gh" onclick="dlayPick()">🎨 Model beranda: ${esc((DLAY.find((x) => x[0] == (LS.get(dlKey(), 'auto'))) || DLAY[0])[2])}${LS.get(dlKey(), 'auto') == 'auto' ? ' (' + esc((DLAY.find((x) => x[0] == l) || DLAY[1])[2]) + ')' : ''}</button></div>${l == 'grafik' ? h.replace('<details class="more"', '<details class="more" open') : h}</div>`; };
+function applyUiTheme() { try { document.body.dataset.th = document.documentElement.dataset.th = U && S ? themeNow() : 'modern'; } catch (e) { } }
+const thSw = (t) => `<span class="thsw">${t[4].map((c) => `<i style="background:${c}"></i>`).join('')}</span>`;
+function dlayPick() {
+  if (!ownOk()) return alertBox('Tema & model beranda diatur oleh pemilik toko untuk semua karyawan.', 'Diatur pemilik');
+  const curT = LS.get(thKey(), ''), curL = LS.get(dlKey(), '');
+  const m = modal(`<h3>🎨 Tampilan saya</h3><small class="mu">Hanya untuk akun Anda di perangkat ini.${U.r == 'owner' ? ' Untuk mengatur semua karyawan: Pengaturan → Tampilan semua karyawan.' : ''}</small>
+<b style="font-size:13px">Tema</b><div class="mg pmg"><button data-t="" class="${!curT ? 'a' : ''}"><i>🏢</i><b>Ikuti toko</b><small>${esc((THEMES.find((x) => x[0] == (S.set.uiTheme || 'modern')) || THEMES[0])[2])}</small></button>${THEMES.map((x) => `<button data-t="${x[0]}" class="${curT == x[0] ? 'a' : ''}"><i>${x[1]}</i><b>${x[2]}</b>${thSw(x)}</button>`).join('')}</div>
+<b style="font-size:13px">Model beranda</b><div class="mg pmg"><button data-l="" class="${!curL ? 'a' : ''}"><i>🏢</i><b>Ikuti toko</b><small>${esc((DLAY.find((x) => x[0] == ((S.set.uiModel || {})[U.r] || 'auto')) || DLAY[0])[2])}</small></button>${DLAY.map((x) => `<button data-l="${x[0]}" class="${curL == x[0] ? 'a' : ''}"><i>${x[1]}</i><b>${x[2]}</b><small>${x[3]}</small></button>`).join('')}</div>`, 'w');
+  $$('[data-t]', m).forEach((b) => (b.onclick = () => { LS.set(thKey(), b.dataset.t); m.close(); R(); }));
+  $$('[data-l]', m).forEach((b) => (b.onclick = () => { LS.set(dlKey(), b.dataset.l); m.close(); R(); }));
+}
+// pengaturan pemilik: tema & model untuk SEMUA karyawan
+function uiOrgCard() {
+  const th = S.set.uiTheme || 'modern', md = S.set.uiModel || {}, R0 = [['owner', 'Pemilik'], ['admin', 'Admin'], ['akuntan', 'Akuntan'], ['kasir', 'Kasir'], ['sales', 'Sales'], ['dropping', 'Dropping']];
+  return `<div class="cd"><h3>🎨 Tampilan semua karyawan</h3><small class="mu">Tema aplikasi & model beranda yang dipakai di HP / laptop semua pengguna toko ini.</small>
+<b style="font-size:13px;display:block;margin-top:8px">Tema aplikasi</b><div class="mg pmg" id="uthm">${THEMES.map((x) => `<button data-ut="${x[0]}" class="${th == x[0] ? 'a' : ''}"><i>${x[1]}</i><b>${x[2]}</b>${thSw(x)}<small>${x[3]}</small></button>`).join('')}</div>
+<b style="font-size:13px;display:block;margin-top:8px">Model beranda per peran</b>${R0.map(([r, n]) => `<label class="row" style="margin:4px 0"><span>${n}</span><select data-um="${r}" style="width:auto">${DLAY.map((x) => `<option value="${x[0]}" ${(md[r] || 'auto') == x[0] ? 'selected' : ''}>${x[1]} ${x[2]}</option>`).join('')}</select></label>`).join('')}
+<label class="row" style="margin:8px 0"><span>Izinkan karyawan mengganti tampilan sendiri</span><input type="checkbox" id="uown" style="width:24px;height:24px" ${S.set.uiOwn !== false ? 'checked' : ''}></label>
+<button class="gh a" onclick="uiOrgSave()">Simpan untuk semua karyawan</button></div>`;
+}
+let UTH = null;
+function uiOrgSave() { const md = {}; $$('[data-um]').forEach((s) => (md[s.dataset.um] = s.value)); emit('set', { set: { uiTheme: UTH || S.set.uiTheme || 'modern', uiModel: md, uiOwn: $('#uown').checked } }); toast('Tampilan semua karyawan disimpan — berlaku setelah sinkron'); LS.set(thKey(), ''); R(); }
+document.addEventListener('click', (e) => { const b = e.target.closest('[data-ut]'); if (!b) return; UTH = b.dataset.ut; $$('[data-ut]').forEach((x) => x.classList.toggle('a', x == b)); document.body.dataset.th = document.documentElement.dataset.th = UTH; });
+const dashWrap = (h) => { const l = dlayNow(), t = (THEMES.find((x) => x[0] == themeNow()) || THEMES[0]); return `<div class="dlay dl-${l}"><div class="dlbar"><button class="gh" onclick="dlayPick()">🎨 ${esc(t[2])} · ${esc((DLAY.find((x) => x[0] == l) || DLAY[1])[2])}${ownOk() ? '' : ' 🔒'}</button></div>${l == 'grafik' ? h.replace('<details class="more"', '<details class="more" open') : h}</div>`; };
 VW.dash = () => (U.r == 'dropping' ? VW.kirim() : dashWrap(U.r == 'kasir' ? dashKasir() : U.r == 'sales' ? dashSales() : dashAdmin()));
 VW.dash.after = () => { if (U.r == 'dropping') return VW.kirim.after(); if (teamMapPending) { teamMapPending = 0; setTimeout(drawTeamMap, 60); } };
 

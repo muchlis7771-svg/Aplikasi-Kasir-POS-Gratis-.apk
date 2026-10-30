@@ -109,8 +109,9 @@ const fxs = (a) => a.join(',');
 /* ---------- check-in / check-out outlet ---------- */
 function openCI(u) {
   const v = S.att.filter((a) => a.u == u && (a.k == 'visit' || a.k == 'vout')).sort((a, b) => a.t - b.t), l = v[v.length - 1];
-  return l && l.k == 'visit' && Date.now() - l.t < 12 * 36e5 ? l : null;
+  return l && l.k == 'visit' && Date.now() - l.t < CIMAX() ? l : null; // check-in yang terlupa ditutup otomatis setelah batas jam
 }
+const CIMAX = () => (+(S && S.set.ciMax) || 4) * 36e5;
 const ciNeeded = () => pkgHas('cek') && can('cek') && S.set.cireq !== false && (U.r == 'sales' || U.r == 'dropping');
 async function checkIn(cid, why) {
   const c = cust(cid); if (!c) return;

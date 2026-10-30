@@ -58,6 +58,7 @@ function R() {
   if (MODE != 'buyer') document.body.classList.remove('buyer');
   if (HT && MODE == 'ha') { app.innerHTML = haShell(); return; }
   if (MODE == 'buyer') { app.innerHTML = buyerShell(); bAfter(); return; }
+  if (typeof applyUiTheme == 'function') applyUiTheme();
   if (!U || !S) { app.innerHTML = homeView(); if (MODE == 'home') checkSrv(); return; }
   if (!isNative() && ['sales', 'dropping'].includes(U.r) && LS.get('jpos:dev', '') != '1') { app.innerHTML = `<main class="gate"><div class="gc"><div style="font-size:60px">📱</div><h2 style="margin:8px 0">Gunakan aplikasi Android</h2><div class="gmsg"><small>Peran ${esc(ROLE[U.r])} memakai GPS, check-in outlet, dan selfie, sehingga hanya bisa dijalankan dari aplikasi J-POS di HP Android. Versi laptop / browser untuk pemilik, admin, akuntan, kasir, dan Head Admin.</small></div><button class="gbtn" onclick="logout()">Keluar</button></div></main>`; return; }
   if (typeof absGate == 'function' && absGate()) { app.innerHTML = absGateView(); absGateAfter(); almSync(); return; }
