@@ -7,7 +7,17 @@ const arTotal = () => S.sales.reduce((a, s) => a + sOut(s), 0);
 const apTotal = () => S.ap.reduce((a, x) => a + apOut(x), 0);
 const quick = (L) => `<div class="qk">${L.map((q) => `<button onclick="go('${q[0]}')"><b>${q[1]}</b><span>${q[2]}</span></button>`).join('')}</div>`;
 
-VW.dash = () => (U.r == 'kasir' ? dashKasir() : U.r == 'sales' ? dashSales() : U.r == 'dropping' ? VW.kirim() : dashAdmin());
+/* ---------- model beranda (bisa dipilih tiap pengguna) ---------- */
+const DLAY = [['auto', '✨', 'Otomatis', 'Menyesuaikan peran & ukuran layar'], ['lengkap', '📊', 'Lengkap', 'Semua kartu, angka, grafik & analisis'], ['ringkas', '⚡', 'Ringkas', 'Kartu utama + tombol cepat + yang perlu perhatian'], ['angka', '🔢', 'Fokus angka', 'Kartu angka besar, tanpa grafik di atas'], ['grafik', '📈', 'Fokus grafik', 'Grafik & analisis langsung terbuka di atas'], ['lapangan', '🧭', 'Lapangan', 'Kunjungan outlet & check-in di paling atas']];
+const dlKey = () => 'jpos:dlay:' + SID + ':' + (U ? U.n : '');
+function dlayNow() { const v = LS.get(dlKey(), 'auto'); if (v != 'auto') return v; if (innerWidth >= 1000) return 'lengkap'; return ['owner', 'admin', 'akuntan'].includes(U.r) ? 'lengkap' : ['sales', 'dropping'].includes(U.r) ? 'lapangan' : 'ringkas'; }
+function dlayPick() {
+  const cur = LS.get(dlKey(), 'auto');
+  const m = modal(`<h3>🎨 Model beranda</h3><small class="mu">Pilih tampilan beranda untuk akun Anda di perangkat ini.</small><div class="mg pmg">${DLAY.map((x) => `<button data-l="${x[0]}" class="${cur == x[0] ? 'a' : ''}"><i>${x[1]}</i><b>${x[2]}</b><small>${x[3]}</small></button>`).join('')}</div>`, 'w');
+  $$('[data-l]', m).forEach((b) => (b.onclick = () => { LS.set(dlKey(), b.dataset.l); m.close(); toast('Model beranda: ' + b.querySelector('b').textContent); R(); }));
+}
+const dashWrap = (h) => { const l = dlayNow(); return `<div class="dlay dl-${l}"><div class="dlbar"><button class="gh" onclick="dlayPick()">🎨 Model beranda: ${esc((DLAY.find((x) => x[0] == (LS.get(dlKey(), 'auto'))) || DLAY[0])[2])}${LS.get(dlKey(), 'auto') == 'auto' ? ' (' + esc((DLAY.find((x) => x[0] == l) || DLAY[1])[2]) + ')' : ''}</button></div>${l == 'grafik' ? h.replace('<details class="more"', '<details class="more" open') : h}</div>`; };
+VW.dash = () => (U.r == 'dropping' ? VW.kirim() : dashWrap(U.r == 'kasir' ? dashKasir() : U.r == 'sales' ? dashSales() : dashAdmin()));
 VW.dash.after = () => { if (U.r == 'dropping') return VW.kirim.after(); if (teamMapPending) { teamMapPending = 0; setTimeout(drawTeamMap, 60); } };
 
 /* ---- pantau lokasi & kehadiran tim lapangan (untuk owner/admin) ---- */
@@ -83,7 +93,8 @@ function dashAdmin() {
   const K = `<div class="kpis">${kpi('💵', '#10b981', 'Kas + Bank', rk(bal('1101') + bal('1102')), 'uang tersedia', can('kas') ? "go('kas')" : '')}${kpi('📈', '#6366f1', 'Laba bersih bulan ini', rk(L.laba), L.laba < 0 ? 'rugi' : 'setelah beban', can('lap') ? "go('lap')" : '')}${kpi('🧾', '#f59e0b', 'Piutang outlet', rk(arTotal()), od.length ? od.length + ' lewat tempo' : 'aman', "oSort='debt';go('outlet')")}${kpi('📦', '#3b82f6', 'Stok layak jual', rk(stockValue()), (low.length ? low.length + ' menipis' : S.p.filter((p) => !p.x).length + ' produk') + (badUnits() ? ' · bad ' + badUnits() : ''), "go('prod')")}</div>`;
   return `<div class="dtop">` + heroCard('Omzet hari ini', rp(A.net), A.n + ' transaksi', pctCh(A.net, Y.net), [['Laba kotor', rp(A.profit)], ['Bulan ini', rp(M.net)], ['Hadir', hadir + ' orang']], d7) + K + `</div>`
     + tiles2(Q)
-    + `<div class="cd"><div class="row" style="margin:0 0 6px"><h3 style="margin:0">Perlu perhatian</h3><small class="mu">${todo.length || ''}</small></div>${todo.slice(0, 4).join('') || '<div class="okbox">✨ Semua aman hari ini</div>'}</div>`
+    + `<div class="cd todo"><div class="row" style="margin:0 0 6px"><h3 style="margin:0">Perlu perhatian</h3><small class="mu">${todo.length || ''}</small></div>${todo.slice(0, 4).join('') || '<div class="okbox">✨ Semua aman hari ini</div>'}</div>`
+    + visitCard(false)
     + `<details class="more" ${innerWidth >= 760 ? 'open' : ''}><summary>Lihat analisis lengkap</summary>`
     + `<div class="cd"><h3>💼 Posisi keuangan</h3>${lineItem('💵', '#00b894', 'Kas + Bank', 'uang tersedia', rp(bal('1101') + bal('1102')), 'gr')}${lineItem('📈', '#5b4cdb', 'Laba bersih bulan ini', 'setelah semua beban', rp(L.laba), L.laba < 0 ? 'rd' : '')}${lineItem('🧾', '#ff9f43', 'Piutang outlet', od.length + ' jatuh tempo', rp(arTotal()), '', can('lap') ? "go('lap')" : '')}${lineItem('🏦', '#ff5d73', 'Utang usaha', 'ke supplier', rp(apTotal()))}${lineItem('📦', '#54a0ff', 'Stok layak jual', S.p.filter((p) => !p.x).length + ' produk', rp(stockValue()))}${badUnits() ? lineItem('🗑️', '#ef4444', 'Bad stock', badUnits() + ' unit menunggu pemusnahan / sortir', rp(badValue()), 'rd', "RTO.tab='bad';go('retur')") : ''}</div>`
     + `<div class="cd"><div class="row" style="margin:0"><h3 style="margin:0">Omzet 14 hari terakhir</h3><small class="mu">${M.n} transaksi bulan ini</small></div>${area(dayAgg(14))}</div>`
@@ -113,6 +124,7 @@ function dashSales() {
   const lastV = {}; vis.forEach((v) => (lastV[v.cid] = Math.max(lastV[v.cid] || 0, v.t)));
   const due = myc.filter((c) => !lastV[c.id] || Date.now() - lastV[c.id] > 14 * 864e5).slice(0, 5);
   return shareBanner() + ciBar() + heroCard('Omzet Anda bulan ini', rp(omz), mm.length + ' order', null, [['Order hari ini', mine(t0, t1).length], ['Kunjungan', vToday + ' hari ini'], ['Outlet saya', myc.length]], dayAgg(7, (s) => s.u == U.n).map((d) => d.v))
+    + visitCard(true)
     + tiles2([['outlet', '➕', 'Outlet baru', 'go(\'outlet\');setTimeout(()=>outletForm(),80)', '#00b894'], ['outlet', '📍', 'Outlet & peta', 0, '#5b4cdb'], ['pos', '📝', 'Buat order', 0, '#ff9f43'], ['abs', '🕒', 'Absen', 0, '#20bf6b'], ['retur', '↩️', 'Ambil retur', 0, '#ef4444']])
     + `<div class="cd">${lineItem('🧾', '#ff9f43', 'Piutang outlet saya', 'tagih saat kunjungan', rp(ar), ar ? 'or' : '', "oSort='debt';go('outlet')")}${lineItem('🚶', '#5b4cdb', 'Kunjungan bulan ini', 'check-in di outlet', vMonth)}</div>`
     + (() => { if (!can('ana')) return ''; const P = reorderPlan(true).filter((x) => x.st != 'aman'); return P.length ? `<div class="cd info"><div class="row" style="margin:0"><span><b>🎯 Saran order hari ini</b><br><small>${P.length} outlet perlu dikunjungi · potensi ${rp(P.reduce((a, x) => a + x.val, 0))}</small></span><button class="gh a" onclick="ANA.tab='order';go('ana')">Lihat</button></div><small class="mu">${P.slice(0, 3).map((x) => esc(x.c.n)).join(', ')}${P.length > 3 ? '…' : ''}</small></div>` : ''; })()

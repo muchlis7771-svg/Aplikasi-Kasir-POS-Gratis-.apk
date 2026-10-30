@@ -1,7 +1,7 @@
 // Service worker: cache aplikasi agar bisa dibuka offline. API tidak di-cache.
-const V = 'jpos-v23', ASSETS = ['./', 'index.html', 'config.js', 'manifest.webmanifest', 'css/app.css', 'icons/icon-192.png', 'icons/icon-512.png',
+const V = 'jpos-v24', ASSETS = ['./', 'index.html', 'config.js', 'manifest.webmanifest', 'css/app.css', 'icons/icon-192.png', 'icons/icon-512.png',
   'vendor/leaflet.js', 'vendor/leaflet.css', 'vendor/xlsx.full.min.js', 'vendor/jspdf.umd.min.js', 'vendor/jspdf.plugin.autotable.min.js', 'vendor/zxing.min.js',
-  ...['core', 'native', 'guard', 'net', 'charts', 'print', 'faktur', 'pos', 'prod', 'outlet', 'report', 'export', 'team', 'face', 'bio', 'absen', 'buy', 'kas', 'kirim', 'retur', 'xls', 'perm', 'dash', 'online', 'ana', 'ana2', 'buyer', 'demo', 'main'].map((n) => 'js/' + n + '.js')];
+  ...['core', 'native', 'guard', 'net', 'charts', 'print', 'faktur', 'pos', 'prod', 'outlet', 'report', 'export', 'team', 'face', 'bio', 'absen', 'buy', 'kas', 'kirim', 'retur', 'field', 'xls', 'perm', 'dash', 'online', 'ana', 'ana2', 'buyer', 'demo', 'main'].map((n) => 'js/' + n + '.js')];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(V).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((k) => Promise.all(k.filter((x) => x != V).map((x) => caches.delete(x)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', (e) => {

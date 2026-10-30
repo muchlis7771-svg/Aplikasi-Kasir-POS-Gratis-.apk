@@ -421,3 +421,15 @@ main.gate{display:grid;place-items:center;min-height:78vh;padding:16px}
 .opl{display:grid;gap:6px;max-height:55vh;overflow:auto}
 .opl button{display:flex;justify-content:space-between;align-items:center;gap:10px;text-align:left;padding:10px 12px;border:1px solid var(--bd);border-radius:14px;background:var(--cd);color:var(--tx)}
 .opl button.a{border-color:var(--ac);box-shadow:0 0 0 2px color-mix(in srgb,var(--ac) 30%,transparent)}
+#bigal{position:fixed;inset:0;z-index:99999;background:#7f1d1dee;display:grid;place-items:center;padding:20px;animation:rgf .6s infinite alternate}
+#bigal .rg{width:100%;max-width:400px;text-align:center;color:#fff;display:grid;gap:12px}#bigal .rb{font-size:90px;animation:rgs .5s infinite alternate}#bigal h2{font-size:30px}#bigal p{font-size:17px}
+#bigal .gh{background:#ffffff1f;color:#fff;border:1px solid #ffffff44}
+.cihl{border:2px solid #10b981!important;box-shadow:0 0 0 4px color-mix(in srgb,#10b981 22%,transparent),0 14px 30px -18px #10b981!important;position:relative}
+.cibadge{display:inline-flex;align-items:center;gap:6px;background:#10b981;color:#fff;font-weight:700;font-size:12px;padding:4px 10px;border-radius:20px;margin-bottom:6px;animation:cip 1.6s infinite}
+@keyframes cip{0%,100%{box-shadow:0 0 0 0 #10b98166}50%{box-shadow:0 0 0 6px #10b98100}}
+.othumb{float:right;width:58px;height:58px;object-fit:cover;border-radius:12px;margin-left:10px}
+.dlay{display:grid;gap:12px}.dlbar{display:flex;justify-content:flex-end;margin-bottom:-4px}.dlbar .gh{font-size:12px;padding:6px 12px}
+.dl-ringkas .kpis,.dl-ringkas details.more,.dl-ringkas .vcard{display:none}
+.dl-angka .hero2 .hmain svg,.dl-angka .hero2 .spark{display:none}.dl-angka .kpis{order:-2}.dl-angka .kpi b{font-size:20px}.dl-angka .kpis{grid-template-columns:1fr 1fr}
+.dl-grafik details.more{order:-3}.dl-grafik details.more>summary{display:none}
+.dl-lapangan .vcard{order:-3}.dl-lapangan .sharebar{order:-4}
