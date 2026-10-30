@@ -470,3 +470,9 @@ main.gate{display:grid;place-items:center;min-height:78vh;padding:16px}
 .payqr.sm{width:120px;min-height:120px;flex:none}.payqr.sm img{max-width:100px}
 .paybk{display:flex;justify-content:space-between;align-items:center;gap:8px;text-align:left;padding:10px 12px;border:1px solid var(--bd);border-radius:14px}.paybk span{display:flex;flex-direction:column}.paybk b{font-size:18px;letter-spacing:.5px}
 .pbrow{display:grid;grid-template-columns:1fr 1.3fr 1.3fr;gap:6px;margin:4px 0}
+
+/* ===== shift kasir & laporan ===== */
+.shbar{border-left:4px solid var(--or)}.shbar.on{border-left-color:var(--gr)}
+.shrow{display:grid;grid-template-columns:1fr 1fr 44px;gap:6px;margin:8px 0;align-items:center;padding-bottom:8px;border-bottom:1px dashed var(--bd)}.shrow input:first-child{grid-column:1/-1}
+.shtab select{padding:6px 4px;font-size:12px;min-width:64px}.shtab td,.shtab th{padding:4px}
+.shpre{white-space:pre-wrap;font:12px/1.45 ui-monospace,monospace;background:var(--bg);border:1px solid var(--bd);border-radius:12px;padding:10px;max-height:40vh;overflow:auto;text-align:left}

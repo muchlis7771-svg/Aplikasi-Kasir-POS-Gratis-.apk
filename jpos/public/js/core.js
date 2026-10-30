@@ -39,20 +39,21 @@ const MGR = (r) => r == 'owner' || r == 'admin' || r == 'akuntan';
 // Hak akses = (fitur peran) ∩ (fitur paket toko). Paket diatur Head Admin, matrix peran diatur Owner. Server memakai aturan yang sama.
 const ALWAYS = 'dash set';
 const DEFPERM = {
-  admin: 'dash pos his hisAll prod prodEdit outlet onl ana lap keu abs absAll chat retur set beli tgt tgtAll tgtSet',
+  admin: 'dash pos his hisAll prod prodEdit outlet onl ana lap keu abs absAll chat retur set beli tgt tgtAll tgtSet shiftSet',
   akuntan: 'dash his hisAll prod ana lap keu jur abs absAll chat set kas tgt tgtAll',
   kasir: 'dash pos his abs chat set tgt',
   sales: 'dash pos his outlet ana abs chat set cek retur tgt',
   dropping: 'dash kirim cek terima abs chat set retur',
 };
-const PKGHI = 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana jur kirim cek terima anti aud tgt tgtAll tgtSet';
-const NEWR25 = { admin: 'tgt tgtAll tgtSet', akuntan: 'tgt tgtAll', kasir: 'tgt', sales: 'tgt' }; // fitur baru v25 ikut aktif pada hak akses yang sudah disesuaikan sebelumnya
-const pmRole = (ov, r) => (typeof ov[r] == 'string' ? ov[r] + (ov._v >= 25 ? '' : ' ' + (NEWR25[r] || '')) : DEFPERM[r] || '');
+const PKGHI = 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana jur kirim cek terima anti aud tgt tgtAll tgtSet shiftSet';
+// fitur baru per versi ikut aktif pada hak akses yang sudah disesuaikan sebelumnya (server memakai aturan yang sama)
+const NEWR = [[25, { admin: 'tgt tgtAll tgtSet', akuntan: 'tgt tgtAll', kasir: 'tgt', sales: 'tgt' }], [30, { admin: 'shiftSet' }]];
+const pmRole = (ov, r) => (typeof ov[r] == 'string' ? ov[r] + ' ' + NEWR.filter(([v]) => !(ov._v >= v)).map(([, m]) => m[r] || '').join(' ') : DEFPERM[r] || '');
 const FEAT = {
   dash: 'Beranda', pos: 'Kasir / Order', his: 'Riwayat transaksi', hisAll: 'Lihat transaksi semua orang', prod: 'Lihat produk & stok', prodEdit: 'Ubah produk & stok', outlet: 'Outlet / pelanggan',
   onl: 'Toko Online', ana: 'Analisa', lap: 'Laporan', keu: 'Keuangan & utang piutang', jur: 'Jurnal & biaya', abs: 'Absensi sendiri', absAll: 'Lihat absensi semua', chat: 'Chat', usr: 'Kelola pengguna',
   retur: 'Retur barang', backup: 'Backup & restore', set: 'Pengaturan', beli: 'Pembelian ke supplier', xls: 'Import / export Excel', kas: 'Buku kas', perm: 'Atur hak akses (owner)',
-  kirim: 'Pengantaran / dropping', cek: 'Check-in / out outlet', terima: 'Terima pembayaran di lapangan', tgt: 'Target & insentif (milik sendiri)', tgtAll: 'Lihat target & insentif semua karyawan', tgtSet: 'Atur target, insentif & kalender kerja', anti: 'Absensi anti-curang (selfie & jam server)', aud: 'Audit lapangan',
+  kirim: 'Pengantaran / dropping', cek: 'Check-in / out outlet', terima: 'Terima pembayaran di lapangan', tgt: 'Target & insentif (milik sendiri)', tgtAll: 'Lihat target & insentif semua karyawan', tgtSet: 'Atur target, insentif & kalender kerja', shiftSet: 'Atur shift kasir & jadwal karyawan', anti: 'Absensi anti-curang (selfie & jam server)', aud: 'Audit lapangan',
 };
 const FEATMEMO = {};
 function featSet(r) {
@@ -76,7 +77,7 @@ const REG = () => LS.get('jpos:reg', []);
 const setReg = (id, n, demo) => { const r = REG().filter((x) => x.id != id); r.push({ id, n, demo: !!demo }); LS.set('jpos:reg', r); };
 const TK = () => LS.get('jpos:tk:' + SID, '');
 function newStore(id, name, email, srv) {
-  return { v4: 1, exp: 0, plan: '', id, name, email: email || '', srv: !!srv, set: { ppn: 11, tempo: 30, addr: '', tel: '', jin: '08:00', od: false }, logo: '', p: [], c: [], sales: [], j: [], ap: [], att: [], users: [], done: {}, pend: {}, eq: [], cq: [], cs: {}, ec: 0, seq: 1, dv: Math.random().toString(36).slice(2, 5), hold: [], staff: [], sup: [], po: [], kn: [], tgt: [] };
+  return { v4: 1, exp: 0, plan: '', id, name, email: email || '', srv: !!srv, set: { ppn: 11, tempo: 30, addr: '', tel: '', jin: '08:00', od: false }, logo: '', p: [], c: [], sales: [], j: [], ap: [], att: [], users: [], done: {}, pend: {}, eq: [], cq: [], cs: {}, ec: 0, seq: 1, dv: Math.random().toString(36).slice(2, 5), hold: [], staff: [], sup: [], po: [], kn: [], tgt: [], ses: [] };
 }
 let saveT = null;
 function save() { if (!S) return; clearTimeout(saveT); saveT = setTimeout(flushSave, 400); }
@@ -91,7 +92,7 @@ function slimStore() {
 }
 function flushSave() { clearTimeout(saveT); saveT = null; if (S && !LS.set('jpos:s:' + SID, S) && !(slimStore() && LS.set('jpos:s:' + SID, S)) && !flushSave.w) { flushSave.w = 1; toast('Penyimpanan perangkat penuh! Ekspor backup lalu kosongkan data lama.', 7000); } }
 addEventListener('pagehide', flushSave); document.addEventListener('visibilitychange', () => { if (document.hidden) flushSave(); });
-function loadStore(id) { const s = LS.get('jpos:s:' + id, null); if (!s) return false; SID = id; S = s; for (const k of ['p', 'c', 'sales', 'j', 'ap', 'att', 'users', 'eq', 'cq', 'hold', 'staff', 'sup', 'po', 'kn', 'rtr', 'bst', 'tgt']) S[k] = S[k] || []; S.done = S.done || {}; S.pend = S.pend || {}; S.cs = S.cs || {}; S.set = Object.assign({ ppn: 11, tempo: 30, jin: '08:00' }, S.set || {});
+function loadStore(id) { const s = LS.get('jpos:s:' + id, null); if (!s) return false; SID = id; S = s; for (const k of ['p', 'c', 'sales', 'j', 'ap', 'att', 'users', 'eq', 'cq', 'hold', 'staff', 'sup', 'po', 'kn', 'rtr', 'bst', 'tgt', 'ses']) S[k] = S[k] || []; S.done = S.done || {}; S.pend = S.pend || {}; S.cs = S.cs || {}; S.set = Object.assign({ ppn: 11, tempo: 30, jin: '08:00' }, S.set || {});
   { const old = Date.now() - 14 * 864e5; S.att.forEach((a) => { if (a.ph && a.t < old) delete a.ph; }); S.sales.forEach((x) => { if (x.dl) x.dl.log.forEach((l) => { if (l.ph && l.t < old) delete l.ph; }); }); } // foto bukti lama dibuang agar penyimpanan HP tidak penuh
   if (!S.v4) { const o = S.users.find((u) => u.r == 'admin'); if (o && !S.users.some((u) => u.r == 'owner')) o.r = 'owner'; S.v4 = 1; }
   S.c.forEach((c) => { if (c.lat == null || c.lng == null || (Math.abs(c.lat) < 0.01 && Math.abs(c.lng) < 0.01)) { c.lat = null; c.lng = null; } }); kdFill(); return true; }
@@ -202,6 +203,13 @@ const Ap = {
     if (c.lat == null || c.lng == null) { c.lat = null; c.lng = null; } // titik outlet yang sudah ada hanya bisa diubah owner/admin/akuntan
     if (MGR(e.r) && 'sl' in q) c.sl = q.sl;
     if (e.r == 'owner') for (const f of ['term', 'lim', 'tempo', 'x']) if (f in q) c[f] = q[f]; // hanya pemilik yang mengatur kredit
+  },
+  // shift kasir: jadwal (shiftSet) & sesi buka / tutup kasir (closing)
+  shs(e) { const x = e.x || {}; S.shs = { defs: (x.defs || []).filter((d) => d && /^[\w-]{1,20}$/.test(d.id) && /^\d\d:\d\d$/.test(d.s) && /^\d\d:\d\d$/.test(d.e)).slice(0, 12), as: x.as && typeof x.as == 'object' ? x.as : {}, req: x.req !== false, by: e.u, t: e.t }; },
+  shf(e) {
+    S.ses = S.ses || [];
+    if (e.op == 'open') { if (!S.ses.some((x) => x.no == e.no)) S.ses.push({ no: e.no, u: e.u, t: e.t, sh: e.sh || '', sn: e.sn || '', c0: Math.max(0, +e.c0 || 0) }); return; }
+    if (e.op == 'close') { const x = S.ses.find((y) => y.no == e.ref) || S.ses.filter((y) => y.u == e.u && !y.tc).pop(); if (!x || x.tc) return; Object.assign(x, { tc: e.t, cash: +e.cash || 0, exp: +e.exp || 0, dif: +e.dif || 0, omz: +e.omz || 0, n: +e.n || 0, M: e.M || {}, note: e.note || '', cu: e.u }); }
   },
   // target & insentif (butuh fitur tgtSet; server juga memeriksa)
   tgt(e) {
@@ -319,6 +327,7 @@ function mkSale(o, t, by) { // o: {items,cd,pay,cu,dpay,dpm,note,kirim}; melempa
   const c = o.cu ? cust(o.cu) : null, r = calc(o.items, o.cd);
   if (a.r == 'sales' && !c) throw new Error('Pilih outlet pelanggan dulu');
   let ci = '';
+  if (!by && a.r == 'kasir' && typeof shReq == 'function' && shReq() && !mySes()) throw new Error('Buka kasir (mulai shift) dulu di halaman Kasir');
   if (!by && typeof ciNeeded == 'function' && c && a.r == 'sales') { const cur = openCI(a.n); if (ciNeeded() && (!cur || cur.cid != c.id)) throw new Error('Check-in dulu di outlet ' + c.n + ' (radius ' + distStr(CIR()) + ') sebelum membuat order'); if (cur && cur.cid == c.id) ci = cur.no; }
   if (o.pay == 'Piutang' && !o.cod) {
     if (!c) throw new Error('Pilih outlet untuk penjualan kredit');

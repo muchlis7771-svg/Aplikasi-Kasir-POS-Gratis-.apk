@@ -1,5 +1,6 @@
 import { MSCHEMA, buyerRoutes, shopRoutes, shipCfg } from './market.js';
 import { SSCHEMA, SALTER, logAct, heartbeat, adminActivity } from './social.js';
+import { RSCHEMA, RALTER, rptCfg, cleanCfg, dayRange, buildDaily, sendOut, cronDaily } from './lapor.js';
 // J-POS API v4 — Cloudflare Worker + D1 (SQLite)
 // Multi-tenant: 1 toko = 1 tenant. Data bisnis = LOG KEJADIAN (tabel ev) yang diputar ulang tiap perangkat (offline-first).
 // v4: peran owner/admin/akuntan/kasir/sales, masa aktif toko (trial 30 hari + perpanjangan oleh Head Admin),
@@ -19,11 +20,11 @@ async function pbkdf2(pass, salt, it) {
 const hp = (pin, sid, name) => pbkdf2(String(pin), sid + ':' + name.toLowerCase(), 20000);
 const PIN = /^\d{4,8}$/, SID = /^[a-z0-9]{6,20}$/, NO = /^[A-Za-z0-9_-]{3,40}$/, NAME = /^[\p{L}\p{N} ._-]{2,40}$/u;
 const ROLES = ['owner', 'admin', 'akuntan', 'kasir', 'sales', 'dropping'];
-const KINDS = new Set(['sale', 'pay', 'retur', 'stk', 'apay', 'opn', 'exp', 'cap', 'jm', 'pu', 'cu', 'set', 'in', 'out', 'visit', 'loc', 'vout', 'sup', 'po', 'rcv', 'dlv', 'kas', 'sec', 'face', 'bst', 'tgt']);
+const KINDS = new Set(['sale', 'pay', 'retur', 'stk', 'apay', 'opn', 'exp', 'cap', 'jm', 'pu', 'cu', 'set', 'in', 'out', 'visit', 'loc', 'vout', 'sup', 'po', 'rcv', 'dlv', 'kas', 'sec', 'face', 'bst', 'tgt', 'shf', 'shs']);
 // ---- Hak akses: tiap kejadian butuh salah satu FITUR; fitur ditentukan paket toko (Head Admin) & matrix peran (Owner) ----
 const ALWAYS = 'dash set';
 const DEFPERM = {
-  admin: 'dash pos his hisAll prod prodEdit outlet onl ana lap keu abs absAll chat retur set beli tgt tgtAll tgtSet',
+  admin: 'dash pos his hisAll prod prodEdit outlet onl ana lap keu abs absAll chat retur set beli tgt tgtAll tgtSet shiftSet',
   akuntan: 'dash his hisAll prod ana lap keu jur abs absAll chat set kas tgt tgtAll',
   kasir: 'dash pos his abs chat set tgt',
   sales: 'dash pos his outlet ana abs chat set cek retur tgt',
@@ -33,20 +34,22 @@ const PKG0 = {
   // BIASA: toko eceran kecil — kasir, stok dasar, absen, chat
   biasa: { n: 'Biasa', max: 3, f: 'dash pos his prod prodEdit outlet abs chat set usr' },
   // STANDAR: + laporan, keuangan, buku kas, pembelian, Excel, toko online, backup, retur, hak akses
-  standar: { n: 'Standar', max: 10, f: 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm tgt tgtAll tgtSet' },
+  standar: { n: 'Standar', max: 10, f: 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm tgt tgtAll tgtSet shiftSet' },
   // HIGH: + analisa, jurnal akuntansi, pengantaran/dropping, check-in outlet, anti-curang, audit
-  high: { n: 'High', max: 100, f: 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana jur kirim cek terima anti aud tgt tgtAll tgtSet' },
+  high: { n: 'High', max: 100, f: 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana jur kirim cek terima anti aud tgt tgtAll tgtSet shiftSet' },
 };
 const ALLF = [...new Set(Object.values(PKG0).flatMap((x) => x.f.split(' ')).concat('terima'))];
-const KNEED = { sale: ['pos'], pay: ['pos', 'keu', 'terima'], retur: ['retur'], stk: ['prodEdit', 'beli'], apay: ['keu', 'beli'], opn: ['prodEdit', 'keu'], exp: ['jur', 'keu'], jm: ['jur'], pu: ['prodEdit'], cu: ['outlet'], visit: ['outlet', 'cek'], vout: ['cek'], sup: ['beli'], po: ['beli'], rcv: ['beli'], dlv: ['kirim'], kas: ['kas'], sec: null, face: null, bst: ['prodEdit'], tgt: ['tgtSet'], in: null, out: null, loc: null, cap: 'owner', set: 'owner' };
-const pkgAll = () => { let o = null; try { o = CFG && CFG.pkg_feat ? JSON.parse(CFG.pkg_feat) : null; } catch (e) { } const r = {}; for (const t of Object.keys(PKG0)) { r[t] = { ...PKG0[t], ...((o && o[t]) || {}) }; if (o && o[t] && !(o[t].v >= 25) && t != 'biasa') r[t].f += ' ' + NEWF25; } return r; };
-const NEWF25 = 'tgt tgtAll tgtSet', NEWR25 = { admin: 'tgt tgtAll tgtSet', akuntan: 'tgt tgtAll', kasir: 'tgt', sales: 'tgt' }; // fitur baru v25: ikut aktif di paket & peran yang sudah disesuaikan sebelumnya
+const KNEED = { sale: ['pos'], pay: ['pos', 'keu', 'terima'], retur: ['retur'], stk: ['prodEdit', 'beli'], apay: ['keu', 'beli'], opn: ['prodEdit', 'keu'], exp: ['jur', 'keu'], jm: ['jur'], pu: ['prodEdit'], cu: ['outlet'], visit: ['outlet', 'cek'], vout: ['cek'], sup: ['beli'], po: ['beli'], rcv: ['beli'], dlv: ['kirim'], kas: ['kas'], sec: null, face: null, bst: ['prodEdit'], tgt: ['tgtSet'], shf: ['pos'], shs: ['shiftSet'], in: null, out: null, loc: null, cap: 'owner', set: 'owner' };
+const pkgAll = () => { let o = null; try { o = CFG && CFG.pkg_feat ? JSON.parse(CFG.pkg_feat) : null; } catch (e) { } const r = {}; for (const t of Object.keys(PKG0)) { r[t] = { ...PKG0[t], ...((o && o[t]) || {}) }; if (o && o[t] && t != 'biasa') for (const [vv, f] of NEWF) if (!(o[t].v >= vv)) r[t].f += ' ' + f; } return r; };
+// fitur baru per versi: ikut aktif di paket & peran yang sudah disesuaikan sebelumnya
+const NEWF = [[25, 'tgt tgtAll tgtSet'], [30, 'shiftSet']], NEWR = [[25, { admin: 'tgt tgtAll tgtSet', akuntan: 'tgt tgtAll', kasir: 'tgt', sales: 'tgt' }], [30, { admin: 'shiftSet' }]];
+const newRole = (ov, role) => NEWR.filter(([vv]) => !(ov._v >= vv)).map(([, m]) => m[role] || '').join(' ');
 const pkgOf = (tier) => { const a = pkgAll(); return a[tier] || a.high; };
 const permObj = (s) => { try { const o = s.perm ? JSON.parse(s.perm) : null; return o && typeof o == 'object' ? o : {}; } catch (e) { return {}; } };
 function featsOf(s, role) {
   const pf = new Set((pkgOf(s.tier).f + ' ' + ALWAYS).split(' ').filter(Boolean));
   if (role == 'owner') return [...pf];
-  const ov = permObj(s), rf = (typeof ov[role] == 'string' ? ov[role] + (ov._v >= 25 ? '' : ' ' + (NEWR25[role] || '')) : DEFPERM[role] || '').split(' ').filter(Boolean);
+  const ov = permObj(s), rf = (typeof ov[role] == 'string' ? ov[role] + ' ' + newRole(ov, role) : DEFPERM[role] || '').split(' ').filter(Boolean);
   return rf.filter((f) => pf.has(f));
 }
 function kindOk(feats, role, k) { const n = KNEED[k]; if (n === undefined) return false; if (n === null) return true; if (n == 'owner') return role == 'owner'; return n.some((f) => feats.includes(f)); }
@@ -65,8 +68,8 @@ const SCHEMA = [
 let READY = null;
 function ready(env) {
   if (!READY) READY = (async () => {
-    await env.DB.batch([...SCHEMA, ...MSCHEMA, ...SSCHEMA].map((q) => env.DB.prepare(q)));
-    for (const c of SALTER) { try { await env.DB.prepare('ALTER TABLE ' + c).run(); } catch (e) { } }
+    await env.DB.batch([...SCHEMA, ...MSCHEMA, ...SSCHEMA, ...RSCHEMA].map((q) => env.DB.prepare(q)));
+    for (const c of [...SALTER, ...RALTER]) { try { await env.DB.prepare('ALTER TABLE ' + c).run(); } catch (e) { } }
     for (const c of ['phone TEXT', 'exp INTEGER', "plan TEXT DEFAULT 'trial'", 'note TEXT', "tier TEXT DEFAULT 'high'", 'perm TEXT']) { try { await env.DB.prepare('ALTER TABLE stores ADD COLUMN ' + c).run(); } catch (e) { } }
   })().catch((e) => { READY = null; throw e; });
   return READY;
@@ -203,11 +206,13 @@ export default {
             if (b.price != null) await cfgSet(env, 'price', String(b.price).slice(0, 300));
             if (b.trial_days != null) await cfgSet(env, 'trial_days', Math.max(1, Math.min(365, Math.round(+b.trial_days) || 30)));
             if (b.pkg_reset) await cfgSet(env, 'pkg_feat', '');
-            if (b.pkg && typeof b.pkg == 'object') { const cur = pkgAll(), o = {}; for (const t of Object.keys(PKG0)) { const x = b.pkg[t] || {}; o[t] = { n: String(x.n || cur[t].n).slice(0, 20), max: Math.max(1, Math.min(9999, Math.round(+x.max) || cur[t].max)), f: String(x.f != null ? x.f : cur[t].f).split(' ').filter((f) => ALLF.includes(f)).join(' '), v: 25 }; } await cfgSet(env, 'pkg_feat', JSON.stringify(o)); }
+            if (b.pkg && typeof b.pkg == 'object') { const cur = pkgAll(), o = {}; for (const t of Object.keys(PKG0)) { const x = b.pkg[t] || {}; o[t] = { n: String(x.n || cur[t].n).slice(0, 20), max: Math.max(1, Math.min(9999, Math.round(+x.max) || cur[t].max)), f: String(x.f != null ? x.f : cur[t].f).split(' ').filter((f) => ALLF.includes(f)).join(' '), v: 30 }; } await cfgSet(env, 'pkg_feat', JSON.stringify(o)); }
             if (['biasa', 'standar', 'high'].includes(b.trial_tier)) await cfgSet(env, 'trial_tier', b.trial_tier);
+            // gerbang laporan otomatis: token Fonnte (WhatsApp) & API key Resend (email). Kosongkan '-' untuk menghapus.
+            for (const k of ['wa_tok', 'mail_key', 'mail_from']) if (b[k] != null && String(b[k]).trim() !== '') await cfgSet(env, k, String(b[k]).trim() == '-' ? '' : String(b[k]).trim().slice(0, 200));
             for (const k of ['ship_base', 'ship_per_m', 'ship_road', 'ship_min', 'ship_max_km', 'ship_round']) if (b[k] != null && Number.isFinite(+b[k]) && +b[k] >= 0) await cfgSet(env, k, +b[k]);
           }
-          const c = await cfgAll(env); return J({ wa: c.wa || '', price: c.price || '', trial_days: +(c.trial_days || 30), user: c.admin_user || env.ADMIN_USER || 'headadmin', ship: shipCfg(c), pkg: pkgAll(), allf: ALLF, trial_tier: c.trial_tier || 'high' });
+          const c = await cfgAll(env); return J({ wa: c.wa || '', price: c.price || '', trial_days: +(c.trial_days || 30), user: c.admin_user || env.ADMIN_USER || 'headadmin', ship: shipCfg(c), pkg: pkgAll(), allf: ALLF, trial_tier: c.trial_tier || 'high', gw: { wa: !!c.wa_tok, mail: !!c.mail_key, from: c.mail_from || '' } });
         }
         if (p == '/api/admin/password' && M == 'POST') {
           const c = await cfgAll(env);
@@ -270,6 +275,27 @@ export default {
 
       if (p == '/api/me') return J({ sid, name: uname, role, ...stInfo(me) });
 
+      // ---------- laporan otomatis ke WA & email pemilik ----------
+      if (p.startsWith('/api/rpt') || p == '/api/snap') {
+        const srow = await env.DB.prepare('SELECT id,name,rpt FROM stores WHERE id=?').bind(sid).first(), rc = rptCfg(srow), C = await cfgAll(env);
+        if (p == '/api/snap' && M == 'POST') { const d = JSON.stringify(b.d || {}); if (d.length > 30000) return J({ e: 'terlalu besar' }, 400); await env.DB.prepare('INSERT INTO snap(store_id,t,data) VALUES(?,?,?) ON CONFLICT(store_id) DO UPDATE SET t=excluded.t,data=excluded.data').bind(sid, Date.now(), d).run(); return J({ ok: 1 }); }
+        const gw = { wa: !!(rc.tok || C.wa_tok), mail: !!C.mail_key };
+        if (p == '/api/rpt' && M == 'GET') return J({ cfg: role == 'owner' ? { ...rc, tok: rc.tok ? '••••' + rc.tok.slice(-4) : '' } : { close: !!rc.close, has: !!((rc.wa || []).length || (rc.em || []).length) }, gw, wa: (rc.wa || [])[0] || '' });
+        if (p == '/api/rpt/push' && M == 'POST') { // closing kasir & laporan manual dari aplikasi
+          if (!rc.close && b.kind == 'closing') return J({ ok: 0, off: 1 });
+          if (await limited(env, 'rpt:' + sid, 40, 864e5)) return J({ e: 'Batas kirim laporan hari ini tercapai' }, 429);
+          const tx = String(b.text || '').slice(0, 6000); if (!tx) return J({ e: 'kosong' }, 400);
+          return J({ ok: 1, res: await sendOut(env, C, rc, tx, String(b.subject || 'Laporan ' + srow.name).slice(0, 150)), gw });
+        }
+        if (role != 'owner') return J({ e: 'Khusus pemilik' }, 403);
+        if (p == '/api/rpt' && M == 'PUT') { const o = cleanCfg(b); if (b.tok === undefined || String(b.tok).startsWith('••••')) o.tok = rc.tok || ''; await env.DB.prepare('UPDATE stores SET rpt=? WHERE id=?').bind(JSON.stringify(o), sid).run(); return J({ ok: 1, cfg: { ...o, tok: o.tok ? '••••' + o.tok.slice(-4) : '' }, gw: { wa: !!(o.tok || C.wa_tok), mail: !!C.mail_key } }); }
+        if (p == '/api/rpt/test' && M == 'POST') {
+          if (!b.dry && await limited(env, 'rptt:' + sid, 10, 36e5)) return J({ e: 'Terlalu sering, coba lagi nanti' }, 429);
+          const R = dayRange(rc.tz || 8, Date.now(), 0), text = await buildDaily(env, sid, srow.name, rc.tz || 8, R, Date.now());
+          return J({ ok: 1, text, res: !b.dry && ((rc.wa || []).length || (rc.em || []).length ) ? await sendOut(env, C, rc, text, 'Laporan ' + srow.name + ' · ' + R.label) : [], gw });
+        }
+      }
+
       if (p == '/api/me/pin' && M == 'POST') {
         if (!PIN.test(String(b.pin || ''))) return J({ e: 'PIN baru harus 4-8 angka' }, 400);
         if (await limited(env, 'pin:' + sid + ':' + uname.toLowerCase(), 6, 6e5)) return J({ e: 'Terlalu banyak percobaan, coba lagi nanti' }, 429);
@@ -317,7 +343,7 @@ export default {
         if (EXP) return RO();
         if (M == 'PUT') {
           if (!featsOf(me, 'owner').includes('perm')) return J({ e: 'Pengaturan hak akses tersedia di paket Standar / High' }, 403);
-          const o = {}; for (const r of ROLES) { if (r == 'owner') continue; if (typeof (b.pm || {})[r] == 'string') o[r] = b.pm[r].split(' ').filter((f) => ALLF.includes(f)).join(' '); } o._v = 25;
+          const o = {}; for (const r of ROLES) { if (r == 'owner') continue; if (typeof (b.pm || {})[r] == 'string') o[r] = b.pm[r].split(' ').filter((f) => ALLF.includes(f)).join(' '); } o._v = 30;
           await env.DB.prepare('UPDATE stores SET perm=? WHERE id=?').bind(JSON.stringify(o), sid).run();
           return J({ ok: 1, pm: o });
         }
@@ -394,4 +420,6 @@ export default {
       return J({ e: 'Not found' }, 404);
     } catch (x) { console.error(x && x.stack || x); return J({ e: 'Server error' }, 500); }
   },
+  // Cron Trigger (tiap jam): laporan harian otomatis ke WA & email pemilik toko
+  async scheduled(ev, env, ctx) { await ready(env); ctx.waitUntil(cronDaily(env, await cfgAll(env), ev.scheduledTime || Date.now())); },
 };

@@ -13,7 +13,7 @@ function absGateView() {
   const anti = antiOn(), off = S.srv && !canNet(), blockOff = anti && S.set.onReq === true && off;
   return `<header><button class="av">${S.logo ? `<img src="${esc(S.logo)}" alt="">` : esc((S.name || '?')[0].toUpperCase())}</button><div class="hn"><b>${esc(S.name)}</b><small>${esc(U.n)} · ${esc(ROLE[U.r])}</small></div><span class="sp"></span><span id="sy" class="bd"></span></header>
 <main class="gate"><div class="gc"><small class="gh1">${esc(greet())}, ${esc(U.n)} 👋</small><div class="gclk" id="gclk">${hm(gNow())}</div><div class="gdt">${todayLong()}</div>
-<div class="gmsg"><b>Absen masuk dulu untuk mulai bekerja</b><small>Fitur aplikasi terbuka setelah Anda absen hari ini. Jam masuk ${esc(S.set.jin || '08:00')} (toleransi 10 menit).</small></div>
+<div class="gmsg"><b>Absen masuk dulu untuk mulai bekerja</b><small>Fitur aplikasi terbuka setelah Anda absen hari ini. Jam masuk ${esc(typeof jinOf == 'function' ? jinOf(U.n) : S.set.jin || '08:00')}${typeof shiftFor == 'function' && shiftFor(U.n) ? ' · shift ' + esc(shiftFor(U.n).n) : ''} (toleransi 10 menit).</small></div>
 <input id="an" placeholder="Catatan (opsional)">
 <button class="gbtn" onclick="clock('in')" ${blockOff ? 'disabled' : ''}><i>🕒</i> Absen masuk sekarang</button>
 ${blockOff ? '<small class="rd">Perangkat sedang offline. Absen butuh internet agar jam diverifikasi server — sambungkan internet lalu coba lagi.</small>' : ''}
