@@ -16,7 +16,7 @@ VW.prod = () => {
 function prodForm(id, sku) {
   const p = id ? prod(id) : null, cats = [...new Set(actProds().map((x) => x.c))];
   const m = modal(`<h3>${p ? 'Edit' : 'Tambah'} produk</h3>
-<input id="fn" placeholder="Nama produk *" value="${esc(p ? p.n : '')}"><div class="fm2"><input id="fc" list="cl" placeholder="Kategori" value="${esc(p ? p.c : '')}"><datalist id="cl">${cats.map((c) => `<option value="${esc(c)}">`).join('')}</datalist><div class="srch"><input id="fk" placeholder="SKU / barcode" value="${esc(p ? p.sku || '' : sku || '')}"><button class="gh" id="fsc">▣</button></div></div>
+<input id="fn" placeholder="Nama produk *" value="${esc(p ? p.n : '')}"><div class="fm2"><input id="fc" list="cl" placeholder="Kategori" value="${esc(p ? p.c : '')}"><datalist id="cl">${cats.map((c) => `<option value="${esc(c)}">`).join('')}</datalist><input id="fb" list="bl" placeholder="Merek / brand" value="${esc(p ? p.b || '' : '')}"><datalist id="bl">${[...new Set(S.p.map((x) => x.b).filter(Boolean))].map((c) => `<option value="${esc(c)}">`).join('')}</datalist><div class="srch"><input id="fk" placeholder="SKU / barcode" value="${esc(p ? p.sku || '' : sku || '')}"><button class="gh" id="fsc">▣</button></div></div>
 <div class="fm2"><input id="fp" type="number" placeholder="Harga jual *" value="${p ? p.pr : ''}"><input id="fh" type="number" placeholder="HPP / harga beli" value="${p ? p.co : ''}"></div>
 <div class="fm2">${p ? '' : '<input id="fs" type="number" placeholder="Stok awal">'}<input id="fm" type="number" placeholder="Stok minimum" value="${p ? p.min ?? 10 : 10}"></div>
 <div class="cd info" style="padding:10px"><b>🛍️ Toko online</b><div class="fm2" style="margin-top:6px"><input id="fo" type="number" placeholder="Harga online (kosong = sama)" value="${p && p.opr ? p.opr : ''}"><input id="fu" placeholder="Satuan (pcs/dus/kg)" value="${esc(p ? p.u || '' : '')}"></div><label class="row" style="margin:6px 0 0"><span>Tampilkan di pasar online</span><input type="checkbox" id="fon" ${!p || p.on !== false ? 'checked' : ''}></label></div>
@@ -31,7 +31,7 @@ function prodForm(id, sku) {
   $('#ok', m).onclick = async () => {
     const n = $('#fn', m).value.trim(), pr = num($('#fp', m).value); if (!n || pr <= 0) return toast('Nama dan harga jual wajib diisi');
     const sk = $('#fk', m).value.trim(); if (sk && S.p.some((x) => !x.x && x.sku == sk && x.id != (p && p.id))) return toast('SKU sudah dipakai produk lain');
-    const f = $('#fi', m).files[0], d = { id: p ? p.id : 'p' + uid(), n, c: $('#fc', m).value.trim() || 'Umum', pr, sku: sk, min: num($('#fm', m).value), opr: num($('#fo', m).value) || 0, u: $('#fu', m).value.trim(), on: $('#fon', m).checked, tiers: tr.filter((t) => t.min > 1 && cfac(t.d) < 1).map((t) => ({ min: t.min, d: t.d })) };
+    const f = $('#fi', m).files[0], d = { id: p ? p.id : 'p' + uid(), n, c: $('#fc', m).value.trim() || 'Umum', b: $('#fb', m).value.trim(), pr, sku: sk, min: num($('#fm', m).value), opr: num($('#fo', m).value) || 0, u: $('#fu', m).value.trim(), on: $('#fon', m).checked, tiers: tr.filter((t) => t.min > 1 && cfac(t.d) < 1).map((t) => ({ min: t.min, d: t.d })) };
     const co = num($('#fh', m).value); if (!p) { d.co = co; d.s0 = num(($('#fs', m) || {}).value); } else if (co != p.co) d.co = co;
     if (f) d.img = await imgData(f, 360);
     emit('pu', { p: d }); m.close(); R(); toast('Produk disimpan');

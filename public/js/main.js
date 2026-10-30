@@ -5,14 +5,24 @@ const PAGES = {
   prod: ['📦', 'Produk', 'Stok, harga, barcode'], outlet: ['📍', 'Outlet', 'Pelanggan, peta, kredit'], lap: ['📊', 'Laporan', 'Penjualan & keuangan'],
   keu: ['💰', 'Keuangan', 'Kas, piutang, utang'], jur: ['📒', 'Jurnal', 'Biaya & jurnal manual'], abs: ['🕒', 'Absensi', 'Masuk / pulang'],
   chat: ['💬', 'Chat', 'Tim & antar toko'], onl: ['🛍️', 'Toko Online', 'Pesanan pembeli online'], ana: ['🎯', 'Analisa', 'Saran order & kredit'], usr: ['👥', 'Pengguna', 'Karyawan & PIN'], set: ['⚙️', 'Pengaturan', 'Toko, akun, data'],
-  beli: ['📥', 'Pembelian', 'PO ke supplier & pabrik'], kas: ['📘', 'Buku Kas', 'Uang masuk & keluar'], kirim: ['🚚', 'Pengantaran', 'Antar order & tagih'], perm: ['🔐', 'Hak Akses', 'Peran, paket, keamanan'], aud: ['🛡️', 'Audit', 'Check-in, jam & lokasi'], retur: ['↩️', 'Retur Outlet', 'Expired, rusak, kelebihan order'],
+  beli: ['📥', 'Pembelian', 'PO ke supplier & pabrik'], kas: ['📘', 'Buku Kas', 'Uang masuk & keluar'], kirim: ['🚚', 'Pengantaran', 'Antar order & tagih'], perm: ['🔐', 'Hak Akses', 'Peran, paket, keamanan'], aud: ['🛡️', 'Audit', 'Check-in, jam & lokasi'], retur: ['↩️', 'Retur Outlet', 'Expired, rusak, kelebihan order'], tgt: ['🏆', 'Target & Insentif', 'Pencapaian bulanan'],
 };
-const ORDER = ['dash', 'kirim', 'pos', 'onl', 'his', 'retur', 'prod', 'beli', 'outlet', 'ana', 'lap', 'keu', 'kas', 'jur', 'aud', 'abs', 'chat', 'usr', 'perm', 'set'];
+const ORDER = ['dash', 'kirim', 'pos', 'onl', 'his', 'retur', 'prod', 'beli', 'outlet', 'ana', 'tgt', 'lap', 'keu', 'kas', 'jur', 'aud', 'abs', 'chat', 'usr', 'perm', 'set'];
 const TABS = { owner: ['dash', 'pos', 'onl', 'prod'], admin: ['dash', 'pos', 'onl', 'prod'], akuntan: ['dash', 'keu', 'lap', 'jur'], kasir: ['pos', 'dash', 'his', 'abs'], sales: ['dash', 'outlet', 'ana', 'pos'], dropping: ['dash', 'abs', 'chat'] };
 const pages = () => ORDER.filter((k) => can(k));
 const pgName = (k) => (k == 'pos' && U && U.r == 'sales' ? 'Order' : PAGES[k][1]);
-let MODE = 'home', SRV = '';
-function go(v) { const m = $('.md.menu'); if (m) m.close(); V = v; R(); window.scrollTo(0, 0); hb(v); }
+let MODE = 'home', SRV = '', SRVOK = false;
+// kunci alamat server: hanya pemilik toko (diverifikasi PIN) yang bisa mengganti; kembali ke server bawaan selalu boleh
+async function ownerCheck(id, name, pin) {
+  id = String(id || '').trim().toLowerCase(); name = String(name || '').trim(); if (!id || !name || !pin) throw new Error('Isi kode toko, nama pemilik, dan PIN');
+  const s = LS.get('jpos:s:' + id, null), u = s && (s.users || []).find((x) => x.r == 'owner' && x.n.toLowerCase() == name.toLowerCase());
+  if (u && (u.pin ? u.pin == pin : u.h == (await sha(id + ':' + u.n.toLowerCase() + ':' + pin)))) return true;
+  if (s && !s.srv) throw new Error('Nama atau PIN pemilik salah');
+  const r = await post('/api/login', { id, name, pin }, ''); if (r.role != 'owner') throw new Error('Hanya pemilik toko yang bisa mengubah alamat server'); return true;
+}
+async function srvUnlock() { try { await ownerCheck($('#ovi').value, $('#ovn').value, $('#ovp').value); SRVOK = true; toast('Kunci dibuka — silakan ubah alamat server'); R(); } catch (e) { toast(e.message || 'Gagal memverifikasi pemilik', 4000); } }
+function srvReset() { LS.set('jpos:api', ''); LS.set('jpos:apiAuto', ''); initApi(); checkSrv.t = 0; toast('Kembali ke server bawaan ✓'); R(); }
+function go(v) { SRVOK = false; const m = $('.md.menu'); if (m) m.close(); V = v; R(); window.scrollTo(0, 0); hb(v); }
 // laporan kehadiran ke server (dipantau Head Admin): halaman aktif tiap pengguna
 function hb(page) {
   try {
@@ -40,7 +50,7 @@ async function locPing(force) {
   } catch (e) { }
 }
 setInterval(() => locPing(), 60000);
-function mode(m) { MODE = m; R(); }
+function mode(m) { if (m != 'srv') SRVOK = false; MODE = m; R(); }
 const expTxt = () => { const d = daysLeft(); return d == null ? '-' : (S.plan == 'trial' ? 'Masa coba · ' : (S.plan ? S.plan + ' · ' : '')) + (d < 0 ? '<b class="rd">habis ' + dstr(S.exp) + '</b>' : 's/d ' + dstr(S.exp) + ' (' + (d == 0 ? 'berakhir hari ini' : d + ' hari lagi') + ')'); };
 
 function expBanner() {
@@ -100,7 +110,9 @@ function homeView() {
   if (MODE == 'login') return head + `<div class="cd fm" style="text-align:left"><h3>Masuk ke toko</h3><label><small class="mu">Kode toko (dari pemilik toko)</small><input id="lid" placeholder="mis. tokomaju" autocapitalize="none" autocomplete="off" value="${esc(last ? last.id : '')}"></label><label><small class="mu">Nama pengguna</small><input id="lnm" placeholder="Nama Anda" autocomplete="off" value="${esc(last ? last.name : '')}"></label><label><small class="mu">PIN</small><input id="lpn" type="password" inputmode="numeric" placeholder="••••" onkeydown="if(event.key=='Enter')doLoginUi()"></label><button class="pr" onclick="doLoginUi()">Masuk</button>${last && typeof bioBtn == 'function' ? bioBtn(last.id, last.name) : ''}${back}<small class="mu">Login pertama di HP baru butuh internet. Setelah itu bisa dipakai offline.</small></div></div>`;
   if (MODE == 'reg') return head + `<div class="cd fm" style="text-align:left"><h3>Daftarkan toko baru</h3><div class="info cd" style="padding:10px"><b>🎁 Gratis ${info.trial || 30} hari</b><br><small>Setelah masa coba, perpanjang langganan lewat pemilik aplikasi.</small></div><input id="rn" placeholder="Nama toko / distributor *"><input id="ro" placeholder="Nama Anda (pemilik) *"><input id="rh" type="tel" inputmode="tel" placeholder="No. WhatsApp (untuk info perpanjangan)"><input id="re" type="email" placeholder="Email (opsional)"><input id="rp" type="password" inputmode="numeric" maxlength="8" placeholder="Buat PIN 4–8 angka *"><input id="rc" placeholder="Kode toko (opsional, 6–20 huruf/angka)" autocapitalize="none"><h3 style="margin:8px 0 0">Pilih paket</h3><div class="tiers" id="tiers">${tierCards()}</div><button class="pr" onclick="doRegUi()">Daftar & mulai</button>${back}</div></div>`;
   if (MODE == 'ha') return head + `<div class="cd fm" style="text-align:left"><h3>🛠 Head Admin (pemilik aplikasi)</h3><input id="hu" placeholder="Username" autocapitalize="none" autocomplete="off"><input id="hp" type="password" placeholder="Password" onkeydown="if(event.key=='Enter')doHaUi()"><button class="pr" onclick="doHaUi()">Masuk</button>${back}<small class="mu" id="srvst">${srvTxt()}</small></div></div>`;
-  if (MODE == 'srv') return head + `<div class="cd fm" style="text-align:left"><h3>Alamat server</h3><input id="sv" placeholder="https://jpos-api.akun.workers.dev" value="${esc(AP)}" autocapitalize="none"><button class="pr" onclick="saveApi().then(()=>{checkSrv.t=0;R()})">Simpan & tes koneksi</button><small class="mu">Biasanya tidak perlu diubah.</small>${back}</div></div>`;
+  if (MODE == 'srv') return head + `<div class="cd fm" style="text-align:left"><h3>🔒 Alamat server</h3><small class="mu">Server aktif:</small><b style="overflow-wrap:anywhere">${esc(AP || '(lokal)')}</b>${apiCustom() ? '<small class="or">Memakai alamat khusus yang diatur pemilik toko.</small>' : '<small class="gr">Memakai server bawaan aplikasi.</small>'}
+${SRVOK ? `<input id="sv" placeholder="https://…workers.dev" value="${esc(AP)}" autocapitalize="none"><button class="pr" onclick="saveApi().then(()=>{checkSrv.t=0;R()})">Simpan & tes koneksi</button>` : `<small class="mu">Alamat server dikunci. Hanya <b>pemilik toko</b> yang bisa mengubahnya — masukkan data pemilik:</small><input id="ovi" placeholder="Kode toko" autocapitalize="none" autocomplete="off" value="${esc((LS.get('jpos:last', null) || {}).id || '')}"><input id="ovn" placeholder="Nama pemilik" autocomplete="off"><input id="ovp" type="password" inputmode="numeric" placeholder="PIN pemilik"><button class="pr" onclick="srvUnlock()">Buka kunci</button>`}
+${apiCustom() || LS.get('jpos:apiAuto', '') ? '<button class="gh" onclick="srvReset()">↺ Kembalikan ke server bawaan</button>' : ''}${back}</div></div>`;
   return head + `<div class="fm" style="text-align:left">${reg.length ? '<small class="mu">Toko di HP ini — ketuk untuk masuk</small>' : ''}${typeof bioList == 'function' && BIOP() ? bioList().filter((b) => reg.some((r) => r.id == b.id)).map((b) => `<button class="pr bio" onclick="bioLogin('${esc(b.id)}','${esc(b.n)}')">👆 ${esc(b.n)} · ${esc((reg.find((r) => r.id == b.id) || {}).n || b.id)}</button>`).join('') : ''}${reg.map((r) => `<button class="us2" onclick="quickLogin('${esc(r.id)}')"><em>${esc((r.n || '?')[0].toUpperCase())}</em><span>${esc(r.n)}<br><small class="mu">${esc(r.id)}${r.demo ? ' · demo' : ''}</small></span><span class="sp"></span>›</button>`).join('')}
 <button class="pr shop" onclick="startBuyer()">🛍️ Belanja (pembeli)<br><small>Cari & pesan produk dari semua toko</small></button>
 <div class="lodiv">untuk pemilik &amp; karyawan toko</div>

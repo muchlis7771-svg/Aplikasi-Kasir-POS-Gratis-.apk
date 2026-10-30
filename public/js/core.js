@@ -39,24 +39,26 @@ const MGR = (r) => r == 'owner' || r == 'admin' || r == 'akuntan';
 // Hak akses = (fitur peran) ∩ (fitur paket toko). Paket diatur Head Admin, matrix peran diatur Owner. Server memakai aturan yang sama.
 const ALWAYS = 'dash set';
 const DEFPERM = {
-  admin: 'dash pos his hisAll prod prodEdit outlet onl ana lap keu abs absAll chat retur set beli',
-  akuntan: 'dash his hisAll prod ana lap keu jur abs absAll chat set kas',
-  kasir: 'dash pos his abs chat set',
-  sales: 'dash pos his outlet ana abs chat set cek retur',
+  admin: 'dash pos his hisAll prod prodEdit outlet onl ana lap keu abs absAll chat retur set beli tgt tgtAll tgtSet',
+  akuntan: 'dash his hisAll prod ana lap keu jur abs absAll chat set kas tgt tgtAll',
+  kasir: 'dash pos his abs chat set tgt',
+  sales: 'dash pos his outlet ana abs chat set cek retur tgt',
   dropping: 'dash kirim cek terima abs chat set retur',
 };
-const PKGHI = 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana jur kirim cek terima anti aud';
+const PKGHI = 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana jur kirim cek terima anti aud tgt tgtAll tgtSet';
+const NEWR25 = { admin: 'tgt tgtAll tgtSet', akuntan: 'tgt tgtAll', kasir: 'tgt', sales: 'tgt' }; // fitur baru v25 ikut aktif pada hak akses yang sudah disesuaikan sebelumnya
+const pmRole = (ov, r) => (typeof ov[r] == 'string' ? ov[r] + (ov._v >= 25 ? '' : ' ' + (NEWR25[r] || '')) : DEFPERM[r] || '');
 const FEAT = {
   dash: 'Beranda', pos: 'Kasir / Order', his: 'Riwayat transaksi', hisAll: 'Lihat transaksi semua orang', prod: 'Lihat produk & stok', prodEdit: 'Ubah produk & stok', outlet: 'Outlet / pelanggan',
   onl: 'Toko Online', ana: 'Analisa', lap: 'Laporan', keu: 'Keuangan & utang piutang', jur: 'Jurnal & biaya', abs: 'Absensi sendiri', absAll: 'Lihat absensi semua', chat: 'Chat', usr: 'Kelola pengguna',
   retur: 'Retur barang', backup: 'Backup & restore', set: 'Pengaturan', beli: 'Pembelian ke supplier', xls: 'Import / export Excel', kas: 'Buku kas', perm: 'Atur hak akses (owner)',
-  kirim: 'Pengantaran / dropping', cek: 'Check-in / out outlet', terima: 'Terima pembayaran di lapangan', anti: 'Absensi anti-curang (selfie & jam server)', aud: 'Audit lapangan',
+  kirim: 'Pengantaran / dropping', cek: 'Check-in / out outlet', terima: 'Terima pembayaran di lapangan', tgt: 'Target & insentif (milik sendiri)', tgtAll: 'Lihat target & insentif semua karyawan', tgtSet: 'Atur target, insentif & kalender kerja', anti: 'Absensi anti-curang (selfie & jam server)', aud: 'Audit lapangan',
 };
 const FEATMEMO = {};
 function featSet(r) {
   const k = r + '|' + ((S && S.pf) || '') + '|' + JSON.stringify((S && S.pm) || {}); if (FEATMEMO[k]) return FEATMEMO[k];
   const pf = new Set(((S && S.pf) || PKGHI).split(' ').concat(ALWAYS.split(' ')).filter(Boolean)); let rf;
-  if (r == 'owner') rf = [...pf]; else { const ov = (S && S.pm) || {}; rf = (typeof ov[r] == 'string' ? ov[r] : DEFPERM[r] || '').split(' ').filter((f) => pf.has(f)); }
+  if (r == 'owner') rf = [...pf]; else { const ov = (S && S.pm) || {}; rf = pmRole(ov, r).split(' ').filter((f) => pf.has(f)); }
   return (FEATMEMO[k] = new Set(rf));
 }
 const can = (f, r) => featSet(r || (U && U.r)).has(f);
@@ -74,13 +76,13 @@ const REG = () => LS.get('jpos:reg', []);
 const setReg = (id, n, demo) => { const r = REG().filter((x) => x.id != id); r.push({ id, n, demo: !!demo }); LS.set('jpos:reg', r); };
 const TK = () => LS.get('jpos:tk:' + SID, '');
 function newStore(id, name, email, srv) {
-  return { v4: 1, exp: 0, plan: '', id, name, email: email || '', srv: !!srv, set: { ppn: 11, tempo: 30, addr: '', tel: '', jin: '08:00', od: false }, logo: '', p: [], c: [], sales: [], j: [], ap: [], att: [], users: [], done: {}, pend: {}, eq: [], cq: [], cs: {}, ec: 0, seq: 1, dv: Math.random().toString(36).slice(2, 5), hold: [], staff: [], sup: [], po: [], kn: [] };
+  return { v4: 1, exp: 0, plan: '', id, name, email: email || '', srv: !!srv, set: { ppn: 11, tempo: 30, addr: '', tel: '', jin: '08:00', od: false }, logo: '', p: [], c: [], sales: [], j: [], ap: [], att: [], users: [], done: {}, pend: {}, eq: [], cq: [], cs: {}, ec: 0, seq: 1, dv: Math.random().toString(36).slice(2, 5), hold: [], staff: [], sup: [], po: [], kn: [], tgt: [] };
 }
 let saveT = null;
 function save() { if (!S) return; clearTimeout(saveT); saveT = setTimeout(flushSave, 400); }
 function flushSave() { clearTimeout(saveT); saveT = null; if (S && !LS.set('jpos:s:' + SID, S) && !flushSave.w) { flushSave.w = 1; toast('Penyimpanan perangkat penuh! Ekspor backup lalu kosongkan data lama.', 7000); } }
 addEventListener('pagehide', flushSave); document.addEventListener('visibilitychange', () => { if (document.hidden) flushSave(); });
-function loadStore(id) { const s = LS.get('jpos:s:' + id, null); if (!s) return false; SID = id; S = s; for (const k of ['p', 'c', 'sales', 'j', 'ap', 'att', 'users', 'eq', 'cq', 'hold', 'staff', 'sup', 'po', 'kn', 'rtr', 'bst']) S[k] = S[k] || []; S.done = S.done || {}; S.pend = S.pend || {}; S.cs = S.cs || {}; S.set = Object.assign({ ppn: 11, tempo: 30, jin: '08:00' }, S.set || {});
+function loadStore(id) { const s = LS.get('jpos:s:' + id, null); if (!s) return false; SID = id; S = s; for (const k of ['p', 'c', 'sales', 'j', 'ap', 'att', 'users', 'eq', 'cq', 'hold', 'staff', 'sup', 'po', 'kn', 'rtr', 'bst', 'tgt']) S[k] = S[k] || []; S.done = S.done || {}; S.pend = S.pend || {}; S.cs = S.cs || {}; S.set = Object.assign({ ppn: 11, tempo: 30, jin: '08:00' }, S.set || {});
   { const old = Date.now() - 14 * 864e5; S.att.forEach((a) => { if (a.ph && a.t < old) delete a.ph; }); S.sales.forEach((x) => { if (x.dl) x.dl.log.forEach((l) => { if (l.ph && l.t < old) delete l.ph; }); }); } // foto bukti lama dibuang agar penyimpanan HP tidak penuh
   if (!S.v4) { const o = S.users.find((u) => u.r == 'admin'); if (o && !S.users.some((u) => u.r == 'owner')) o.r = 'owner'; S.v4 = 1; }
   S.c.forEach((c) => { if (c.lat == null || c.lng == null || (Math.abs(c.lat) < 0.01 && Math.abs(c.lng) < 0.01)) { c.lat = null; c.lng = null; } }); kdFill(); return true; }
@@ -178,11 +180,11 @@ const Ap = {
       const s0 = Math.max(0, Math.round(+q.s0 || 0)); p.co = Math.round(+q.co) || 0;
       if (s0 > 0) { p.st = s0; jr(e, 'Saldo awal persediaan ' + q.n, [['1201', s0 * p.co, 0], ['3101', 0, s0 * p.co]]); }
     } else if ('co' in q) p.co = Math.round(+q.co) || 0;
-    for (const f of ['n', 'c', 'pr', 'sku', 'img', 'tiers', 'min', 'x', 'opr', 'u', 'on']) if (f in q) p[f] = q[f];
+    for (const f of ['n', 'c', 'b', 'pr', 'sku', 'img', 'tiers', 'min', 'x', 'opr', 'u', 'on']) if (f in q) p[f] = q[f];
   },
   cu(e) {
     const q = e.c || {}; if (!/^[\w-]{1,40}$/.test(String(q.id))) return; let c = cust(q.id);
-    if (!c) { c = { id: q.id, n: '', ph: '', ad: '', lat: null, lng: null, term: 'cash', lim: 0, tempo: S.set.tempo || 30, sl: e.r == 'sales' ? e.u : '', note: '', t: e.t }; c.kd = kdOk(q.kd, S.c, c) ? String(q.kd).toUpperCase() : nextKd('OT', S.c); S.c.push(c); }
+    if (!c) { c = { id: q.id, n: '', ph: '', ad: '', lat: null, lng: null, term: 'cash', lim: 0, tempo: S.set.tempo || 30, sl: e.r == 'sales' ? e.u : '', note: '', t: e.t, by: e.u }; c.kd = kdOk(q.kd, S.c, c) ? String(q.kd).toUpperCase() : nextKd('OT', S.c); S.c.push(c); }
     if ('lat' in q && q.lat != null && !(Math.abs(+q.lat) <= 90 && Math.abs(+q.lng) <= 180 && !(Math.abs(+q.lat) < 0.01 && Math.abs(+q.lng) < 0.01))) { q.lat = null; q.lng = null; } // titik 0,0 = GPS belum terkunci → abaikan
     if (c.lat == null || c.lng == null || (Math.abs(c.lat) < 0.01 && Math.abs(c.lng) < 0.01)) { c.lat = null; c.lng = null; } // titik tidak lengkap / 0,0 = belum punya titik
     const lock = c.lat != null && !MGR(e.r); // titik outlet yang sudah ada hanya bisa diubah owner/admin/akuntan
@@ -191,6 +193,15 @@ const Ap = {
     if (c.lat == null || c.lng == null) { c.lat = null; c.lng = null; } // titik outlet yang sudah ada hanya bisa diubah owner/admin/akuntan
     if (MGR(e.r) && 'sl' in q) c.sl = q.sl;
     if (e.r == 'owner') for (const f of ['term', 'lim', 'tempo', 'x']) if (f in q) c[f] = q[f]; // hanya pemilik yang mengatur kredit
+  },
+  // target & insentif (butuh fitur tgtSet; server juga memeriksa)
+  tgt(e) {
+    S.tgt = S.tgt || []; S.tcal = S.tcal || {};
+    if (e.op == 'cal') { if (/^\d{4}-\d{2}$/.test(e.m)) S.tcal[e.m] = { wd: (e.wd || []).filter((d) => d >= 0 && d <= 6), off: (e.off || []).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)) }; return; }
+    if (e.op == 'del') { S.tgt = S.tgt.filter((x) => x.id != e.id); return; }
+    const x = e.x || {}; if (!/^[\w-]{1,40}$/.test(String(x.id)) || !/^\d{4}-\d{2}$/.test(x.m) || !TGT[x.ty]) return;
+    const o = { id: x.id, m: x.m, u: String(x.u || ''), ty: x.ty, ref: String(x.ref || ''), v: Math.max(0, +x.v || 0), im: ['flat', 'pct', 'unit', 'none'].includes(x.im) ? x.im : 'none', iv: Math.max(0, +x.iv || 0), min: Math.max(0, Math.min(200, +x.min || 100)), by: e.u, t: e.t };
+    const i = S.tgt.findIndex((y) => y.id == o.id); if (i >= 0) S.tgt[i] = o; else S.tgt.push(o);
   },
   set(e) { if (e.r != 'owner') return; Object.assign(S.set, e.set || {}); if (e.name) S.name = e.name; if ('logo' in e) S.logo = e.logo; },
   in(e) { S.att.push({ no: e.no, k: 'in', t: e.t, u: e.u, lat: e.lat, lng: e.lng, acc: e.acc, note: e.note, ph: e.ph, fl: e.fl, fx: e.fx, sk: e.sk, rt: e.rt, fm: e.fm }); },

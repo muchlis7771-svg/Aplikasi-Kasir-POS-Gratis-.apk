@@ -19,33 +19,34 @@ async function pbkdf2(pass, salt, it) {
 const hp = (pin, sid, name) => pbkdf2(String(pin), sid + ':' + name.toLowerCase(), 20000);
 const PIN = /^\d{4,8}$/, SID = /^[a-z0-9]{6,20}$/, NO = /^[A-Za-z0-9_-]{3,40}$/, NAME = /^[\p{L}\p{N} ._-]{2,40}$/u;
 const ROLES = ['owner', 'admin', 'akuntan', 'kasir', 'sales', 'dropping'];
-const KINDS = new Set(['sale', 'pay', 'retur', 'stk', 'apay', 'opn', 'exp', 'cap', 'jm', 'pu', 'cu', 'set', 'in', 'out', 'visit', 'loc', 'vout', 'sup', 'po', 'rcv', 'dlv', 'kas', 'sec', 'face', 'bst']);
+const KINDS = new Set(['sale', 'pay', 'retur', 'stk', 'apay', 'opn', 'exp', 'cap', 'jm', 'pu', 'cu', 'set', 'in', 'out', 'visit', 'loc', 'vout', 'sup', 'po', 'rcv', 'dlv', 'kas', 'sec', 'face', 'bst', 'tgt']);
 // ---- Hak akses: tiap kejadian butuh salah satu FITUR; fitur ditentukan paket toko (Head Admin) & matrix peran (Owner) ----
 const ALWAYS = 'dash set';
 const DEFPERM = {
-  admin: 'dash pos his hisAll prod prodEdit outlet onl ana lap keu abs absAll chat retur set beli',
-  akuntan: 'dash his hisAll prod ana lap keu jur abs absAll chat set kas',
-  kasir: 'dash pos his abs chat set',
-  sales: 'dash pos his outlet ana abs chat set cek retur',
+  admin: 'dash pos his hisAll prod prodEdit outlet onl ana lap keu abs absAll chat retur set beli tgt tgtAll tgtSet',
+  akuntan: 'dash his hisAll prod ana lap keu jur abs absAll chat set kas tgt tgtAll',
+  kasir: 'dash pos his abs chat set tgt',
+  sales: 'dash pos his outlet ana abs chat set cek retur tgt',
   dropping: 'dash kirim cek terima abs chat set retur',
 };
 const PKG0 = {
   // BIASA: toko eceran kecil — kasir, stok dasar, absen, chat
   biasa: { n: 'Biasa', max: 3, f: 'dash pos his prod prodEdit outlet abs chat set usr' },
   // STANDAR: + laporan, keuangan, buku kas, pembelian, Excel, toko online, backup, retur, hak akses
-  standar: { n: 'Standar', max: 10, f: 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm' },
+  standar: { n: 'Standar', max: 10, f: 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm tgt tgtAll tgtSet' },
   // HIGH: + analisa, jurnal akuntansi, pengantaran/dropping, check-in outlet, anti-curang, audit
-  high: { n: 'High', max: 100, f: 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana jur kirim cek terima anti aud' },
+  high: { n: 'High', max: 100, f: 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana jur kirim cek terima anti aud tgt tgtAll tgtSet' },
 };
 const ALLF = [...new Set(Object.values(PKG0).flatMap((x) => x.f.split(' ')).concat('terima'))];
-const KNEED = { sale: ['pos'], pay: ['pos', 'keu', 'terima'], retur: ['retur'], stk: ['prodEdit', 'beli'], apay: ['keu', 'beli'], opn: ['prodEdit', 'keu'], exp: ['jur', 'keu'], jm: ['jur'], pu: ['prodEdit'], cu: ['outlet'], visit: ['outlet', 'cek'], vout: ['cek'], sup: ['beli'], po: ['beli'], rcv: ['beli'], dlv: ['kirim'], kas: ['kas'], sec: null, face: null, bst: ['prodEdit'], in: null, out: null, loc: null, cap: 'owner', set: 'owner' };
-const pkgAll = () => { let o = null; try { o = CFG && CFG.pkg_feat ? JSON.parse(CFG.pkg_feat) : null; } catch (e) { } const r = {}; for (const t of Object.keys(PKG0)) r[t] = { ...PKG0[t], ...((o && o[t]) || {}) }; return r; };
+const KNEED = { sale: ['pos'], pay: ['pos', 'keu', 'terima'], retur: ['retur'], stk: ['prodEdit', 'beli'], apay: ['keu', 'beli'], opn: ['prodEdit', 'keu'], exp: ['jur', 'keu'], jm: ['jur'], pu: ['prodEdit'], cu: ['outlet'], visit: ['outlet', 'cek'], vout: ['cek'], sup: ['beli'], po: ['beli'], rcv: ['beli'], dlv: ['kirim'], kas: ['kas'], sec: null, face: null, bst: ['prodEdit'], tgt: ['tgtSet'], in: null, out: null, loc: null, cap: 'owner', set: 'owner' };
+const pkgAll = () => { let o = null; try { o = CFG && CFG.pkg_feat ? JSON.parse(CFG.pkg_feat) : null; } catch (e) { } const r = {}; for (const t of Object.keys(PKG0)) { r[t] = { ...PKG0[t], ...((o && o[t]) || {}) }; if (o && o[t] && !(o[t].v >= 25) && t != 'biasa') r[t].f += ' ' + NEWF25; } return r; };
+const NEWF25 = 'tgt tgtAll tgtSet', NEWR25 = { admin: 'tgt tgtAll tgtSet', akuntan: 'tgt tgtAll', kasir: 'tgt', sales: 'tgt' }; // fitur baru v25: ikut aktif di paket & peran yang sudah disesuaikan sebelumnya
 const pkgOf = (tier) => { const a = pkgAll(); return a[tier] || a.high; };
 const permObj = (s) => { try { const o = s.perm ? JSON.parse(s.perm) : null; return o && typeof o == 'object' ? o : {}; } catch (e) { return {}; } };
 function featsOf(s, role) {
   const pf = new Set((pkgOf(s.tier).f + ' ' + ALWAYS).split(' ').filter(Boolean));
   if (role == 'owner') return [...pf];
-  const ov = permObj(s), rf = (typeof ov[role] == 'string' ? ov[role] : DEFPERM[role] || '').split(' ').filter(Boolean);
+  const ov = permObj(s), rf = (typeof ov[role] == 'string' ? ov[role] + (ov._v >= 25 ? '' : ' ' + (NEWR25[role] || '')) : DEFPERM[role] || '').split(' ').filter(Boolean);
   return rf.filter((f) => pf.has(f));
 }
 function kindOk(feats, role, k) { const n = KNEED[k]; if (n === undefined) return false; if (n === null) return true; if (n == 'owner') return role == 'owner'; return n.some((f) => feats.includes(f)); }
@@ -202,7 +203,7 @@ export default {
             if (b.price != null) await cfgSet(env, 'price', String(b.price).slice(0, 300));
             if (b.trial_days != null) await cfgSet(env, 'trial_days', Math.max(1, Math.min(365, Math.round(+b.trial_days) || 30)));
             if (b.pkg_reset) await cfgSet(env, 'pkg_feat', '');
-            if (b.pkg && typeof b.pkg == 'object') { const cur = pkgAll(), o = {}; for (const t of Object.keys(PKG0)) { const x = b.pkg[t] || {}; o[t] = { n: String(x.n || cur[t].n).slice(0, 20), max: Math.max(1, Math.min(9999, Math.round(+x.max) || cur[t].max)), f: String(x.f != null ? x.f : cur[t].f).split(' ').filter((f) => ALLF.includes(f)).join(' ') }; } await cfgSet(env, 'pkg_feat', JSON.stringify(o)); }
+            if (b.pkg && typeof b.pkg == 'object') { const cur = pkgAll(), o = {}; for (const t of Object.keys(PKG0)) { const x = b.pkg[t] || {}; o[t] = { n: String(x.n || cur[t].n).slice(0, 20), max: Math.max(1, Math.min(9999, Math.round(+x.max) || cur[t].max)), f: String(x.f != null ? x.f : cur[t].f).split(' ').filter((f) => ALLF.includes(f)).join(' '), v: 25 }; } await cfgSet(env, 'pkg_feat', JSON.stringify(o)); }
             if (['biasa', 'standar', 'high'].includes(b.trial_tier)) await cfgSet(env, 'trial_tier', b.trial_tier);
             for (const k of ['ship_base', 'ship_per_m', 'ship_road', 'ship_min', 'ship_max_km', 'ship_round']) if (b[k] != null && Number.isFinite(+b[k]) && +b[k] >= 0) await cfgSet(env, k, +b[k]);
           }
@@ -316,7 +317,7 @@ export default {
         if (EXP) return RO();
         if (M == 'PUT') {
           if (!featsOf(me, 'owner').includes('perm')) return J({ e: 'Pengaturan hak akses tersedia di paket Standar / High' }, 403);
-          const o = {}; for (const r of ROLES) { if (r == 'owner') continue; if (typeof (b.pm || {})[r] == 'string') o[r] = b.pm[r].split(' ').filter((f) => ALLF.includes(f)).join(' '); }
+          const o = {}; for (const r of ROLES) { if (r == 'owner') continue; if (typeof (b.pm || {})[r] == 'string') o[r] = b.pm[r].split(' ').filter((f) => ALLF.includes(f)).join(' '); } o._v = 25;
           await env.DB.prepare('UPDATE stores SET perm=? WHERE id=?').bind(JSON.stringify(o), sid).run();
           return J({ ok: 1, pm: o });
         }
