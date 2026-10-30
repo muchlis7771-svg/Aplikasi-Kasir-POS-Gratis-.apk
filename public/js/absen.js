@@ -10,7 +10,7 @@ const almOn = () => absReq() && S.set.almOn !== false && LS.get('jpos:alm', '1')
 
 /* ---------- layar "absen dulu" ---------- */
 function absGateView() {
-  const anti = antiOn(), off = S.srv && !canNet(), blockOff = anti && !S.set.aoff && off;
+  const anti = antiOn(), off = S.srv && !canNet(), blockOff = anti && S.set.onReq === true && off;
   return `<header><button class="av">${S.logo ? `<img src="${esc(S.logo)}" alt="">` : esc((S.name || '?')[0].toUpperCase())}</button><div class="hn"><b>${esc(S.name)}</b><small>${esc(U.n)} · ${esc(ROLE[U.r])}</small></div><span class="sp"></span><span id="sy" class="bd"></span></header>
 <main class="gate"><div class="gc"><small class="gh1">${esc(greet())}, ${esc(U.n)} 👋</small><div class="gclk" id="gclk">${hm(gNow())}</div><div class="gdt">${todayLong()}</div>
 <div class="gmsg"><b>Absen masuk dulu untuk mulai bekerja</b><small>Fitur aplikasi terbuka setelah Anda absen hari ini. Jam masuk ${esc(S.set.jin || '08:00')} (toleransi 10 menit).</small></div>

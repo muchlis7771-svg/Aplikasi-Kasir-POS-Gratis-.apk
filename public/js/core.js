@@ -80,7 +80,16 @@ function newStore(id, name, email, srv) {
 }
 let saveT = null;
 function save() { if (!S) return; clearTimeout(saveT); saveT = setTimeout(flushSave, 400); }
-function flushSave() { clearTimeout(saveT); saveT = null; if (S && !LS.set('jpos:s:' + SID, S) && !flushSave.w) { flushSave.w = 1; toast('Penyimpanan perangkat penuh! Ekspor backup lalu kosongkan data lama.', 7000); } }
+// penyimpanan penuh (mis. lama offline dengan banyak foto): buang foto bukti yang SUDAH terkirim ke server, lalu simpan ulang — data & antrian belum terkirim tidak pernah dibuang
+function slimStore() {
+  const q = new Set((S.eq || []).map((e) => e.no)), keep = (no) => q.has(no); let n = 0;
+  (S.att || []).forEach((a) => { if (a.ph && !keep(a.no)) { delete a.ph; n++; } });
+  (S.sales || []).forEach((x) => { if (x.dl) x.dl.log.forEach((l) => { if (l.ph && !keep(x.no)) { delete l.ph; n++; } }); });
+  (S.rtr || []).forEach((r) => { if ((r.ph || r.sig) && !keep(r.no)) { delete r.ph; delete r.sig; n++; } });
+  (S.c || []).forEach((c) => { if (c.img && c.img.length > 30000) { delete c.img; n++; } });
+  return n;
+}
+function flushSave() { clearTimeout(saveT); saveT = null; if (S && !LS.set('jpos:s:' + SID, S) && !(slimStore() && LS.set('jpos:s:' + SID, S)) && !flushSave.w) { flushSave.w = 1; toast('Penyimpanan perangkat penuh! Ekspor backup lalu kosongkan data lama.', 7000); } }
 addEventListener('pagehide', flushSave); document.addEventListener('visibilitychange', () => { if (document.hidden) flushSave(); });
 function loadStore(id) { const s = LS.get('jpos:s:' + id, null); if (!s) return false; SID = id; S = s; for (const k of ['p', 'c', 'sales', 'j', 'ap', 'att', 'users', 'eq', 'cq', 'hold', 'staff', 'sup', 'po', 'kn', 'rtr', 'bst', 'tgt']) S[k] = S[k] || []; S.done = S.done || {}; S.pend = S.pend || {}; S.cs = S.cs || {}; S.set = Object.assign({ ppn: 11, tempo: 30, jin: '08:00' }, S.set || {});
   { const old = Date.now() - 14 * 864e5; S.att.forEach((a) => { if (a.ph && a.t < old) delete a.ph; }); S.sales.forEach((x) => { if (x.dl) x.dl.log.forEach((l) => { if (l.ph && l.t < old) delete l.ph; }); }); } // foto bukti lama dibuang agar penyimpanan HP tidak penuh

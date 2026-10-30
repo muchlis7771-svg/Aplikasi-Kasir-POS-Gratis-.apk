@@ -33,7 +33,7 @@ async function nearMe() { toast('Mencari lokasi…', 1500); MYPOS = await getPos
 function orderFor(id) { cCu = id; V = 'pos'; R(); }
 function leafletOk() { return typeof L !== 'undefined' && L.map; }
 const mapPin = () => L.divIcon({ className: '', html: '<div style="width:22px;height:22px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#6c5ce7;border:3px solid #fff;box-shadow:0 2px 6px #0006"></div>', iconSize: [22, 22], iconAnchor: [11, 22] });
-function tiles(m) { try { window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(m); } catch (e) { } }
+function tiles(m) { if (!navigator.onLine && !tiles.w) { tiles.w = 1; toast('Offline: gambar peta dasar butuh internet. Titik outlet, jarak & check-in tetap berfungsi.', 4500); } try { window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(m); } catch (e) { } }
 /* status titik outlet di peta: isi = lama tidak dikunjungi, cincin = status kredit */
 function lastAct(cid) { let t = 0; for (const a of S.att) if (a.k == 'visit' && a.cid == cid && a.t > t) t = a.t; for (const s of S.sales) if (s.cu == cid && s.t > t) t = s.t; return t; }
 const OSTAT = [['ok', '#10b981', 'Dikunjungi ≤ 7 hari'], ['d7', '#facc15', 'Tidak dikunjungi > 7 hari'], ['d14', '#f97316', 'Tidak dikunjungi > 14 hari'], ['d30', '#6b7280', 'Tidak dikunjungi > 30 hari / belum pernah']];
