@@ -40,7 +40,7 @@ function uiOrgCard() {
 let UTH = null;
 function uiOrgSave() { const md = {}; $$('[data-um]').forEach((s) => (md[s.dataset.um] = s.value)); emit('set', { set: { uiTheme: UTH || S.set.uiTheme || 'modern', uiModel: md, uiOwn: $('#uown').checked } }); toast('Tampilan semua karyawan disimpan — berlaku setelah sinkron'); LS.set(thKey(), ''); R(); }
 document.addEventListener('click', (e) => { const b = e.target.closest('[data-ut]'); if (!b) return; UTH = b.dataset.ut; $$('[data-ut]').forEach((x) => x.classList.toggle('a', x == b)); document.body.dataset.th = document.documentElement.dataset.th = UTH; });
-const dashWrap = (h) => { const l = dlayNow(), t = (THEMES.find((x) => x[0] == themeNow()) || THEMES[0]); return `<div class="dlay dl-${l}"><div class="dlbar"><button class="gh" onclick="dlayPick()">🎨 ${esc(t[2])} · ${esc((DLAY.find((x) => x[0] == l) || DLAY[1])[2])}${ownOk() ? '' : ' 🔒'}</button></div>${l == 'grafik' ? h.replace('<details class="more"', '<details class="more" open') : h}</div>`; };
+const dashWrap = (h) => { const l = dlayNow(), t = (THEMES.find((x) => x[0] == themeNow()) || THEMES[0]); return `<div class="dlay dl-${l}">${typeof tgtMini == 'function' && U.r != 'dropping' ? tgtMini() : ''}<div class="dlbar"><button class="gh" onclick="dlayPick()">🎨 ${esc(t[2])} · ${esc((DLAY.find((x) => x[0] == l) || DLAY[1])[2])}${ownOk() ? '' : ' 🔒'}</button></div>${l == 'grafik' ? h.replace('<details class="more"', '<details class="more" open') : h}</div>`; };
 VW.dash = () => (U.r == 'dropping' ? VW.kirim() : dashWrap(U.r == 'kasir' ? dashKasir() : U.r == 'sales' ? dashSales() : dashAdmin()));
 VW.dash.after = () => { if (U.r == 'dropping') return VW.kirim.after(); if (teamMapPending) { teamMapPending = 0; setTimeout(drawTeamMap, 60); } };
 

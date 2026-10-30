@@ -82,7 +82,7 @@ async function xlsOutletImport(el) {
 
 /* ---------------- STOK / PRODUK ---------------- */
 const PCOL2 = {
-  id: ['id', 'id produk', 'id sistem'], kd: ['kode item', 'kd item', 'kode', 'kd'], sku: ['sku', 'barcode', 'kode barang', 'kode produk'], n: ['nama', 'nama produk', 'produk', 'nama barang', 'barang'], c: ['kategori', 'category', 'jenis'], u: ['satuan', 'unit'],
+  id: ['id', 'id produk', 'id sistem'], kd: ['kode item', 'kd item', 'kode', 'kd'], sku: ['sku', 'barcode', 'kode barang', 'kode produk'], n: ['nama', 'nama produk', 'produk', 'nama barang', 'barang'], c: ['kategori', 'category', 'jenis'], b: ['merek', 'merk', 'brand'], u: ['satuan', 'unit'],
   pr: ['harga jual', 'harga', 'harga satuan', 'price'], opr: ['harga online', 'harga toko online'], co: ['hpp', 'harga beli', 'harga pokok', 'modal', 'cost'], st: ['stok', 'stock', 'stok awal', 'stok fisik', 'stok sistem'],
   add: ['tambah stok', 'stok masuk', 'qty masuk', 'jumlah masuk', 'restok'], min: ['stok minimum', 'min', 'minimum', 'stok min'], tier: ['grosir', 'harga grosir', 'diskon grosir'], sup: ['supplier', 'pemasok'], pay: ['pembayaran', 'bayar', 'cara bayar'], tempo: ['tempo', 'tempo hari', 'tempo bayar'],
 };
@@ -121,8 +121,8 @@ async function xlsStockImport(el, mode) {
     }
     // mode produk & harga
     const pr = dec(cell(r, map, 'pr')), d = { id: ex ? ex.id : 'p' + uid() }; if (!ex && kd) d.kd = kd;
-    if (!ex) { if (!n) return errs.push('Baris ' + line + ': nama kosong'); if (!(pr > 0)) return errs.push('Baris ' + line + ' (' + n + '): harga jual wajib untuk produk baru'); d.n = n; d.c = sval(cell(r, map, 'c')) || 'Umum'; d.pr = Math.round(pr); d.sku = sku; d.co = Math.round(dec(cell(r, map, 'co'))) || 0; d.s0 = Math.max(0, Math.round(dec(cell(r, map, 'st'))) || 0); d.min = Number.isFinite(dec(cell(r, map, 'min'))) ? Math.round(dec(cell(r, map, 'min'))) : 10; }
-    else { if (n && n != ex.n) d.n = n; const c = sval(cell(r, map, 'c')); if (c) d.c = c; if (pr > 0) d.pr = Math.round(pr); if (sku && sku != ex.sku) d.sku = sku; const co = dec(cell(r, map, 'co')); if (Number.isFinite(co) && co >= 0 && Math.round(co) != ex.co) d.co = Math.round(co); const mn = dec(cell(r, map, 'min')); if (Number.isFinite(mn)) d.min = Math.round(mn); }
+    if (!ex) { if (!n) return errs.push('Baris ' + line + ': nama kosong'); if (!(pr > 0)) return errs.push('Baris ' + line + ' (' + n + '): harga jual wajib untuk produk baru'); d.n = n; d.c = sval(cell(r, map, 'c')) || 'Umum'; { const b = sval(cell(r, map, 'b')); if (b) d.b = b; } d.pr = Math.round(pr); d.sku = sku; d.co = Math.round(dec(cell(r, map, 'co'))) || 0; d.s0 = Math.max(0, Math.round(dec(cell(r, map, 'st'))) || 0); d.min = Number.isFinite(dec(cell(r, map, 'min'))) ? Math.round(dec(cell(r, map, 'min'))) : 10; }
+    else { if (n && n != ex.n) d.n = n; const c = sval(cell(r, map, 'c')); if (c) d.c = c; const b = sval(cell(r, map, 'b')); if (b && b != ex.b) d.b = b; if (pr > 0) d.pr = Math.round(pr); if (sku && sku != ex.sku) d.sku = sku; const co = dec(cell(r, map, 'co')); if (Number.isFinite(co) && co >= 0 && Math.round(co) != ex.co) d.co = Math.round(co); const mn = dec(cell(r, map, 'min')); if (Number.isFinite(mn)) d.min = Math.round(mn); }
     const u = sval(cell(r, map, 'u')); if (u) d.u = u; const op = dec(cell(r, map, 'opr')); if (Number.isFinite(op) && op > 0) d.opr = Math.round(op);
     const tr = parseTiers(cell(r, map, 'tier')); if (tr.length) d.tiers = tr;
     if (d.sku && S.p.some((p) => !p.x && p.sku == d.sku && p.id != d.id)) return errs.push('Baris ' + line + ': SKU ' + d.sku + ' dipakai produk lain');

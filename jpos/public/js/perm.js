@@ -3,9 +3,9 @@
 const tierName = (t) => ((HA.cfg && HA.cfg.pkg && HA.cfg.pkg[t || 'high']) || {}).n || { biasa: 'Biasa', standar: 'Standar', high: 'High' }[t || 'high'] || 'High';
 const FGROUP = [
   ['🛒 Penjualan', ['pos', 'his', 'hisAll', 'retur', 'terima']], ['📦 Produk & stok', ['prod', 'prodEdit', 'beli', 'xls']], ['📍 Outlet & lapangan', ['outlet', 'cek', 'ana', 'kirim']],
-  ['💰 Keuangan', ['keu', 'jur', 'kas', 'lap', 'backup']], ['👥 Tim', ['abs', 'absAll', 'usr', 'aud', 'chat']], ['🛍️ Lainnya', ['onl', 'anti', 'perm']],
+  ['💰 Keuangan', ['keu', 'jur', 'kas', 'lap', 'backup']], ['👥 Tim', ['abs', 'absAll', 'usr', 'aud', 'chat']], ['🏆 Target & insentif', ['tgt', 'tgtAll', 'tgtSet']], ['🛍️ Lainnya', ['onl', 'anti', 'perm']],
 ];
-const FSUB = { prodEdit: 'prod', hisAll: 'his', absAll: 'abs', aud: 'abs' };
+const FSUB = { prodEdit: 'prod', hisAll: 'his', absAll: 'abs', aud: 'abs', tgtAll: 'tgt', tgtSet: 'tgt' };
 
 /* ---------- Head Admin: atur isi paket ---------- */
 function haPkgCard() {
@@ -29,7 +29,7 @@ async function haPkgSave() {
 /* ---------- Owner: matriks hak akses ---------- */
 const PROLES = ['admin', 'akuntan', 'kasir', 'sales', 'dropping'];
 let PMD = null;
-function pmInit(force) { if (PMD && !force) return; PMD = {}; for (const r of PROLES) PMD[r] = new Set(String((S.pm || {})[r] ?? DEFPERM[r] ?? '').split(' ').filter(Boolean)); }
+function pmInit(force) { if (PMD && !force) return; PMD = {}; for (const r of PROLES) PMD[r] = new Set(pmRole(S.pm || {}, r).split(' ').filter(Boolean)); }
 function pmTog(r, f) {
   const s = PMD[r]; if (!pkgHas(f)) return toast('Fitur ini ada di paket yang lebih tinggi');
   if (s.has(f)) { s.delete(f); for (const k in FSUB) if (FSUB[k] == f) s.delete(k); } else { s.add(f); if (FSUB[f]) s.add(FSUB[f]); }
