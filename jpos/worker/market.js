@@ -42,6 +42,10 @@ const addSold = (env, o) => env.DB.batch(JSON.parse(o.items).map((i) => env.DB.p
 const bOut = (o) => ({ ...o, items: JSON.parse(o.items || '[]'), hist: JSON.parse(o.hist || '[]') });
 const push = (o, who, txt) => { const h = JSON.parse(o.hist || '[]'); h.push({ t: Date.now(), who, txt }); return JSON.stringify(h.slice(-40)); };
 async function owing(env, sid, bid) { return (await env.DB.prepare("SELECT COALESCE(SUM(tot),0) v FROM orders WHERE store_id=? AND buyer_id=? AND pay='kredit' AND paid=0 AND status IN('diproses','dikirim','selesai')").bind(sid, bid).first()).v; }
+// harga grosir bertingkat (beli >= min dapat diskon d, mis. "5" atau "5+2" %)
+const cfacS = (d) => String(d || '').split('+').map((x) => parseFloat(String(x).replace(',', '.')) || 0).reduce((a, v) => a * (1 - Math.min(100, Math.max(0, v)) / 100), 1);
+const tierJs = (t) => { const L = (Array.isArray(t) ? t : []).map((x) => ({ min: Math.round(+x.min), d: String(x.d || '').slice(0, 12) })).filter((x) => x.min >= 2 && cfacS(x.d) < 1).slice(0, 8); return L.length ? JSON.stringify(L) : null; };
+export const tierPrice = (base, tiers, q) => { let best = 1; try { for (const x of JSON.parse(tiers || '[]')) if (q >= x.min) best = Math.min(best, cfacS(x.d)); } catch (e) { } return Math.round(base * best); };
 const shopOpen = "s.status='active' AND (s.exp IS NULL OR s.exp>?) AND sh.open=1";
 
 // ================= PEMBELI =================
@@ -73,7 +77,7 @@ export async function buyerRoutes(x) {
   const ob = bearer ? await verify(bearer) : null, obid = ob && ob.role == 'buyer' ? ob.bid : null;
   const sp = await socialPublic({ ...x, hav, lat, lng, hasLL, shopOpen }, obid); if (sp) return sp;
   if (p == '/api/b/stores' && M == 'GET') {
-    const r = (await env.DB.prepare(`SELECT s.id,s.name,sh.lat,sh.lng,sh.addr,sh.descr,sh.cod,sh.credit,sh.minorder,sh.ships,(SELECT COUNT(*) FROM catalog c WHERE c.store_id=s.id AND c.st>0) np FROM stores s JOIN shop sh ON sh.store_id=s.id WHERE ${shopOpen} LIMIT 500`).bind(now).all()).results;
+    const r = (await env.DB.prepare(`SELECT s.id,s.name,s.tier,sh.lat,sh.lng,sh.addr,sh.descr,sh.cod,sh.credit,sh.minorder,sh.ships,(SELECT COUNT(*) FROM catalog c WHERE c.store_id=s.id AND c.st>0) np FROM stores s JOIN shop sh ON sh.store_id=s.id WHERE ${shopOpen} LIMIT 500`).bind(now).all()).results;
     r.forEach((s) => (s.dist = hasLL && s.lat != null ? Math.round(hav(lat, lng, s.lat, s.lng)) : null)); r.sort((a, c) => (a.dist ?? 9e9) - (c.dist ?? 9e9));
     return J({ stores: r });
   }
@@ -123,7 +127,7 @@ export async function buyerRoutes(x) {
       const c = await env.DB.prepare('SELECT c.*,CASE WHEN f.end>? THEN f.price END fsp FROM catalog c LEFT JOIN flash f ON f.store_id=c.store_id AND f.pid=c.pid WHERE c.store_id=? AND c.pid=?').bind(now, sid, String(it.pid)).first();
       if (!c) return J({ e: 'Produk tidak ditemukan / sudah tidak dijual' }, 400);
       if (c.st < q) return J({ e: 'Stok ' + c.n + ' tidak cukup (sisa ' + c.st + ')' }, 400);
-      const price = c.fsp || c.opr || c.pr, offer = Math.round(+it.offer) || 0;
+      const price = c.fsp || tierPrice(c.opr || c.pr, c.tiers, q), offer = Math.round(+it.offer) || 0; // flash sale, atau harga grosir sesuai jumlah
       if (offer && offer < price) nego = true;
       items.push({ pid: c.pid, n: c.n, q, price, offer: offer && offer < price ? offer : 0, unit: c.unit || '' }); sub += price * q;
     }
@@ -216,7 +220,7 @@ export async function shopRoutes(x) {
     if (okLL(sh0.lat, sh0.lng)) await env.DB.prepare('UPDATE shop SET lat=?,lng=? WHERE store_id=? AND lat IS NULL').bind(+sh0.lat, +sh0.lng, sid).run();
     for (const it of L) {
       if (!/^[\w-]{1,40}$/.test(String(it.id)) || !it.n) continue;
-      st.push(env.DB.prepare('INSERT INTO catalog(store_id,pid,n,c,pr,opr,st,img,sku,unit,upd) VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(store_id,pid) DO UPDATE SET n=excluded.n,c=excluded.c,pr=excluded.pr,opr=excluded.opr,st=excluded.st,img=excluded.img,sku=excluded.sku,unit=excluded.unit,upd=excluded.upd').bind(sid, String(it.id), String(it.n).slice(0, 80), String(it.c || 'Umum').slice(0, 40), Math.max(0, Math.round(+it.pr) || 0), Math.max(0, Math.round(+it.opr) || 0), Math.max(0, Math.round(+it.st) || 0), String(it.img || '').slice(0, 150000), String(it.sku || '').slice(0, 40), String(it.u || '').slice(0, 15), now));
+      st.push(env.DB.prepare('INSERT INTO catalog(store_id,pid,n,c,pr,opr,st,img,sku,unit,upd,tiers,kd,br) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(store_id,pid) DO UPDATE SET n=excluded.n,c=excluded.c,pr=excluded.pr,opr=excluded.opr,st=excluded.st,img=excluded.img,sku=excluded.sku,unit=excluded.unit,upd=excluded.upd,tiers=excluded.tiers,kd=excluded.kd,br=excluded.br').bind(sid, String(it.id), String(it.n).slice(0, 80), String(it.c || 'Umum').slice(0, 40), Math.max(0, Math.round(+it.pr) || 0), Math.max(0, Math.round(+it.opr) || 0), Math.max(0, Math.round(+it.st) || 0), String(it.img || '').slice(0, 150000), String(it.sku || '').slice(0, 40), String(it.u || '').slice(0, 15), now, tierJs(it.t), String(it.kd || '').slice(0, 30), String(it.b || '').slice(0, 40)));
     }
     for (let i = 0; i < st.length; i += 90) await env.DB.batch(st.slice(i, i + 90));
     await env.DB.prepare('DELETE FROM catalog WHERE store_id=? AND upd<?').bind(sid, now).run();

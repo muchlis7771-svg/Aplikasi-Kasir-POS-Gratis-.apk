@@ -13,7 +13,8 @@ const supList = () => (S.sup || []).filter((s) => !s.x).sort((a, b) => a.n.local
 const supStat = (s) => { const pos = (S.po || []).filter((p) => p.sup == s.id && p.st != 'batal'), ut = S.ap.filter((a) => a.sup == s.n).reduce((t, a) => t + apOut(a), 0); return { n: pos.length, tot: pos.reduce((t, p) => t + poRecv(p), 0), ut }; };
 const lowStock = () => actProds().filter((p) => p.st <= (p.min ?? 10)).sort((a, b) => a.st - b.st);
 
-VW.beli = () => {
+VW.beli = () => (S.srv && ['owner', 'admin'].includes(U.r) ? '<div class="cd"><div class="row" style="margin:0"><span><b>🛒 Order online ke distributor / grosir</b><br><small class="mu">Belanja ke toko lain yang terdaftar di J-POS — stok ready, harga & diskon grosir terlihat.</small></span><button class="pr" onclick="startBuyerAsStore()">Buka</button></div></div>' : '') + VW.beli0();
+VW.beli0 = () => {
   const now = Date.now(), act = (S.po || []).filter((p) => p.st == 'dipesan' || p.st == 'sebagian'), apl = S.ap.filter((a) => apOut(a) > 0).sort((a, b) => a.due - b.due);
   const wait = act.reduce((t, p) => t + (poTot(p) - poRecv(p)), 0), ut = apl.reduce((t, a) => t + apOut(a), 0), od = apl.filter((a) => a.due < now).reduce((t, a) => t + apOut(a), 0);
   let body = '';
