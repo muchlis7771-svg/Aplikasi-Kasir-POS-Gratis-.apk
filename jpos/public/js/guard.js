@@ -32,8 +32,9 @@ async function clockCheck(strict) {
   const fx = ['ofl'];
   if (dev < LS.get('jpos:lastT', 0) - 60000) return { ok: false, msg: 'Jam HP terdeteksi diputar mundur. Setel tanggal & waktu otomatis lalu coba lagi saat ada sinyal.' };
   if (TT.ok && Math.abs(dev - trustNow()) > 120000) return { ok: false, msg: 'Jam HP berubah sejak aplikasi dibuka. Setel tanggal & waktu otomatis.' };
-  if (strict) return { ok: false, msg: 'Toko ini mewajibkan absen / check-in saat ONLINE agar jam diverifikasi server. Cari sinyal lalu coba lagi.' };
-  return { ok: true, on: 0, sk: null, t: dev, fx };
+  if (strict) return { ok: false, msg: 'Pemilik toko mewajibkan absen / check-in saat ONLINE agar jam diverifikasi server. Cari sinyal lalu coba lagi.' };
+  // OFFLINE: tetap bisa. Jam memakai jam server terakhir (bila aplikasi sempat online sejak dibuka) atau jam HP, ditandai “offline” untuk audit, lalu dikirim otomatis saat ada sinyal.
+  return { ok: true, on: 0, sk: null, t: TT.ok ? trustNow() : dev, fx };
 }
 
 /* ---------- pengawas jam saat aplikasi terbuka ---------- */
@@ -52,7 +53,9 @@ document.addEventListener('visibilitychange', twReset);
 /* ---------- lokasi ---------- */
 async function goodPos(need) {
   let best = null;
-  for (let i = 0; i < 3; i++) { const p = await getPos(true); if (p && (!best || (p.acc || 1e9) < (best.acc || 1e9))) best = p; if (best && (best.acc || 1e9) <= need) break; await new Promise((r) => setTimeout(r, 1200)); }
+  // GPS satelit tetap bekerja tanpa internet, tapi saat offline butuh waktu lebih lama untuk mengunci → tunggu sampai akurat (maks 25 dtk online / 45 dtk offline)
+  const t0 = Date.now(), lim = navigator.onLine ? 25000 : 45000;
+  while (Date.now() - t0 < lim) { const p = await getPos1(true); if (p && (!best || (p.acc || 1e9) < (best.acc || 1e9))) best = p; if (best && (best.acc || 1e9) <= need) break; await new Promise((r) => setTimeout(r, 1000)); }
   return best;
 }
 function lastPoint(u) {
@@ -89,7 +92,7 @@ function selfie(label, facing) {
 /* ---------- bukti: jam + lokasi (+ selfie) ---------- */
 function alertBox(msg, title) { const m = modal(`<h3>${esc(title || 'Tidak bisa dilanjutkan')}</h3><p style="margin:6px 0">${esc(msg)}</p><button class="pr" id="ok">Mengerti</button>`); $('#ok', m).onclick = () => m.close(); }
 async function proof(o = {}) {
-  const anti = antiOn(), strict = o.strict ?? (anti && !S.set.aoff);
+  const anti = antiOn(), strict = o.strict ?? (anti && S.set.onReq === true); // bawaan: boleh offline (pemilik bisa mewajibkan online)
   const c = await clockCheck(strict); if (!c.ok) return { err: c.msg };
   const need = +S.set.gacc || 150;
   let p = null, fx = c.fx.slice();
@@ -134,7 +137,7 @@ async function checkIn(cid, why) {
     if (enforce && dist > CIR()) return alertBox('Anda ' + distStr(dist) + ' dari titik ' + c.n + '. Check-in hanya bisa dalam radius ' + distStr(CIR()) + ' dari titik outlet.');
   }
   emit('visit', { cid, cn: c.n, lat: pr.lat, lng: pr.lng, acc: pr.acc, dist, why: why || '', on: pr.on, sk: pr.sk, fx: fxs(fx), note: '' }, pr.t);
-  toast('Check-in ' + c.n + (dist != null ? ' · ' + distStr(dist) : '')); R(); return true;
+  toast('Check-in ' + c.n + (dist != null ? ' · ' + distStr(dist) : '') + (pr.on ? '' : ' · offline, dikirim otomatis saat ada sinyal'), pr.on ? 2600 : 4500); R(); return true;
 }
 async function checkOut(silent) {
   const cur = openCI(U.n); if (!cur) { toast('Belum check-in'); return false; }
