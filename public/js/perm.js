@@ -3,7 +3,7 @@
 const tierName = (t) => ((HA.cfg && HA.cfg.pkg && HA.cfg.pkg[t || 'high']) || {}).n || { biasa: 'Biasa', standar: 'Standar', high: 'High' }[t || 'high'] || 'High';
 const FGROUP = [
   ['🛒 Penjualan', ['pos', 'his', 'hisAll', 'retur', 'terima']], ['📦 Produk & stok', ['prod', 'prodEdit', 'beli', 'xls']], ['📍 Outlet & lapangan', ['outlet', 'cek', 'ana', 'kirim']],
-  ['💰 Keuangan', ['keu', 'jur', 'kas', 'lap', 'backup']], ['👥 Tim', ['abs', 'absAll', 'usr', 'aud', 'chat']], ['🏆 Target & insentif', ['tgt', 'tgtAll', 'tgtSet']], ['🛍️ Lainnya', ['onl', 'anti', 'perm']],
+  ['💰 Keuangan', ['keu', 'jur', 'kas', 'lap', 'backup']], ['👥 Tim', ['abs', 'absAll', 'shiftSet', 'usr', 'aud', 'chat']], ['🏆 Target & insentif', ['tgt', 'tgtAll', 'tgtSet']], ['🛍️ Lainnya', ['onl', 'anti', 'perm']],
 ];
 const FSUB = { prodEdit: 'prod', hisAll: 'his', absAll: 'abs', aud: 'abs', tgtAll: 'tgt', tgtSet: 'tgt' };
 

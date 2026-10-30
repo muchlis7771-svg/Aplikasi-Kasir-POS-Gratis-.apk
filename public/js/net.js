@@ -94,7 +94,7 @@ async function enterStore(id, r, pin) {
   U = { n: r.name, r: r.role }; LS.set('jpos:last', { id, name: r.name }); save();
   V = defView(U.r);
   if (!S.ec) { R(); $('#app').insertAdjacentHTML('afterbegin', '<div class="lo cd"><h3>Mengunduh data toko…</h3><small class="mu">Pertama kali di perangkat ini</small></div>'); }
-  await sync(); R(); window.scrollTo(0, 0); chatPoll(true); hb('login'); if (typeof pollOrders == 'function') { ONL.seen = -1; pollOrders(); }
+  await sync(); R(); window.scrollTo(0, 0); chatPoll(true); hb('login'); setTimeout(() => { try { rptLoad(); snapPost(true); } catch (e) { } }, 2500); if (typeof pollOrders == 'function') { ONL.seen = -1; pollOrders(); }
 }
 async function loginOnline(id, name, pin) { const r = await post('/api/login', { id, name, pin }, ''); await enterStore(id, r, pin); }
 async function loginLocal(id, name, pin) {

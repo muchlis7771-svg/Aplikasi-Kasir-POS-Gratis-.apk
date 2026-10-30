@@ -5,9 +5,9 @@ const PAGES = {
   prod: ['📦', 'Produk', 'Stok, harga, barcode'], outlet: ['📍', 'Outlet', 'Pelanggan, peta, kredit'], lap: ['📊', 'Laporan', 'Penjualan & keuangan'],
   keu: ['💰', 'Keuangan', 'Kas, piutang, utang'], jur: ['📒', 'Jurnal', 'Biaya & jurnal manual'], abs: ['🕒', 'Absensi', 'Masuk / pulang'],
   chat: ['💬', 'Chat', 'Tim & antar toko'], onl: ['🛍️', 'Toko Online', 'Pesanan pembeli online'], ana: ['🎯', 'Analisa', 'Saran order & kredit'], usr: ['👥', 'Pengguna', 'Karyawan & PIN'], set: ['⚙️', 'Pengaturan', 'Toko, akun, data'],
-  beli: ['📥', 'Pembelian', 'PO ke supplier & pabrik'], kas: ['📘', 'Buku Kas', 'Uang masuk & keluar'], kirim: ['🚚', 'Pengantaran', 'Antar order & tagih'], perm: ['🔐', 'Hak Akses', 'Peran, paket, keamanan'], aud: ['🛡️', 'Audit', 'Check-in, jam & lokasi'], retur: ['↩️', 'Retur Outlet', 'Expired, rusak, kelebihan order'], tgt: ['🏆', 'Target & Insentif', 'Pencapaian bulanan'],
+  beli: ['📥', 'Pembelian', 'PO ke supplier & pabrik'], kas: ['📘', 'Buku Kas', 'Uang masuk & keluar'], kirim: ['🚚', 'Pengantaran', 'Antar order & tagih'], perm: ['🔐', 'Hak Akses', 'Peran, paket, keamanan'], aud: ['🛡️', 'Audit', 'Check-in, jam & lokasi'], retur: ['↩️', 'Retur Outlet', 'Expired, rusak, kelebihan order'], tgt: ['🏆', 'Target & Insentif', 'Pencapaian bulanan'], shiftSet: ['🔐', 'Shift Kasir', 'Jadwal, buka & closing kasir'],
 };
-const ORDER = ['dash', 'kirim', 'pos', 'onl', 'his', 'retur', 'prod', 'beli', 'outlet', 'ana', 'tgt', 'lap', 'keu', 'kas', 'jur', 'aud', 'abs', 'chat', 'usr', 'perm', 'set'];
+const ORDER = ['dash', 'kirim', 'pos', 'onl', 'his', 'retur', 'prod', 'beli', 'outlet', 'ana', 'tgt', 'lap', 'keu', 'kas', 'jur', 'aud', 'abs', 'shiftSet', 'chat', 'usr', 'perm', 'set'];
 const TABS = { owner: ['dash', 'pos', 'onl', 'prod'], admin: ['dash', 'pos', 'onl', 'prod'], akuntan: ['dash', 'keu', 'lap', 'jur'], kasir: ['pos', 'dash', 'his', 'abs'], sales: ['dash', 'outlet', 'ana', 'pos'], dropping: ['dash', 'abs', 'chat'] };
 const pages = () => ORDER.filter((k) => can(k));
 const pgName = (k) => (k == 'pos' && U && U.r == 'sales' ? 'Order' : PAGES[k][1]);
@@ -22,7 +22,7 @@ async function ownerCheck(id, name, pin) {
 }
 async function srvUnlock() { try { await ownerCheck($('#ovi').value, $('#ovn').value, $('#ovp').value); SRVOK = true; toast('Kunci dibuka — silakan ubah alamat server'); R(); } catch (e) { toast(e.message || 'Gagal memverifikasi pemilik', 4000); } }
 function srvReset() { LS.set('jpos:api', ''); LS.set('jpos:apiAuto', ''); initApi(); checkSrv.t = 0; toast('Kembali ke server bawaan ✓'); R(); }
-function go(v) { SRVOK = false; const m = $('.md.menu'); if (m) m.close(); V = v; R(); window.scrollTo(0, 0); hb(v); }
+function go(v) { SRVOK = false; if (v != V && typeof SHD != 'undefined') SHD = null; const m = $('.md.menu'); if (m) m.close(); V = v; R(); window.scrollTo(0, 0); hb(v); }
 // laporan kehadiran ke server (dipantau Head Admin): halaman aktif tiap pengguna
 function hb(page) {
   try {

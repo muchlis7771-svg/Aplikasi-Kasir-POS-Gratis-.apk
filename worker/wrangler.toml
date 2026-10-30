@@ -18,3 +18,6 @@ ADMIN_PASS_HASH = "pbkdf2$100000$j9L_HrV2MfTTEwdR$nstEU8E9BMGVnNl-3cHm3miKS-IBT8
 [[d1_databases]]
 binding = "DB"
 database_name = "jpos"
+
+[triggers]
+crons = ["5 * * * *"]
