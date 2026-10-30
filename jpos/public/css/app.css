@@ -463,3 +463,10 @@ main.gate{display:grid;place-items:center;min-height:78vh;padding:16px}
 .tkal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin:8px 0;text-align:center}.tkal b{font-size:11px;color:var(--mu)}
 .tkal button{padding:9px 0;border-radius:10px;border:1px solid var(--bd);background:var(--cd);font-weight:700}.tkal button.w{background:#00a58e14;border-color:#00a58e55}.tkal button.nw{opacity:.45}.tkal button.off{background:var(--rd);color:#fff;border-color:var(--rd);opacity:1}.tkal button.td{outline:2px solid var(--ac)}
 .tmini{border-left:4px solid var(--ac)}
+
+/* ===== QRIS & rekening ===== */
+.payx{text-align:center;display:flex;flex-direction:column;gap:8px}.payamt{font-size:30px;font-weight:800;color:var(--ac)}
+.payqr{background:#fff;border-radius:16px;padding:10px;border:1px solid var(--bd);display:grid;place-items:center}.payqr img{width:100%;max-width:340px;image-rendering:auto;display:block}
+.payqr.sm{width:120px;min-height:120px;flex:none}.payqr.sm img{max-width:100px}
+.paybk{display:flex;justify-content:space-between;align-items:center;gap:8px;text-align:left;padding:10px 12px;border:1px solid var(--bd);border-radius:14px}.paybk span{display:flex;flex-direction:column}.paybk b{font-size:18px;letter-spacing:.5px}
+.pbrow{display:grid;grid-template-columns:1fr 1.3fr 1.3fr;gap:6px;margin:4px 0}

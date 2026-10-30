@@ -35,6 +35,7 @@ function receiptLines(s, doc) {
   if (s.rtot) L.push({ t: padLR('Retur', '-' + rpp(s.rtot)) });
   if (s.note) wrap('Catatan: ' + s.note).forEach((x) => L.push({ t: x }));
   if (s.pay == 'Piutang' && typeof terbilang == 'function') { L.push(hr); wrap('Terbilang: ' + terbilang(s.tot - (s.rtot || 0))).forEach((x) => L.push({ t: x })); L.push({ t: '' }, { t: padLR('Hormat kami,', 'Penerima,') }, { t: '' }, { t: '' }, { t: padLR('(' + s.u + ')', '(............)') }); }
+  if (sOut(s) > 0 && typeof payNoteTxt == 'function' && payNoteTxt()) { L.push(hr); wrap(payNoteTxt()).forEach((x) => L.push({ t: x })); }
   L.push(hr); wrap(PRN.foot || 'Terima kasih').forEach((x) => L.push({ t: x, c: 1 }));
   L.push({ t: 'J-POS', c: 1 });
   return L;

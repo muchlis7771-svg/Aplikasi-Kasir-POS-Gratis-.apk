@@ -59,7 +59,8 @@ ${needPh ? '<button class="gh" id="dph">📸 Foto bukti serah terima</button><im
   const bp = $('#dph', m); if (bp) bp.onclick = async () => { ph = await selfie(U.n + ' · ' + s.no + ' · ' + tstr(trustNow() || Date.now()), 'environment'); if (ph) { const i = $('#dpi', m); i.src = ph; i.style.display = 'block'; } };
   $('#ok', m).onclick = async () => {
     if (needPh && !ph) return toast('Foto bukti serah terima diperlukan');
-    const amt = s.cod && out > 0 ? Math.min(out, num(($('#da', m) || {}).value)) : 0;
+    const amt = s.cod && out > 0 ? Math.min(out, num(($('#da', m) || {}).value)) : 0, dmv = ($('#dm', m) || {}).value;
+    if (amt > 0 && (dmv == 'QRIS' || dmv == 'Transfer') && !m._paid) { if (!(await payShow(dmv, amt, (s.cn || '') + ' · ' + s.no))) return; m._paid = 1; }
     const L2 = await dlvLoc(s); LOC = L2; if (L2.err) return alertBox(L2.err, 'Lokasi belum terverifikasi');
     if (L2.lok == 'jauh' && S.set.dlb !== false) return alertBox('Anda ' + distStr(L2.d) + ' dari titik outlet ' + (s.cn || '') + ' (batas ' + distStr(DLR()) + '). Serah terima hanya bisa dilakukan di lokasi outlet. Jika titik outlet salah, minta admin/pemilik memperbaikinya.', 'Lokasi tidak sesuai');
     const pr = await proof({ needPos: false });
