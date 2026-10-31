@@ -75,15 +75,14 @@ async function autoShot(label) {
   const ov = document.createElement('div'); ov.className = 'autoshot'; ov.innerHTML = '<video playsinline muted></video><b>📸 Mengambil foto otomatis… arahkan ke barang retur</b>'; document.body.appendChild(ov);
   let st = null;
   try {
-    st = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 960 } }, audio: false });
+    st = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false }); await camTune(st);
     const v = $('video', ov); v.srcObject = st; await v.play();
     for (let i = 0; i < 40 && !v.videoWidth; i++) await new Promise((r) => setTimeout(r, 50));
     await new Promise((r) => setTimeout(r, 650)); // beri waktu fokus & cahaya
-    const W = Math.min(720, v.videoWidth), H = Math.round(W * v.videoHeight / v.videoWidth), c = document.createElement('canvas'); c.width = W; c.height = H + 26; const x = c.getContext('2d');
-    x.drawImage(v, 0, 0, W, H); x.fillStyle = '#000'; x.fillRect(0, H, W, 26); x.fillStyle = '#fff'; x.font = '14px sans-serif'; x.fillText(String(label).slice(0, 80), 6, H + 18);
+    const shot = camSnap(v, label, 1280, 135000);
     ov.classList.add('flash'); try { navigator.vibrate && navigator.vibrate(40); } catch (e) { }
     await new Promise((r) => setTimeout(r, 180));
-    return c.toDataURL('image/jpeg', 0.55);
+    return shot;
   } catch (e) { toast('Kamera tidak bisa dibuka: ' + (e.message || e), 4000); return null; }
   finally { if (st) st.getTracks().forEach((t) => t.stop()); ov.remove(); }
 }

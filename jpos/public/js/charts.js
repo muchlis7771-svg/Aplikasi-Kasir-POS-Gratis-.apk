@@ -30,6 +30,6 @@ function vbars(D, fmt = (v) => Math.round(v / 1000) + 'k') {
   const m = Math.max(...D.map((x) => x.v), 1);
   return `<div class="vb">` + D.map((x) => `<div title="${esc(x.l)}: ${esc(rp(x.v))}"><small>${esc(fmt(x.v))}</small><u style="height:${Math.max(2, x.v / m * 100)}%"></u><span>${esc(x.l)}</span></div>`).join('') + '</div>';
 }
-const kpi = (items) => `<div class="kp">${items.map((k, i) => `<div class="cd k${i % 6}"><small>${esc(k[0])}</small><h2>${esc(k[1])}</h2>${k[2] ? `<small>${esc(k[2])}</small>` : ''}</div>`).join('')}</div>`;
+const kpi = (items) => `<div class="kp">${items.map((k, i) => k[3] ? `<button type="button" class="cd k${i % 6} kpb ${k[4] ? 'on' : ''}" onclick="${k[3]}"><small>${esc(k[0])} ›</small><h2>${esc(k[1])}</h2>${k[2] ? `<small>${esc(k[2])}</small>` : ''}</button>` : `<div class="cd k${i % 6}"><small>${esc(k[0])}</small><h2>${esc(k[1])}</h2>${k[2] ? `<small>${esc(k[2])}</small>` : ''}</div>`).join('')}</div>`;
 const row = (a, b, c) => `<div class="row ${c || ''}"><span>${a}</span><b>${b}</b></div>`;
 const days = (n) => { const o = []; for (let i = n - 1; i >= 0; i--) { const d = new Date(Date.now() - i * 864e5); o.push({ k: dkey(d), l: d.getDate() + '/' + (d.getMonth() + 1) }); } return o; };
