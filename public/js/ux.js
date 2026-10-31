@@ -21,3 +21,12 @@ function flOne(el) {
 }
 function uxScan(root) { try { (root.querySelectorAll ? root : document).querySelectorAll('input[type=number]').forEach(nfOne); (root.querySelectorAll ? root : document).querySelectorAll('.md input[placeholder], .md textarea[placeholder]').forEach(flOne); } catch (e) { } }
 let uxT = 0; new MutationObserver(() => { if (uxT) return; uxT = requestAnimationFrame(() => { uxT = 0; uxScan(document); }); }).observe(document.documentElement, { childList: true, subtree: true });
+/* 3. Peta: setiap peta dicatat lalu dilepas dengan bersih sebelum layar digambar ulang, agar animasi peta yang tertunda tidak error */
+(function () {
+  if (!window.L || !L.map || L.__wrapped) return; const orig = L.map; L.__maps = new Set(); L.__wrapped = 1;
+  L.map = function (el, o) { const c = typeof el == 'string' ? document.getElementById(el) : el; if (c && c._leaflet_id) { for (const x of [...L.__maps]) if (x._container === c) { try { x.off(); x.remove(); } catch (e) { } L.__maps.delete(x); } delete c._leaflet_id; c.innerHTML = ''; c.className = String(c.className).replace(/\bleaflet-[\w-]+/g, '').trim(); }
+    const m = orig.call(this, el, Object.assign({ zoomAnimation: false, fadeAnimation: false, markerZoomAnimation: false }, o || {})); L.__maps.add(m); return m; };
+})();
+function mapsDrop(all) { if (!window.L || !L.__maps) return; for (const m of [...L.__maps]) { const c = m._container; if (all || !c || !document.body.contains(c) || !c.closest('.md')) { try { m.stop && m.stop(); m.off(); m.remove(); } catch (e) { } L.__maps.delete(m); } } }
+// jangan gambar ulang layar saat pengguna sedang mengetik / memilih berkas (isian belum disimpan tidak hilang)
+const uiTyping = () => { const a = document.activeElement; return !!(a && a.closest && a.closest('#app') && /INPUT|TEXTAREA|SELECT/.test(a.tagName) && a.type != 'checkbox'); };

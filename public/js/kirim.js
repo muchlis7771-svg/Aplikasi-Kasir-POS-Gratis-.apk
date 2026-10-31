@@ -132,7 +132,7 @@ function teamDrv() {
   });
 }
 function drawKMap() {
-  const el = $('#kmap'); if (!el || !window.L) return; if (kMap) { kMap.remove(); kMap = null; }
+  const el = $('#kmap'); if (!el || !window.L) return; if (kMap) { try { kMap.remove(); } catch (e) { } kMap = null; }
   const L0 = (isDrv() ? myDl() : deliveries().filter(dlOpen)), pts = L0.map((s) => ({ s, c: cust(s.cu) })).filter((x) => x.c && x.c.lat != null);
   const ppl = isDrv() ? [] : Object.values(S.locs || {}).filter((l) => l.r == 'dropping');
   if (!pts.length && !MYPOS && !ppl.length) { el.innerHTML = '<p class="mu" style="padding:14px">Belum ada titik tujuan dengan koordinat GPS.</p>'; return; }
