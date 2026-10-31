@@ -512,3 +512,12 @@ label.fl{display:flex;flex-direction:column;gap:3px;min-width:0}label.fl>small{f
 @media(max-width:380px){.pnums{grid-template-columns:1fr 1fr}}
 .pact{display:flex;gap:8px;margin-top:6px}.pact .gh{flex:1;text-align:center}
 .kd{font-size:11px;font-weight:700;letter-spacing:.3px;padding:2px 8px;border-radius:8px;background:var(--bg);border:1px solid var(--bd);white-space:nowrap}
+
+/* ===== kalender shift karyawan ===== */
+.mctoday{margin:10px 0 4px;padding:10px 12px;border-radius:12px;background:var(--bg);font-size:13.5px}
+.mcsum{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;margin:10px 0}.mcsum span{display:flex;flex-direction:column;align-items:center;text-align:center;padding:8px 4px;border:1px solid var(--bd);border-radius:12px}.mcsum b{font-size:20px}.mcsum small{font-size:10.5px;color:var(--mu);line-height:1.2}
+.mcgrid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}.mcgrid>i{font-style:normal;text-align:center;font-size:11px;font-weight:700;color:var(--mu)}
+.mcd{min-height:54px;border-radius:10px;padding:4px 2px;display:flex;flex-direction:column;align-items:center;gap:1px;border:1px solid var(--bd);background:var(--cd);overflow:hidden}
+.mcd b{font-size:13px}.mcd small{font-size:9.5px;color:var(--mu);white-space:nowrap;max-width:100%;overflow:hidden;text-overflow:ellipsis}.mcd em{font-style:normal;font-size:9.5px;font-weight:700}
+.mcd.off{background:var(--bg);opacity:.75}.mcd.ok{background:#10b98122;border-color:#10b981}.mcd.ok em{color:#059669}.mcd.late{background:#f59e0b22;border-color:#f59e0b}.mcd.late em{color:#d97706}.mcd.abs{background:#ef444418;border-color:#ef4444}.mcd.td{outline:2px solid var(--ac);outline-offset:1px}
+.mcleg{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px;font-size:11px;color:var(--mu)}.mcleg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}.mcleg .ok{background:#10b981}.mcleg .late{background:#f59e0b}.mcleg .abs{background:#ef4444}.mcleg .off{background:var(--bd)}

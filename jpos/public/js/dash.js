@@ -133,6 +133,7 @@ function dashKasir() {
   const [t0, t1] = todayR(), mine = S.sales.filter((s) => s.u == U.n && s.t >= t0 && s.t <= t1), tot = mine.reduce((a, s) => a + s.tot - (s.rtot || 0), 0), cash = mine.filter((s) => s.pay == 'Tunai').reduce((a, s) => a + s.tot - (s.rtot || 0), 0);
   const td = myToday(), last = td[td.length - 1], inn = last && last.k == 'in', byPay = {}; mine.forEach((s) => { const k = s.pay == 'Piutang' ? 'Kredit' : s.pay; byPay[k] = (byPay[k] || 0) + s.tot - (s.rtot || 0); });
   return shareBanner() + heroCard('Penjualan Anda hari ini', rp(tot), mine.length + ' transaksi', null, [['Tunai di laci', rp(cash)], ['Rata-rata', rp(mine.length ? tot / mine.length : 0)], ['Status', inn ? 'Sudah absen' : 'Belum absen']])
+    + (typeof myCal == 'function' ? myCal() : '')
     + tiles2([['pos', '🛒', 'Mulai jual', 0, '#5b4cdb'], ['his', '🧾', 'Riwayat', 0, '#54a0ff'], ['abs', '🕒', inn ? 'Absen pulang' : 'Absen masuk', 0, '#20bf6b'], ['chat', '💬', 'Chat', 0, '#4b7bec']])
     + `<div class="cd"><div class="row"><span><b>Tutup kasir</b><br><small class="mu">Rekap setoran shift hari ini</small></span><button class="gh a" onclick="tutupKasir()">Rekap shift</button></div></div>`
     + `<details class="more"><summary>Lihat rincian</summary><div class="cd"><h3>Metode pembayaran hari ini</h3>${donut(Object.entries(byPay).map(([l, v]) => ({ l, v })), 'metode')}</div>`
