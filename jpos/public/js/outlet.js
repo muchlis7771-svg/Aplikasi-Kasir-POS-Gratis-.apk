@@ -12,7 +12,7 @@ const salesNames = () => { const a = new Set(); (S.staff || []).forEach((u) => u
 function outlets() {
   const t = oQ.toLowerCase();
   let L = S.c.filter((c) => !c.x && (!t || (c.n + ' ' + (c.kd || '') + ' ' + (c.ad || '') + ' ' + (c.sl || '')).toLowerCase().includes(t)));
-  if (U.r == 'sales' && !t) L = L.slice().sort((a, b) => (b.sl == U.n) - (a.sl == U.n));
+  if ((U.r == 'sales' || U.r == 'kanvas') && !t) L = L.slice().sort((a, b) => (b.sl == U.n) - (a.sl == U.n));
   const d = (c) => (MYPOS && c.lat != null ? haversine(MYPOS.lat, MYPOS.lng, c.lat, c.lng) : 1e12);
   const OPEN = openCIAll(); if (oCi) L = L.filter((c) => OPEN[c.id]);
   if (oKr == 'kr') L = L.filter((c) => c.term == 'kredit' || outOf(c.id) > 0); else if (oKr == 'ar') L = L.filter((c) => outOf(c.id) > 0);
@@ -62,7 +62,7 @@ function outletForm(id, cb) {
   const m = modal(`<h3>${c ? 'Edit' : 'Tambah'} outlet / toko langganan</h3>
 
 <input id="on" placeholder="Nama toko *" value="${esc(c ? c.n : '')}"><div class="fm2"><input id="op" type="tel" placeholder="Telepon / WA" value="${esc(c ? c.ph || '' : '')}"><input id="oa" placeholder="Alamat" value="${esc(c ? c.ad || '' : '')}"></div><input id="oc" placeholder="Catatan" value="${esc(c ? c.note || '' : '')}">
-<div class="row" style="margin:0;gap:10px"><button class="gh a" id="oph" style="flex:1">📸 ${c && c.img ? 'Foto ulang outlet' : 'Foto outlet (kamera)'}${c || !['sales', 'dropping'].includes(U.r) ? '' : ' *'}</button><img id="opi" src="${c && c.img ? c.img : ''}" style="width:70px;height:70px;object-fit:cover;border-radius:12px;${c && c.img ? '' : 'display:none'}"></div><small class="mu">Foto diambil langsung dari kamera (tidak bisa dari galeri), diberi stempel waktu.</small>
+<div class="row" style="margin:0;gap:10px"><button class="gh a" id="oph" style="flex:1">📸 ${c && c.img ? 'Foto ulang outlet' : 'Foto outlet (kamera)'}${c || !['sales', 'kanvas', 'dropping'].includes(U.r) ? '' : ' *'}</button><img id="opi" src="${c && c.img ? c.img : ''}" style="width:70px;height:70px;object-fit:cover;border-radius:12px;${c && c.img ? '' : 'display:none'}"></div><small class="mu">Foto diambil langsung dari kamera (tidak bisa dari galeri), diberi stempel waktu.</small>
 <div><b>Titik lokasi</b> <small class="mu">ketuk peta atau geser pin</small></div><div class="map" id="fmap"></div>
 <div class="fm2"><input id="ola" type="number" step="any" placeholder="Latitude" value="${loc ? loc.lat : ''}"><input id="oln" type="number" step="any" placeholder="Longitude" value="${loc ? loc.lng : ''}"></div><button class="gh a" id="gps">📍 Ambil titik GPS outlet (akurat)</button><small id="gacc" class="mu">Berdiri tepat di depan pintu outlet saat mengambil titik. Pin bisa digeser bila perlu.</small>
 ${boss ? `<div class="seg"><button data-t="cash" class="${!c || c.term != 'kredit' ? 'a' : ''}">Tunai saja</button><button data-t="kredit" class="${c && c.term == 'kredit' ? 'a' : ''}">Boleh kredit</button></div><div class="fm2" id="kr"><input id="ol" type="number" placeholder="Limit kredit (Rp)" value="${c ? c.lim || '' : ''}"><input id="ot" type="number" placeholder="Tempo (hari)" value="${c ? c.tempo || S.set.tempo : S.set.tempo || 30}"></div>` : `<small class="mu">${c ? '' : 'Outlet baru dimulai sebagai tunai saja. '}Fasilitas kredit & limit hanya diatur oleh pemilik toko (owner).</small>`}${MGR(U.r) ? `<select id="os"><option value="">— sales penanggung jawab —</option>${salesNames().map((n) => `<option ${c && c.sl == n ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select>` : ''}
@@ -105,7 +105,7 @@ ${boss ? `<div class="seg"><button data-t="cash" class="${!c || c.term != 'kredi
   if (boss) $('#kr', m).style.display = term == 'kredit' ? 'grid' : 'none';
   $('#ok', m).onclick = () => {
     const n = $('#on', m).value.trim(); if (!n) return toast('Nama toko wajib diisi');
-    if (!c && !oPh && ['sales', 'dropping'].includes(U.r)) return toast('Ambil foto outlet dulu (tombol 📸)');
+    if (!c && !oPh && ['sales', 'kanvas', 'dropping'].includes(U.r)) return toast('Ambil foto outlet dulu (tombol 📸)');
     if (loc && !posOk(loc)) return toast('Titik GPS tidak valid (0,0). Ambil ulang titik GPS outlet.');
     if (!c && !loc && !confirm('Outlet belum punya titik GPS. Check-in dan pengantaran butuh titik. Simpan tanpa titik?')) return;
     if (gAcc > 60 && !confirm('Akurasi titik GPS masih ±' + gAcc + ' m (kurang tepat). Tetap simpan?')) return;
@@ -132,7 +132,7 @@ ${c.term == 'kredit' ? row('Limit kredit', rp(c.lim)) + row('Piutang berjalan', 
 <b>Faktur belum lunas</b>${inv.map((s) => `<div class="row"><span>${esc(s.no)}<br><small>${dstr(s.t)} · jatuh tempo ${dstr(s.due)}${s.due < Date.now() ? ' <b class="rd">lewat</b>' : ''}</small></span><span><b>${rp(sOut(s))}</b> <button class="gh" onclick="this.closest('.md').close();payModal('${esc(s.no)}')">Terima</button></span></div>`).join('') || '<small class="mu">Tidak ada</small>'}
 <b>Transaksi terakhir</b>${ss.map((s) => `<div class="row"><small>${dstr(s.t)} · ${esc(s.no)}</small><span>${rp(s.tot)}</span></div>`).join('') || '<small class="mu">Belum ada</small>'}
 ${vs.length ? '<b>Kunjungan terakhir</b>' + vs.map((v) => `<div class="row"><small>${tstr(v.t)} · ${esc(v.u)}${v.note ? ' · ' + esc(v.note) : ''}</small></div>`).join('') : ''}
-<div class="wrap"><button class="gh a" id="e1">Order</button>${can('retur') ? '<button class="gh" id="e9">↩️ Retur</button>' : ''}${MGR(U.r) || U.r == 'sales' ? '<button class="gh" id="e2">Edit</button>' : ''}${out > 0 ? '<button class="gh" id="e3">Kirim tagihan</button>' : ''}</div>`);
+<div class="wrap"><button class="gh a" id="e1">Order</button>${can('retur') ? '<button class="gh" id="e9">↩️ Retur</button>' : ''}${MGR(U.r) || (U.r == 'sales' || U.r == 'kanvas') ? '<button class="gh" id="e2">Edit</button>' : ''}${out > 0 ? '<button class="gh" id="e3">Kirim tagihan</button>' : ''}</div>`);
   { const e9 = $('#e9', m); if (e9) e9.onclick = () => { m.close(); RTO.cu = id; RTO.L = []; RTO.tab = 'baru'; go('retur'); }; }
   $('#e1', m).onclick = () => { m.close(); orderFor(id); };
   const e2 = $('#e2', m); if (e2) e2.onclick = () => { m.close(); outletForm(id); };
@@ -185,7 +185,7 @@ ${MGR(U.r) ? `<label><small class="mu">Sales penanggung jawab (opsional)</small>
   $('#sall', m).onchange = (e) => $$('[data-i]', m).forEach((c) => (c.checked = e.target.checked));
   $('#sadd', m).onclick = () => {
     const pick = $$('[data-i]', m).filter((c) => c.checked).map((c) => SCAN.list[+c.dataset.i]); if (!pick.length) return toast('Centang toko yang mau ditambahkan');
-    const sl = ($('#ssl', m) || {}).value || (U.r == 'sales' ? U.n : '');
+    const sl = ($('#ssl', m) || {}).value || ((U.r == 'sales' || U.r == 'kanvas') ? U.n : '');
     pick.forEach((x) => emit('cu', { c: { id: 'c' + uid(), n: x.n, ph: x.ph, ad: x.ad, lat: x.lat, lng: x.lng, note: 'Dari peta: ' + (SHOPT[x.type] || x.type || 'toko'), ...(sl ? { sl } : {}) } }));
     m.close(); toast(pick.length + ' outlet ditambahkan ✓'); R();
   };

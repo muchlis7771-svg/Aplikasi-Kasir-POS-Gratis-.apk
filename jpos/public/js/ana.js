@@ -47,7 +47,7 @@ function outletCredit() {
 const GCOL = { A: 'g', B: '', C: 'o', D: 'r' }, STN = { telat: ['Terlambat order', 'r'], waktunya: ['Waktunya order', 'o'], lama: ['Lama tidak order', 'r'], baru: ['Pelanggan baru', ''], aman: ['Aman', 'g'] };
 let ANA = { tab: 'order' };
 VW.ana = () => {
-  const mine = U.r == 'sales', tabs = [...(MGR(U.r) ? [['omzet', '📈 Omzet'], ['stok', '📦 Stok']] : []), ['order', '🎯 Saran order'], ['tren', 'Tren produk'], ...(MGR(U.r) ? [['kredit', 'Kredit']] : [])];
+  const mine = (U.r == 'sales' || U.r == 'kanvas'), tabs = [...(MGR(U.r) ? [['omzet', '📈 Omzet'], ['stok', '📦 Stok']] : []), ['order', '🎯 Saran order'], ['tren', 'Tren produk'], ...(MGR(U.r) ? [['kredit', 'Kredit']] : [])];
   if (!tabs.some((t) => t[0] == ANA.tab)) ANA.tab = tabs[0][0];
   let h = `<div class="seg" style="margin-top:0">${tabs.map((t) => `<button class="${ANA.tab == t[0] ? 'a' : ''}" onclick="ANA.tab='${t[0]}';R()">${t[1]}</button>`).join('')}</div>`;
   if (ANA.tab == 'omzet') return h + omzetView();

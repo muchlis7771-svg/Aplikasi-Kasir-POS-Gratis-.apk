@@ -124,7 +124,7 @@ function openCI(u) {
   return l && l.k == 'visit' && Date.now() - l.t < CIMAX() ? l : null; // check-in yang terlupa ditutup otomatis setelah batas jam
 }
 const CIMAX = () => (+(S && S.set.ciMax) || 4) * 36e5;
-const ciNeeded = () => pkgHas('cek') && can('cek') && S.set.cireq !== false && (U.r == 'sales' || U.r == 'dropping');
+const ciNeeded = () => pkgHas('cek') && can('cek') && S.set.cireq !== false && ((U.r == 'sales' || U.r == 'kanvas') || U.r == 'dropping');
 async function checkIn(cid, why) {
   const c = cust(cid); if (!c) return;
   const cur = openCI(U.n);
@@ -163,8 +163,8 @@ async function checkOut(silent) {
 function ciBar() {
   if (!(pkgHas('cek') && can('cek'))) return '';
   const cur = openCI(U.n);
-  return cur ? `<div class="cd hero" style="padding:14px"><small>📍 Sedang check-in</small><h3 style="margin:2px 0">${esc(cur.cn)}</h3><small>Sejak ${hm(cur.t)} · ${cur.dist != null ? 'jarak ' + distStr(cur.dist) : 'tanpa jarak'}</small><div class="wrap" style="margin-top:8px"><button class="gh a" onclick="checkOut()">Check-out</button>${cust(cur.cid) && U.r == 'sales' ? `<button class="gh" onclick="orderFor('${cur.cid}')">Order</button>` : ''}</div></div>`
-    : `<div class="cd" style="padding:12px"><small class="mu">📍 Belum check-in di outlet. ${U.r == 'sales' ? 'Check-in dulu di outlet (radius ' + distStr(CIR()) + ') sebelum membuat order.' : 'Check-in di outlet tujuan saat tiba.'}</small></div>`;
+  return cur ? `<div class="cd hero" style="padding:14px"><small>📍 Sedang check-in</small><h3 style="margin:2px 0">${esc(cur.cn)}</h3><small>Sejak ${hm(cur.t)} · ${cur.dist != null ? 'jarak ' + distStr(cur.dist) : 'tanpa jarak'}</small><div class="wrap" style="margin-top:8px"><button class="gh a" onclick="checkOut()">Check-out</button>${cust(cur.cid) && (U.r == 'sales' || U.r == 'kanvas') ? `<button class="gh" onclick="orderFor('${cur.cid}')">Order</button>` : ''}</div></div>`
+    : `<div class="cd" style="padding:12px"><small class="mu">📍 Belum check-in di outlet. ${(U.r == 'sales' || U.r == 'kanvas') ? 'Check-in dulu di outlet (radius ' + distStr(CIR()) + ') sebelum membuat order.' : 'Check-in di outlet tujuan saat tiba.'}</small></div>`;
 }
 
 /* ---------- audit lapangan (pemilik) ---------- */

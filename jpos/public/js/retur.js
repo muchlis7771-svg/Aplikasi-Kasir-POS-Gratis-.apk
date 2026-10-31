@@ -58,7 +58,7 @@ ${st}${A.H.length ? `<details style="margin-top:6px"><summary><small>📜 Riwaya
   }
   return h;
 }
-const sigNeed = () => ['sales', 'dropping'].includes(U.r) || S.set.rsig === true;
+const sigNeed = () => ['sales', 'kanvas', 'dropping'].includes(U.r) || S.set.rsig === true;
 /* ---------- tanda tangan digital ---------- */
 function sigInit(clear) {
   const c = $('#sigc'); if (!c) return; const x = c.getContext('2d'); x.lineWidth = 4; x.lineCap = 'round'; x.lineJoin = 'round'; x.strokeStyle = '#111';

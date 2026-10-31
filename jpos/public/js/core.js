@@ -34,27 +34,28 @@ const distStr = (m) => (m < 1000 ? Math.round(m) + ' m' : (m / 1000).toFixed(1) 
 /* ============ akun ============ */
 const AC = { 1101: 'Kas', 1102: 'Bank & QRIS', 1103: 'Piutang Usaha', 1201: 'Persediaan', 2101: 'Utang PPN', 2102: 'Utang Usaha', 2103: 'Utang Pinjaman', 4201: 'Pendapatan Lain-lain', 3101: 'Modal Pemilik', 3102: 'Prive', 4101: 'Penjualan', 4102: 'Diskon Penjualan', 5101: 'Harga Pokok Penjualan', 6101: 'Beban Gaji', 6102: 'Beban Sewa', 6103: 'Beban Listrik & Air', 6104: 'Beban Lain-lain', 6105: 'Selisih Stok', 6106: 'Beban Transport & BBM', 6107: 'Komisi Sales', 6108: 'Beban Pemasaran', 6109: 'Beban Pengiriman & Dropping', 6110: 'Beban Pajak & Perizinan', 6111: 'Beban Perawatan & Perbaikan', 6112: 'Beban Pemusnahan Barang', 1202: 'Persediaan Bad Stock' };
 const EXPA = ['6101', '6102', '6103', '6104', '6106', '6107', '6108', '6109', '6110', '6111', '6112'];
-const ROLE = { owner: 'Pemilik (Owner)', admin: 'Admin Toko', akuntan: 'Akuntan', kasir: 'Kasir', spg: 'SPG / SPB', sales: 'Sales', dropping: 'Tim Dropping' };
+const ROLE = { owner: 'Pemilik (Owner)', admin: 'Admin Toko', akuntan: 'Akuntan', kasir: 'Kasir', spg: 'SPG / SPB', sales: 'Sales', kanvas: 'Sales Kanvas', dropping: 'Tim Dropping' };
 const MGR = (r) => r == 'owner' || r == 'admin' || r == 'akuntan';
 // Hak akses = (fitur peran) ∩ (fitur paket toko). Paket diatur Head Admin, matrix peran diatur Owner. Server memakai aturan yang sama.
 const ALWAYS = 'dash set';
 const DEFPERM = {
-  admin: 'dash pos his hisAll prod prodEdit outlet onl ana lap keu abs absAll chat retur set beli tgt tgtAll tgtSet shiftSet kiosMap dnet',
+  admin: 'dash pos his hisAll prod prodEdit outlet onl ana lap keu abs absAll chat retur set beli tgt tgtAll tgtSet shiftSet kiosMap dnet kanvas',
   akuntan: 'dash his hisAll prod ana lap keu jur abs absAll chat set kas tgt tgtAll',
   kasir: 'dash pos his abs chat set tgt',
   sales: 'dash pos his outlet ana abs chat set cek retur tgt kiosMap',
   dropping: 'dash kirim cek terima abs chat set retur',
   spg: 'dash pos his prod abs chat set tgt',
+  kanvas: 'dash pos his outlet ana abs chat set cek retur terima tgt kiosMap kanvas',
 };
-const PKGHI = 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana jur kirim cek terima anti aud tgt tgtAll tgtSet shiftSet kiosMap dnet';
+const PKGHI = 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana jur kirim cek terima anti aud tgt tgtAll tgtSet shiftSet kiosMap dnet kanvas';
 // fitur baru per versi ikut aktif pada hak akses yang sudah disesuaikan sebelumnya (server memakai aturan yang sama)
-const NEWR = [[25, { admin: 'tgt tgtAll tgtSet', akuntan: 'tgt tgtAll', kasir: 'tgt', sales: 'tgt' }], [30, { admin: 'shiftSet' }], [31, { admin: 'kiosMap', sales: 'kiosMap' }], [32, { admin: 'dnet' }]];
+const NEWR = [[25, { admin: 'tgt tgtAll tgtSet', akuntan: 'tgt tgtAll', kasir: 'tgt', sales: 'tgt' }], [30, { admin: 'shiftSet' }], [31, { admin: 'kiosMap', sales: 'kiosMap' }], [32, { admin: 'dnet' }], [37, { admin: 'kanvas' }]];
 const pmRole = (ov, r) => (typeof ov[r] == 'string' ? ov[r] + ' ' + NEWR.filter(([v]) => !(ov._v >= v)).map(([, m]) => m[r] || '').join(' ') : DEFPERM[r] || '');
 const FEAT = {
   dash: 'Beranda', pos: 'Kasir / Order', his: 'Riwayat transaksi', hisAll: 'Lihat transaksi semua orang', prod: 'Lihat produk & stok', prodEdit: 'Ubah produk & stok', outlet: 'Outlet / pelanggan',
   onl: 'Toko Online', ana: 'Analisa', lap: 'Laporan', keu: 'Keuangan & utang piutang', jur: 'Jurnal & biaya', abs: 'Absensi sendiri', absAll: 'Lihat absensi semua', chat: 'Chat', usr: 'Kelola pengguna',
   retur: 'Retur barang', backup: 'Backup & restore', set: 'Pengaturan', beli: 'Pembelian ke supplier', xls: 'Import / export Excel', kas: 'Buku kas', perm: 'Atur hak akses (owner)',
-  kirim: 'Pengantaran / dropping', cek: 'Check-in / out outlet', terima: 'Terima pembayaran di lapangan', tgt: 'Target & insentif (milik sendiri)', tgtAll: 'Lihat target & insentif semua karyawan', tgtSet: 'Atur target, insentif & kalender kerja', shiftSet: 'Atur shift kasir & jadwal karyawan', kiosMap: 'Peta kios terdaftar (tawarkan produk)', dnet: 'Jaringan mitra: stok & SKU toko mitra', anti: 'Absensi anti-curang (selfie & jam server)', aud: 'Audit lapangan',
+  kirim: 'Pengantaran / dropping', cek: 'Check-in / out outlet', terima: 'Terima pembayaran di lapangan', tgt: 'Target & insentif (milik sendiri)', tgtAll: 'Lihat target & insentif semua karyawan', tgtSet: 'Atur target, insentif & kalender kerja', shiftSet: 'Atur shift kasir & jadwal karyawan', kiosMap: 'Peta kios terdaftar (tawarkan produk)', dnet: 'Jaringan mitra: stok & SKU toko mitra', kanvas: 'Sales kanvas: muat, jual dari mobil & balik barang', anti: 'Absensi anti-curang (selfie & jam server)', aud: 'Audit lapangan',
 };
 const FEATMEMO = {};
 function featSet(r) {
@@ -93,7 +94,7 @@ function slimStore() {
 }
 function flushSave() { clearTimeout(saveT); saveT = null; if (S && !LS.set('jpos:s:' + SID, S) && !(slimStore() && LS.set('jpos:s:' + SID, S)) && !flushSave.w) { flushSave.w = 1; toast('Penyimpanan perangkat penuh! Ekspor backup lalu kosongkan data lama.', 7000); } }
 addEventListener('pagehide', flushSave); document.addEventListener('visibilitychange', () => { if (document.hidden) flushSave(); });
-function loadStore(id) { const s = LS.get('jpos:s:' + id, null); if (!s) return false; SID = id; S = s; for (const k of ['p', 'c', 'sales', 'j', 'ap', 'att', 'users', 'eq', 'cq', 'hold', 'staff', 'sup', 'po', 'kn', 'rtr', 'bst', 'tgt', 'ses', 'tsk']) S[k] = S[k] || []; S.done = S.done || {}; S.pend = S.pend || {}; S.cs = S.cs || {}; S.set = Object.assign({ ppn: 11, tempo: 30, jin: '08:00' }, S.set || {});
+function loadStore(id) { const s = LS.get('jpos:s:' + id, null); if (!s) return false; SID = id; S = s; for (const k of ['p', 'c', 'sales', 'j', 'ap', 'att', 'users', 'eq', 'cq', 'hold', 'staff', 'sup', 'po', 'kn', 'rtr', 'bst', 'tgt', 'ses', 'tsk', 'kv']) S[k] = S[k] || []; S.done = S.done || {}; S.pend = S.pend || {}; S.cs = S.cs || {}; S.set = Object.assign({ ppn: 11, tempo: 30, jin: '08:00' }, S.set || {});
   { const old = Date.now() - 14 * 864e5; S.att.forEach((a) => { if (a.ph && a.t < old) delete a.ph; }); S.sales.forEach((x) => { if (x.dl) x.dl.log.forEach((l) => { if (l.ph && l.t < old) delete l.ph; }); }); } // foto bukti lama dibuang agar penyimpanan HP tidak penuh
   if (!S.v4) { const o = S.users.find((u) => u.r == 'admin'); if (o && !S.users.some((u) => u.r == 'owner')) o.r = 'owner'; S.v4 = 1; }
   S.c.forEach((c) => { if (c.lat == null || c.lng == null || (Math.abs(c.lat) < 0.01 && Math.abs(c.lng) < 0.01)) { c.lat = null; c.lng = null; } }); kdFill(); return true; }
@@ -125,7 +126,7 @@ const Ap = {
     let paid = e.pay == 'Piutang' ? Math.min(e.dpay || 0, e.tot) : e.tot;
     const ar = e.tot - paid;
     S.sales.push({ ...e, pa: paid });
-    for (const i of e.L) { const p = prod(i.id); if (p) p.st -= i.q; }
+    for (const i of e.L) { const p = prod(i.id); if (p) p.st -= i.q; if (e.r == 'kanvas') vanAdd(e.u, i.id, -i.q); }
     jr(e, 'Penjualan ' + e.no + ' (' + e.pay + ')', [[payAcc(e.pay == 'Piutang' ? e.dpm || 'Tunai' : e.pay), paid, 0], ['1103', ar, 0], ['4102', e.disc, 0], ['4101', 0, e.sub], ['2101', 0, e.tax]]);
     jr(e, 'HPP ' + e.no, [['5101', e.hpp, 0], ['1201', 0, e.hpp]]);
     (S.pend[e.no] || []).forEach((x) => { delete S.done[x.no]; apply(x); S.done[x.no] = 1; }); delete S.pend[e.no];
@@ -146,7 +147,7 @@ const Ap = {
       const i = s.L.find((x) => x.id == r.id); if (!i) continue;
       const q = Math.min(r.q, i.q - (i.rq || 0)); if (q <= 0) continue;
       g += i.p * q; dd += Math.round(i.dd * q / i.q); hc += i.hc * q; i.rq = (i.rq || 0) + q; rl.push({ id: i.id, n: i.n, q, p: i.p });
-      const p = prod(i.id); if (p) { if (e.bad) { p.bad = (p.bad || 0) + q; p.bv = (p.bv || 0) + i.hc * q; } else p.st += q; } // expired / rusak → bad stock, bukan stok layak jual
+      const p = prod(i.id); if (p) { if (e.bad) { p.bad = (p.bad || 0) + q; p.bv = (p.bv || 0) + i.hc * q; } else { p.st += q; if (e.r == 'kanvas') vanAdd(e.u, i.id, q); } } // expired / rusak → bad stock, bukan stok layak jual
     }
     if (!g) return;
     const lnet = g - dd, cs = net0 ? Math.round(cdA * lnet / net0) : 0, tr = net0 - cdA ? Math.round(s.tax * (lnet - cs) / (net0 - cdA)) : 0;
@@ -207,6 +208,9 @@ const Ap = {
   },
   // shift kasir: jadwal (shiftSet) & sesi buka / tutup kasir (closing)
   shs(e) { const x = e.x || {}; S.shs = { defs: (x.defs || []).filter((d) => d && /^[\w-]{1,20}$/.test(d.id) && /^\d\d:\d\d$/.test(d.s) && /^\d\d:\d\d$/.test(d.e)).slice(0, 12), as: x.as && typeof x.as == 'object' ? x.as : {}, req: x.req !== false, dt: (() => { const o = {}, D = x.dt && typeof x.dt == 'object' ? x.dt : {}; for (const u in D) { const m = {}; for (const k in D[u]) if (/^\d{4}-\d\d-\d\d$/.test(k) && /^([\w-]{1,20}|off)$/.test(String(D[u][k]))) m[k] = String(D[u][k]); o[u] = m; } return o; })(), tasks: (Array.isArray(x.tasks) ? x.tasks : []).filter((t) => t && /^[\w-]{1,20}$/.test(t.id) && t.n).slice(0, 20).map((t) => ({ id: t.id, n: String(t.n).slice(0, 80), ph: !!t.ph })), by: e.u, t: e.t }; },
+  // sales kanvas: muat barang gudang → mobil, balik barang mobil → gudang (stok total tidak berubah)
+  kvl(e) { const by = String(e.to || e.u); (S.kv = S.kv || []).push({ no: e.no, k: 'muat', t: e.t, u: by, oleh: e.u, L: (e.L || []).filter((i) => i.q > 0) }); for (const i of e.L || []) { const p = prod(i.id); if (!p || !(i.q > 0)) continue; const free = p.st - vanAll(i.id); vanAdd(by, i.id, Math.min(i.q, Math.max(0, free))); } },
+  kvb(e) { const by = String(e.to || e.u); const L = []; for (const i of e.L || []) { const q = Math.min(i.q, vanQ(by, i.id)); if (q > 0) { vanAdd(by, i.id, -q); L.push({ id: i.id, q }); } } (S.kv = S.kv || []).push({ no: e.no, k: 'balik', t: e.t, u: by, oleh: e.u, L, note: e.note || '' }); },
   // tugas harian SPG / SPB (centang + foto bukti)
   tsk(e) { S.tsk = S.tsk || []; if (!/^\d{4}-\d\d-\d\d$/.test(e.d) || S.tsk.some((x) => x.u == e.u && x.d == e.d && x.id == e.id)) return; S.tsk.push({ no: e.no, u: e.u, t: e.t, d: e.d, id: String(e.id || ''), n: String(e.n || '').slice(0, 80), ph: e.ph }); },
   shf(e) {
@@ -322,16 +326,21 @@ function calc(items, cd) {
   const cdA = Math.round(net * (1 - cfac(cd))), disc = ldt + cdA, tax = Math.round((net - cdA) * (S.set.ppn || 0) / 100);
   return { lines, sub, ldt, cdA, disc, tax, tot: sub - disc + tax, hpp: lines.reduce((a, l) => a + l.hc * l.q, 0) };
 }
+const vanKey = (u) => String(u || '').toLowerCase();
+function vanAdd(u, id, q) { S.van = S.van || {}; const m = (S.van[vanKey(u)] = S.van[vanKey(u)] || {}); m[id] = Math.max(0, (m[id] || 0) + q); if (!m[id]) delete m[id]; }
+const vanQ = (u, id) => ((S.van || {})[vanKey(u)] || {})[id] || 0;
+const vanAll = (id) => Object.values(S.van || {}).reduce((a, m) => a + (m[id] || 0), 0);
 function mkSale(o, t, by) { // o: {items,cd,pay,cu,dpay,dpm,note,kirim}; melempar Error(pesan) bila ditolak
   const a = by || U;
   if (!by && o.kirim && o.pay != 'Piutang') { if (!o.cu) throw new Error('Pilih outlet tujuan pengantaran'); o = { ...o, cm: o.pay, pay: 'Piutang', cod: 1, dpay: 0 }; } // tagih saat barang diantar
   if (!o.items.length) throw new Error('Keranjang kosong');
-  for (const i of o.items) { const p = prod(i.id); if (!p) throw new Error('Produk tidak ditemukan'); if (p.st < i.q) throw new Error('Stok ' + p.n + ' kurang (sisa ' + p.st + ')'); }
+  for (const i of o.items) { const p = prod(i.id); if (!p) throw new Error('Produk tidak ditemukan'); if (p.st < i.q) throw new Error('Stok ' + p.n + ' kurang (sisa ' + p.st + ')'); if (a.r == 'kanvas' && vanQ(a.n, i.id) < i.q) throw new Error('Stok ' + p.n + ' di mobil kurang (sisa ' + vanQ(a.n, i.id) + '). Muat barang dulu di menu Kanvas.'); }
+  if (a.r == 'kanvas') o = { ...o, kirim: false };
   const c = o.cu ? cust(o.cu) : null, r = calc(o.items, o.cd);
-  if (a.r == 'sales' && !c) throw new Error('Pilih outlet pelanggan dulu');
+  if ((a.r == 'sales' || a.r == 'kanvas') && !c) throw new Error('Pilih outlet pelanggan dulu');
   let ci = '';
   if (!by && a.r == 'kasir' && typeof shReq == 'function' && shReq() && !mySes()) throw new Error('Buka kasir (mulai shift) dulu di halaman Kasir');
-  if (!by && typeof ciNeeded == 'function' && c && a.r == 'sales') { const cur = openCI(a.n); if (ciNeeded() && (!cur || cur.cid != c.id)) throw new Error('Check-in dulu di outlet ' + c.n + ' (radius ' + distStr(CIR()) + ') sebelum membuat order'); if (cur && cur.cid == c.id) ci = cur.no; }
+  if (!by && typeof ciNeeded == 'function' && c && (a.r == 'sales' || a.r == 'kanvas')) { const cur = openCI(a.n); if (ciNeeded() && (!cur || cur.cid != c.id)) throw new Error('Check-in dulu di outlet ' + c.n + ' (radius ' + distStr(CIR()) + ') sebelum membuat order'); if (cur && cur.cid == c.id) ci = cur.no; }
   if (o.pay == 'Piutang' && !o.cod) {
     if (!c) throw new Error('Pilih outlet untuk penjualan kredit');
     if (c.term != 'kredit') throw new Error('Outlet ini hanya boleh bayar tunai (belum diberi fasilitas kredit oleh pemilik)');

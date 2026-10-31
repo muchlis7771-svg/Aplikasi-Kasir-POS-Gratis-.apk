@@ -1,8 +1,8 @@
 'use strict';
 /* ============ PENGGUNA ============ */
-const newRoles = () => (U.r == 'owner' ? ['kasir', 'spg', 'sales', 'dropping', 'akuntan', 'admin'] : ['kasir', 'spg', 'sales', 'dropping']);
-const canEditUser = (u) => u.name == U.n || (u.role != 'owner' && (U.r == 'owner' || ['kasir', 'spg', 'sales', 'dropping'].includes(u.role)));
-const ROLEDESC = { owner: 'Semua fitur, atur kredit outlet, modal, profil toko', admin: 'Kasir, produk & stok, outlet, laporan, kelola kasir/sales', akuntan: 'Keuangan, jurnal, laporan (tanpa transaksi jual)', kasir: 'Transaksi kasir, riwayat sendiri, absensi', spg: 'Penjaga toko: jual produk, tugas kebersihan harian, target omzet & item fokus, insentif', sales: 'Order ke outlet, check-in kunjungan & peta, absensi', dropping: 'Pengantaran barang order sales, tagih saat tiba, check-in/out outlet' };
+const newRoles = () => (U.r == 'owner' ? ['kasir', 'spg', 'sales', 'kanvas', 'dropping', 'akuntan', 'admin'] : ['kasir', 'spg', 'sales', 'kanvas', 'dropping']);
+const canEditUser = (u) => u.name == U.n || (u.role != 'owner' && (U.r == 'owner' || ['kasir', 'spg', 'sales', 'kanvas', 'dropping'].includes(u.role)));
+const ROLEDESC = { owner: 'Semua fitur, atur kredit outlet, modal, profil toko', admin: 'Kasir, produk & stok, outlet, laporan, kelola kasir/sales', akuntan: 'Keuangan, jurnal, laporan (tanpa transaksi jual)', kasir: 'Transaksi kasir, riwayat sendiri, absensi', spg: 'Penjaga toko: jual produk, tugas kebersihan harian, target omzet & item fokus, insentif', kanvas: 'Muat barang ke mobil, jual tunai/kredit langsung ke outlet, balik barang, rekap & setor', sales: 'Order ke outlet, check-in kunjungan & peta, absensi', dropping: 'Pengantaran barang order sales, tagih saat tiba, check-in/out outlet' };
 const rolesOpt = (sel) => (newRoles().includes(sel) ? newRoles() : [sel, ...newRoles()]).map((r) => `<option value="${r}" ${sel == r ? 'selected' : ''}>${ROLE[r]}</option>`).join('');
 const staffList = () => (S.srv ? S.staff : S.users.map((u) => ({ name: u.n, role: u.r })));
 async function loadStaff() { if (!S.srv || !canNet()) return; try { S.staff = (await api('/api/staff')).staff; save(); const el = $('#stf'); if (el) el.innerHTML = stfH(); } catch (e) { toast(e.message); } }
