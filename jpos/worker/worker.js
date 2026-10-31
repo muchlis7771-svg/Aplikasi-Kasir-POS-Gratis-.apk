@@ -20,8 +20,8 @@ async function pbkdf2(pass, salt, it) {
 }
 const hp = (pin, sid, name) => pbkdf2(String(pin), sid + ':' + name.toLowerCase(), 20000);
 const PIN = /^\d{4,8}$/, SID = /^[a-z0-9]{6,20}$/, NO = /^[A-Za-z0-9_-]{3,40}$/, NAME = /^[\p{L}\p{N} ._-]{2,40}$/u;
-const ROLES = ['owner', 'admin', 'akuntan', 'kasir', 'sales', 'dropping'];
-const KINDS = new Set(['sale', 'pay', 'retur', 'stk', 'apay', 'opn', 'exp', 'cap', 'jm', 'pu', 'cu', 'set', 'in', 'out', 'visit', 'loc', 'vout', 'sup', 'po', 'rcv', 'dlv', 'kas', 'sec', 'face', 'bst', 'tgt', 'shf', 'shs']);
+const ROLES = ['owner', 'admin', 'akuntan', 'kasir', 'spg', 'sales', 'dropping'];
+const KINDS = new Set(['sale', 'pay', 'retur', 'stk', 'apay', 'opn', 'exp', 'cap', 'jm', 'pu', 'cu', 'set', 'in', 'out', 'visit', 'loc', 'vout', 'sup', 'po', 'rcv', 'dlv', 'kas', 'sec', 'face', 'bst', 'tgt', 'shf', 'shs', 'tsk']);
 // ---- Hak akses: tiap kejadian butuh salah satu FITUR; fitur ditentukan paket toko (Head Admin) & matrix peran (Owner) ----
 const ALWAYS = 'dash set';
 const DEFPERM = {
@@ -30,6 +30,7 @@ const DEFPERM = {
   kasir: 'dash pos his abs chat set tgt',
   sales: 'dash pos his outlet ana abs chat set cek retur tgt kiosMap',
   dropping: 'dash kirim cek terima abs chat set retur',
+  spg: 'dash pos his prod abs chat set tgt',
 };
 const PKG0 = {
   // STANDAR · KIOS: toko kecil / kios — kasir, stok, outlet, absen, retur, buku kas, laporan dasar
@@ -40,7 +41,7 @@ const PKG0 = {
   high: { n: 'High · Distributor', max: 100, f: 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana jur kirim cek terima anti aud tgt tgtAll tgtSet shiftSet kiosMap dnet' },
 };
 const ALLF = [...new Set(Object.values(PKG0).flatMap((x) => x.f.split(' ')).concat('terima'))];
-const KNEED = { sale: ['pos'], pay: ['pos', 'keu', 'terima'], retur: ['retur'], stk: ['prodEdit', 'beli'], apay: ['keu', 'beli'], opn: ['prodEdit', 'keu'], exp: ['jur', 'keu'], jm: ['jur'], pu: ['prodEdit'], cu: ['outlet'], visit: ['outlet', 'cek'], vout: ['cek'], sup: ['beli'], po: ['beli'], rcv: ['beli'], dlv: ['kirim'], kas: ['kas'], sec: null, face: null, bst: ['prodEdit'], tgt: ['tgtSet'], shf: ['pos'], shs: ['shiftSet'], in: null, out: null, loc: null, cap: 'owner', set: 'owner' };
+const KNEED = { sale: ['pos'], pay: ['pos', 'keu', 'terima'], retur: ['retur'], stk: ['prodEdit', 'beli'], apay: ['keu', 'beli'], opn: ['prodEdit', 'keu'], exp: ['jur', 'keu'], jm: ['jur'], pu: ['prodEdit'], cu: ['outlet'], visit: ['outlet', 'cek'], vout: ['cek'], sup: ['beli'], po: ['beli'], rcv: ['beli'], dlv: ['kirim'], kas: ['kas'], sec: null, face: null, bst: ['prodEdit'], tgt: ['tgtSet'], shf: ['pos'], shs: ['shiftSet'], tsk: null, in: null, out: null, loc: null, cap: 'owner', set: 'owner' };
 const pkgAll = () => { let o = null; try { o = CFG && CFG.pkg_feat ? JSON.parse(CFG.pkg_feat) : null; } catch (e) { } const r = {}; for (const t of Object.keys(PKG0)) { const ov = o && o[t] && o[t].v >= 31 ? o[t] : null; r[t] = { ...PKG0[t], ...(ov || {}) }; } return r; }; // paket disusun ulang di v31 (Standar·Kios / Medium·Grosir / High·Distributor): setelan lama diganti default baru
 // fitur baru per versi: ikut aktif di paket & peran yang sudah disesuaikan sebelumnya
 const NEWF = [[25, 'tgt tgtAll tgtSet'], [30, 'shiftSet']], NEWR = [[25, { admin: 'tgt tgtAll tgtSet', akuntan: 'tgt tgtAll', kasir: 'tgt', sales: 'tgt' }], [30, { admin: 'shiftSet' }], [31, { admin: 'kiosMap', sales: 'kiosMap' }], [32, { admin: 'dnet' }]];
@@ -378,11 +379,11 @@ export default {
       const sm = p.match(/^\/api\/staff(?:\/(.+))?$/);
       if (sm) {
         if (role != 'owner' && role != 'admin') return J({ e: 'Khusus pemilik / admin toko' }, 403);
-        const LOW = ['kasir', 'sales', 'dropping'], nm = sm[1] ? decodeURIComponent(sm[1]) : '';
+        const LOW = ['kasir', 'spg', 'sales', 'dropping'], nm = sm[1] ? decodeURIComponent(sm[1]) : '';
         if (M == 'GET') return J({ staff: (await env.DB.prepare('SELECT name,role FROM staff WHERE store_id=? ORDER BY created').bind(sid).all()).results });
         if (role == 'admin' && M != 'GET' && !featsOf(me, role).includes('usr')) return J({ e: 'Kelola pengguna hanya oleh pemilik toko' }, 403);
         if (EXP) return RO();
-        const NEWR = role == 'owner' ? ['admin', 'akuntan', 'kasir', 'sales', 'dropping'] : LOW;
+        const NEWR = role == 'owner' ? ['admin', 'akuntan', 'kasir', 'spg', 'sales', 'dropping'] : LOW;
         if (M == 'POST') {
           const n = String(b.name || '').trim();
           if (!NAME.test(n) || !PIN.test(String(b.pin || ''))) return J({ e: 'Data tidak valid (nama 2-40 huruf, PIN 4-8 angka)' }, 400);
