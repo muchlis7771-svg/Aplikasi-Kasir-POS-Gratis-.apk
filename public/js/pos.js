@@ -5,14 +5,14 @@ let cart = [], cCd = '', cPay = 'Tunai', cCu = '', cDp = 0, cDpm = 'Tunai', cNot
 const resetCart = () => { cart = []; cCd = ''; cPay = 'Tunai'; cCu = ''; cDp = 0; cDpm = 'Tunai'; cNote = ''; cKr = null; };
 // order sales otomatis diantar tim dropping (bisa dimatikan per order, atau oleh pemilik di Pengaturan)
 const krAuto = () => !!(U && S && U.r == 'sales' && pkgHas('kirim') && S.srv && S.set.autoKirim !== false);
-const krOn = () => (cKr == null ? krAuto() : cKr) && !!cCu && pkgHas('kirim') && !!S.srv;
+const krOn = () => U && U.r != 'kanvas' && (cKr == null ? krAuto() : cKr) && !!cCu && pkgHas('kirim') && !!S.srv;
 const actProds = () => S.p.filter((p) => !p.x);
 const bySku = (v) => { const k = String(v).trim().toLowerCase(); return S.p.find((p) => !p.x && p.sku && String(p.sku).toLowerCase() == k) || S.p.find((p) => !p.x && p.kd && p.kd.toLowerCase() == k); };
 const tierTxt = (p) => (p.tiers || []).slice().sort((a, b) => a.min - b.min).map((t) => '≥' + t.min + ': ' + t.d + '%').join(' · ');
 function gridH() {
   const t = pQ.toLowerCase();
   const L = actProds().filter((p) => (!pCat || p.c == pCat) && (!t || p.n.toLowerCase().includes(t) || String(p.sku || '').toLowerCase().includes(t) || String(p.kd || '').toLowerCase().includes(t)));
-  return L.map((p) => `<button class="pc" ${p.st < 1 ? 'disabled' : ''} onclick="padd('${p.id}')"><em style="background:${COL[p.c.length % COL.length]}">${p.img ? `<img src="${esc(p.img)}" alt="">` : esc(p.n[0] || '?')}</em><b>${esc(p.n)}</b><small>${p.kd ? esc(p.kd) + ' · ' : ''}stok ${p.st}</small>${p.tiers && p.tiers.length ? `<small class="or">${esc(tierTxt(p))}</small>` : ''}<span>${rp(p.pr)}</span></button>`).join('') || '<p class="mu">Produk tidak ditemukan</p>';
+  return L.map((p) => `<button class="pc" ${(U.r == 'kanvas' ? vanQ(U.n, p.id) : p.st) < 1 ? 'disabled' : ''} onclick="padd('${p.id}')"><em style="background:${COL[p.c.length % COL.length]}">${p.img ? `<img src="${esc(p.img)}" alt="">` : esc(p.n[0] || '?')}</em><b>${esc(p.n)}</b><small>${p.kd ? esc(p.kd) + ' · ' : ''}${U.r == 'kanvas' ? '🚚 mobil ' + vanQ(U.n, p.id) : 'stok ' + p.st}</small>${p.tiers && p.tiers.length ? `<small class="or">${esc(tierTxt(p))}</small>` : ''}<span>${rp(p.pr)}</span></button>`).join('') || '<p class="mu">Produk tidak ditemukan</p>';
 }
 const catsH = () => { const cs = [...new Set(actProds().map((p) => p.c))].sort(); return cs.length > 1 ? `<div class="seg"><button class="${pCat ? '' : 'a'}" onclick="pcat('')">Semua</button>${cs.map((c) => `<button class="${pCat == c ? 'a' : ''}" onclick="pcat(this.dataset.c)" data-c="${esc(c)}">${esc(c)}</button>`).join('')}</div>` : ''; };
 function creditInfo() {
@@ -23,26 +23,26 @@ function creditInfo() {
 }
 function cartH() {
   const items = cart.filter((i) => prod(i.id)), r = items.length ? calc(items.map((i) => ({ id: i.id, q: i.q, ld: i.ld })), cCd) : { lines: [], sub: 0, ldt: 0, cdA: 0, disc: 0, tax: 0, tot: 0 };
-  const outs = S.c.filter((c) => !c.x).sort((a, b) => (U.r == 'sales' ? (b.sl == U.n) - (a.sl == U.n) : 0) || a.n.localeCompare(b.n));
+  const outs = S.c.filter((c) => !c.x).sort((a, b) => ((U.r == 'sales' || U.r == 'kanvas') ? (b.sl == U.n) - (a.sl == U.n) : 0) || a.n.localeCompare(b.n));
   let h = `<div class="cthd"><h3>Keranjang</h3><button class="gh x" onclick="cartOpen(false)">Tutup ✕</button></div>`;
   h += r.lines.length ? r.lines.map((l) => { const ci = cart.find((x) => x.id == l.id); return `<div class="ci"><div class="t"><b>${esc(l.n)}</b><b>${rp(l.p * l.q - l.dd)}</b></div><small>${rp(l.p)} × ${l.q}${l.dd ? ` · diskon ${rp(l.dd)}${l.tier ? ' (grosir ' + esc(l.tier) + '%)' : ''}` : ''}</small><div class="qt" style="margin-top:6px"><button onclick="pstep('${l.id}',-1)">−</button><input type="number" min="1" value="${l.q}" onchange="pset('${l.id}',this.value)"><button onclick="pstep('${l.id}',1)">+</button><input placeholder="Disk % (5+2)" value="${esc(ci.ld || '')}" onchange="pld('${l.id}',this.value)" style="flex:1"><button onclick="pdel('${l.id}')">✕</button></div></div>`; }).join('') : '<p class="mu">Belum ada item. Ketuk produk atau scan barcode.</p>';
-  h += `<div class="wrap" style="margin-top:8px"><button class="gh opick" style="flex:1" onclick="outPick()">${cCu && cust(cCu) ? '📍 <b>' + esc(cust(cCu).n) + '</b>' + (cust(cCu).kd ? ' <small class="kd">' + esc(cust(cCu).kd) + '</small>' : '') : '🔎 ' + (U.r == 'sales' ? 'Pilih / cari outlet…' : 'Pelanggan umum — cari outlet…')}</button><button class="gh" onclick="outletForm(null,function(id){pcu(id);R()})">+ Outlet</button></div>${creditInfo()}`;
+  h += `<div class="wrap" style="margin-top:8px"><button class="gh opick" style="flex:1" onclick="outPick()">${cCu && cust(cCu) ? '📍 <b>' + esc(cust(cCu).n) + '</b>' + (cust(cCu).kd ? ' <small class="kd">' + esc(cust(cCu).kd) + '</small>' : '') : '🔎 ' + ((U.r == 'sales' || U.r == 'kanvas') ? 'Pilih / cari outlet…' : 'Pelanggan umum — cari outlet…')}</button><button class="gh" onclick="outletForm(null,function(id){pcu(id);R()})">+ Outlet</button></div>${creditInfo()}`;
   h += `<div class="seg">${['Tunai', 'QRIS', 'Transfer', 'Piutang'].map((m) => `<button class="${cPay == m ? 'a' : ''}" onclick="ppay('${m}')">${m == 'Piutang' ? 'Kredit' : m}</button>`).join('')}</div>`;
   if ((cPay == 'QRIS' || cPay == 'Transfer') && typeof payBtn == 'function') { const b = payBtn(cPay, r.tot); if (b) h += `<div class="wrap" style="margin:6px 0">${b}</div>`; }
-  if (pkgHas('kirim') && S.srv && cCu) h += `<label class="row" style="margin:6px 0"><span>🚚 Diantar tim dropping${krOn() && cPay != 'Piutang' ? '<br><small class="or">Dibayar ' + cPay + ' saat barang tiba (ditagih dropping)</small>' : ''}</span><input type="checkbox" style="width:auto" ${krOn() ? 'checked' : ''} onchange="cKr=this.checked;cartUp()"></label>`;
-  if (ciNeeded() && U.r == 'sales' && cCu) { const cur = openCI(U.n); h += cur && cur.cid == cCu ? `<small class="gr">📍 Check-in aktif di outlet ini</small>` : `<div class="row" style="margin:6px 0"><small class="rd">Belum check-in di outlet ini</small><button class="gh a" onclick="checkIn('${cCu}').then(cartUp)">Check-in</button></div>`; }
+  if (pkgHas('kirim') && S.srv && cCu && U.r != 'kanvas') h += `<label class="row" style="margin:6px 0"><span>🚚 Diantar tim dropping${krOn() && cPay != 'Piutang' ? '<br><small class="or">Dibayar ' + cPay + ' saat barang tiba (ditagih dropping)</small>' : ''}</span><input type="checkbox" style="width:auto" ${krOn() ? 'checked' : ''} onchange="cKr=this.checked;cartUp()"></label>`;
+  if (ciNeeded() && (U.r == 'sales' || U.r == 'kanvas') && cCu) { const cur = openCI(U.n); h += cur && cur.cid == cCu ? `<small class="gr">📍 Check-in aktif di outlet ini</small>` : `<div class="row" style="margin:6px 0"><small class="rd">Belum check-in di outlet ini</small><button class="gh a" onclick="checkIn('${cCu}').then(cartUp)">Check-in</button></div>`; }
   if (cPay == 'Piutang') h += `<div class="fm2"><input type="number" placeholder="DP dibayar (opsional)" value="${cDp || ''}" onchange="cDp=num(this.value);cartUp()"><select onchange="cDpm=this.value"><option ${cDpm == 'Tunai' ? 'selected' : ''}>Tunai</option><option ${cDpm == 'Transfer' ? 'selected' : ''}>Transfer</option><option ${cDpm == 'QRIS' ? 'selected' : ''}>QRIS</option></select></div>`;
   h += `<div class="fm2" style="margin-top:6px"><input placeholder="Diskon total % (mis. 5+2)" value="${esc(cCd)}" onchange="cCd=this.value;cartUp()"><input placeholder="Catatan" value="${esc(cNote)}" onchange="cNote=this.value"></div>`;
   h += `<div class="tt" style="margin-top:8px">${row('Subtotal', rp(r.sub))}${row('Diskon item', rp(-r.ldt))}${r.cdA ? row('Diskon total', rp(-r.cdA)) : ''}${row('PPN ' + (S.set.ppn || 0) + '%', rp(r.tax))}<h2>${rp(r.tot)}</h2></div>`;
   if (cPay == 'Piutang' && r.tot) h += `<small>Piutang baru: <b>${rp(r.tot - Math.min(cDp, r.tot))}</b></small>`;
-  h += `<div class="seg"><button onclick="ptahan()">Tahan</button><button onclick="planjut()">Lanjut (${S.hold.length})</button></div><button class="pr" ${items.length ? '' : 'disabled'} onclick="pbayar()">${U.r == 'sales' || krOn() || cPay == 'Piutang' ? '📝 Simpan order' : 'Bayar'}</button>`;
+  h += `<div class="seg"><button onclick="ptahan()">Tahan</button><button onclick="planjut()">Lanjut (${S.hold.length})</button></div><button class="pr" ${items.length ? '' : 'disabled'} onclick="pbayar()">${(U.r == 'sales' || U.r == 'kanvas') || krOn() || cPay == 'Piutang' ? '📝 Simpan order' : 'Bayar'}</button>`;
   return h;
 }
 const cbarH = () => { const n = cart.reduce((a, i) => a + i.q, 0), t = cart.filter((i) => prod(i.id)).length ? calc(cart.map((i) => ({ id: i.id, q: i.q, ld: i.ld })), cCd).tot : 0; return `<span>🛒 ${n} item${S.hold.length ? ' · ' + S.hold.length + ' ditahan' : ''}</span><span>${rp(t)} ›</span>`; };
 function cartUp() { const el = $('#ct'); if (!el) return; el.innerHTML = cartH(); const b = $('#cb'); if (b) b.innerHTML = cbarH(); }
 const cartOpen = (o) => { const el = $('#ct'); if (el) el.classList.toggle('open', o); };
 VW.pos = () => {
-  if (U.r == 'sales' && !S.c.length && !cCu) { /* sales boleh tambah outlet langsung dari keranjang */ }
+  if ((U.r == 'sales' || U.r == 'kanvas') && !S.c.length && !cCu) { /* sales boleh tambah outlet langsung dari keranjang */ }
   return (typeof shBar == 'function' ? shBar() : '') + `<div class="pos"><section><div class="srch"><input id="pq" placeholder="Cari nama / SKU — Enter menambah" value="${esc(pQ)}" oninput="pQ=this.value;$('#pg').innerHTML=gridH()" onkeydown="pkey(event)"><button class="gh" onclick="scanAdd()" title="Scan barcode">▣</button></div><div id="pcats">${catsH()}</div><div class="grid" id="pg">${gridH()}</div></section><aside class="cd" id="ct">${cartH()}</aside></div><div class="cartbar" id="cb" onclick="cartOpen(true)">${cbarH()}</div>`;
 };
 function pkey(e) {
@@ -53,7 +53,7 @@ function pkey(e) {
 const pcat = (c) => { pCat = c; $('#pcats').innerHTML = catsH(); $('#pg').innerHTML = gridH(); };
 function padd(id, n = 1) {
   const p = prod(id); if (!p) return; const c = cart.find((x) => x.id == id), q = (c ? c.q : 0) + n;
-  if (q > p.st) { toast('Stok ' + p.n + ' hanya ' + p.st); return cartUp(); }
+  const mx = U.r == 'kanvas' ? vanQ(U.n, id) : p.st; if (q > mx) { toast((U.r == 'kanvas' ? 'Stok ' + p.n + ' di mobil hanya ' : 'Stok ' + p.n + ' hanya ') + mx); return cartUp(); }
   if (c) c.q = q; else cart.push({ id, q: n, ld: '' }); cartUp();
 }
 function pset(id, v) { const p = prod(id), c = cart.find((x) => x.id == id); if (!c) return; let q = Math.max(1, num(v)); if (q > p.st) { q = p.st; toast('Stok ' + p.n + ' hanya ' + p.st); } c.q = q; cartUp(); }

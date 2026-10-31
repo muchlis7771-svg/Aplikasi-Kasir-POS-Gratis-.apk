@@ -1,6 +1,6 @@
 'use strict';
 /* ============ WAJIB ABSEN + ALARM PENGINGAT ============ */
-const ABSROLES = ['admin', 'akuntan', 'kasir', 'spg', 'sales', 'dropping'];
+const ABSROLES = ['admin', 'akuntan', 'kasir', 'spg', 'sales', 'kanvas', 'dropping'];
 const gNow = () => (typeof trustNow == 'function' && trustNow()) || Date.now();     // jam tepercaya (server) bila ada, agar tanggal HP tidak bisa dipakai mengakali
 const absReq = () => !!(U && S && !S.locked && S.set.absReq !== false && (ABSROLES.includes(U.r) || (U.r == 'owner' && S.set.absOwn === true)));
 const absDone = () => S.att.some((a) => a.u == U.n && a.k == 'in' && dkey(a.t) == dkey(gNow()));

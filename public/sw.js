@@ -1,7 +1,7 @@
 // Service worker: cache aplikasi agar bisa dibuka offline. API tidak di-cache.
-const V = 'jpos-v36', ASSETS = ['./', 'index.html', 'config.js', 'manifest.webmanifest', 'css/app.css', 'fonts/inter-Regular.woff2', 'fonts/inter-Medium.woff2', 'fonts/inter-SemiBold.woff2', 'fonts/inter-Bold.woff2', 'fonts/inter-ExtraBold.woff2', 'icons/icon-192.png', 'icons/icon-512.png',
+const V = 'jpos-v37', ASSETS = ['./', 'index.html', 'config.js', 'manifest.webmanifest', 'css/app.css', 'fonts/inter-Regular.woff2', 'fonts/inter-Medium.woff2', 'fonts/inter-SemiBold.woff2', 'fonts/inter-Bold.woff2', 'fonts/inter-ExtraBold.woff2', 'icons/icon-192.png', 'icons/icon-512.png',
   'vendor/leaflet.js', 'vendor/leaflet.css', 'vendor/xlsx.full.min.js', 'vendor/jspdf.umd.min.js', 'vendor/jspdf.plugin.autotable.min.js', 'vendor/zxing.min.js',
-  ...['core', 'ux', 'native', 'net', 'charts', 'print', 'faktur', 'pos', 'guard', 'prod', 'outlet', 'report', 'export', 'team', 'face', 'bio', 'absen', 'buy', 'kas', 'kirim', 'retur', 'field', 'target', 'pay', 'shift', 'lapor', 'kios', 'mitra', 'xls', 'perm', 'dash', 'online', 'ana', 'ana2', 'buyer', 'demo', 'main'].map((n) => 'js/' + n + '.js')];
+  ...['core', 'ux', 'native', 'net', 'charts', 'print', 'faktur', 'pos', 'guard', 'prod', 'outlet', 'report', 'export', 'team', 'face', 'bio', 'absen', 'buy', 'kas', 'kirim', 'retur', 'field', 'target', 'pay', 'shift', 'lapor', 'kios', 'mitra', 'kanvas', 'xls', 'perm', 'dash', 'online', 'ana', 'ana2', 'buyer', 'demo', 'main'].map((n) => 'js/' + n + '.js')];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(V).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((k) => Promise.all(k.filter((x) => x != V).map((x) => caches.delete(x)))).then(() => self.clients.claim())); });
 self.addEventListener('fetch', (e) => {

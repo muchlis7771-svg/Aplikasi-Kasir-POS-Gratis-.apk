@@ -15,7 +15,7 @@ const ownOk = () => U && (U.r == 'owner' || S.set.uiOwn !== false); // karyawan 
 function themeNow() { const p = ownOk() ? LS.get(thKey(), '') : ''; return p || (S && S.set.uiTheme) || 'modern'; }
 function dlayNow() {
   const p = ownOk() ? LS.get(dlKey(), '') : '', v = p && p != 'org' ? p : ((S.set.uiModel || {})[U.r] || 'auto');
-  if (v != 'auto') return v; if (innerWidth >= 1000) return 'lengkap'; return ['owner', 'admin', 'akuntan'].includes(U.r) ? 'lengkap' : ['sales', 'dropping'].includes(U.r) ? 'lapangan' : 'ringkas';
+  if (v != 'auto') return v; if (innerWidth >= 1000) return 'lengkap'; return ['owner', 'admin', 'akuntan'].includes(U.r) ? 'lengkap' : ['sales', 'kanvas', 'dropping'].includes(U.r) ? 'lapangan' : 'ringkas';
 }
 function applyUiTheme() { try { document.body.dataset.th = document.documentElement.dataset.th = U && S ? themeNow() : 'modern'; } catch (e) { } }
 const thSw = (t) => `<span class="thsw">${t[4].map((c) => `<i style="background:${c}"></i>`).join('')}</span>`;
@@ -30,7 +30,7 @@ function dlayPick() {
 }
 // pengaturan pemilik: tema & model untuk SEMUA karyawan
 function uiOrgCard() {
-  const th = S.set.uiTheme || 'modern', md = S.set.uiModel || {}, R0 = [['owner', 'Pemilik'], ['admin', 'Admin'], ['akuntan', 'Akuntan'], ['kasir', 'Kasir'], ['spg', 'SPG / SPB'], ['sales', 'Sales'], ['dropping', 'Dropping']];
+  const th = S.set.uiTheme || 'modern', md = S.set.uiModel || {}, R0 = [['owner', 'Pemilik'], ['admin', 'Admin'], ['akuntan', 'Akuntan'], ['kasir', 'Kasir'], ['spg', 'SPG / SPB'], ['sales', 'Sales'], ['kanvas', 'Kanvas'], ['dropping', 'Dropping']];
   return `<div class="cd"><h3>🎨 Tampilan semua karyawan</h3><small class="mu">Tema aplikasi & model beranda yang dipakai di HP / laptop semua pengguna toko ini.</small>
 <b style="font-size:13px;display:block;margin-top:8px">Tema aplikasi</b><div class="mg pmg" id="uthm">${THEMES.map((x) => `<button data-ut="${x[0]}" class="${th == x[0] ? 'a' : ''}"><i>${x[1]}</i><b>${x[2]}</b>${thSw(x)}<small>${x[3]}</small></button>`).join('')}</div>
 <b style="font-size:13px;display:block;margin-top:8px">Model beranda per peran</b>${R0.map(([r, n]) => `<label class="row" style="margin:4px 0"><span>${n}</span><select data-um="${r}" style="width:auto">${DLAY.map((x) => `<option value="${x[0]}" ${(md[r] || 'auto') == x[0] ? 'selected' : ''}>${x[1]} ${x[2]}</option>`).join('')}</select></label>`).join('')}
@@ -41,7 +41,7 @@ let UTH = null;
 function uiOrgSave() { const md = {}; $$('[data-um]').forEach((s) => (md[s.dataset.um] = s.value)); emit('set', { set: { uiTheme: UTH || S.set.uiTheme || 'modern', uiModel: md, uiOwn: $('#uown').checked } }); toast('Tampilan semua karyawan disimpan — berlaku setelah sinkron'); LS.set(thKey(), ''); R(); }
 document.addEventListener('click', (e) => { const b = e.target.closest('[data-ut]'); if (!b) return; UTH = b.dataset.ut; $$('[data-ut]').forEach((x) => x.classList.toggle('a', x == b)); document.body.dataset.th = document.documentElement.dataset.th = UTH; });
 const dashWrap = (h) => { const l = dlayNow(), t = (THEMES.find((x) => x[0] == themeNow()) || THEMES[0]); return `<div class="dlay dl-${l}">${typeof tgtMini == 'function' && U.r != 'dropping' ? tgtMini() : ''}${S.srv && ['owner', 'admin'].includes(U.r) && S.tier != 'high' ? '<button class="cd kioshead" style="width:100%;text-align:left;cursor:pointer" onclick="startBuyerAsStore()"><b>🛒 Order stok ke ' + (S.tier == 'biasa' ? 'grosir / distributor' : 'distributor') + ' terdekat</b><br><small class="mu">Lihat stok ready, harga & diskon grosir, lalu pesan langsung atas nama toko Anda.</small></button>' : ''}<div class="dlbar"><button class="gh" onclick="dlayPick()">🎨 ${esc(t[2])} · ${esc((DLAY.find((x) => x[0] == l) || DLAY[1])[2])}${ownOk() ? '' : ' 🔒'}</button></div>${l == 'grafik' ? h.replace('<details class="more"', '<details class="more" open') : h}</div>`; };
-VW.dash = () => (U.r == 'dropping' ? VW.kirim() : dashWrap(U.r == 'kasir' || U.r == 'spg' ? dashKasir() : U.r == 'sales' ? dashSales() : dashAdmin()));
+VW.dash = () => (U.r == 'dropping' ? VW.kirim() : dashWrap(U.r == 'kasir' || U.r == 'spg' ? dashKasir() : U.r == 'sales' || U.r == 'kanvas' ? (typeof kvMini == 'function' ? kvMini() : '') + dashSales() : dashAdmin()));
 VW.dash.after = () => { if (U.r == 'dropping') return VW.kirim.after(); if (teamMapPending) { teamMapPending = 0; setTimeout(drawTeamMap, 60); } };
 
 /* ---- pantau lokasi & kehadiran tim lapangan (untuk owner/admin) ---- */
@@ -235,7 +235,7 @@ async function haAct() {
   try { HAA.d = await haApi('/api/admin/activity?typ=' + HAA.typ + '&q=' + encodeURIComponent(HAA.q)); } catch (e) { if (e.status == 401) return haOut(); toast(e.message); }
   if (HA.tab == 'act' && MODE == 'ha' && !$('.md')) R();
 }
-const ROLEI = { pembeli: '🛍️', owner: '👑', admin: '🧑‍💼', akuntan: '🧮', kasir: '🧾', spg: '🧹', sales: '💼', dropping: '🚚', 'head admin': '🛠' };
+const ROLEI = { pembeli: '🛍️', owner: '👑', admin: '🧑‍💼', akuntan: '🧮', kasir: '🧾', spg: '🧹', kanvas: '🚚', sales: '💼', dropping: '🚚', 'head admin': '🛠' };
 const PGN = (p) => ({ beli: 'Pembelian', kas: 'Buku Kas', kirim: 'Pengantaran', perm: 'Hak Akses', aud: 'Audit Lapangan', dash: 'Beranda', pos: 'Kasir', onl: 'Toko Online', prod: 'Produk', outlet: 'Outlet', ana: 'Analisa', lap: 'Laporan', keu: 'Keuangan', jur: 'Jurnal', abs: 'Absensi', chat: 'Chat', usr: 'Pengguna', set: 'Pengaturan', his: 'Riwayat', ha: 'Panel Head Admin', login: 'Baru login', 'b:home': 'Beranda belanja', 'b:search': 'Mencari produk', 'b:prod': 'Lihat produk', 'b:store': 'Lihat toko', 'b:cart': 'Keranjang', 'b:ord': 'Pesanan', 'b:feed': 'Feed Untukmu', 'b:acc': 'Akun', 'b:chat': 'Chat' }[p] || p || '-');
 function haActView() {
   const d = HAA.d; if (!d) return '<div class="cd"><p class="mu">Memuat aktivitas…</p></div>';

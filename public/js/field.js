@@ -59,7 +59,7 @@ function bigAlarm(title, text, btns) {
 }
 async function coWatch() {
   try {
-    if (!U || !S || !['sales', 'dropping'].includes(U.r) || coRing || document.hidden) return;
+    if (!U || !S || !['sales', 'kanvas', 'dropping'].includes(U.r) || coRing || document.hidden) return;
     const cur = openCI(U.n); if (!cur || Date.now() < coSn) return;
     const c = cust(cur.cid); if (!c || c.lat == null) return;
     const p = await getPos1(true); if (!p) return;

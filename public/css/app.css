@@ -525,3 +525,4 @@ label.fl{display:flex;flex-direction:column;gap:3px;min-width:0}label.fl>small{f
 .wkchips{display:flex;gap:6px;overflow-x:auto;margin:10px 0;padding-bottom:2px}.wkchips button{flex:none;display:flex;flex-direction:column;align-items:center;padding:8px 12px;border-radius:12px;border:1px solid var(--bd);background:var(--cd);font:inherit}.wkchips button small{font-size:11px;color:var(--mu)}.wkchips button.a{background:var(--ac);color:#fff;border-color:var(--ac)}.wkchips button.a small{color:#fff}
 .shtab th.tdh{color:var(--ac)}.shtab select:disabled{opacity:.45}
 .tskrow{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 0;border-top:1px dashed var(--bd)}.tskrow.dn span{color:var(--mu)}.tskrow img{width:46px;height:46px;object-fit:cover;border-radius:8px}
+.kvrow{padding:8px 0;border-top:1px dashed var(--bd);margin:0}.kvrow .qt input{width:64px;text-align:center}
