@@ -640,3 +640,6 @@ body:not(.buyer) .pr{box-shadow:inset 0 1px 0 #ffffff2e,0 0 0 1px #c9a24a40,0 8p
 .tkm small{display:block;font-size:10.5px;color:var(--mu)}.tkm img{max-width:100%;border-radius:10px;margin-top:6px;cursor:zoom-in}
 .otab{position:fixed;left:12px;right:12px;bottom:calc(76px + env(safe-area-inset-bottom,0));z-index:60;display:flex;gap:8px;align-items:center;padding:10px 12px;border-radius:16px;background:#0d1834f2;color:#f4ecd6;border:1px solid #c9a24a66;box-shadow:0 14px 34px -10px #000a;max-width:560px;margin:auto}
 .otab span{flex:1;display:grid}.otab small{opacity:.8;font-size:11.5px}.otab .gh{color:#f4ecd6;border-color:#ffffff33;background:transparent}.otab .gh.pri{background:linear-gradient(135deg,#f0d88f,#c9a24a);color:#1c1607;border:0}
+/* ===== v44: menu berkelompok ===== */
+.md.menu .mgrp{margin-top:12px}.md.menu .mgh{display:block;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--mu);margin:0 2px 6px}
+.md.menu .mgrp:first-of-type{margin-top:8px}

@@ -131,7 +131,7 @@ async function registerStore(name, owner, email, pin, code, phone) {
   S.users.push({ n: owner, r: 'owner', h: await sha(id + ':' + owner.toLowerCase() + ':' + pin) }); S.exp = Date.now() + 30 * 864e5; S.plan = 'trial';
   setReg(id, name); U = { n: owner, r: 'owner' }; V = 'dash'; save(); flushSave(); R(); toast('Toko lokal dibuat (belum terhubung server). Kode: ' + id, 7000);
 }
-function logout() { flushSave(); stopChat(); U = null; S = null; SID = null; V = 'dash'; R(); }
+function logout() { if (typeof trackStop == 'function') try { trackStop(); } catch (e) { } flushSave(); stopChat(); U = null; S = null; SID = null; V = 'dash'; R(); }
 async function reauth() {
   const m = modal(`<h3>Masuk ulang</h3><small class="mu">Sesi berakhir. Masukkan PIN untuk melanjutkan sinkron.</small><input id="rp" type="password" inputmode="numeric" placeholder="PIN" autocomplete="off"><button class="pr" id="rg">Masuk</button>`);
   $('#rg', m).onclick = async () => { try { const r = await post('/api/login', { id: SID, name: U.n, pin: $('#rp', m).value }, ''); LS.set('jpos:tk:' + SID, r.token); U.r = r.role; S.reauth = false; m.close(); kick(); toast('Tersambung'); } catch (e) { toast(e.message); } };

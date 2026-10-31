@@ -88,8 +88,20 @@ function R() {
   if (S.srv && can('onl')) onlBadge();
   if (typeof CH != 'undefined' && CH.unread && V != 'chat') { const nb = $('#nb-chat') || $('#nb-menu'); if (nb) { nb.textContent = CH.unread; nb.style.display = 'grid'; } }
 }
+const MENUGRP = [
+  ['Penjualan', ['pos', 'kanvas', 'kirim', 'onl', 'his', 'retur']],
+  ['Produk & stok', ['prod', 'beli', 'outlet', 'kiosMap', 'dnet']],
+  ['Analisa & target', ['ana', 'tgt', 'gps', 'lap']],
+  ['Keuangan', ['keu', 'kas', 'jur']],
+  ['Tim & absensi', ['abs', 'shiftSet', 'gaji', 'usr', 'chat']],
+  ['Pengaturan & lainnya', ['aud', 'perm', 'set']],
+];
 function menuSheet() {
-  const m = modal(`<div class="row" style="margin:0"><h3 style="margin:0">Semua menu</h3><button class="gh" id="mx">✕</button></div><div class="mg">${pages().map((k) => `<button class="${V == k ? 'a' : ''}" onclick="go('${k}')"><i style="--c:${pCol(k)}">${pIco(k)}</i><b>${esc(pgName(k))}</b>${k == 'chat' && CH.unread ? `<em>${CH.unread}</em>` : ''}</button>`).join('')}</div><div class="wrap">${U.r == 'owner' && S.srv ? '<button class="gh pri" onclick="renewOpen()">💳 Perpanjang paket</button>' : ''}${['owner', 'admin'].includes(U.r) && S.srv ? '<button class="gh" onclick="tiketOpen()">🛟 Bantuan & komplain</button>' : ''}<button class="gh" onclick="changeMyPin()">🔑 Ubah PIN</button><button class="gh" onclick="sync().then(()=>{toast('Sinkron selesai');R()})">⟳ Sinkron</button><button class="gh d" onclick="$('.md.menu').close();logout()">Keluar</button></div>`, 'w');
+  const seen = new Set(), ava = pages();
+  const grp = MENUGRP.map(([nm, ks]) => [nm, ks.filter((k) => { if (ava.includes(k) && !seen.has(k)) { seen.add(k); return true; } return false; })]).filter((g) => g[1].length);
+  const rest = ava.filter((k) => !seen.has(k)); if (rest.length) grp.push(['Lainnya', rest]);
+  const btn = (k) => `<button class="${V == k ? 'a' : ''}" onclick="go('${k}')"><i style="--c:${pCol(k)}">${pIco(k)}</i><b>${esc(pgName(k))}</b>${k == 'chat' && CH.unread ? `<em>${CH.unread}</em>` : ''}</button>`;
+  const m = modal(`<div class="row" style="margin:0"><h3 style="margin:0">Semua menu</h3><button class="gh" id="mx">✕</button></div>${grp.map(([nm, ks]) => `<div class="mgrp"><small class="mgh">${esc(nm)}</small><div class="mg">${ks.map(btn).join('')}</div></div>`).join('')}<div class="wrap">${U.r == 'owner' && S.srv ? '<button class="gh pri" onclick="renewOpen()">💳 Perpanjang paket</button>' : ''}${['owner', 'admin'].includes(U.r) && S.srv ? '<button class="gh" onclick="tiketOpen()">🛟 Bantuan & komplain</button>' : ''}<button class="gh" onclick="changeMyPin()">🔑 Ubah PIN</button><button class="gh" onclick="sync().then(()=>{toast('Sinkron selesai');R()})">⟳ Sinkron</button>${isNative() && typeof otaCheck == 'function' ? '<button class="gh" onclick="otaCheck(1);toast(\'Mengecek pembaruan…\')">⬆️ Cek pembaruan</button>' : ''}<button class="gh d" onclick="$('.md.menu').close();logout()">Keluar</button></div>`, 'w');
   m.classList.add('menu'); $('#mx', m).onclick = () => m.close();
 }
 function acctMenu() {
@@ -107,7 +119,7 @@ async function checkSrv() {
 const srvTxt = () => ({ ok: '<span class="gr">● Server online</span>', down: '<span class="rd">● Server belum aktif / tidak bisa dihubungi</span> — toko yang pernah dibuka tetap bisa dipakai offline', off: '<span class="or">● Offline</span> — toko yang pernah dibuka tetap bisa dipakai', none: '○ Mode lokal (server belum diatur)' }[SRV] || '○ Memeriksa server…');
 function homeView() {
   const reg = REG(), last = LS.get('jpos:last', null), info = LS.get('jpos:info', {}) || {};
-  const splash = `<div class="splash lx"><div class="lxlogo"><img src="icons/icon-512.png" alt="J-POS" width="84" height="84"></div><h1>J-POS</h1><span class="lxrule"></span><span class="tag">Kasir · Stok · Grosir · Distributor</span></div>`;
+  const splash = `<div class="splash lx"><div class="lxlogo"><img src="icons/icon-512.png" alt="J-POS" width="84" height="84"></div><h1>J-POS</h1><span class="lxrule"></span></div>`;
   const head = `<div class="lo">${splash}`;
   const back = `<button class="gh big" onclick="mode('home')">← Kembali</button>`;
   if (MODE == 'login') return head + `<div class="cd fm" style="text-align:left"><h3>Masuk ke toko</h3><label><small class="mu">Kode toko (dari pemilik toko)</small><input id="lid" placeholder="mis. tokomaju" autocapitalize="none" autocomplete="off" value="${esc(last ? last.id : '')}"></label><label><small class="mu">Nama pengguna</small><input id="lnm" placeholder="Nama Anda" autocomplete="off" value="${esc(last ? last.name : '')}"></label><label><small class="mu">PIN</small><input id="lpn" type="password" inputmode="numeric" placeholder="••••" onkeydown="if(event.key=='Enter')doLoginUi()"></label><button class="pr" onclick="doLoginUi()">Masuk</button>${last && typeof bioBtn == 'function' ? bioBtn(last.id, last.name) : ''}${back}<small class="mu">Login pertama di HP baru butuh internet. Setelah itu bisa dipakai offline.</small></div></div>`;

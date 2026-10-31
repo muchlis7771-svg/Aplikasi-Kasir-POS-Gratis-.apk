@@ -63,6 +63,7 @@ async function clock(kind) {
   const fx = pr.fx.slice(); if (fc.baru) fx.push('wajah-baru');
   if (geo && pr.lat != null) { const d = haversine(pr.lat, pr.lng, S.set.glat, S.set.glng); if (d > (S.set.grad || 200)) { if (anti) return alertBox('Anda ' + distStr(d) + ' dari lokasi toko (batas ' + distStr(S.set.grad || 200) + '). Absen hanya bisa di toko.', 'Absen ditolak'); if (!confirm('Anda ' + distStr(d) + ' dari lokasi toko. Tetap absen?')) return; fx.push('lokasi'); } }
   emit(kind, { lat: pr.lat, lng: pr.lng, acc: pr.acc, on: pr.on, sk: pr.sk, fx: fxs(fx), ph: pr.ph || undefined, fm: fc.fm, note: ($('#an') || {}).value ? $('#an').value.trim() : pr.lat != null ? '' : 'tanpa GPS' }, pr.t);
+  if (typeof trackSync == 'function') setTimeout(trackSync, 300); // mulai / hentikan pantau lokasi latar sesuai absen masuk / pulang
   toast((fc.baru ? 'Wajah Anda terdaftar · ' : fc.fm != null ? 'Wajah cocok ✓ · ' : '') + (kind == 'in' ? 'Absen masuk ' + hm(pr.t) + (lateMin() > 0 ? ' (terlambat)' : '') : 'Absen pulang ' + hm(pr.t))); R();
 }
 const lateMin = () => { const jn = String(typeof jinOf == 'function' ? jinOf(U.n) : S.set.jin || '08:00').split(':'), n = new Date(); return n.getHours() * 60 + n.getMinutes() - (+jn[0] * 60 + +jn[1] + 10); };
