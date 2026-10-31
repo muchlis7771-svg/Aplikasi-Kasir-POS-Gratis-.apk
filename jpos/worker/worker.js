@@ -1,6 +1,7 @@
 import { MSCHEMA, buyerRoutes, shopRoutes, shipCfg } from './market.js';
 import { SSCHEMA, SALTER, logAct, heartbeat, adminActivity } from './social.js';
 import { MSCH2, mitraRoutes } from './mitra.js';
+import { HSCHEMA, payHook, hqStore, hqAdmin } from './hq.js';
 import { RSCHEMA, RALTER, rptCfg, cleanCfg, dayRange, buildDaily, sendOut, cronDaily } from './lapor.js';
 // J-POS API v4 — Cloudflare Worker + D1 (SQLite)
 // Multi-tenant: 1 toko = 1 tenant. Data bisnis = LOG KEJADIAN (tabel ev) yang diputar ulang tiap perangkat (offline-first).
@@ -71,7 +72,7 @@ const SCHEMA = [
 let READY = null;
 function ready(env) {
   if (!READY) READY = (async () => {
-    await env.DB.batch([...SCHEMA, ...MSCHEMA, ...SSCHEMA, ...RSCHEMA, ...MSCH2].map((q) => env.DB.prepare(q)));
+    await env.DB.batch([...SCHEMA, ...MSCHEMA, ...SSCHEMA, ...RSCHEMA, ...MSCH2, ...HSCHEMA].map((q) => env.DB.prepare(q)));
     for (const c of [...SALTER, ...RALTER]) { try { await env.DB.prepare('ALTER TABLE ' + c).run(); } catch (e) { } }
     for (const c of ['phone TEXT', 'exp INTEGER', "plan TEXT DEFAULT 'trial'", 'note TEXT', "tier TEXT DEFAULT 'high'", 'perm TEXT']) { try { await env.DB.prepare('ALTER TABLE stores ADD COLUMN ' + c).run(); } catch (e) { } }
   })().catch((e) => { READY = null; throw e; });
@@ -117,17 +118,19 @@ const stInfo = (s) => { const pk = pkgOf(s.tier); return { exp: s.exp || 0, plan
 export default {
   async fetch(req, env) {
     const u = new URL(req.url), p = u.pathname, M = req.method, ip = req.headers.get('CF-Connecting-IP') || 'x';
+    if (p == '/ota.json') { const r = await env.ASSETS.fetch(req), h = new Headers(r.headers); h.set('Access-Control-Allow-Origin', '*'); h.set('Cache-Control', 'no-store'); return new Response(r.body, { status: r.status, headers: h }); } // manifest pembaruan otomatis aplikasi Android
     if (!p.startsWith('/api/')) return env.ASSETS.fetch(req);
     const cors = { 'Access-Control-Allow-Origin': env.ORIGIN || '*', 'Access-Control-Allow-Headers': 'Authorization,Content-Type', 'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS' };
     const J = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
     if (M == 'OPTIONS') return new Response(null, { headers: cors });
     let b = {};
-    if (M == 'POST' || M == 'PUT' || M == 'PATCH') { try { b = await req.json(); } catch { } }
+    if ((M == 'POST' || M == 'PUT' || M == 'PATCH') && p != '/api/pay/hook') { try { b = await req.json(); } catch { } }
     const bearer = (req.headers.get('Authorization') || '').slice(7);
     try {
       if (!env.DB) return J({ e: 'Database D1 belum terhubung ke Worker (binding DB)' }, 500);
       await ready(env); await cfgAll(env);
       // ---------- publik ----------
+      if (p == '/api/pay/hook' && M == 'POST') return payHook(env, req, u, J, await cfgAll(env)); // konfirmasi transfer otomatis (layanan cek mutasi)
       if (p == '/api/ping') return J({ ok: 1, v: 5 });
       if (p == '/api/time') return J({ t: Date.now() });
       if (p == '/api/info') { const c = await cfgAll(env); const pk = pkgAll(), pkg = {}; for (const t of Object.keys(pk)) pkg[t] = { n: pk[t].n, max: pk[t].max, f: pk[t].f, pr: pk[t].pr }; return J({ wa: c.wa || '', price: c.price || '', trial: +(c.trial_days || 30), app: c.app_name || 'J-POS', pkg }); }
@@ -184,9 +187,12 @@ export default {
         if (p == '/api/admin/activity' && M == 'GET') return J(await adminActivity(env, u));
         if (p == '/api/admin/stores' && M == 'GET') {
           const r = await env.DB.prepare(`SELECT s.id,s.name,s.owner,s.email,s.phone,s.status,s.created,s.exp,s.plan,s.tier,s.note,
-              (SELECT COUNT(*) FROM staff WHERE store_id=s.id) users, COALESCE(e.n,0) tx, COALESCE(e.o,0) omzet, e.last
-            FROM stores s LEFT JOIN (SELECT store_id,SUM(CASE WHEN k='sale' THEN 1 ELSE 0 END) n,SUM(tot) o,MAX(t) last FROM ev GROUP BY store_id) e ON e.store_id=s.id
-            ORDER BY s.created DESC LIMIT 2000`).all();
+              (SELECT COUNT(*) FROM staff WHERE store_id=s.id) users, COALESCE(e.n,0) tx, COALESCE(e.o,0) omzet, COALESCE(e.n30,0) tx30, COALESCE(e.o30,0) om30, e.last,
+              sn.t snt, json_extract(sn.data,'$.sv') sv, json_extract(sn.data,'$.nsku') nsku, json_extract(sn.data,'$.qty') qty, json_extract(sn.data,'$.nlow') nlow, json_extract(sn.data,'$.ar') ar, json_extract(sn.data,'$.od') od,
+              json_extract(sn.data,'$.ap') ap, json_extract(sn.data,'$.lm') lm, json_extract(sn.data,'$.om') om, json_extract(sn.data,'$.kas') kas, json_extract(sn.data,'$.bank') bank
+            FROM stores s LEFT JOIN (SELECT store_id,SUM(CASE WHEN k='sale' THEN 1 ELSE 0 END) n,SUM(tot) o,SUM(CASE WHEN k='sale' AND t>?1 THEN 1 ELSE 0 END) n30,SUM(CASE WHEN t>?1 THEN tot ELSE 0 END) o30,MAX(t) last FROM ev GROUP BY store_id) e ON e.store_id=s.id
+            LEFT JOIN snap sn ON sn.store_id=s.id
+            ORDER BY s.created DESC LIMIT 2000`).bind(Date.now() - 30 * DAY).all();
           return J({ stores: r.results, now: Date.now() });
         }
         if (p == '/api/admin/stats' && M == 'GET') {
@@ -258,6 +264,7 @@ export default {
             return J({ ok: 1, name: s.name });
           }
         }
+        { const hr = await hqAdmin({ env, p, M, b, J, C: await cfgAll(env), cfgSet, origin: u.origin, u }); if (hr) return hr; }
         if (p == '/api/admin/announce' && M == 'POST') {
           const tx = String(b.text || '').trim().slice(0, 500);
           if (!tx) return J({ e: 'Pesan kosong' }, 400);
@@ -277,6 +284,7 @@ export default {
       const RO = () => J({ e: 'Masa aktif toko habis. Hubungi pemilik aplikasi untuk perpanjangan.', expired: 1, ...stInfo(me) }, 402);
 
       if (p == '/api/me') return J({ sid, name: uname, role, ...stInfo(me) });
+      { const hr = await hqStore({ env, p, M, b, J, sid, uname, role, C: await cfgAll(env), pkgAll, sname: me.sn, limited }); if (hr) return hr; } // perpanjangan & komplain (tetap jalan walau masa aktif habis)
 
       // ---------- toko belanja ke grosir / distributor lain (akun pembeli milik toko) ----------
       if (p == '/api/beli-online' && M == 'POST') {
