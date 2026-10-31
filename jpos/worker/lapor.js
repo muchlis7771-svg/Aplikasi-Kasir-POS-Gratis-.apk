@@ -26,7 +26,7 @@ const hmz = (t, tz) => { const d = new Date(t + tz * 36e5); return pad(d.getUTCH
 
 export async function buildDaily(env, sid, sname, tz, R, upto) {
   const to = Math.min(R.t, upto || R.t);
-  const ev = (await env.DB.prepare("SELECT k,t,data FROM ev WHERE store_id=? AND t>=? AND t<? AND k IN ('sale','pay','retur','in','out','visit','shf') ORDER BY t").bind(sid, R.f, to).all()).results.map((x) => { let d = {}; try { d = JSON.parse(x.data); } catch (e) { } return { ...d, k: x.k, t: x.t }; });
+  const ev = (await env.DB.prepare("SELECT k,t,data FROM ev WHERE store_id=? AND t>=? AND t<? AND k IN ('sale','pay','retur','in','out','visit','shf','kvl','kvb') ORDER BY t").bind(sid, R.f, to).all()).results.map((x) => { let d = {}; try { d = JSON.parse(x.data); } catch (e) { } return { ...d, k: x.k, t: x.t }; });
   const staff = (await env.DB.prepare('SELECT name,role FROM staff WHERE store_id=? ORDER BY created').bind(sid).all()).results;
   const nOut = (await env.DB.prepare("SELECT COUNT(*) n FROM (SELECT json_extract(data,'$.c.id') i, MIN(t) m FROM ev WHERE store_id=? AND k='cu' GROUP BY i) WHERE m>=? AND m<?").bind(sid, R.f, to).first()) || { n: 0 };
   const snap = await env.DB.prepare('SELECT t,data FROM snap WHERE store_id=?').bind(sid).first();
@@ -50,6 +50,10 @@ export async function buildDaily(env, sid, sname, tz, R, upto) {
   if (us.length) { L.push('', '*👤 PER KARYAWAN*'); for (const [n, x] of us) L.push('• ' + n + ': ' + rp(x.v) + ' (' + x.n + ' trx)'); }
   const cl = ev.filter((e) => e.k == 'shf' && e.op == 'close');
   if (cl.length) { L.push('', '*🔐 CLOSING KASIR*'); for (const c of cl) L.push('• ' + c.u + (c.sn ? ' · ' + c.sn : '') + ': omzet ' + rp(c.omz) + ', setor tunai ' + rp(c.cash) + (c.dif ? ' (selisih ' + (c.dif > 0 ? '+' : '−') + rp(Math.abs(c.dif)) + ')' : ' ✓')); }
+  // sales kanvas: muat / balik barang (disetujui admin) & sisa di mobil
+  const kv = {}; for (const e of ev) if (e.k == 'kvl' || e.k == 'kvb') { const u = String(e.to || e.u).toLowerCase(), r = kv[u] || (kv[u] = { m: 0, b: 0 }); const q = (e.L || []).reduce((a, i) => a + (+i.q || 0), 0); if (e.k == 'kvl') r.m += q; else r.b += q; }
+  for (const s of sales) if (s.r == 'kanvas') { const u = String(s.u).toLowerCase(); (kv[u] = kv[u] || { m: 0, b: 0 }).j = (kv[u].j || 0) + (s.L || []).reduce((a, i) => a + (i.q || 0), 0); }
+  if (Object.keys(kv).length || (S.van && Object.keys(S.van).length)) { L.push('', '*🚚 SALES KANVAS*'); const us = new Set([...Object.keys(kv), ...Object.keys(S.van || {})]); for (const u of us) { const r = kv[u] || {}; L.push('• ' + u + ': muat ' + (r.m || 0) + ', terjual ' + (r.j || 0) + ', balik ' + (r.b || 0) + (S.van && S.van[u] != null ? ', sisa mobil ' + S.van[u] : '')); } }
   // absensi
   const A = {}; for (const e of ev) if (e.k == 'in' || e.k == 'out') { const a = A[e.u] || (A[e.u] = {}); if (e.k == 'in' && !a.in) a.in = e.t; if (e.k == 'out') a.out = e.t; }
   const vis = {}; for (const e of ev) if (e.k == 'visit') vis[e.u] = (vis[e.u] || 0) + 1;

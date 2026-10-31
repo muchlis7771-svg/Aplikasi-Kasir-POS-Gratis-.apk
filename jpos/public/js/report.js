@@ -67,13 +67,23 @@ const RPT = {
       ...(S.bst || []).filter((b) => b.t >= f && b.t <= t).map((b) => [b.t, { pindah: 'Pindah layak jual → bad stock', layak: 'Bad stock → layak jual (sortir)', musnah: 'Pemusnahan' + (b.src == 'good' ? ' (dari stok layak jual)' : '') }[b.act], b.n, b.u + (b.saksi ? ', saksi ' + b.saksi : ''), b.act == 'layak' ? -b.q : b.q, b.v])].sort((a, b) => a[0] - b[0]);
     return [{ title: 'Stok Layak Jual (Good Stock) & Bad Stock', head: ['Kode', 'Produk', 'Kategori', 'Layak jual', 'HPP', 'Nilai layak jual', 'Bad stock', 'Nilai bad stock'], fmt: ['t', 't', 't', 'q', 'm', 'm', 'q', 'm'],
       rows: [...L.map((p) => [p.kd || p.sku || '', p.n, p.c, p.st, p.co, Math.max(0, p.st) * p.co, p.bad || 0, bv(p)]), ['', 'TOTAL', '', L.reduce((a, p) => a + p.st, 0), '', stockValue(), badUnits(), badValue(), 'b']] },
+      ...(Object.keys(S.van || {}).some((k) => Object.keys(S.van[k]).length) ? [{ title: 'Stok per Lokasi (Gudang & Mobil Kanvas)', head: ['Produk', 'Gudang', ...Object.keys(S.van).map((k) => 'Mobil ' + k), 'Total'], fmt: ['t', 'q', ...Object.keys(S.van).map(() => 'q'), 'q'], rows: L.filter((p) => vanAll(p.id) || p.st).map((p) => [p.n, p.st - vanAll(p.id), ...Object.keys(S.van).map((k) => S.van[k][p.id] || 0), p.st]) }] : []),
       { title: 'Mutasi Bad Stock & Pemusnahan · ' + perLabel(), head: ['Tanggal', 'Kejadian', 'Produk', 'Outlet / petugas', 'Qty', 'Nilai'], fmt: ['d', 't', 't', 't', 'q', 'm'], rows: mut.length ? mut : [['', 'Tidak ada mutasi pada periode ini', '', '', '', '']] }];
   },
   outlet() { return [{ title: 'Daftar Outlet', head: ['Outlet', 'Alamat', 'Telepon', 'Sales', 'Fasilitas', 'Limit', 'Piutang'], fmt: ['t', 't', 't', 't', 't', 'm', 'm'], rows: S.c.filter((c) => !c.x).map((c) => [c.n, c.ad || '', c.ph || '', c.sl || '', c.term == 'kredit' ? 'Kredit ' + (c.tempo || 30) + ' hr' : 'Tunai', c.lim || 0, outOf(c.id)]) }]; },
+  kanvas(f, t) {
+    const us = typeof kvUsers == 'function' ? kvUsers() : [], rows = [], mv = [];
+    for (const u of us) { const sales = S.sales.filter((s) => s.u == u && s.t >= f && s.t <= t); let tun = 0, kr = 0, nonT = 0; for (const s of sales) { if (s.pay == 'Piutang') { kr += s.tot - (s.dpay || 0); tun += s.dpm == 'Tunai' || !s.dpm ? s.dpay || 0 : 0; } else if (s.pay == 'Tunai') tun += s.tot; else nonT += s.tot; }
+      const q = (k) => (S.kv || []).filter((x) => x.u == u && x.k == k && x.t >= f && x.t <= t).reduce((a, x) => a + x.L.reduce((b, i) => b + i.q, 0), 0), jq = sales.reduce((a, s) => a + s.L.reduce((b, i) => b + i.q, 0), 0);
+      rows.push([u, sales.length, sales.reduce((a, s) => a + s.tot, 0), tun, nonT, kr, q('muat'), jq, q('balik'), Object.values((S.van || {})[vanKey(u)] || {}).reduce((a, v) => a + v, 0)]); }
+    for (const x of (S.kv || []).filter((x) => x.t >= f && x.t <= t)) for (const i of x.L) { const p = prod(i.id); mv.push([x.t, x.k == 'muat' ? 'Muat ke mobil' : 'Balik ke gudang', x.u, p ? p.n : i.id, i.q, p ? i.q * p.co : 0, x.oleh || '']); }
+    return [{ title: 'Rekap Sales Kanvas · ' + perLabel(), head: ['Sales', 'Nota', 'Omzet', 'Tunai', 'QRIS/TF', 'Kredit', 'Muat', 'Terjual', 'Balik', 'Sisa mobil'], fmt: ['t', 'q', 'm', 'm', 'm', 'm', 'q', 'q', 'q', 'q'], rows: rows.length ? rows : [['Belum ada sales kanvas', '', '', '', '', '', '', '', '', '']] },
+      { title: 'Mutasi Barang Kanvas · ' + perLabel(), head: ['Tanggal', 'Kejadian', 'Sales', 'Produk', 'Qty', 'Nilai HPP', 'Disetujui'], fmt: ['d', 't', 't', 't', 'q', 'm', 't'], rows: mv.length ? mv.sort((a, b) => a[0] - b[0]) : [['', 'Tidak ada mutasi', '', '', '', '', '']] }];
+  },
   absen(f, t) { return [{ title: 'Rekap Absensi · ' + perLabel(), head: ['Karyawan', 'Hari hadir', 'Terlambat', 'Total jam', 'Kunjungan'], fmt: ['t', 'q', 'q', 'q', 'q'], rows: attRecap(f, t).map((r) => [r.u, r.days, r.late, +r.hours.toFixed(1), r.visits]) }]; },
 };
 RPT.akt = (f, t) => [...RPT.lr(f, t), ...RPT.neraca(f, t), ...RPT.cf(f, t), ...RPT.ns(f, t)];
-const RTABS = [['lr', 'Laba Rugi'], ['neraca', 'Neraca'], ['cf', 'Arus Kas'], ['ns', 'Neraca Saldo'], ['gl', 'Buku Besar'], ['jual', 'Penjualan'], ['piutang', 'Piutang'], ['utang', 'Utang'], ['stok', 'Stok'], ['absen', 'Absensi']];
+const RTABS = [['lr', 'Laba Rugi'], ['neraca', 'Neraca'], ['cf', 'Arus Kas'], ['ns', 'Neraca Saldo'], ['gl', 'Buku Besar'], ['jual', 'Penjualan'], ['piutang', 'Piutang'], ['utang', 'Utang'], ['stok', 'Stok'], ['kanvas', 'Kanvas'], ['absen', 'Absensi']];
 const cellH = (v, f) => (v === '' || v == null ? '' : typeof v == 'string' ? esc(v) : f == 'm' ? rp(v) : f == 'q' ? Number(v).toLocaleString('id-ID') : f == 'd' ? dstr(v) : esc(v));
 function tblH(s) {
   const fm = s.fmt || s.head.map((_, i) => (i ? 'm' : 't')), nh = s.head.length;

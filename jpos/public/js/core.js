@@ -94,7 +94,7 @@ function slimStore() {
 }
 function flushSave() { clearTimeout(saveT); saveT = null; if (S && !LS.set('jpos:s:' + SID, S) && !(slimStore() && LS.set('jpos:s:' + SID, S)) && !flushSave.w) { flushSave.w = 1; toast('Penyimpanan perangkat penuh! Ekspor backup lalu kosongkan data lama.', 7000); } }
 addEventListener('pagehide', flushSave); document.addEventListener('visibilitychange', () => { if (document.hidden) flushSave(); });
-function loadStore(id) { const s = LS.get('jpos:s:' + id, null); if (!s) return false; SID = id; S = s; for (const k of ['p', 'c', 'sales', 'j', 'ap', 'att', 'users', 'eq', 'cq', 'hold', 'staff', 'sup', 'po', 'kn', 'rtr', 'bst', 'tgt', 'ses', 'tsk', 'kv']) S[k] = S[k] || []; S.done = S.done || {}; S.pend = S.pend || {}; S.cs = S.cs || {}; S.set = Object.assign({ ppn: 11, tempo: 30, jin: '08:00' }, S.set || {});
+function loadStore(id) { const s = LS.get('jpos:s:' + id, null); if (!s) return false; SID = id; S = s; for (const k of ['p', 'c', 'sales', 'j', 'ap', 'att', 'users', 'eq', 'cq', 'hold', 'staff', 'sup', 'po', 'kn', 'rtr', 'bst', 'tgt', 'ses', 'tsk', 'kv', 'kvq']) S[k] = S[k] || []; S.done = S.done || {}; S.pend = S.pend || {}; S.cs = S.cs || {}; S.set = Object.assign({ ppn: 11, tempo: 30, jin: '08:00' }, S.set || {});
   { const old = Date.now() - 14 * 864e5; S.att.forEach((a) => { if (a.ph && a.t < old) delete a.ph; }); S.sales.forEach((x) => { if (x.dl) x.dl.log.forEach((l) => { if (l.ph && l.t < old) delete l.ph; }); }); } // foto bukti lama dibuang agar penyimpanan HP tidak penuh
   if (!S.v4) { const o = S.users.find((u) => u.r == 'admin'); if (o && !S.users.some((u) => u.r == 'owner')) o.r = 'owner'; S.v4 = 1; }
   S.c.forEach((c) => { if (c.lat == null || c.lng == null || (Math.abs(c.lat) < 0.01 && Math.abs(c.lng) < 0.01)) { c.lat = null; c.lng = null; } }); kdFill(); return true; }
@@ -209,8 +209,10 @@ const Ap = {
   // shift kasir: jadwal (shiftSet) & sesi buka / tutup kasir (closing)
   shs(e) { const x = e.x || {}; S.shs = { defs: (x.defs || []).filter((d) => d && /^[\w-]{1,20}$/.test(d.id) && /^\d\d:\d\d$/.test(d.s) && /^\d\d:\d\d$/.test(d.e)).slice(0, 12), as: x.as && typeof x.as == 'object' ? x.as : {}, req: x.req !== false, dt: (() => { const o = {}, D = x.dt && typeof x.dt == 'object' ? x.dt : {}; for (const u in D) { const m = {}; for (const k in D[u]) if (/^\d{4}-\d\d-\d\d$/.test(k) && /^([\w-]{1,20}|off)$/.test(String(D[u][k]))) m[k] = String(D[u][k]); o[u] = m; } return o; })(), tasks: (Array.isArray(x.tasks) ? x.tasks : []).filter((t) => t && /^[\w-]{1,20}$/.test(t.id) && t.n).slice(0, 20).map((t) => ({ id: t.id, n: String(t.n).slice(0, 80), ph: !!t.ph })), by: e.u, t: e.t }; },
   // sales kanvas: muat barang gudang → mobil, balik barang mobil → gudang (stok total tidak berubah)
-  kvl(e) { const by = String(e.to || e.u); (S.kv = S.kv || []).push({ no: e.no, k: 'muat', t: e.t, u: by, oleh: e.u, L: (e.L || []).filter((i) => i.q > 0) }); for (const i of e.L || []) { const p = prod(i.id); if (!p || !(i.q > 0)) continue; const free = p.st - vanAll(i.id); vanAdd(by, i.id, Math.min(i.q, Math.max(0, free))); } },
-  kvb(e) { const by = String(e.to || e.u); const L = []; for (const i of e.L || []) { const q = Math.min(i.q, vanQ(by, i.id)); if (q > 0) { vanAdd(by, i.id, -q); L.push({ id: i.id, q }); } } (S.kv = S.kv || []).push({ no: e.no, k: 'balik', t: e.t, u: by, oleh: e.u, L, note: e.note || '' }); },
+  // permintaan muat / balik dari sales kanvas → menunggu persetujuan admin
+  kvr(e) { S.kvq = S.kvq || []; if (e.op == 'tolak' || e.op == 'batal') { const q = S.kvq.find((x) => x.no == e.ref); if (q && q.st == 'tunggu') Object.assign(q, { st: e.op == 'tolak' ? 'ditolak' : 'batal', oleh: e.u, tt: e.t, why: e.why || '' }); return; } S.kvq.push({ no: e.no, t: e.t, u: e.u, op: e.op == 'balik' ? 'balik' : 'muat', L: (e.L || []).filter((i) => i.q > 0), note: e.note || '', st: 'tunggu' }); },
+  kvl(e) { if (e.ref) { const q = (S.kvq || []).find((x) => x.no == e.ref); if (q) Object.assign(q, { st: 'ok', oleh: e.u, tt: e.t }); } const by = String(e.to || e.u); (S.kv = S.kv || []).push({ no: e.no, k: 'muat', t: e.t, u: by, oleh: e.u, L: (e.L || []).filter((i) => i.q > 0) }); for (const i of e.L || []) { const p = prod(i.id); if (!p || !(i.q > 0)) continue; const free = p.st - vanAll(i.id); vanAdd(by, i.id, Math.min(i.q, Math.max(0, free))); } },
+  kvb(e) { if (e.ref) { const q = (S.kvq || []).find((x) => x.no == e.ref); if (q) Object.assign(q, { st: 'ok', oleh: e.u, tt: e.t }); } const by = String(e.to || e.u); const L = []; for (const i of e.L || []) { const q = Math.min(i.q, vanQ(by, i.id)); if (q > 0) { vanAdd(by, i.id, -q); L.push({ id: i.id, q }); } } (S.kv = S.kv || []).push({ no: e.no, k: 'balik', t: e.t, u: by, oleh: e.u, L, note: e.note || '' }); },
   // tugas harian SPG / SPB (centang + foto bukti)
   tsk(e) { S.tsk = S.tsk || []; if (!/^\d{4}-\d\d-\d\d$/.test(e.d) || S.tsk.some((x) => x.u == e.u && x.d == e.d && x.id == e.id)) return; S.tsk.push({ no: e.no, u: e.u, t: e.t, d: e.d, id: String(e.id || ''), n: String(e.n || '').slice(0, 80), ph: e.ph }); },
   shf(e) {
@@ -298,7 +300,8 @@ const Ap = {
 function apply(e) {
   if (!e || S.done[e.no]) return false;
   S.done[e.no] = 1;
-  if ((e.k == 'cap' || e.k == 'set') && e.r && e.r != 'owner') return false; // kejadian lain sudah divalidasi server saat diterima
+  if ((e.k == 'cap' || e.k == 'set') && e.r && e.r != 'owner') return false;
+  if ((e.k == 'kvl' || e.k == 'kvb') && e.r && e.r != 'owner' && e.r != 'admin') return false; // muat / balik kanvas wajib lewat persetujuan admin // kejadian lain sudah divalidasi server saat diterima
   try { (Ap[e.k] || (() => { }))(e); } catch (x) { console.error('apply gagal', e && e.no, x); }
   return true;
 }

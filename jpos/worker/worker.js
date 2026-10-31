@@ -21,7 +21,7 @@ async function pbkdf2(pass, salt, it) {
 const hp = (pin, sid, name) => pbkdf2(String(pin), sid + ':' + name.toLowerCase(), 20000);
 const PIN = /^\d{4,8}$/, SID = /^[a-z0-9]{6,20}$/, NO = /^[A-Za-z0-9_-]{3,40}$/, NAME = /^[\p{L}\p{N} ._-]{2,40}$/u;
 const ROLES = ['owner', 'admin', 'akuntan', 'kasir', 'spg', 'sales', 'kanvas', 'dropping'];
-const KINDS = new Set(['sale', 'pay', 'retur', 'stk', 'apay', 'opn', 'exp', 'cap', 'jm', 'pu', 'cu', 'set', 'in', 'out', 'visit', 'loc', 'vout', 'sup', 'po', 'rcv', 'dlv', 'kas', 'sec', 'face', 'bst', 'tgt', 'shf', 'shs', 'tsk', 'kvl', 'kvb']);
+const KINDS = new Set(['sale', 'pay', 'retur', 'stk', 'apay', 'opn', 'exp', 'cap', 'jm', 'pu', 'cu', 'set', 'in', 'out', 'visit', 'loc', 'vout', 'sup', 'po', 'rcv', 'dlv', 'kas', 'sec', 'face', 'bst', 'tgt', 'shf', 'shs', 'tsk', 'kvl', 'kvb', 'kvr']);
 // ---- Hak akses: tiap kejadian butuh salah satu FITUR; fitur ditentukan paket toko (Head Admin) & matrix peran (Owner) ----
 const ALWAYS = 'dash set';
 const DEFPERM = {
@@ -42,7 +42,7 @@ const PKG0 = {
   high: { n: 'High · Distributor', max: 100, f: 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana jur kirim cek terima anti aud tgt tgtAll tgtSet shiftSet kiosMap dnet kanvas' },
 };
 const ALLF = [...new Set(Object.values(PKG0).flatMap((x) => x.f.split(' ')).concat('terima'))];
-const KNEED = { sale: ['pos'], pay: ['pos', 'keu', 'terima'], retur: ['retur'], stk: ['prodEdit', 'beli'], apay: ['keu', 'beli'], opn: ['prodEdit', 'keu'], exp: ['jur', 'keu'], jm: ['jur'], pu: ['prodEdit'], cu: ['outlet'], visit: ['outlet', 'cek'], vout: ['cek'], sup: ['beli'], po: ['beli'], rcv: ['beli'], dlv: ['kirim'], kas: ['kas'], sec: null, face: null, bst: ['prodEdit'], tgt: ['tgtSet'], shf: ['pos'], shs: ['shiftSet'], tsk: null, kvl: ['kanvas'], kvb: ['kanvas'], in: null, out: null, loc: null, cap: 'owner', set: 'owner' };
+const KNEED = { sale: ['pos'], pay: ['pos', 'keu', 'terima'], retur: ['retur'], stk: ['prodEdit', 'beli'], apay: ['keu', 'beli'], opn: ['prodEdit', 'keu'], exp: ['jur', 'keu'], jm: ['jur'], pu: ['prodEdit'], cu: ['outlet'], visit: ['outlet', 'cek'], vout: ['cek'], sup: ['beli'], po: ['beli'], rcv: ['beli'], dlv: ['kirim'], kas: ['kas'], sec: null, face: null, bst: ['prodEdit'], tgt: ['tgtSet'], shf: ['pos'], shs: ['shiftSet'], tsk: null, kvl: ['kanvas'], kvb: ['kanvas'], kvr: ['kanvas'], in: null, out: null, loc: null, cap: 'owner', set: 'owner' };
 const pkgAll = () => { let o = null; try { o = CFG && CFG.pkg_feat ? JSON.parse(CFG.pkg_feat) : null; } catch (e) { } const r = {}; for (const t of Object.keys(PKG0)) { const ov = o && o[t] && o[t].v >= 31 ? o[t] : null; r[t] = { ...PKG0[t], ...(ov || {}) }; if (ov && !(ov.v >= 37) && t != 'biasa') r[t].f += ' kanvas'; } return r; }; // paket disusun ulang di v31 (Standar·Kios / Medium·Grosir / High·Distributor): setelan lama diganti default baru
 // fitur baru per versi: ikut aktif di paket & peran yang sudah disesuaikan sebelumnya
 const NEWF = [[25, 'tgt tgtAll tgtSet'], [30, 'shiftSet']], NEWR = [[25, { admin: 'tgt tgtAll tgtSet', akuntan: 'tgt tgtAll', kasir: 'tgt', sales: 'tgt' }], [30, { admin: 'shiftSet' }], [31, { admin: 'kiosMap', sales: 'kiosMap' }], [32, { admin: 'dnet' }], [37, { admin: 'kanvas' }]];
@@ -346,6 +346,7 @@ export default {
               const last = await env.DB.prepare("SELECT data FROM ev WHERE store_id=? AND k='face' AND json_extract(data,'$.fu')=? ORDER BY seq DESC LIMIT 1").bind(sid, uname).first();
               if (last && !JSON.parse(last.data).x) { rej.push({ no: x.no, e: 'wajah sudah terdaftar — minta pemilik mereset' }); continue; }
             }
+            if ((x.k == 'kvl' || x.k == 'kvb') && role != 'owner' && role != 'admin') { rej.push({ no: x.no, e: 'muat & balik barang kanvas harus disetujui admin / pemilik' }); continue; }
             if (x.k == 'bst' && role != 'owner' && role != 'admin') { rej.push({ no: x.no, e: 'bad stock & pemusnahan hanya oleh pemilik / admin' }); continue; }
             if (role != 'owner' && ((x.k == 'pu' && x.p && x.p.x) || (x.k == 'cu' && x.c && x.c.x) || (x.k == 'sup' && x.s && x.s.x))) { rej.push({ no: x.no, e: 'hapus/arsip data hanya oleh pemilik' }); continue; }
             const ev = { ...x, u: uname, r: role, rt }; if (x.t > rt + 3e5 || (x.on && Math.abs(x.t - rt) > 3e5)) ev.fl = 'jam';
