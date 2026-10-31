@@ -12,7 +12,7 @@ const hm = (t) => { const d = new Date(t); return pad(d.getHours()) + ':' + pad(
 const tstr = (t) => dstr(t) + ' ' + hm(t);
 const dkey = (t) => { const d = new Date(t); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()); };
 const mkey = (t) => dkey(t).slice(0, 7);
-const COL = ['#6c5ce7', '#00c2a8', '#ff9f43', '#ff5d73', '#54a0ff', '#a29bfe', '#fdcb6e'];
+const COL = ['#27407e', '#00c2a8', '#ff9f43', '#ff5d73', '#54a0ff', '#a29bfe', '#fdcb6e'];
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 const sha = async (s) => [...new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)))].map((b) => b.toString(16).padStart(2, '0')).join('');
 const LS = {
@@ -39,7 +39,7 @@ const MGR = (r) => r == 'owner' || r == 'admin' || r == 'akuntan';
 // Hak akses = (fitur peran) ∩ (fitur paket toko). Paket diatur Head Admin, matrix peran diatur Owner. Server memakai aturan yang sama.
 const ALWAYS = 'dash set';
 const DEFPERM = {
-  admin: 'dash pos his hisAll prod prodEdit outlet onl ana lap keu abs absAll chat retur set beli tgt tgtAll tgtSet shiftSet kiosMap dnet kanvas',
+  admin: 'dash pos his hisAll prod prodEdit outlet onl ana lap keu abs absAll chat retur set beli tgt tgtAll tgtSet shiftSet kiosMap dnet kanvas gps',
   akuntan: 'dash his hisAll prod ana lap keu jur abs absAll chat set kas tgt tgtAll',
   kasir: 'dash pos his abs chat set tgt',
   sales: 'dash pos his outlet ana abs chat set cek retur tgt kiosMap',
@@ -47,15 +47,15 @@ const DEFPERM = {
   spg: 'dash pos his prod abs chat set tgt',
   kanvas: 'dash pos his outlet ana abs chat set cek retur terima tgt kiosMap kanvas',
 };
-const PKGHI = 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana jur kirim cek terima anti aud tgt tgtAll tgtSet shiftSet kiosMap dnet kanvas gaji';
+const PKGHI = 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana jur kirim cek terima anti aud tgt tgtAll tgtSet shiftSet kiosMap dnet kanvas gaji gps';
 // fitur baru per versi ikut aktif pada hak akses yang sudah disesuaikan sebelumnya (server memakai aturan yang sama)
-const NEWR = [[25, { admin: 'tgt tgtAll tgtSet', akuntan: 'tgt tgtAll', kasir: 'tgt', sales: 'tgt' }], [30, { admin: 'shiftSet' }], [31, { admin: 'kiosMap', sales: 'kiosMap' }], [32, { admin: 'dnet' }], [37, { admin: 'kanvas' }]];
+const NEWR = [[25, { admin: 'tgt tgtAll tgtSet', akuntan: 'tgt tgtAll', kasir: 'tgt', sales: 'tgt' }], [30, { admin: 'shiftSet' }], [31, { admin: 'kiosMap', sales: 'kiosMap' }], [32, { admin: 'dnet' }], [37, { admin: 'kanvas' }], [39, { admin: 'gps' }]];
 const pmRole = (ov, r) => (typeof ov[r] == 'string' ? ov[r] + ' ' + NEWR.filter(([v]) => !(ov._v >= v)).map(([, m]) => m[r] || '').join(' ') : DEFPERM[r] || '');
 const FEAT = {
   dash: 'Beranda', pos: 'Kasir / Order', his: 'Riwayat transaksi', hisAll: 'Lihat transaksi semua orang', prod: 'Lihat produk & stok', prodEdit: 'Ubah produk & stok', outlet: 'Outlet / pelanggan',
   onl: 'Toko Online', ana: 'Analisa', lap: 'Laporan', keu: 'Keuangan & utang piutang', jur: 'Jurnal & biaya', abs: 'Absensi sendiri', absAll: 'Lihat absensi semua', chat: 'Chat', usr: 'Kelola pengguna',
   retur: 'Retur barang', backup: 'Backup & restore', set: 'Pengaturan', beli: 'Pembelian ke supplier', xls: 'Import / export Excel', kas: 'Buku kas', perm: 'Atur hak akses (owner)',
-  kirim: 'Pengantaran / dropping', cek: 'Check-in / out outlet', terima: 'Terima pembayaran di lapangan', tgt: 'Target & insentif (milik sendiri)', tgtAll: 'Lihat target & insentif semua karyawan', tgtSet: 'Atur target, insentif & kalender kerja', shiftSet: 'Atur shift kasir & jadwal karyawan', kiosMap: 'Peta kios terdaftar (tawarkan produk)', dnet: 'Jaringan mitra: stok & SKU toko mitra', gaji: 'Gaji, lembur & izin jam kerja', kanvas: 'Sales kanvas: muat, jual dari mobil & balik barang', anti: 'Absensi anti-curang (selfie & jam server)', aud: 'Audit lapangan',
+  kirim: 'Pengantaran / dropping', cek: 'Check-in / out outlet', terima: 'Terima pembayaran di lapangan', tgt: 'Target & insentif (milik sendiri)', tgtAll: 'Lihat target & insentif semua karyawan', tgtSet: 'Atur target, insentif & kalender kerja', shiftSet: 'Atur shift kasir & jadwal karyawan', kiosMap: 'Peta kios terdaftar (tawarkan produk)', dnet: 'Jaringan mitra: stok & SKU toko mitra', gaji: 'Gaji, lembur & izin jam kerja', gps: 'Pantau GPS tim lapangan (langsung)', kanvas: 'Sales kanvas: muat, jual dari mobil & balik barang', anti: 'Absensi anti-curang (selfie & jam server)', aud: 'Audit lapangan',
 };
 const FEATMEMO = {};
 function featSet(r) {
@@ -237,9 +237,9 @@ const Ap = {
     const i = S.tgt.findIndex((y) => y.id == o.id); if (i >= 0) S.tgt[i] = o; else S.tgt.push(o);
   },
   set(e) { if (e.r != 'owner') return; Object.assign(S.set, e.set || {}); if (e.name) S.name = e.name; if ('logo' in e) S.logo = e.logo; },
-  in(e) { S.att.push({ no: e.no, k: 'in', t: e.t, u: e.u, lat: e.lat, lng: e.lng, acc: e.acc, note: e.note, ph: e.ph, fl: e.fl, fx: e.fx, sk: e.sk, rt: e.rt, fm: e.fm }); },
-  out(e) { S.att.push({ no: e.no, k: 'out', t: e.t, u: e.u, lat: e.lat, lng: e.lng, acc: e.acc, note: e.note, ph: e.ph, fl: e.fl, fx: e.fx, sk: e.sk, rt: e.rt, fm: e.fm }); },
-  visit(e) { S.att.push({ no: e.no, k: 'visit', t: e.t, u: e.u, cid: e.cid, cn: e.cn, lat: e.lat, lng: e.lng, dist: e.dist, acc: e.acc, note: e.note, ph: e.ph, fl: e.fl, fx: e.fx, sk: e.sk, why: e.why }); },
+  in(e) { trailAdd(e); S.att.push({ no: e.no, k: 'in', t: e.t, u: e.u, lat: e.lat, lng: e.lng, acc: e.acc, note: e.note, ph: e.ph, fl: e.fl, fx: e.fx, sk: e.sk, rt: e.rt, fm: e.fm }); },
+  out(e) { trailAdd(e); S.att.push({ no: e.no, k: 'out', t: e.t, u: e.u, lat: e.lat, lng: e.lng, acc: e.acc, note: e.note, ph: e.ph, fl: e.fl, fx: e.fx, sk: e.sk, rt: e.rt, fm: e.fm }); },
+  visit(e) { trailAdd(e); S.att.push({ no: e.no, k: 'visit', t: e.t, u: e.u, cid: e.cid, cn: e.cn, lat: e.lat, lng: e.lng, dist: e.dist, acc: e.acc, note: e.note, ph: e.ph, fl: e.fl, fx: e.fx, sk: e.sk, why: e.why }); },
   vout(e) { S.att.push({ no: e.no, k: 'vout', t: e.t, u: e.u, cid: e.cid, cn: e.cn, lat: e.lat, lng: e.lng, dist: e.dist, acc: e.acc, note: e.note, fl: e.fl, fx: e.fx, sk: e.sk, why: e.why }); },
   // bad stock: pindah (layak jual → bad), layak (bad → layak jual setelah sortir), musnah (dari bad / layak jual). Hanya pemilik & admin.
   bst(e) {
@@ -302,8 +302,14 @@ const Ap = {
     else return;
     (S.kn = S.kn || []).push({ no: e.no, t: e.t, u: e.u, dir: e.dir, a: e.a, amt, m: e.m, d, cat: e.cat || '' });
   },
-  loc(e) { if (e.lat == null) return; S.locs = S.locs || {}; const p = S.locs[e.u]; if (!p || e.t >= p.t) S.locs[e.u] = { u: e.u, r: e.r, lat: e.lat, lng: e.lng, acc: e.acc || null, page: e.pg || '', t: e.t }; },
+  loc(e) { if (e.lat == null) return; S.locs = S.locs || {}; const p = S.locs[e.u]; if (!p || e.t >= p.t) S.locs[e.u] = { u: e.u, r: e.r, lat: e.lat, lng: e.lng, acc: e.acc || null, page: e.pg || '', t: e.t }; trailAdd(e); },
 };
+// jejak GPS 24 jam terakhir per karyawan lapangan (untuk pantauan pemilik)
+function trailAdd(e) {
+  if (e.lat == null || e.lng == null || Date.now() - e.t > 864e5) return; const T = (S.trail = S.trail || {}), L = (T[e.u] = T[e.u] || []);
+  L.push([e.t, +e.lat, +e.lng, e.k == 'loc' ? 0 : e.k]); if (L.length > 1 && L[L.length - 2][0] > e.t) L.sort((a, b) => a[0] - b[0]);
+  const cut = Date.now() - 864e5; while (L.length && (L[0][0] < cut || L.length > 500)) L.shift();
+}
 function apply(e) {
   if (!e || S.done[e.no]) return false;
   S.done[e.no] = 1;

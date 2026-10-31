@@ -45,7 +45,7 @@ VW.kiosMap.after = () => {
   const el = $('#kmap'); if (!el || !leafletOk()) return; const c = kmCenter() || DEF_POS;
   try { if (kmap) kmap.remove(); } catch (e) { }
   kmap = L.map(el).setView(c.lat != null ? [c.lat, c.lng] : DEF_POS, KM.r <= 5 ? 13 : KM.r <= 25 ? 11 : 9); tiles(kmap);
-  if (c.lat != null) { L.circle([c.lat, c.lng], { radius: KM.r * 1000, color: '#d4af37', weight: 1, fillOpacity: 0.04 }).addTo(kmap); L.circleMarker([c.lat, c.lng], { radius: 9, color: '#fff', weight: 3, fillColor: '#4f46e5', fillOpacity: 1 }).bindTooltip(KM.src == 'toko' ? S.name : 'Lokasi saya').addTo(kmap); }
+  if (c.lat != null) { L.circle([c.lat, c.lng], { radius: KM.r * 1000, color: '#d4af37', weight: 1, fillOpacity: 0.04 }).addTo(kmap); L.circleMarker([c.lat, c.lng], { radius: 9, color: '#fff', weight: 3, fillColor: '#2a4890', fillOpacity: 1 }).bindTooltip(KM.src == 'toko' ? S.name : 'Lokasi saya').addTo(kmap); }
   for (const x of KM.shops || []) L.circleMarker([x.lat, x.lng], { radius: 9, color: '#fff', weight: 2, fillColor: '#3b82f6', fillOpacity: 1 }).bindPopup(`<b>🏬 ${esc(x.name)}</b><br>${distStr(x.dist)}`).addTo(kmap);
   for (const x of KM.list || []) L.circleMarker([x.lat, x.lng], { radius: 8, color: '#fff', weight: 2, fillColor: x.ord ? '#10b981' : '#f59e0b', fillOpacity: 1 }).bindPopup(`<b>${esc(x.kname || x.name)}</b><br>${esc(x.name)} · ${distStr(x.dist)}${x.phone ? `<br><a href="#" onclick="kmOffer(${KM.list.indexOf(x)});return false">💬 Tawarkan via WA</a>` : ''}`).addTo(kmap);
 };

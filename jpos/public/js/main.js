@@ -5,9 +5,9 @@ const PAGES = {
   prod: ['📦', 'Produk', 'Stok, harga, barcode'], outlet: ['📍', 'Outlet', 'Pelanggan, peta, kredit'], lap: ['📊', 'Laporan', 'Penjualan & keuangan'],
   keu: ['💰', 'Keuangan', 'Kas, piutang, utang'], jur: ['📒', 'Jurnal', 'Biaya & jurnal manual'], abs: ['🕒', 'Absensi', 'Masuk / pulang'],
   chat: ['💬', 'Chat', 'Tim & antar toko'], onl: ['🛍️', 'Toko Online', 'Pesanan pembeli online'], ana: ['🎯', 'Analisa', 'Saran order & kredit'], usr: ['👥', 'Pengguna', 'Karyawan & PIN'], set: ['⚙️', 'Pengaturan', 'Toko, akun, data'],
-  beli: ['📥', 'Pembelian', 'PO ke supplier & pabrik'], kas: ['📘', 'Buku Kas', 'Uang masuk & keluar'], kirim: ['🚚', 'Pengantaran', 'Antar order & tagih'], perm: ['🔐', 'Hak Akses', 'Peran, paket, keamanan'], aud: ['🛡️', 'Audit', 'Check-in, jam & lokasi'], retur: ['↩️', 'Retur Outlet', 'Expired, rusak, kelebihan order'], tgt: ['🏆', 'Target & Insentif', 'Pencapaian bulanan'], gaji: ['💼', 'Gaji & Lembur', 'Gaji, potongan absen, lembur'], kiosMap: ['🗺️', 'Peta Kios', 'Kios terdaftar di sekitar'], dnet: ['🤝', 'Jaringan Mitra', 'Stok & SKU toko mitra'], kanvas: ['🚚', 'Kanvas', 'Muat, jual & balik barang'], shiftSet: ['🔐', 'Shift & Jadwal', 'Jadwal per minggu, tugas SPG, closing kasir'],
+  beli: ['📥', 'Pembelian', 'PO ke supplier & pabrik'], kas: ['📘', 'Buku Kas', 'Uang masuk & keluar'], kirim: ['🚚', 'Pengantaran', 'Antar order & tagih'], perm: ['🔐', 'Hak Akses', 'Peran, paket, keamanan'], aud: ['🛡️', 'Audit', 'Check-in, jam & lokasi'], retur: ['↩️', 'Retur Outlet', 'Expired, rusak, kelebihan order'], tgt: ['🏆', 'Target & Insentif', 'Pencapaian bulanan'], gps: ['🛰️', 'Pantau GPS', 'Posisi tim lapangan langsung'], gaji: ['💼', 'Gaji & Lembur', 'Gaji, potongan absen, lembur'], kiosMap: ['🗺️', 'Peta Kios', 'Kios terdaftar di sekitar'], dnet: ['🤝', 'Jaringan Mitra', 'Stok & SKU toko mitra'], kanvas: ['🚚', 'Kanvas', 'Muat, jual & balik barang'], shiftSet: ['🔐', 'Shift & Jadwal', 'Jadwal per minggu, tugas SPG, closing kasir'],
 };
-const ORDER = ['dash', 'kanvas', 'kirim', 'pos', 'onl', 'his', 'retur', 'prod', 'beli', 'outlet', 'kiosMap', 'dnet', 'ana', 'tgt', 'lap', 'keu', 'kas', 'jur', 'aud', 'abs', 'shiftSet', 'gaji', 'chat', 'usr', 'perm', 'set'];
+const ORDER = ['dash', 'kanvas', 'kirim', 'pos', 'onl', 'his', 'retur', 'prod', 'beli', 'outlet', 'gps', 'kiosMap', 'dnet', 'ana', 'tgt', 'lap', 'keu', 'kas', 'jur', 'aud', 'abs', 'shiftSet', 'gaji', 'chat', 'usr', 'perm', 'set'];
 const TABS = { owner: ['dash', 'pos', 'onl', 'prod'], admin: ['dash', 'pos', 'onl', 'prod'], akuntan: ['dash', 'keu', 'lap', 'jur'], kasir: ['pos', 'dash', 'his', 'abs'], spg: ['dash', 'pos', 'tgt', 'abs'], kanvas: ['dash', 'kanvas', 'pos', 'outlet'], sales: ['dash', 'outlet', 'ana', 'pos'], dropping: ['dash', 'abs', 'chat'] };
 const pages = () => ORDER.filter((k) => can(k));
 const pgName = (k) => (k == 'pos' && U && U.r == 'sales' ? 'Order' : k == 'pos' && U && U.r == 'kanvas' ? 'Jual' : PAGES[k][1]);
@@ -41,10 +41,10 @@ async function locPing(force) {
     if (!['sales', 'kanvas', 'kasir', 'spg', 'admin', 'dropping'].includes(U.r)) return;
     if (!LOCMUST() && LS.get('jpos:sharing', '1') == '0') return; // sales & dropping wajib; peran lain boleh menonaktifkan
     if (!force && !clockedIn()) return;                     // hanya saat sudah absen masuk
-    if (!force && Date.now() - LOCG.t < 285000) return;     // maksimal tiap ~5 menit
+    if (!force && Date.now() - LOCG.t < (LOCMUST() ? 55000 : 285000)) return; // sales / kanvas / dropping: ±1 menit (pantauan langsung); peran lain ±5 menit
     const p = await getPos(); if (!p) return;
     const moved = LOCG.t && haversine(LOCG.lat, LOCG.lng, p.lat, p.lng) < 60;
-    if (!force && moved && Date.now() - LOCG.t < 9e5) return; // diam di tempat: cukup tiap 15 mnt
+    if (!force && moved && Date.now() - LOCG.t < (LOCMUST() ? 3e5 : 9e5)) return; // diam di tempat: cukup tiap 5 mnt (lapangan) / 15 mnt
     LOCG = { t: Date.now(), lat: p.lat, lng: p.lng };
     emit('loc', { lat: +p.lat.toFixed(6), lng: +p.lng.toFixed(6), acc: p.acc ? Math.round(p.acc) : null, pg: V });
   } catch (e) { }
@@ -81,15 +81,15 @@ function R() {
   const tabs = TABS[U.r].filter((k) => can(k));
   app.innerHTML = `<header><button class="av" onclick="acctMenu()">${S.logo ? `<img src="${esc(S.logo)}" alt="">` : esc((S.name || '?')[0].toUpperCase())}</button><div class="hn"><b>${esc(S.name)}</b><small>${esc(U.n)} · ${esc(ROLE[U.r])}</small></div><span class="sp"></span><span id="sy" class="bd" onclick="sync().then(R)"></span></header>
 <aside class="sb"><div class="sbh"><b>J-POS</b><small>${esc(S.name)}</small></div>${pages().map((k) => `<button class="${V == k ? 'a' : ''}" onclick="go('${k}')"><i>${pIco(k)}</i><span>${esc(pgName(k))}</span>${k == 'chat' ? '<em id="nb-chat2"></em>' : ''}</button>`).join('')}<span class="sp"></span><button onclick="logout()"><i>${ico('out')}</i><span>Keluar</span></button></aside>
-<main><div class="pt"><span>${pIco(V)}</span><h2>${esc(pgName(V))}</h2></div>${banner}${expBanner()}${body}</main>
-<nav class="bn">${tabs.map((k) => `<button class="${V == k ? 'a' : ''}" onclick="go('${k}')"><i>${pIco(k)}</i><span>${esc(pgName(k))}</span>${k == 'chat' ? '<em id="nb-chat"></em>' : k == 'onl' ? '<em id="nb-onl"></em>' : ''}</button>`).join('')}<button class="${tabs.includes(V) ? '' : 'a'}" onclick="menuSheet()"><i>${ico('menu')}</i><span>Menu</span><em id="nb-menu"></em></button></nav>`;
+<main><div class="pt"><span style="--c:${pCol(V)}">${pIco(V)}</span><h2>${esc(pgName(V))}</h2></div>${banner}${expBanner()}${body}</main>
+<nav class="bn">${tabs.map((k) => `<button class="${V == k ? 'a' : ''}" onclick="go('${k}')"><i style="--c:${pCol(k)}">${pIco(k)}</i><span>${esc(pgName(k))}</span>${k == 'chat' ? '<em id="nb-chat"></em>' : k == 'onl' ? '<em id="nb-onl"></em>' : ''}</button>`).join('')}<button class="${tabs.includes(V) ? '' : 'a'}" onclick="menuSheet()"><i>${ico('menu')}</i><span>Menu</span><em id="nb-menu"></em></button></nav>`;
   updBadge(); if (typeof almSync == 'function') almSync();
   const f = VW[V].after; if (f) try { f(); } catch (e) { console.error(e); }
   if (S.srv && can('onl')) onlBadge();
   if (typeof CH != 'undefined' && CH.unread && V != 'chat') { const nb = $('#nb-chat') || $('#nb-menu'); if (nb) { nb.textContent = CH.unread; nb.style.display = 'grid'; } }
 }
 function menuSheet() {
-  const m = modal(`<div class="row" style="margin:0"><h3 style="margin:0">Semua menu</h3><button class="gh" id="mx">✕</button></div><div class="mg">${pages().map((k) => `<button class="${V == k ? 'a' : ''}" onclick="go('${k}')"><i>${pIco(k)}</i><b>${esc(pgName(k))}</b><small>${esc(PAGES[k][2])}</small>${k == 'chat' && CH.unread ? `<em>${CH.unread}</em>` : ''}</button>`).join('')}</div><div class="wrap"><button class="gh" onclick="changeMyPin()">🔑 Ubah PIN</button><button class="gh" onclick="sync().then(()=>{toast('Sinkron selesai');R()})">⟳ Sinkron</button><button class="gh d" onclick="$('.md.menu').close();logout()">Keluar</button></div>`, 'w');
+  const m = modal(`<div class="row" style="margin:0"><h3 style="margin:0">Semua menu</h3><button class="gh" id="mx">✕</button></div><div class="mg">${pages().map((k) => `<button class="${V == k ? 'a' : ''}" onclick="go('${k}')"><i style="--c:${pCol(k)}">${pIco(k)}</i><b>${esc(pgName(k))}</b>${k == 'chat' && CH.unread ? `<em>${CH.unread}</em>` : ''}</button>`).join('')}</div><div class="wrap"><button class="gh" onclick="changeMyPin()">🔑 Ubah PIN</button><button class="gh" onclick="sync().then(()=>{toast('Sinkron selesai');R()})">⟳ Sinkron</button><button class="gh d" onclick="$('.md.menu').close();logout()">Keluar</button></div>`, 'w');
   m.classList.add('menu'); $('#mx', m).onclick = () => m.close();
 }
 function acctMenu() {
@@ -106,7 +106,7 @@ async function checkSrv() {
 const srvTxt = () => ({ ok: '<span class="gr">● Server online</span>', down: '<span class="rd">● Server belum aktif / tidak bisa dihubungi</span> — toko yang pernah dibuka tetap bisa dipakai offline', off: '<span class="or">● Offline</span> — toko yang pernah dibuka tetap bisa dipakai', none: '○ Mode lokal (server belum diatur)' }[SRV] || '○ Memeriksa server…');
 function homeView() {
   const reg = REG(), last = LS.get('jpos:last', null), info = LS.get('jpos:info', {}) || {};
-  const splash = `<div class="splash lx"><div class="lxlogo"><img src="icons/icon-512.png" alt="J-POS" width="84" height="84"></div><h1>J-POS</h1><span class="lxrule"></span><span class="tag">Kasir · Stok · Grosir · Distributor</span><div class="feat"><i>${ico('wifi')}Online &amp; offline</i><i>${ico('usr')}Multi-user</i><i>${ico('shield')}Aman</i></div></div>`;
+  const splash = `<div class="splash lx"><div class="lxlogo"><img src="icons/icon-512.png" alt="J-POS" width="84" height="84"></div><h1>J-POS</h1><span class="lxrule"></span><span class="tag">Kasir · Stok · Grosir · Distributor</span></div>`;
   const head = `<div class="lo">${splash}`;
   const back = `<button class="gh big" onclick="mode('home')">← Kembali</button>`;
   if (MODE == 'login') return head + `<div class="cd fm" style="text-align:left"><h3>Masuk ke toko</h3><label><small class="mu">Kode toko (dari pemilik toko)</small><input id="lid" placeholder="mis. tokomaju" autocapitalize="none" autocomplete="off" value="${esc(last ? last.id : '')}"></label><label><small class="mu">Nama pengguna</small><input id="lnm" placeholder="Nama Anda" autocomplete="off" value="${esc(last ? last.name : '')}"></label><label><small class="mu">PIN</small><input id="lpn" type="password" inputmode="numeric" placeholder="••••" onkeydown="if(event.key=='Enter')doLoginUi()"></label><button class="pr" onclick="doLoginUi()">Masuk</button>${last && typeof bioBtn == 'function' ? bioBtn(last.id, last.name) : ''}${back}<small class="mu">Login pertama di HP baru butuh internet. Setelah itu bisa dipakai offline.</small></div></div>`;
@@ -122,9 +122,9 @@ ${apiCustom() || LS.get('jpos:apiAuto', '') ? '<button class="gh" onclick="srvRe
 <div class="lxfoot"><span class="srvpill" id="srvst">${srvTxt()}</span><div class="lnk"><button class="gh" onclick="mode('srv')">${ico('srv')}Server</button><button class="gh" onclick="mode('ha')">${ico('crown')}Head Admin</button><a class="gh" href="privasi" target="_blank" rel="noopener">${ico('lock')}Privasi</a></div><small>© J-POS · Kasir &amp; distribusi</small></div></div>`;
 }
 /* ---------- pilihan paket saat daftar ---------- */
-const PKGDEF = { biasa: { n: 'Standar · Kios', max: 3, pr: 25000, f: 'dash pos his prod prodEdit outlet abs chat set usr retur kas lap xls backup shiftSet' }, standar: { n: 'Medium · Grosir', max: 15, pr: 50000, f: 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana cek kirim terima tgt tgtAll tgtSet shiftSet kiosMap' }, high: { n: 'High · Distributor', max: 100, pr: 100000, f: 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana jur kirim cek terima anti aud tgt tgtAll tgtSet shiftSet kiosMap dnet' } };
+const PKGDEF = { biasa: { n: 'Standar · Kios', max: 3, pr: 25000, f: 'dash pos his prod prodEdit outlet abs chat set usr retur kas lap xls backup shiftSet gaji' }, standar: { n: 'Medium · Grosir', max: 15, pr: 50000, f: 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana cek kirim terima tgt tgtAll tgtSet shiftSet kiosMap kanvas gaji gps' }, high: { n: 'High · Distributor', max: 100, pr: 100000, f: 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana jur kirim cek terima anti aud tgt tgtAll tgtSet shiftSet kiosMap dnet kanvas gaji gps' } };
 let regTier = 'standar';
-const TIERUI = { biasa: ['🏪', 'Kios & toko kecil', '#10b981'], standar: ['🚀', 'Toko grosir yang punya sales', '#6366f1'], high: ['👑', 'Distributor & trader — fitur paling lengkap', '#f59e0b'] };
+const TIERUI = { biasa: ['🏪', 'Kios & toko kecil', '#10b981'], standar: ['🚀', 'Toko grosir yang punya sales', '#33508f'], high: ['👑', 'Distributor & trader — fitur paling lengkap', '#f59e0b'] };
 function tierCards() {
   const pk = (LS.get('jpos:info', {}) || {}).pkg || PKGDEF, T = ['biasa', 'standar', 'high'];
   return T.map((t, i) => { const x = pk[t] || PKGDEF[t], fs = x.f.split(' ').filter((f) => FEAT[f] && f != 'dash' && f != 'set'), prev = i ? new Set((pk[T[i - 1]] || PKGDEF[T[i - 1]]).f.split(' ')) : null, hi = prev ? fs.filter((f) => !prev.has(f)) : fs, u = TIERUI[t];

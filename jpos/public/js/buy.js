@@ -26,14 +26,12 @@ VW.beli0 = () => {
     const q = SPQ.toLowerCase(), L = supList().filter((s) => !q || s.n.toLowerCase().includes(q));
     body = `<div class="cd"><input placeholder="Cari supplier" value="${esc(SPQ)}" onchange="SPQ=this.value;R()"></div>` + (L.map((s) => { const st = supStat(s); return `<div class="cd"><div class="row" style="margin:0"><b>${esc(s.n)}</b><span>${s.ph ? `<a class="gh" style="text-decoration:none;color:inherit" href="https://wa.me/${esc(waNum(s.ph))}" target="_blank" rel="noopener">WA</a>` : ''}</span></div><small class="mu">${esc(s.ad || 'Alamat belum diisi')}${s.ph ? ' · ' + esc(s.ph) : ''} · tempo ${s.tempo || 30} hr</small><div class="row" style="margin:6px 0 0"><small>${st.n} PO · beli ${rp(st.tot)}</small>${st.ut ? `<b class="or">Utang ${rp(st.ut)}</b>` : '<small class="gr">Tidak ada utang</small>'}</div><div class="wrap" style="margin-top:8px"><button class="gh a" onclick="poForm(null,'${s.id}')">Buat PO</button><button class="gh" onclick="supForm('${s.id}')">Edit</button></div></div>`; }).join('') || '<div class="cd mu">Belum ada supplier. Tambahkan pabrik / distributor / grosir langganan.</div>');
   } else if (bTab == 'low') {
-    const L = lowStock();
-    body = `<div class="cd"><h3>Saran restok</h3><small class="mu">Produk yang stoknya sudah di bawah minimum. Saran jumlah = sampai 2× stok minimum.</small>${L.length ? `<button class="pr" style="margin-top:8px" onclick="poForm(null,'',true)">Buat PO dari ${L.length} produk ini</button>` : ''}</div>`
-      + (L.map((p) => `<div class="cd"><div class="row" style="margin:0"><b>${esc(p.n)}</b><b class="${p.st <= 0 ? 'rd' : 'or'}">stok ${p.st}</b></div><small class="mu">min ${p.min ?? 10} · HPP ${rp(p.co)} · saran pesan ${Math.max(1, (p.min ?? 10) * 2 - p.st)}</small></div>`).join('') || '<div class="cd gr">✅ Semua stok aman</div>');
+    body = ordView();
   } else {
     body = `<div class="cd"><h3>Utang ke supplier</h3>${apl.map((a) => `<div class="row"><span><b>${esc(a.sup)}</b><br><small>${esc(a.d)} · tempo ${dstr(a.due)}${a.due < now ? ' <b class="rd">lewat ' + Math.floor((now - a.due) / 864e5) + ' hr</b>' : ''}</small></span><span><b>${rp(apOut(a))}</b> <button class="gh" onclick="apayModal('${esc(a.id)}')">Bayar</button></span></div>`).join('') || '<small class="mu">Tidak ada utang 🎉</small>'}</div>`;
   }
   return `${kpi([['PO aktif', act.length, 'menunggu barang'], ['Nilai menunggu', rp(wait)], ['Utang supplier', rp(ut), od ? 'lewat tempo ' + rp(od) : ''], ['Stok menipis', lowStock().length, 'perlu restok']])}
-<div class="cd"><div class="wrap"><button class="pr" style="flex:1" onclick="poForm()">+ Buat PO</button><button class="gh" onclick="supForm()">+ Supplier</button>${pkgHas('xls') && can('xls') ? '<button class="gh" onclick="expPO()">⬇ Excel</button>' : ''}</div><div class="seg">${[['po', 'Pesanan'], ['sup', 'Supplier'], ['low', 'Saran restok'], ['ut', 'Utang']].map((x) => `<button class="${bTab == x[0] ? 'a' : ''}" onclick="bTab='${x[0]}';R()">${x[1]}</button>`).join('')}</div></div>${body}`;
+<div class="cd"><div class="wrap"><button class="pr" style="flex:1" onclick="poForm()">+ Buat PO</button><button class="gh" onclick="supForm()">+ Supplier</button>${pkgHas('xls') && can('xls') ? '<button class="gh" onclick="expPO()">⬇ Excel</button>' : ''}</div><div class="seg">${[['po', 'Pesanan'], ['sup', 'Supplier'], ['low', '🧠 Analisa order'], ['ut', 'Utang']].map((x) => `<button class="${bTab == x[0] ? 'a' : ''}" onclick="bTab='${x[0]}';R()">${x[1]}</button>`).join('')}</div></div>${body}`;
 };
 const waNum = (p) => { let n = String(p || '').replace(/\D/g, ''); if (n.startsWith('0')) n = '62' + n.slice(1); return n; };
 
@@ -50,7 +48,8 @@ function poForm(id, supId, fromLow) {
   const old = id ? (S.po || []).find((p) => p.id == id) : null;
   if (!supList().length && !old) { toast('Tambahkan supplier dulu'); return supForm(); }
   POD = old ? { id: old.id, no: old.no, sup: old.sup, L: old.L.map((l) => ({ ...l })), note: old.note, tempo: old.tempo, eta: old.eta } : { id: 'po-' + S.dv + '-' + uid(), no: poNo(), sup: supId || '', L: [], note: '', tempo: 0, eta: 0 };
-  if (!old && fromLow) POD.L = lowStock().map((p) => ({ p: p.id, n: p.n, q: Math.max(1, (p.min ?? 10) * 2 - p.st), c: p.co, rq: 0 }));
+  if (!old && fromLow == 'ana') POD.L = ordPOLines();
+  else if (!old && fromLow) POD.L = lowStock().map((p) => ({ p: p.id, n: p.n, q: Math.max(1, (p.min ?? 10) * 2 - p.st), c: p.co, rq: 0 }));
   const m = modal('<div id="pob"></div>', 'w'); poPaint(m); return m;
 }
 function poPaint(m) {

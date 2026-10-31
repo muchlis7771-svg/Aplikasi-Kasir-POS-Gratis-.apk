@@ -47,7 +47,7 @@ function mkPdf(title, secs, file) {
     if (y > H - 110) { doc.addPage(); y = 40; }
     doc.setFont('helvetica', 'bold'); doc.setFontSize(10); doc.text(pdfT(s.title), 36, y); y += 6;
     const cs = {}; fm.forEach((f, i) => { if (f != 't') cs[i] = { halign: 'right' }; });
-    at({ head: [s.head.map(pdfT)], body, startY: y, margin: { left: 36, right: 36 }, styles: { fontSize: 7.5, cellPadding: 3 }, headStyles: { fillColor: [108, 92, 231] }, columnStyles: cs, didParseCell: (d) => { if (d.section == 'body' && flags[d.row.index] == 'b') d.cell.styles.fontStyle = 'bold'; } });
+    at({ head: [s.head.map(pdfT)], body, startY: y, margin: { left: 36, right: 36 }, styles: { fontSize: 7.5, cellPadding: 3 }, headStyles: { fillColor: [34, 54, 110] }, columnStyles: cs, didParseCell: (d) => { if (d.section == 'body' && flags[d.row.index] == 'b') d.cell.styles.fontStyle = 'bold'; } });
     y = (doc.lastAutoTable ? doc.lastAutoTable.finalY : y + 30) + 22;
   });
   const n = doc.getNumberOfPages(); for (let i = 1; i <= n; i++) { doc.setPage(i); doc.setFontSize(8); doc.setTextColor(140); doc.text(pdfT('J-POS · halaman ' + i + '/' + n), W - 36, H - 20, { align: 'right' }); }

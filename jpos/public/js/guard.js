@@ -3,7 +3,7 @@
    Catatan jujur: ini membuat kecurangan SULIT dan TERLIHAT, bukan mustahil. Aplikasi web/APK tidak bisa
    mengunci jam Android. Yang dilakukan: stempel waktu dari SERVER, deteksi jam diubah, deteksi lokasi
    melompat, foto selfie berstempel, dan semua anomali dilaporkan ke pemilik (menu Audit). */
-const FXN = { 'wajah-baru': 'Wajah acuan baru didaftarkan', ofl: 'Dikirim offline (jam belum terverifikasi)', mundur: 'Jam HP diputar mundur', jam: 'Jam HP beda dengan server', lompat: 'Lokasi melompat tak wajar', akur: 'GPS kurang akurat', luar: 'Check-out di luar radius', titik: 'Titik outlet dibuat saat check-in', tw: 'Jam diubah saat aplikasi dibuka', lokasi: 'Absen jauh dari lokasi toko' };
+const FXN = { auto: 'Check-out otomatis (lupa check-out, sudah pindah ke outlet berikutnya)', 'wajah-baru': 'Wajah acuan baru didaftarkan', ofl: 'Dikirim offline (jam belum terverifikasi)', mundur: 'Jam HP diputar mundur', jam: 'Jam HP beda dengan server', lompat: 'Lokasi melompat tak wajar', akur: 'GPS kurang akurat', luar: 'Check-out di luar radius', titik: 'Titik outlet dibuat saat check-in', tw: 'Jam diubah saat aplikasi dibuka', lokasi: 'Absen jauh dari lokasi toko' };
 const fxTxt = (a) => [...new Set([...String(a.fx || '').split(','), ...String(a.fl || '').split(',')].filter(Boolean))].map((k) => FXN[k] || k);
 const CIR = () => +S.set.cir || 3000;
 const antiOn = () => pkgHas('anti') && !!S.srv; // anti-curang butuh server (jam tepercaya)
@@ -129,7 +129,6 @@ async function checkIn(cid, why) {
   const c = cust(cid); if (!c) return;
   const cur = openCI(U.n);
   if (cur && cur.cid == cid) return toast('Sudah check-in di ' + c.n);
-  if (cur) { if (!confirm('Anda masih check-in di ' + cur.cn + '. Check-out dulu dan pindah ke ' + c.n + '?')) return; const r = await checkOut(true); if (!r) return; }
   toast('Memverifikasi jam & lokasi…', 2000);
   const enforce = pkgHas('cek') && can('cek'), pr = await proof({ needPos: enforce });
   if (pr.err) return alertBox(pr.err);
@@ -145,8 +144,14 @@ async function checkIn(cid, why) {
     dist = Math.round(haversine(pr.lat, pr.lng, c.lat, c.lng));
     if (enforce && dist > CIR()) return alertBox('Anda ' + distStr(dist) + ' dari titik ' + c.n + '. Check-in hanya bisa dalam radius ' + distStr(CIR()) + ' dari titik outlet.');
   }
+  if (cur) autoOut(cur, pr, c.n);
   emit('visit', { cid, cn: c.n, lat: pr.lat, lng: pr.lng, acc: pr.acc, dist, why: why || '', on: pr.on, sk: pr.sk, fx: fxs(fx), note: '' }, pr.t);
-  toast('Check-in ' + c.n + (dist != null ? ' · ' + distStr(dist) : '') + (pr.on ? '' : ' · offline, dikirim otomatis saat ada sinyal'), pr.on ? 2600 : 4500); R(); return true;
+  toast((cur ? 'Check-out otomatis ' + cur.cn + ' · ' : '') + 'Check-in ' + c.n + (dist != null ? ' · ' + distStr(dist) : '') + (pr.on ? '' : ' · offline, dikirim otomatis saat ada sinyal'), pr.on ? 2600 : 4500); R(); return true;
+}
+// lupa check-out: saat check-in di outlet berikutnya, kunjungan sebelumnya ditutup otomatis (ditandai & dilaporkan)
+function autoOut(cur, pr, toName) {
+  const t = Math.max(cur.t + 1000, (pr && pr.t ? pr.t : Date.now()) - 1000), last = S.sales.filter((x) => x.u == U.n && x.cu == cur.cid && x.t > cur.t && x.t < t).reduce((a, x) => Math.max(a, x.t), 0);
+  emit('vout', { cid: cur.cid, cn: cur.cn, lat: null, lng: null, acc: null, dist: null, on: pr ? pr.on : canNet(), sk: pr ? pr.sk : 0, fx: 'auto', note: 'Otomatis — lupa check-out, lanjut ke ' + (toName || 'outlet berikutnya'), at: last || null }, t);
 }
 async function checkOut(silent) {
   const cur = openCI(U.n); if (!cur) { toast('Belum check-in'); return false; }
