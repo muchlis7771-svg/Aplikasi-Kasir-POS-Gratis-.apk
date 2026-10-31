@@ -349,7 +349,8 @@ const vanQ = (u, id) => ((S.van || {})[vanKey(u)] || {})[id] || 0;
 const vanAll = (id) => Object.values(S.van || {}).reduce((a, m) => a + (m[id] || 0), 0);
 function mkSale(o, t, by) { // o: {items,cd,pay,cu,dpay,dpm,note,kirim}; melempar Error(pesan) bila ditolak
   const a = by || U;
-  if (!by && o.kirim && o.pay != 'Piutang') { if (!o.cu) throw new Error('Pilih outlet tujuan pengantaran'); o = { ...o, cm: o.pay, pay: 'Piutang', cod: 1, dpay: 0 }; } // tagih saat barang diantar
+  if (!by && o.kirim && !o.cu) throw new Error('Penjualan kasir tanpa outlet / pelanggan tidak perlu dikirim. Pilih outlet tujuan dulu, atau matikan "Diantar tim dropping" untuk penjualan langsung.'); // pengiriman wajib punya tujuan
+  if (!by && o.kirim && o.pay != 'Piutang') { o = { ...o, cm: o.pay, pay: 'Piutang', cod: 1, dpay: 0 }; } // tagih saat barang diantar
   if (!o.items.length) throw new Error('Keranjang kosong');
   for (const i of o.items) { const p = prod(i.id); if (!p) throw new Error('Produk tidak ditemukan'); if (p.st < i.q) throw new Error('Stok ' + p.n + ' kurang (sisa ' + p.st + ')'); if (a.r == 'kanvas' && vanQ(a.n, i.id) < i.q) throw new Error('Stok ' + p.n + ' di mobil kurang (sisa ' + vanQ(a.n, i.id) + '). Muat barang dulu di menu Kanvas.'); }
   if (a.r == 'kanvas') o = { ...o, kirim: false };

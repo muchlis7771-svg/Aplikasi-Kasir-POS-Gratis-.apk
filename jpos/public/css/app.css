@@ -643,3 +643,6 @@ body:not(.buyer) .pr{box-shadow:inset 0 1px 0 #ffffff2e,0 0 0 1px #c9a24a40,0 8p
 /* ===== v44: menu berkelompok ===== */
 .md.menu .mgrp{margin-top:12px}.md.menu .mgh{display:block;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--mu);margin:0 2px 6px}
 .md.menu .mgrp:first-of-type{margin-top:8px}
+/* ===== v45: input alasan di gerbang jam kerja terbaca (teks gelap, bukan putih) ===== */
+.gc input,.gc textarea{color:#1b1d2a;background:#fff;border:1px solid #ffffff66;border-radius:12px;padding:12px}
+.gc input::placeholder,.gc textarea::placeholder{color:#8a8f9c;opacity:1}
