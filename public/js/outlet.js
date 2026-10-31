@@ -1,4 +1,5 @@
 'use strict';
+let oKr = '';
 /* ============ OUTLET / TOKO LANGGANAN (peta, kredit/tunai, kunjungan) ============ */
 let oQ = '', oMap = false, oSort = 'name', MYPOS = null, omap = null;
 let oCi = false, oScope = LS.get('jpos:oscope', 'near'), oRad = +LS.get('jpos:orad', 15000) || 15000, posAsk = 0;
@@ -14,15 +15,17 @@ function outlets() {
   if (U.r == 'sales' && !t) L = L.slice().sort((a, b) => (b.sl == U.n) - (a.sl == U.n));
   const d = (c) => (MYPOS && c.lat != null ? haversine(MYPOS.lat, MYPOS.lng, c.lat, c.lng) : 1e12);
   const OPEN = openCIAll(); if (oCi) L = L.filter((c) => OPEN[c.id]);
-  if (oScope == 'near' && MYPOS && !t && !oCi) L = L.filter((c) => c.lat != null && haversine(MYPOS.lat, MYPOS.lng, c.lat, c.lng) <= oRad);
+  if (oKr == 'kr') L = L.filter((c) => c.term == 'kredit' || outOf(c.id) > 0); else if (oKr == 'ar') L = L.filter((c) => outOf(c.id) > 0);
+  if (oScope == 'near' && MYPOS && !t && !oCi && !oKr) L = L.filter((c) => c.lat != null && haversine(MYPOS.lat, MYPOS.lng, c.lat, c.lng) <= oRad);
   if (oSort == 'near' || (oScope == 'near' && MYPOS && oSort == 'name')) L = L.slice().sort((a, b) => d(a) - d(b)); else if (oSort == 'debt') L = L.slice().sort((a, b) => outOf(b.id) - outOf(a.id)); else L = L.slice().sort((a, b) => a.n.localeCompare(b.n));
   const me = openCI(U.n); if (me || Object.keys(OPEN).length) L = L.slice().sort((a, b) => (b.id == (me && me.cid)) - (a.id == (me && me.cid)) || !!OPEN[b.id] - !!OPEN[a.id]); // outlet yang sedang check-in di paling atas
   return L;
 }
 VW.outlet = () => {
   const L = outlets(), tot = S.c.filter((c) => !c.x).reduce((a, c) => a + outOf(c.id), 0);
-  return `${kpi([['Outlet', S.c.filter((c) => !c.x).length], ['Kredit aktif', S.c.filter((c) => !c.x && c.term == 'kredit').length], ['Total piutang', rp(tot)], ['Kunjungan hari ini', S.att.filter((a) => a.k == 'visit' && dkey(a.t) == dkey(Date.now())).length]])}
-<div class="cd"><div class="wrap" style="margin-bottom:10px"><button class="gh a" onclick="outletForm()">+ Outlet</button><button class="gh ${oMap ? 'a' : ''}" onclick="oMap=!oMap;R()">🗺 Peta</button><button class="gh a" onclick="nearMe()">📍 Outlet terdaftar terdekat</button><button class="gh ${oSort == 'debt' ? 'a' : ''}" onclick="oSort=oSort=='debt'?'name':'debt';R()">Piutang terbesar</button>${pkgHas('xls') && can('xls') ? '<button class="gh" onclick="xlsMenu(\'outlet\')">📊 Excel</button>' : ''}</div>
+  const nKr = S.c.filter((c) => !c.x && (c.term == 'kredit' || outOf(c.id) > 0)).length, nAr = S.c.filter((c) => !c.x && outOf(c.id) > 0).length;
+  return `${kpi([['Outlet', S.c.filter((c) => !c.x).length, oKr ? 'ketuk untuk semua' : '', "oKr='';R()", !oKr], ['Kredit aktif', nKr, 'ketuk untuk lihat outlet', "oKr=oKr=='kr'?'':'kr';oSort='debt';R()", oKr == 'kr'], ['Total piutang', rp(tot), nAr + ' outlet', "oKr=oKr=='ar'?'':'ar';oSort='debt';R()", oKr == 'ar'], ['Kunjungan hari ini', S.att.filter((a) => a.k == 'visit' && dkey(a.t) == dkey(Date.now())).length]])}
+${oKr ? `<div class="cd fbar"><b>${oKr == 'kr' ? '💳 Outlet kredit' : '🧾 Outlet dengan piutang'} · ${L.length} outlet</b><small class="mu">Total piutang ${rp(L.reduce((a, c) => a + outOf(c.id), 0))} · diurutkan dari piutang terbesar</small><button class="gh" onclick="oKr='';R()">✕ Tampilkan semua outlet</button></div>` : ''}<div class="cd"><div class="wrap" style="margin-bottom:10px"><button class="gh pri" onclick="outletForm()">+ Outlet</button><button class="gh ${oMap ? 'a' : ''}" onclick="oMap=!oMap;R()">🗺 Peta</button><button class="gh" onclick="nearMe()">📍 Outlet terdaftar terdekat</button><button class="gh ${oSort == 'debt' ? 'a' : ''}" onclick="oSort=oSort=='debt'?'name':'debt';R()">Piutang terbesar</button>${pkgHas('xls') && can('xls') ? '<button class="gh" onclick="xlsMenu(\'outlet\')">📊 Excel</button>' : ''}</div>
 ${(() => { const n = Object.keys(openCIAll()).length; return `<button class="gh ${oCi ? 'a' : ''}" style="width:100%;margin-bottom:8px;border-color:#10b981" onclick="oCi=!oCi;R()">🟢 Sedang check-in${MGR(U.r) ? ' (semua petugas)' : ''}: <b>${n}</b> outlet${oCi ? ' · tampilkan semua' : ''}</button>`; })()}<div class="seg" style="margin:0 0 8px"><button class="${oScope == 'near' ? 'a' : ''}" onclick="oScope='near';LS.set('jpos:oscope','near');needPos();R()">📍 Terdekat ≤ ${oRad / 1000} km</button><button class="${oScope == 'all' ? 'a' : ''}" onclick="oScope='all';LS.set('jpos:oscope','all');R()">🗂️ Semua outlet (${S.c.filter((c) => !c.x).length})</button></div>
 ${oScope == 'near' ? `<div class="row" style="margin:0 0 8px"><small class="mu">${MYPOS ? '<b>' + L.length + ' outlet</b> dalam radius ' + oRad / 1000 + ' km dari lokasi Anda' : '📡 Mengambil lokasi Anda…'}</small><select style="width:auto;padding:5px 8px" onchange="oRad=+this.value;LS.set('jpos:orad',oRad);R()">${[5000, 10000, 15000, 20000].map((r) => `<option value="${r}" ${oRad == r ? 'selected' : ''}>${r / 1000} km</option>`).join('')}</select></div>` : ''}
 <input placeholder="Cari nama / kode / alamat / sales (semua outlet)" value="${esc(oQ)}" oninput="oQ=this.value;clearTimeout(window.oqT);window.oqT=setTimeout(()=>{R();const i=document.querySelector('#oqi');if(i){i.focus();i.setSelectionRange(i.value.length,i.value.length)}},300)" id="oqi">${oMap ? '<div class="map" id="omap" style="margin-top:10px"></div>' + mapLegend() : ''}</div>

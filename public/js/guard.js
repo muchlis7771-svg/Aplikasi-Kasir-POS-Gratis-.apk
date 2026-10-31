@@ -68,23 +68,32 @@ function teleport(p, u) {
 }
 
 /* ---------- selfie berstempel ---------- */
+// foto tajam: ambil dari video resolusi penuh, tambah stempel, kompres bertahap agar tetap di bawah batas ukuran sinkron
+function camSnap(v, label, maxW, budget) {
+  let out = '';
+  for (const [w, q] of [[maxW, 0.86], [maxW, 0.78], [Math.round(maxW * 0.85), 0.74], [Math.round(maxW * 0.7), 0.7], [Math.round(maxW * 0.55), 0.66], [Math.round(maxW * 0.42), 0.6]]) {
+    const W = Math.min(w, v.videoWidth), H = Math.round(W * v.videoHeight / v.videoWidth), bar = Math.max(22, Math.round(W / 26)), c = document.createElement('canvas'); c.width = W; c.height = H + bar;
+    const x = c.getContext('2d'); x.imageSmoothingQuality = 'high'; x.drawImage(v, 0, 0, W, H); x.fillStyle = '#000'; x.fillRect(0, H, W, bar); x.fillStyle = '#fff'; x.font = Math.round(bar * 0.55) + 'px sans-serif'; x.fillText(String(label || '').slice(0, 90), Math.round(bar * 0.3), H + Math.round(bar * 0.7));
+    out = c.toDataURL('image/jpeg', q); if (out.length <= budget) break;
+  }
+  return out;
+}
+async function camTune(stream) { try { const t = stream.getVideoTracks()[0], cp = t.getCapabilities ? t.getCapabilities() : {}, adv = []; if (cp.focusMode && cp.focusMode.includes('continuous')) adv.push({ focusMode: 'continuous' }); if (cp.exposureMode && cp.exposureMode.includes('continuous')) adv.push({ exposureMode: 'continuous' }); if (cp.whiteBalanceMode && cp.whiteBalanceMode.includes('continuous')) adv.push({ whiteBalanceMode: 'continuous' }); if (adv.length) await t.applyConstraints({ advanced: adv }); } catch (e) { } }
 function selfie(label, facing) {
   facing = facing || 'user';
   return new Promise((res) => {
-    const m = modal(`<h3>${facing == 'user' ? 'Foto selfie' : 'Foto bukti'}</h3><small class="mu">${facing == 'user' ? 'Wajah terlihat jelas. ' : ''}Foto diberi stempel waktu server & nama.</small><video id="sv" playsinline muted style="width:100%;border-radius:14px;background:#000;max-height:46vh;${facing == 'user' ? 'transform:scaleX(-1)' : ''}"></video><div class="fm2"><button class="pr" id="sk">📸 Ambil foto</button><button class="gh" id="sx">Batal</button></div>`);
+    const m = modal(`<h3>${facing == 'user' ? 'Foto selfie' : 'Foto bukti'}</h3><small class="mu">${facing == 'user' ? 'Wajah terlihat jelas. ' : ''}Foto diberi stempel waktu server & nama.</small><video id="sv" playsinline muted style="width:100%;border-radius:14px;background:#000;max-height:58vh;object-fit:cover;${facing == 'user' ? 'transform:scaleX(-1)' : ''}"></video><div class="fm2"><button class="pr" id="sk">📸 Ambil foto</button><button class="gh" id="sx">Batal</button></div>`);
     let stream = null, done = false; const end = (v) => { if (done) return; done = true; if (stream) stream.getTracks().forEach((t) => t.stop()); m.remove(); res(v); };
     $('#sx', m).onclick = () => end(null); m.onclose = () => end(null);
     (async () => {
-      try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: facing, width: { ideal: 480 } }, audio: false }); const v = $('#sv', m); v.srcObject = stream; await v.play(); }
+      try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: facing }, width: { ideal: facing == 'user' ? 1280 : 1920 }, height: { ideal: facing == 'user' ? 720 : 1080 } }, audio: false }); await camTune(stream); const v = $('#sv', m); v.srcObject = stream; await v.play(); }
       catch (e) { toast('Kamera depan tidak bisa dibuka: ' + (e.message || e), 4000); end(null); }
     })();
     $('#sk', m).onclick = () => {
       const v = $('#sv', m); if (!v.videoWidth) return toast('Kamera belum siap');
-      const w = 220, h = Math.round(w * v.videoHeight / v.videoWidth), c = document.createElement('canvas'); c.width = w; c.height = h + 22; const x = c.getContext('2d');
-      x.drawImage(v, 0, 0, w, h); x.fillStyle = '#000'; x.fillRect(0, h, w, 22); x.fillStyle = '#fff'; x.font = '11px sans-serif';
-      x.fillText(String(label || '').slice(0, 34), 4, h + 15);
       try { const W = Math.min(640, v.videoWidth), b = document.createElement('canvas'); b.width = W; b.height = Math.round(W * v.videoHeight / v.videoWidth); b.getContext('2d').drawImage(v, 0, 0, b.width, b.height); selfie.big = b; } catch (e) { selfie.big = null; }
-      end(c.toDataURL('image/jpeg', 0.5));
+      // selfie absen: 480 px; foto bukti / outlet / retur: hingga 1280 px — tetap di bawah batas data sinkron
+      end(facing == 'user' ? camSnap(v, label, 480, 60000) : camSnap(v, label, 1280, 135000));
     };
   });
 }
