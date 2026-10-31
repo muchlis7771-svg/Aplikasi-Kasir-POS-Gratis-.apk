@@ -29,6 +29,7 @@ const ICP = {
   dnet: '<circle class="a" cx="12" cy="12" r="3"/><circle cx="12" cy="12" r="3"/><circle cx="5" cy="6" r="2"/><circle cx="19" cy="6" r="2"/><circle cx="5" cy="18" r="2"/><circle cx="19" cy="18" r="2"/><path d="m6.6 7.3 3.2 2.6M17.4 7.3l-3.2 2.6M6.6 16.7l3.2-2.6M17.4 16.7l-3.2-2.6"/>',
   kanvas: '<path class="a" d="M2.5 7.5h12.5v9H2.5z"/><path d="M2.5 7.5h12.5v9H2.5zM15 10h3.2l3.3 3.3v3.2H15M5.8 7.5V5.5h6v2"/><circle cx="6" cy="18.2" r="1.7"/><circle cx="17.5" cy="18.2" r="1.7"/>',
   gaji: '<rect class="a" x="2.5" y="6.5" width="19" height="11" rx="2"/><rect x="2.5" y="6.5" width="19" height="11" rx="2"/><circle cx="12" cy="12" r="2.6"/><path d="M5.5 9.5h1.5M17 14.5h1.5M5 20h14"/>',
+  gps: '<circle class="a" cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="3"/><path d="M12 2v3.5M12 18.5V22M2 12h3.5M18.5 12H22"/>',
   out: '<path d="M14 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-4M9.5 8 5.5 12l4 4M5.5 12H15"/>',
   menu: '<path d="M4 7h16M4 12h16M4 17h10"/>',
   lock: '<rect class="a" x="5" y="10.5" width="14" height="10" rx="2"/><rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5M12 14.5v2.5"/>',
@@ -46,3 +47,6 @@ const ico = (n) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${ICP
 const pIco = (k) => (ICP[k] ? ico(k) : (PAGES[k] || ['•'])[0]);
 const TICO = { '➕': 'plus', '📝': 'edit' };
 const tIco = (q) => (TICO[q[1]] ? ico(TICO[q[1]]) : ICP[q[0]] ? ico(q[0]) : q[1]);
+// warna permata tiap menu untuk ikon timbul (3D)
+const PJCOL = { dash: '#2a4890', pos: '#0f9d76', his: '#475a7a', prod: '#d08a1e', outlet: '#d0435a', lap: '#0e8a96', keu: '#b8892f', jur: '#8a5a2b', abs: '#4a56c8', chat: '#2b8fd6', onl: '#d64d86', ana: '#6a4bc4', usr: '#178ca8', set: '#5d6678', beli: '#e0732a', kas: '#2f9a4f', kirim: '#2f6fd0', perm: '#8a2e4a', aud: '#1f7a6d', retur: '#c9443a', tgt: '#c49a2c', shiftSet: '#3e4fb8', kiosMap: '#14968a', dnet: '#7446c2', kanvas: '#24427e', gaji: '#1e8a5e', gps: '#d23b4e' };
+const pCol = (k) => PJCOL[k] || '#2a4890';

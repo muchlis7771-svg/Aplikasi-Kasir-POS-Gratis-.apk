@@ -12,7 +12,7 @@ function myDl() { return deliveries().filter((s) => dlOpen(s) && (!s.dl || !s.dl
 function payTag(s) {
   const out = sOut(s), c = cust(s.cu), old = c ? Math.max(0, outOf(c.id) - out) : 0;
   if (s.cod) return out > 0 ? `<span class="chip g">💵 TAGIH TUNAI ${rp(out)}</span>` : `<span class="chip g">Lunas ${rp(s.tot)}</span>`;
-  if (s.pay == 'Piutang') return `<span class="chip" style="background:#6c5ce71f;color:#6c5ce7">🧾 KREDIT · tempo ${dstr(s.due)}</span>${old ? ` <span class="chip o">piutang lama ${rp(old)}</span>` : ''}`;
+  if (s.pay == 'Piutang') return `<span class="chip" style="background:#27407e1f;color:#27407e">🧾 KREDIT · tempo ${dstr(s.due)}</span>${old ? ` <span class="chip o">piutang lama ${rp(old)}</span>` : ''}`;
   return `<span class="chip g">Lunas · ${esc(s.pay)}</span>`;
 }
 function dlvEmit(no, st, ex) {
@@ -47,7 +47,7 @@ function dlvDone(no) {
   if (pkgHas('cek') && can('cek') && (!cur || cur.cid != s.cu)) { toast('Check-in di outlet dulu (radius ' + distStr(CIR()) + ')'); return dlvStep(no, 'tiba'); }
   const out = sOut(s), old = c ? S.sales.filter((x) => x.cu == c.id && x.no != s.no && sOut(x) > 0) : [], needPh = antiOn() && S.set.pod !== false;
   const m = modal(`<h3>Selesai kirim · ${esc(s.cn || '')}</h3><small class="mu">${esc(s.no)} · ${s.L.reduce((a, i) => a + i.q, 0)} item · ${rp(s.tot)}</small>
-${s.cod && out > 0 ? `<div class="warnbox" style="background:#00b8941f;color:inherit"><b>💵 Tagih tunai ${rp(out)}</b><br><small>Orderan ini dibayar saat barang tiba.</small></div><div class="fm2"><input id="da" type="number" value="${out}" placeholder="Uang diterima"><select id="dm"><option>Tunai</option><option>Transfer</option><option>QRIS</option></select></div><small class="mu">Kurang dari ${rp(out)} → sisanya jadi piutang outlet.</small>` : s.pay == 'Piutang' && !s.cod ? `<div class="warnbox" style="background:#6c5ce71f;color:inherit"><b>🧾 KREDIT</b> — tidak ada penagihan untuk order ini. Jatuh tempo ${dstr(s.due)}.</div>` : '<small class="gr">Sudah lunas.</small>'}
+${s.cod && out > 0 ? `<div class="warnbox" style="background:#00b8941f;color:inherit"><b>💵 Tagih tunai ${rp(out)}</b><br><small>Orderan ini dibayar saat barang tiba.</small></div><div class="fm2"><input id="da" type="number" value="${out}" placeholder="Uang diterima"><select id="dm"><option>Tunai</option><option>Transfer</option><option>QRIS</option></select></div><small class="mu">Kurang dari ${rp(out)} → sisanya jadi piutang outlet.</small>` : s.pay == 'Piutang' && !s.cod ? `<div class="warnbox" style="background:#27407e1f;color:inherit"><b>🧾 KREDIT</b> — tidak ada penagihan untuk order ini. Jatuh tempo ${dstr(s.due)}.</div>` : '<small class="gr">Sudah lunas.</small>'}
 ${old.length ? `<b>Piutang lama outlet ini (boleh ditagih sekalian)</b>${old.map((x) => `<div class="row"><span>${esc(x.no)}<br><small class="${x.due < Date.now() ? 'rd' : 'mu'}">tempo ${dstr(x.due)}</small></span><span><b>${rp(sOut(x))}</b> <button class="gh" data-pay="${esc(x.no)}">Tagih</button></span></div>`).join('')}` : ''}
 <div class="row" id="dloc"><span>📍 Lokasi serah terima</span><small class="mu">memeriksa GPS…</small></div>
 <input id="dn" placeholder="Catatan penerima (nama yang menerima, kondisi barang)">
@@ -138,7 +138,7 @@ function drawKMap() {
   if (!pts.length && !MYPOS && !ppl.length) { el.innerHTML = '<p class="mu" style="padding:14px">Belum ada titik tujuan dengan koordinat GPS.</p>'; return; }
   const first = pts[0] ? pts[0].c : MYPOS || ppl[0]; kMap = L.map(el).setView([first.lat, first.lng], 13); tiles(kMap);
   const grp = L.featureGroup().addTo(kMap);
-  pts.forEach((x, i) => { const cod = x.s.cod, col = cod ? '#00b894' : x.s.pay == 'Piutang' ? '#6c5ce7' : '#54a0ff'; L.circleMarker([x.c.lat, x.c.lng], { radius: 11, color: '#fff', weight: 2, fillColor: col, fillOpacity: 1 }).bindPopup(`<b>${esc(x.c.n)}</b><br>${cod ? '💵 Tagih tunai ' + rp(sOut(x.s)) : x.s.pay == 'Piutang' ? '🧾 Kredit' : 'Lunas'}<br>${esc(DST[dlSt(x.s)][0])}`).bindTooltip(String(i + 1), { permanent: true, direction: 'center', className: 'tmt' }).addTo(grp); });
+  pts.forEach((x, i) => { const cod = x.s.cod, col = cod ? '#00b894' : x.s.pay == 'Piutang' ? '#27407e' : '#54a0ff'; L.circleMarker([x.c.lat, x.c.lng], { radius: 11, color: '#fff', weight: 2, fillColor: col, fillOpacity: 1 }).bindPopup(`<b>${esc(x.c.n)}</b><br>${cod ? '💵 Tagih tunai ' + rp(sOut(x.s)) : x.s.pay == 'Piutang' ? '🧾 Kredit' : 'Lunas'}<br>${esc(DST[dlSt(x.s)][0])}`).bindTooltip(String(i + 1), { permanent: true, direction: 'center', className: 'tmt' }).addTo(grp); });
   if (MYPOS) L.circleMarker([MYPOS.lat, MYPOS.lng], { radius: 8, color: '#fff', weight: 3, fillColor: '#e17055', fillOpacity: 1 }).bindTooltip('Saya', { permanent: true, direction: 'top', className: 'tmt' }).addTo(grp);
   ppl.forEach((l) => L.circleMarker([l.lat, l.lng], { radius: 9, color: '#fff', weight: 2, fillColor: '#e17055', fillOpacity: 1 }).bindTooltip('🚚 ' + esc(l.u), { permanent: true, direction: 'top', className: 'tmt' }).addTo(grp));
   if (grp.getLayers().length) kMap.fitBounds(grp.getBounds().pad(0.3), { maxZoom: 15 }); setTimeout(() => { try { kMap && document.body.contains(kMap._container) && kMap.invalidateSize(); } catch (e) { } }, 200);

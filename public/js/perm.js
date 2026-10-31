@@ -2,7 +2,7 @@
 /* ============ PAKET APLIKASI (Head Admin) & HAK AKSES PERAN (Owner) ============ */
 const tierName = (t) => ((HA.cfg && HA.cfg.pkg && HA.cfg.pkg[t || 'high']) || {}).n || { biasa: 'Standar · Kios', standar: 'Medium · Grosir', high: 'High · Distributor' }[t || 'high'] || 'High';
 const FGROUP = [
-  ['🛒 Penjualan', ['pos', 'his', 'hisAll', 'retur', 'terima']], ['📦 Produk & stok', ['prod', 'prodEdit', 'beli', 'xls']], ['📍 Outlet & lapangan', ['outlet', 'cek', 'ana', 'kirim', 'kiosMap', 'dnet', 'kanvas']],
+  ['🛒 Penjualan', ['pos', 'his', 'hisAll', 'retur', 'terima']], ['📦 Produk & stok', ['prod', 'prodEdit', 'beli', 'xls']], ['📍 Outlet & lapangan', ['outlet', 'cek', 'ana', 'kirim', 'kiosMap', 'dnet', 'kanvas', 'gps']],
   ['💰 Keuangan', ['keu', 'jur', 'kas', 'lap', 'backup']], ['👥 Tim', ['abs', 'absAll', 'shiftSet', 'gaji', 'usr', 'aud', 'chat']], ['🏆 Target & insentif', ['tgt', 'tgtAll', 'tgtSet']], ['🛍️ Lainnya', ['onl', 'anti', 'perm']],
 ];
 const FSUB = { prodEdit: 'prod', hisAll: 'his', absAll: 'abs', aud: 'abs', tgtAll: 'tgt', tgtSet: 'tgt' };
@@ -19,7 +19,7 @@ ${['biasa', 'standar', 'high'].map((t) => { const x = pk[t], fs = new Set(x.f.sp
 /* harga paket — kartu khusus di atas dasbor Head Admin */
 function haPriceCard() {
   const pk = HA.cfg && HA.cfg.pkg; if (!pk) return '';
-  const U2 = { biasa: ['crown', '#10b981'], standar: ['crown', '#6366f1'], high: ['crown', '#c9a24a'] };
+  const U2 = { biasa: ['crown', '#10b981'], standar: ['crown', '#33508f'], high: ['crown', '#c9a24a'] };
   return `<div class="cd hapr"><div class="row" style="margin:0"><h3 style="margin:0">💰 Harga paket langganan</h3><small class="mu">per bulan</small></div><small class="mu">Harga tampil di halaman daftar toko & info perpanjangan. Berlaku untuk pendaftaran berikutnya.</small>
 <div class="hapg">${['biasa', 'standar', 'high'].map((t) => `<label style="--tc:${U2[t][1]}"><span>${ico(U2[t][0])}<b>${esc(pk[t].n)}</b><small>maks ${pk[t].max} pengguna</small></span><div class="hain"><em>Rp</em><input id="hpr_${t}" type="number" min="0" step="1000" value="${pk[t].pr || 0}"></div></label>`).join('')}</div>
 <button class="pr" onclick="haPriceSave()">Simpan harga</button></div>`;

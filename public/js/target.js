@@ -8,6 +8,8 @@ const TGT = {
   item: ['⭐', 'Item fokus', 'pcs', 'Jumlah terjual untuk produk fokus'],
   ao: ['🏪', 'Outlet aktif (AO)', 'outlet', 'Jumlah outlet berbeda yang order di bulan itu'],
   noo: ['🆕', 'Outlet baru (NOO)', 'outlet', 'Outlet yang order pertama kali di bulan itu'],
+  sku: ['📦', 'Jumlah SKU terjual', 'SKU', 'Jumlah produk (SKU) berbeda yang terjual di bulan itu'],
+  ec: ['🧾', 'Transaksi / effective call', 'nota', 'Jumlah nota penjualan (order berhasil) di bulan itu'],
 };
 const IMODE = { none: 'Tanpa insentif', flat: 'Bonus tetap (Rp) bila tercapai', pct: '% dari pencapaian (omzet)', unit: 'Rp per satuan tercapai (pcs / outlet)' };
 const THARI = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
@@ -41,21 +43,21 @@ let ACTM = null;
 function actuals(m) {
   const key = m + '|' + S.sales.length + '|' + (S.rtr || []).length + '|' + S.c.length; if (ACTM && ACTM.k == key) return ACTM.v;
   const first = {}; for (const s of S.sales) if (s.cu && (!first[s.cu] || s.t < first[s.cu].t)) first[s.cu] = s;
-  const U2 = {}, me = (u) => (U2[u] = U2[u] || { omzet: 0, brand: {}, item: {}, ao: new Set(), noo: 0, n: 0 });
+  const U2 = {}, me = (u) => (U2[u] = U2[u] || { omzet: 0, brand: {}, item: {}, ao: new Set(), sku: new Set(), noo: 0, n: 0 });
   for (const s of S.sales) {
     if (ymOf(s.t) != m) continue; const net = (s.sub - s.disc) - (s.rn || 0);
     for (const who of [s.u, '*']) {
       const a = me(who); a.omzet += net; a.n++; if (s.cu && net > 0) a.ao.add(s.cu);
       const net0 = s.L.reduce((x, i) => x + i.p * i.q - i.dd, 0), k = net0 ? (net0 - (s.cdA || 0)) / net0 : 1;
-      for (const i of s.L) { const left = i.q - (i.rq || 0); if (left <= 0) continue; const v = (i.p * i.q - i.dd) * (left / i.q) * k, b = brandOf(prod(i.id) || { c: '' }); a.brand[b] = (a.brand[b] || 0) + v; a.item[i.id] = (a.item[i.id] || 0) + left; }
+      for (const i of s.L) { const left = i.q - (i.rq || 0); if (left <= 0) continue; const v = (i.p * i.q - i.dd) * (left / i.q) * k, b = brandOf(prod(i.id) || { c: '' }); a.brand[b] = (a.brand[b] || 0) + v; a.item[i.id] = (a.item[i.id] || 0) + left; a.sku.add(i.id); }
     }
   }
   for (const cu in first) { const s = first[cu]; if (ymOf(s.t) == m) { me(s.u).noo++; me('*').noo++; } }
   ACTM = { k: key, v: U2 }; return U2;
 }
 function actOf(x, m) {
-  const a = actuals(m)[x.u] || { omzet: 0, brand: {}, item: {}, ao: new Set(), noo: 0 };
-  return x.ty == 'omzet' ? a.omzet : x.ty == 'brand' ? a.brand[x.ref] || 0 : x.ty == 'item' ? a.item[x.ref] || 0 : x.ty == 'ao' ? a.ao.size : a.noo;
+  const a = actuals(m)[x.u] || { omzet: 0, brand: {}, item: {}, ao: new Set(), sku: new Set(), noo: 0, n: 0 };
+  return x.ty == 'omzet' ? a.omzet : x.ty == 'brand' ? a.brand[x.ref] || 0 : x.ty == 'item' ? a.item[x.ref] || 0 : x.ty == 'ao' ? a.ao.size : x.ty == 'sku' ? a.sku.size : x.ty == 'ec' ? a.n : a.noo;
 }
 function insOf(x, act) {
   const pct = x.v ? act / x.v * 100 : 0; if (x.im == 'none' || !x.iv || pct < x.min) return 0;
@@ -121,7 +123,7 @@ function tEdit(id) {
   const x = id ? S.tgt.find((y) => y.id == id) : null, us = tgtUsers();
   const m = modal(`<h3>${x ? 'Ubah target' : 'Tambah target'} · ${esc(ymName(x ? x.m : TM))}</h3>
 ${x ? `<small class="mu">Untuk: <b>${tWho(x.u)}</b></small>` : `<small class="mu">Untuk siapa? (boleh lebih dari satu)</small><div class="wrap tusr"><label class="chip"><input type="checkbox" value="*" style="width:auto"> 👥 Seluruh tim</label>${us.map((u) => `<label class="chip"><input type="checkbox" value="${esc(u.n)}" style="width:auto"> ${esc(u.n)} <small class="mu">${esc(ROLE[u.r] ? ROLE[u.r].split(' ')[0] : u.r)}</small></label>`).join('')}</div>
-<div class="wrap" style="margin:4px 0">${['sales', 'kasir', 'spg', 'admin'].map((r) => `<button class="gh" data-rl="${r}">Semua ${esc(r == 'spg' ? 'SPG/SPB' : ROLE[r].split(' ')[0])}</button>`).join('')}</div>`}
+<div class="wrap" style="margin:4px 0">${['sales', 'kanvas', 'kasir', 'spg', 'admin'].map((r) => `<button class="gh" data-rl="${r}">Semua ${esc(r == 'spg' ? 'SPG/SPB' : r == 'kanvas' ? 'Kanvas' : ROLE[r].split(' ')[0])}</button>`).join('')}</div>`}
 <label><small class="mu">Jenis target</small><select id="tty">${Object.entries(TGT).map(([k, v]) => `<option value="${k}" ${x && x.ty == k ? 'selected' : ''}>${v[0]} ${v[1]}</option>`).join('')}</select></label><small class="mu" id="tdesc"></small>
 <label id="tbw"><small class="mu">Merek</small><input id="tbr" list="tbl" value="${esc(x && x.ty == 'brand' ? x.ref : '')}" placeholder="Nama merek"><datalist id="tbl">${brands().map((b) => `<option value="${esc(b)}">`).join('')}</datalist></label>
 <label id="tiw"><small class="mu">Produk fokus</small><select id="tit">${S.p.map((p) => `<option value="${esc(p.id)}" ${x && x.ref == p.id ? 'selected' : ''}>${esc(p.n)}${p.kd ? ' · ' + esc(p.kd) : ''}</option>`).join('')}</select></label>
@@ -178,10 +180,12 @@ function tKalSave() {
 /* ---------- kartu ringkas di beranda ---------- */
 function tgtMini() {
   try {
-    if (!can('tgt')) return ''; const m = ymNow(), L = tgtOf(m, U.n); if (!L.length) return '';
-    const wi = workInfo(m), E = L.map((x) => [x, evalT(x, m, wi)]), main = E.find((e) => e[0].ty == 'omzet') || E[0], ins = E.reduce((a, e) => a + e[1].ins, 0);
-    return `<div class="cd tmini" onclick="TTAB='hasil';TU='${esc(U.n)}';go('tgt')" style="cursor:pointer"><div class="row" style="margin:0"><b>🏆 Target ${esc(ymName(m))}</b><b class="${main[1].st[0]}">${main[1].pct.toFixed(0)}%</b></div>${tBar(main[1].pct, main[1].st[0])}
-<small class="mu">${TGT[main[0].ty][1]}${tRef(main[0])}: ${tUnit(main[0].ty, main[1].act)} / ${tUnit(main[0].ty, main[0].v)} · sisa ${wi.left} hari kerja${main[1].gap ? ' · perlu <b class="or">' + tUnit(main[0].ty, main[1].need) + '/hari</b>' : ''}</small>
-<div class="wrap" style="margin-top:4px">${E.filter((e) => e != main).slice(0, 4).map((e) => `<span class="chip ${e[1].pct >= 100 ? 'g' : ''}">${TGT[e[0].ty][0]} ${e[1].pct.toFixed(0)}%</span>`).join('')}${ins ? `<span class="chip g">🎁 ${rp(ins)}</span>` : ''}</div></div>`;
+    if (!can('tgt')) return ''; const m = ymNow(), L = tgtOf(m, U.n), field = ['sales', 'kanvas', 'spg'].includes(U.r);
+    if (!L.length) return field ? `<div class="cd tmini tnone"><b>🏆 Target ${esc(ymName(m))}</b><small class="mu">Belum ada target dari admin / pemilik untuk bulan ini.</small></div>` : '';
+    const wi = workInfo(m), E = L.map((x) => [x, evalT(x, m, wi)]).sort((a, b) => (a[0].ty == 'omzet' ? -1 : 0) - (b[0].ty == 'omzet' ? -1 : 0)), ins = E.reduce((a, e) => a + e[1].ins, 0), insP = E.reduce((a, e) => a + e[1].insP, 0);
+    const avg = E.reduce((a, e) => a + Math.min(100, e[1].pct), 0) / E.length;
+    return `<div class="cd tmini tsisa" onclick="TTAB='hasil';TU='${esc(U.n)}';go('tgt')"><div class="row" style="margin:0"><span><b>🏆 Sisa target ${esc(ymName(m))}</b><br><small class="mu">${wi.left} hari kerja tersisa · rata-rata pencapaian ${avg.toFixed(0)}%</small></span>${ins || insP ? `<span class="r"><small class="mu">Insentif</small><br><b class="gr">${rp(ins || 0)}</b>${insP > ins ? `<br><small class="mu">potensi ${rp(insP)}</small>` : ''}</span>` : ''}</div>
+<div class="tsg">${E.map(([x, e]) => `<div class="tsi"><div class="row" style="margin:0"><span><b>${TGT[x.ty][0]} ${TGT[x.ty][1].replace(/ \(.*\)/, '')}</b>${tRef(x)}</span><b class="${e.st[0]}">${e.pct.toFixed(0)}%</b></div>${tBar(e.pct, e.st[0])}<div class="tsn"><span><small>Tercapai</small><b>${tUnit(x.ty, e.act)}</b></span><span><small>Target</small><b>${tUnit(x.ty, x.v)}</b></span><span><small>Sisa</small><b class="${e.gap ? 'or' : 'gr'}">${e.gap ? tUnit(x.ty, e.gap) : '✓ tercapai'}</b></span><span><small>Perlu / hari</small><b>${e.gap && wi.left ? tUnit(x.ty, e.need) : '—'}</b></span></div></div>`).join('')}</div></div>`;
   } catch (e) { return ''; }
 }
+VW.tgt.after = () => { if (can('tgtSet') && S.srv && canNet() && Date.now() - (VW.tgt.ld || 0) > 6e4) { VW.tgt.ld = Date.now(); api('/api/staff').then((r) => { const ch = JSON.stringify(S.staff || []) != JSON.stringify(r.staff); S.staff = r.staff; save(); if (ch && V == 'tgt') R(); }).catch(() => { }); } };
