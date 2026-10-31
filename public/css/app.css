@@ -526,3 +526,4 @@ label.fl{display:flex;flex-direction:column;gap:3px;min-width:0}label.fl>small{f
 .shtab th.tdh{color:var(--ac)}.shtab select:disabled{opacity:.45}
 .tskrow{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 0;border-top:1px dashed var(--bd)}.tskrow.dn span{color:var(--mu)}.tskrow img{width:46px;height:46px;object-fit:cover;border-radius:8px}
 .kvrow{padding:8px 0;border-top:1px dashed var(--bd);margin:0}.kvrow .qt input{width:64px;text-align:center}
+.tpr{display:flex;align-items:baseline;gap:4px;margin:6px 0 2px}.tpr b{font-size:26px;font-weight:800;color:var(--tc,var(--ac));letter-spacing:-.02em}.tpr small{color:var(--mu)}
