@@ -3,7 +3,7 @@
 const tierName = (t) => ((HA.cfg && HA.cfg.pkg && HA.cfg.pkg[t || 'high']) || {}).n || { biasa: 'Standar · Kios', standar: 'Medium · Grosir', high: 'High · Distributor' }[t || 'high'] || 'High';
 const FGROUP = [
   ['🛒 Penjualan', ['pos', 'his', 'hisAll', 'retur', 'terima']], ['📦 Produk & stok', ['prod', 'prodEdit', 'beli', 'xls']], ['📍 Outlet & lapangan', ['outlet', 'cek', 'ana', 'kirim', 'kiosMap', 'dnet', 'kanvas']],
-  ['💰 Keuangan', ['keu', 'jur', 'kas', 'lap', 'backup']], ['👥 Tim', ['abs', 'absAll', 'shiftSet', 'usr', 'aud', 'chat']], ['🏆 Target & insentif', ['tgt', 'tgtAll', 'tgtSet']], ['🛍️ Lainnya', ['onl', 'anti', 'perm']],
+  ['💰 Keuangan', ['keu', 'jur', 'kas', 'lap', 'backup']], ['👥 Tim', ['abs', 'absAll', 'shiftSet', 'gaji', 'usr', 'aud', 'chat']], ['🏆 Target & insentif', ['tgt', 'tgtAll', 'tgtSet']], ['🛍️ Lainnya', ['onl', 'anti', 'perm']],
 ];
 const FSUB = { prodEdit: 'prod', hisAll: 'his', absAll: 'abs', aud: 'abs', tgtAll: 'tgt', tgtSet: 'tgt' };
 
@@ -15,6 +15,20 @@ function haPkgCard() {
 <label style="display:block;margin:8px 0"><small class="mu">Paket untuk masa coba (trial) toko baru</small><select id="ptt">${['biasa', 'standar', 'high'].map((t) => `<option value="${t}" ${(HA.cfg.trial_tier || 'high') == t ? 'selected' : ''}>${esc(tierName(t))}</option>`).join('')}</select></label>
 ${['biasa', 'standar', 'high'].map((t) => { const x = pk[t], fs = new Set(x.f.split(' ')); return `<details class="pkg" style="margin:6px 0"><summary><b>${esc(x.n)}</b> <small class="mu">· ${[...fs].filter((f) => FEAT[f]).length} fitur · maks ${x.max} pengguna</small></summary><div class="fm2" style="margin:8px 0"><label><small class="mu">Nama paket</small><input id="pn_${t}" value="${esc(x.n)}" maxlength="20"></label><label><small class="mu">Maks pengguna</small><input id="px_${t}" type="number" min="1" value="${x.max}"></label><label><small class="mu">Harga / bulan (Rp)</small><input id="pp_${t}" type="number" min="0" value="${x.pr || 0}"></label></div>${FGROUP.map((g) => `<b style="font-size:12px">${g[0]}</b><div class="wrap">${g[1].filter((f) => all.includes(f)).map((f) => `<label class="chip ${fs.has(f) ? 'g' : ''}" style="cursor:pointer;display:inline-flex;gap:4px;align-items:center"><input type="checkbox" style="width:auto" data-pk="${t}:${f}" ${fs.has(f) ? 'checked' : ''}>${esc(FEAT[f])}</label>`).join('')}</div>`).join('')}</details>`; }).join('')}
 <div class="wrap" style="margin-top:8px"><button class="pr" onclick="haPkgSave()">Simpan paket</button><button class="gh" onclick="haPkgReset()">Kembalikan default</button></div></div>`;
+}
+/* harga paket — kartu khusus di atas dasbor Head Admin */
+function haPriceCard() {
+  const pk = HA.cfg && HA.cfg.pkg; if (!pk) return '';
+  const U2 = { biasa: ['crown', '#10b981'], standar: ['crown', '#6366f1'], high: ['crown', '#c9a24a'] };
+  return `<div class="cd hapr"><div class="row" style="margin:0"><h3 style="margin:0">💰 Harga paket langganan</h3><small class="mu">per bulan</small></div><small class="mu">Harga tampil di halaman daftar toko & info perpanjangan. Berlaku untuk pendaftaran berikutnya.</small>
+<div class="hapg">${['biasa', 'standar', 'high'].map((t) => `<label style="--tc:${U2[t][1]}"><span>${ico(U2[t][0])}<b>${esc(pk[t].n)}</b><small>maks ${pk[t].max} pengguna</small></span><div class="hain"><em>Rp</em><input id="hpr_${t}" type="number" min="0" step="1000" value="${pk[t].pr || 0}"></div></label>`).join('')}</div>
+<button class="pr" onclick="haPriceSave()">Simpan harga</button></div>`;
+}
+async function haPriceSave() {
+  const cur = HA.cfg.pkg, pkg = {};
+  for (const t of ['biasa', 'standar', 'high']) pkg[t] = { n: cur[t].n, max: cur[t].max, f: cur[t].f, pr: num($('#hpr_' + t).value) };
+  if (Object.values(pkg).some((x) => !(x.pr >= 0))) return toast('Isi harga dengan angka');
+  try { HA.cfg = await haApi('/api/admin/cfg', { method: 'PUT', body: JSON.stringify({ pkg }) }); toast('Harga paket disimpan'); R(); } catch (e) { toast(e.message); }
 }
 async function haPkgReset() {
   if (!confirm('Kembalikan isi ketiga paket ke pengaturan bawaan?')) return;
