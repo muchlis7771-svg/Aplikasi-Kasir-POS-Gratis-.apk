@@ -5,10 +5,10 @@ const PAGES = {
   prod: ['📦', 'Produk', 'Stok, harga, barcode'], outlet: ['📍', 'Outlet', 'Pelanggan, peta, kredit'], lap: ['📊', 'Laporan', 'Penjualan & keuangan'],
   keu: ['💰', 'Keuangan', 'Kas, piutang, utang'], jur: ['📒', 'Jurnal', 'Biaya & jurnal manual'], abs: ['🕒', 'Absensi', 'Masuk / pulang'],
   chat: ['💬', 'Chat', 'Tim & antar toko'], onl: ['🛍️', 'Toko Online', 'Pesanan pembeli online'], ana: ['🎯', 'Analisa', 'Saran order & kredit'], usr: ['👥', 'Pengguna', 'Karyawan & PIN'], set: ['⚙️', 'Pengaturan', 'Toko, akun, data'],
-  beli: ['📥', 'Pembelian', 'PO ke supplier & pabrik'], kas: ['📘', 'Buku Kas', 'Uang masuk & keluar'], kirim: ['🚚', 'Pengantaran', 'Antar order & tagih'], perm: ['🔐', 'Hak Akses', 'Peran, paket, keamanan'], aud: ['🛡️', 'Audit', 'Check-in, jam & lokasi'], retur: ['↩️', 'Retur Outlet', 'Expired, rusak, kelebihan order'], tgt: ['🏆', 'Target & Insentif', 'Pencapaian bulanan'], kiosMap: ['🗺️', 'Peta Kios', 'Kios terdaftar di sekitar'], dnet: ['🤝', 'Jaringan Mitra', 'Stok & SKU toko mitra'], shiftSet: ['🔐', 'Shift Kasir', 'Jadwal, buka & closing kasir'],
+  beli: ['📥', 'Pembelian', 'PO ke supplier & pabrik'], kas: ['📘', 'Buku Kas', 'Uang masuk & keluar'], kirim: ['🚚', 'Pengantaran', 'Antar order & tagih'], perm: ['🔐', 'Hak Akses', 'Peran, paket, keamanan'], aud: ['🛡️', 'Audit', 'Check-in, jam & lokasi'], retur: ['↩️', 'Retur Outlet', 'Expired, rusak, kelebihan order'], tgt: ['🏆', 'Target & Insentif', 'Pencapaian bulanan'], kiosMap: ['🗺️', 'Peta Kios', 'Kios terdaftar di sekitar'], dnet: ['🤝', 'Jaringan Mitra', 'Stok & SKU toko mitra'], shiftSet: ['🔐', 'Shift & Jadwal', 'Jadwal per minggu, tugas SPG, closing kasir'],
 };
 const ORDER = ['dash', 'kirim', 'pos', 'onl', 'his', 'retur', 'prod', 'beli', 'outlet', 'kiosMap', 'dnet', 'ana', 'tgt', 'lap', 'keu', 'kas', 'jur', 'aud', 'abs', 'shiftSet', 'chat', 'usr', 'perm', 'set'];
-const TABS = { owner: ['dash', 'pos', 'onl', 'prod'], admin: ['dash', 'pos', 'onl', 'prod'], akuntan: ['dash', 'keu', 'lap', 'jur'], kasir: ['pos', 'dash', 'his', 'abs'], sales: ['dash', 'outlet', 'ana', 'pos'], dropping: ['dash', 'abs', 'chat'] };
+const TABS = { owner: ['dash', 'pos', 'onl', 'prod'], admin: ['dash', 'pos', 'onl', 'prod'], akuntan: ['dash', 'keu', 'lap', 'jur'], kasir: ['pos', 'dash', 'his', 'abs'], spg: ['dash', 'pos', 'tgt', 'abs'], sales: ['dash', 'outlet', 'ana', 'pos'], dropping: ['dash', 'abs', 'chat'] };
 const pages = () => ORDER.filter((k) => can(k));
 const pgName = (k) => (k == 'pos' && U && U.r == 'sales' ? 'Order' : PAGES[k][1]);
 let MODE = 'home', SRV = '', SRVOK = false;
@@ -38,7 +38,7 @@ function clockedIn() { try { const td = (typeof myToday == 'function' ? myToday(
 async function locPing(force) {
   try {
     if (!U || !S || !S.srv || MODE == 'buyer' || (HT && MODE == 'ha') || !canNet() || isExp()) return;
-    if (!['sales', 'kasir', 'admin', 'dropping'].includes(U.r)) return;
+    if (!['sales', 'kasir', 'spg', 'admin', 'dropping'].includes(U.r)) return;
     if (!LOCMUST() && LS.get('jpos:sharing', '1') == '0') return; // sales & dropping wajib; peran lain boleh menonaktifkan
     if (!force && !clockedIn()) return;                     // hanya saat sudah absen masuk
     if (!force && Date.now() - LOCG.t < 285000) return;     // maksimal tiap ~5 menit

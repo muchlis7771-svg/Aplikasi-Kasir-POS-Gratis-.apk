@@ -27,7 +27,7 @@ async function haPkgSave() {
 }
 
 /* ---------- Owner: matriks hak akses ---------- */
-const PROLES = ['admin', 'akuntan', 'kasir', 'sales', 'dropping'];
+const PROLES = ['admin', 'akuntan', 'kasir', 'spg', 'sales', 'dropping'];
 let PMD = null;
 function pmInit(force) { if (PMD && !force) return; PMD = {}; for (const r of PROLES) PMD[r] = new Set(pmRole(S.pm || {}, r).split(' ').filter(Boolean)); }
 function pmTog(r, f) {
@@ -45,7 +45,7 @@ VW.perm = () => {
   pmInit(); const info = LS.get('jpos:info', { wa: '' }), nU = staffList().length, tot = (S.pf || PKGHI).split(' ').filter((f) => FEAT[f]).length;
   return `<div class="cd hero hero2"><div class="row" style="margin:0"><span><small>Paket aplikasi Anda</small><h2>${esc(S.tn || 'High')}</h2></span><span class="hbadge">${tot} fitur</span></div><small>${S.lim ? nU + ' dari ' + S.lim + ' pengguna terpakai' : ''}${S.exp ? ' · ' + expTxt() : ''}</small>${info.wa ? `<div style="margin-top:10px"><a class="gh" style="text-decoration:none;color:#fff;border-color:#fff8" target="_blank" rel="noopener" href="${esc(waLink(info.wa, 'Halo, saya ingin naik paket J-POS untuk toko ' + (S.name || '') + ' (kode ' + SID + ')'))}">⬆ Naik paket via WhatsApp</a></div>` : ''}</div>
 <div class="cd"><h3>🔐 Hak akses karyawan</h3><small class="mu">Centang fitur yang boleh dipakai tiap peran. Fitur 🔒 belum termasuk paket Anda. Pemilik selalu punya semua fitur paket.</small>
-<div class="ov" style="margin-top:8px"><table class="pmt"><tr><th>Fitur${PROLES.map((r) => `<th class="c"><small>${esc({ admin: 'Admin', akuntan: 'Akuntan', kasir: 'Kasir', sales: 'Sales', dropping: 'Drop' }[r])}</small>`).join('')}</tr>
+<div class="ov" style="margin-top:8px"><table class="pmt"><tr><th>Fitur${PROLES.map((r) => `<th class="c"><small>${esc({ admin: 'Admin', akuntan: 'Akuntan', kasir: 'Kasir', spg: 'SPG', sales: 'Sales', dropping: 'Drop' }[r])}</small>`).join('')}</tr>
 ${FGROUP.map((g) => `<tr class="gh2"><td colspan="${PROLES.length + 1}"><b>${g[0]}</b></tr>${g[1].filter((f) => f != 'perm' && f != 'anti').map((f) => `<tr><td>${esc(FEAT[f])}${FSUB[f] ? '' : ''}${pkgHas(f) ? '' : ' 🔒'}${PROLES.map((r) => `<td class="c"><input type="checkbox" style="width:20px;height:20px" ${PMD[r].has(f) ? 'checked' : ''} ${pkgHas(f) ? '' : 'disabled'} onchange="pmTog('${r}','${f}')">`).join('')}</tr>`).join('')}`).join('')}</table></div>
 <div class="wrap" style="margin-top:10px">${PROLES.map((r) => `<button class="gh" onclick="pmReset('${r}')">Reset ${esc(ROLE[r].replace('Tim ', ''))}</button>`).join('')}</div>
 <button class="pr" style="margin-top:10px" onclick="pmSave()">Simpan hak akses</button>${pkgHas('perm') ? '' : '<small class="rd">Pengaturan hak akses tersedia di paket Standar / High. Perubahan tidak akan diterima server.</small>'}</div>
