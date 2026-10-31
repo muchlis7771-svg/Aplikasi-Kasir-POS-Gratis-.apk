@@ -31,6 +31,9 @@ jobs:
         run: ./gradlew assembleDebug --no-daemon
       - name: Ganti nama
         run: cp android/app/build/outputs/apk/debug/app-debug.apk J-POS.apk
+      - name: Build APK rilis (belum ditandatangani; ditandatangani kunci resmi J-POS di luar repo)
+        working-directory: android
+        run: ./gradlew assembleRelease --no-daemon && cp app/build/outputs/apk/release/app-release-unsigned.apk ../J-POS-unsigned.apk
       - name: Build AAB rilis untuk Play Store (belum ditandatangani; ditandatangani dengan kunci pemilik di luar repo)
         run: node scripts/patch-play.js && cd android && ./gradlew bundleRelease --no-daemon && cp app/build/outputs/bundle/release/app-release.aab ../J-POS-unsigned.aab
       - name: Rilis AAB
@@ -38,7 +41,9 @@ jobs:
         with:
           tag_name: aab-latest
           name: J-POS AAB Play Store (belum ditandatangani)
-          files: J-POS-unsigned.aab
+          files: |
+            J-POS-unsigned.aab
+            J-POS-unsigned.apk
       - uses: actions/upload-artifact@v4
         with: { name: J-POS-apk, path: J-POS.apk }
       - name: Rilis (agar mudah diunduh dari HP)
