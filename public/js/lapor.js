@@ -11,7 +11,7 @@ async function rptLoad() { if (!S || !S.srv || !canNet()) return; try { const r 
 function snapData() {
   const low = S.p.filter((p) => !p.x && p.st <= (p.min ?? 10)).sort((a, b) => a.st - (a.min ?? 10) - (b.st - (b.min ?? 10)));
   const now = Date.now(); let ar = 0, od = 0; for (const s of S.sales) { const o = sOut(s); if (o > 0) { ar += o; if (s.due && s.due < now) od += o; } }
-  return { sv: Math.round(S.p.reduce((a, p) => a + Math.max(0, p.st) * (p.co || 0), 0)), bad: Math.round(S.p.reduce((a, p) => a + (p.bv || 0), 0)), nlow: low.length, low: low.slice(0, 15).map((p) => [p.n, p.st, p.min ?? 10]), kas: Math.round(bal('1101')), bank: Math.round(bal('1102')), ar: Math.round(ar), od: Math.round(od) };
+  return { sv: Math.round(S.p.reduce((a, p) => a + Math.max(0, p.st) * (p.co || 0), 0)), bad: Math.round(S.p.reduce((a, p) => a + (p.bv || 0), 0)), nlow: low.length, low: low.slice(0, 15).map((p) => [p.n, p.st, p.min ?? 10]), van: Object.fromEntries(Object.entries(S.van || {}).map(([u, m]) => [u, Object.values(m).reduce((a, v) => a + v, 0)])), kas: Math.round(bal('1101')), bank: Math.round(bal('1102')), ar: Math.round(ar), od: Math.round(od) };
 }
 async function snapPost(force) {
   try {
