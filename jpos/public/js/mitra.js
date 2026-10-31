@@ -4,7 +4,7 @@
    Pemilik toko memilih sendiri apa yang dibagi dan bisa mencabutnya kapan saja. */
 const MSC = [['st', 'Stok'], ['fm', 'SKU fast moving (jumlah terjual)'], ['pj', 'Harga jual'], ['pb', 'Harga beli / HPP']];
 let MIT = null;
-async function mitLoad() { if (!S.srv || !canNet()) return; try { MIT = (await api('/api/mitra')).links; LS.set('jpos:mit:' + SID, MIT.filter((x) => x.status == 'ok').length); if (V == 'set') R(); } catch (e) { } }
+async function mitLoad() { if (!S.srv || !canNet()) return; try { MIT = (await api('/api/mitra')).links; LS.set('jpos:mit:' + SID, MIT.filter((x) => x.status == 'ok').length); if (V == 'set' && !uiTyping()) R(); } catch (e) { } }
 const scTxt = (sc) => MSC.filter(([k]) => sc && sc[k]).map(([, n]) => n.split(' (')[0]).join(', ') || '-';
 function mitraCard() {
   if (!S.srv) return '';

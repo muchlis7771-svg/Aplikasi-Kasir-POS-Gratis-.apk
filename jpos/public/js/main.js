@@ -22,7 +22,7 @@ async function ownerCheck(id, name, pin) {
 }
 async function srvUnlock() { try { await ownerCheck($('#ovi').value, $('#ovn').value, $('#ovp').value); SRVOK = true; toast('Kunci dibuka — silakan ubah alamat server'); R(); } catch (e) { toast(e.message || 'Gagal memverifikasi pemilik', 4000); } }
 function srvReset() { LS.set('jpos:api', ''); LS.set('jpos:apiAuto', ''); initApi(); checkSrv.t = 0; toast('Kembali ke server bawaan ✓'); R(); }
-function go(v) { SRVOK = false; if (v != V && typeof SHD != 'undefined') SHD = null; const m = $('.md.menu'); if (m) m.close(); V = v; R(); window.scrollTo(0, 0); hb(v); }
+function go(v) { SRVOK = false; if (v != V && typeof PQ != 'undefined') PQ = null; if (v != V && typeof SHD != 'undefined') SHD = null; const m = $('.md.menu'); if (m) m.close(); V = v; R(); window.scrollTo(0, 0); hb(v); }
 // laporan kehadiran ke server (dipantau Head Admin): halaman aktif tiap pengguna
 function hb(page) {
   try {
@@ -64,6 +64,7 @@ function expBanner() {
 
 function R() {
   const app = $('#app'); if (!app) return;
+  if (typeof mapsDrop == 'function') mapsDrop();
   document.body.classList.toggle('in', MODE == 'buyer' || !!(U && S && !(HT && MODE == 'ha')));
   if (MODE != 'buyer') document.body.classList.remove('buyer');
   if (HT && MODE == 'ha') { app.innerHTML = haShell(); return; }

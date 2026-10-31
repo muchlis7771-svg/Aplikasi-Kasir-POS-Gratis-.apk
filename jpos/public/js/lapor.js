@@ -26,7 +26,7 @@ setInterval(() => snapPost(), 6e4);
 let RPTX = null;
 function rptCard() {
   const c = (RPTX && RPTX.cfg) || rptC().cfg || {}, gw = (RPTX && RPTX.gw) || rptC().gw || {};
-  if (!RPTX && S.srv && canNet()) rptLoad().then((r) => { if (r) { RPTX = r; if (V == 'set') R(); } });
+  if (!RPTX && S.srv && canNet()) rptLoad().then((r) => { if (r) { RPTX = r; if (V == 'set' && !uiTyping()) R(); } });
   const H = Array.from({ length: 24 }, (_, h) => h);
   return `<div class="cd"><h3>📤 Laporan otomatis ke WA & email</h3><small class="mu">Absen, penjualan per karyawan, closing kasir, stok menipis, kas & piutang — dikirim ke Anda setiap pergantian hari dan setiap kasir closing.</small>
 ${!S.srv ? '<div class="warnbox">Butuh toko online (terdaftar di server).</div>' : ''}
