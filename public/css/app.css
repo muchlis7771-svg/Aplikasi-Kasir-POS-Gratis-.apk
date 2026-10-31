@@ -646,3 +646,9 @@ body:not(.buyer) .pr{box-shadow:inset 0 1px 0 #ffffff2e,0 0 0 1px #c9a24a40,0 8p
 /* ===== v45: input alasan di gerbang jam kerja terbaca (teks gelap, bukan putih) ===== */
 .gc input,.gc textarea{color:#1b1d2a;background:#fff;border:1px solid #ffffff66;border-radius:12px;padding:12px}
 .gc input::placeholder,.gc textarea::placeholder{color:#8a8f9c;opacity:1}
+/* ===== v46: riwayat perjalanan karyawan (pantau GPS) ===== */
+.gtl{display:grid;gap:6px;margin-top:10px}
+.gh2{display:grid;grid-template-columns:auto 1fr auto;gap:10px;align-items:center;padding:8px 10px;border-radius:12px;background:var(--bg);border:1px solid var(--bd)}
+.gh2.stop{border-left:3px solid var(--or)}.gh2.move{border-left:3px solid var(--gr)}
+.gh2 .gd{font-size:18px;line-height:1}.gh2 .gi{display:grid;min-width:0}.gh2 .gi small{font-size:11px;overflow:hidden;text-overflow:ellipsis}.gh2 .gt{font-weight:700;white-space:nowrap;font-size:13px}
+.gbar{height:7px;border-radius:7px;background:color-mix(in srgb,var(--or) 30%,var(--bd));overflow:hidden;margin:2px 0 4px}.gbar i{display:block;height:100%;background:linear-gradient(90deg,#16a34a,var(--gr))}
