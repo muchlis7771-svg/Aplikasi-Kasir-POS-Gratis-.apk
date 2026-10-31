@@ -47,7 +47,7 @@ const DEFPERM = {
   spg: 'dash pos his prod abs chat set tgt',
   kanvas: 'dash pos his outlet ana abs chat set cek retur terima tgt kiosMap kanvas',
 };
-const PKGHI = 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana jur kirim cek terima anti aud tgt tgtAll tgtSet shiftSet kiosMap dnet kanvas';
+const PKGHI = 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana jur kirim cek terima anti aud tgt tgtAll tgtSet shiftSet kiosMap dnet kanvas gaji';
 // fitur baru per versi ikut aktif pada hak akses yang sudah disesuaikan sebelumnya (server memakai aturan yang sama)
 const NEWR = [[25, { admin: 'tgt tgtAll tgtSet', akuntan: 'tgt tgtAll', kasir: 'tgt', sales: 'tgt' }], [30, { admin: 'shiftSet' }], [31, { admin: 'kiosMap', sales: 'kiosMap' }], [32, { admin: 'dnet' }], [37, { admin: 'kanvas' }]];
 const pmRole = (ov, r) => (typeof ov[r] == 'string' ? ov[r] + ' ' + NEWR.filter(([v]) => !(ov._v >= v)).map(([, m]) => m[r] || '').join(' ') : DEFPERM[r] || '');
@@ -55,7 +55,7 @@ const FEAT = {
   dash: 'Beranda', pos: 'Kasir / Order', his: 'Riwayat transaksi', hisAll: 'Lihat transaksi semua orang', prod: 'Lihat produk & stok', prodEdit: 'Ubah produk & stok', outlet: 'Outlet / pelanggan',
   onl: 'Toko Online', ana: 'Analisa', lap: 'Laporan', keu: 'Keuangan & utang piutang', jur: 'Jurnal & biaya', abs: 'Absensi sendiri', absAll: 'Lihat absensi semua', chat: 'Chat', usr: 'Kelola pengguna',
   retur: 'Retur barang', backup: 'Backup & restore', set: 'Pengaturan', beli: 'Pembelian ke supplier', xls: 'Import / export Excel', kas: 'Buku kas', perm: 'Atur hak akses (owner)',
-  kirim: 'Pengantaran / dropping', cek: 'Check-in / out outlet', terima: 'Terima pembayaran di lapangan', tgt: 'Target & insentif (milik sendiri)', tgtAll: 'Lihat target & insentif semua karyawan', tgtSet: 'Atur target, insentif & kalender kerja', shiftSet: 'Atur shift kasir & jadwal karyawan', kiosMap: 'Peta kios terdaftar (tawarkan produk)', dnet: 'Jaringan mitra: stok & SKU toko mitra', kanvas: 'Sales kanvas: muat, jual dari mobil & balik barang', anti: 'Absensi anti-curang (selfie & jam server)', aud: 'Audit lapangan',
+  kirim: 'Pengantaran / dropping', cek: 'Check-in / out outlet', terima: 'Terima pembayaran di lapangan', tgt: 'Target & insentif (milik sendiri)', tgtAll: 'Lihat target & insentif semua karyawan', tgtSet: 'Atur target, insentif & kalender kerja', shiftSet: 'Atur shift kasir & jadwal karyawan', kiosMap: 'Peta kios terdaftar (tawarkan produk)', dnet: 'Jaringan mitra: stok & SKU toko mitra', gaji: 'Gaji, lembur & izin jam kerja', kanvas: 'Sales kanvas: muat, jual dari mobil & balik barang', anti: 'Absensi anti-curang (selfie & jam server)', aud: 'Audit lapangan',
 };
 const FEATMEMO = {};
 function featSet(r) {
@@ -214,6 +214,13 @@ const Ap = {
   kvl(e) { if (e.ref) { const q = (S.kvq || []).find((x) => x.no == e.ref); if (q) Object.assign(q, { st: 'ok', oleh: e.u, tt: e.t }); } const by = String(e.to || e.u); (S.kv = S.kv || []).push({ no: e.no, k: 'muat', t: e.t, u: by, oleh: e.u, L: (e.L || []).filter((i) => i.q > 0) }); for (const i of e.L || []) { const p = prod(i.id); if (!p || !(i.q > 0)) continue; const free = p.st - vanAll(i.id); vanAdd(by, i.id, Math.min(i.q, Math.max(0, free))); } },
   kvb(e) { if (e.ref) { const q = (S.kvq || []).find((x) => x.no == e.ref); if (q) Object.assign(q, { st: 'ok', oleh: e.u, tt: e.t }); } const by = String(e.to || e.u); const L = []; for (const i of e.L || []) { const q = Math.min(i.q, vanQ(by, i.id)); if (q > 0) { vanAdd(by, i.id, -q); L.push({ id: i.id, q }); } } (S.kv = S.kv || []).push({ no: e.no, k: 'balik', t: e.t, u: by, oleh: e.u, L, note: e.note || '' }); },
   // tugas harian SPG / SPB (centang + foto bukti)
+  gji(e) {
+    const G = (S.gj = S.gj || { cfg: {}, req: [], paid: {} }); G.req = G.req || []; G.paid = G.paid || {};
+    if (e.op == 'cfg') { const c = e.cfg || {}; G.cfg = { lv: (Array.isArray(c.lv) ? c.lv : []).filter((l) => l && /^[\w-]{1,20}$/.test(l.id)).slice(0, 20).map((l) => ({ id: l.id, n: String(l.n || '').slice(0, 40), g: Math.max(0, +l.g || 0), ot: Math.max(0, +l.ot || 0) })), emp: c.emp && typeof c.emp == 'object' ? c.emp : {}, lock: c.lock !== false, since: /^\d{4}-\d\d-\d\d$/.test(c.since) ? c.since : (G.cfg && G.cfg.since) || dkey(e.t), hol: (Array.isArray(c.hol) ? c.hol : []).filter((d) => /^\d{4}-\d\d-\d\d$/.test(d)).slice(0, 400) }; return; }
+    if (e.op == 'izin') { if (!/^\d{4}-\d\d-\d\d$/.test(e.d) || G.req.some((r) => r.u == e.u && r.d == e.d && r.st == 'tunggu')) return; G.req.push({ no: e.no, t: e.t, u: e.u, d: e.d, kind: e.kind == 'lembur' ? 'lembur' : 'luar', note: String(e.note || '').slice(0, 120), st: 'tunggu' }); if (G.req.length > 600) G.req = G.req.slice(-600); return; }
+    if (e.op == 'ok' || e.op == 'tolak') { const r = G.req.find((x) => x.no == e.ref); if (r && r.st == 'tunggu') Object.assign(r, { st: e.op, oleh: e.u, tt: e.t, why: String(e.why || '').slice(0, 120), amt: e.op == 'ok' && e.amt != null ? Math.max(0, +e.amt || 0) : undefined }); return; }
+    if (e.op == 'paid' && /^\d{4}-\d\d$/.test(e.m)) G.paid[String(e.u || '').toLowerCase() + '|' + e.m] = e.t;
+  },
   tsk(e) { S.tsk = S.tsk || []; if (!/^\d{4}-\d\d-\d\d$/.test(e.d) || S.tsk.some((x) => x.u == e.u && x.d == e.d && x.id == e.id)) return; S.tsk.push({ no: e.no, u: e.u, t: e.t, d: e.d, id: String(e.id || ''), n: String(e.n || '').slice(0, 80), ph: e.ph }); },
   shf(e) {
     S.ses = S.ses || [];
@@ -301,6 +308,7 @@ function apply(e) {
   if (!e || S.done[e.no]) return false;
   S.done[e.no] = 1;
   if ((e.k == 'cap' || e.k == 'set') && e.r && e.r != 'owner') return false;
+  if (e.k == 'gji' && e.r && ((['cfg', 'paid'].includes(e.op) && e.r != 'owner') || (['ok', 'tolak'].includes(e.op) && e.r != 'owner' && e.r != 'admin'))) return false;
   if ((e.k == 'kvl' || e.k == 'kvb') && e.r && e.r != 'owner' && e.r != 'admin') return false; // muat / balik kanvas wajib lewat persetujuan admin // kejadian lain sudah divalidasi server saat diterima
   try { (Ap[e.k] || (() => { }))(e); } catch (x) { console.error('apply gagal', e && e.no, x); }
   return true;

@@ -527,3 +527,58 @@ label.fl{display:flex;flex-direction:column;gap:3px;min-width:0}label.fl>small{f
 .tskrow{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:9px 0;border-top:1px dashed var(--bd)}.tskrow.dn span{color:var(--mu)}.tskrow img{width:46px;height:46px;object-fit:cover;border-radius:8px}
 .kvrow{padding:8px 0;border-top:1px dashed var(--bd);margin:0}.kvrow .qt input{width:64px;text-align:center}
 .tpr{display:flex;align-items:baseline;gap:4px;margin:6px 0 2px}.tpr b{font-size:26px;font-weight:800;color:var(--tc,var(--ac));letter-spacing:-.02em}.tpr small{color:var(--mu)}
+/* ===== v41: ikon garis elegan ===== */
+:root{--gd:#c9a24a;--gd2:#e8cf8a}
+.ic{width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;flex:none;vertical-align:-.15em}
+.ic .a{fill:currentColor;stroke:none;opacity:.13}
+nav.bn button i{font-size:23px;display:grid;place-items:center;width:44px;height:30px;margin:0 auto;border-radius:12px;color:var(--mu);transition:background .2s,color .2s}
+nav.bn button.a i{color:var(--ac);background:color-mix(in srgb,var(--ac) 12%,transparent);box-shadow:inset 0 -2px 0 color-mix(in srgb,var(--gd) 70%,transparent)}
+.sb button i{display:grid;place-items:center;font-size:19px;color:var(--mu)}.sb button.a i{color:var(--ac)}
+.mg button i{font-size:24px;width:48px;height:48px;border-radius:16px;display:grid;place-items:center;margin-bottom:2px;color:var(--ac);background:linear-gradient(150deg,color-mix(in srgb,var(--ac) 13%,var(--cd)),var(--cd));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--gd) 42%,transparent),0 6px 14px -10px var(--ac)}
+.mg button.a i{background:linear-gradient(150deg,var(--ac),color-mix(in srgb,var(--ac) 60%,#000));color:#fff;box-shadow:inset 0 0 0 1px var(--gd2)}
+.qt2 button i{font-size:24px;color:var(--c);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--c) 28%,transparent),0 8px 16px -12px var(--c)!important}
+.pt span{display:grid;place-items:center;width:38px;height:38px;border-radius:13px;font-size:21px;color:var(--ac);background:color-mix(in srgb,var(--ac) 11%,var(--cd));box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--gd) 45%,transparent)}
+.lnk .gh{display:inline-flex;align-items:center;gap:6px}
+/* ===== v41: halaman awal — navy & emas ===== */
+body:not(.in):has(.lo){background:radial-gradient(700px 420px at 50% -8%,#22325e 0%,transparent 70%),radial-gradient(500px 360px at 110% 110%,#c9a24a1c,transparent 70%),#0a1122!important;min-height:100dvh}
+body:not(.in) .lo{color:#e9ecf7}
+body:not(.in) .lo>.fm>small.mu,body:not(.in) .lo .lxfoot small{color:#9aa3c4}
+.splash.lx{background:none;box-shadow:none;padding:26px 10px 6px;color:#f4ecd6}
+.splash.lx::before,.splash.lx::after{display:none}
+.lxlogo{width:92px;height:92px;margin:0 auto 14px;border-radius:28px;padding:4px;background:linear-gradient(145deg,var(--gd2),var(--gd) 45%,#8a6a25);box-shadow:0 18px 40px -12px #c9a24a66,0 0 0 6px #c9a24a14}
+.lxlogo img{width:100%;height:100%;border-radius:24px;display:block;object-fit:cover}
+.splash.lx h1{font-family:Georgia,"Times New Roman",serif;font-weight:400;font-size:38px;letter-spacing:.14em;color:#f6efdc}
+.lxrule{display:block;width:64px;height:1px;margin:10px auto 8px;background:linear-gradient(90deg,transparent,var(--gd2),transparent)}
+.splash.lx .tag{color:#c8bf9f;letter-spacing:.2em;text-transform:uppercase;font-size:10.5px}
+.splash.lx .feat{margin-top:16px;gap:8px}
+.splash.lx .feat i{display:inline-flex;align-items:center;gap:6px;background:#ffffff0c;border:1px solid #c9a24a33;color:#e9dfc0;font-weight:500;padding:5px 11px;font-size:11px}
+.splash.lx .feat .ic{font-size:13px;color:var(--gd2)}
+.lxbtn{display:grid;gap:10px;margin-top:6px}
+.lo .pr.lxmain,.lo .pr.lxalt{display:flex;align-items:center;gap:12px;text-align:left;padding:14px 16px;border-radius:18px;font-size:16px}
+.lo .pr.lxmain{background:linear-gradient(135deg,#f0d88f,#c9a24a 55%,#a5802f);color:#1c1607;box-shadow:0 14px 30px -12px #c9a24a99}
+.lo .pr.lxalt{background:#ffffff0d;color:#f4ecd6;border:1px solid #c9a24a55;box-shadow:none;backdrop-filter:blur(6px)}
+.lo .pr.lxmain>span,.lo .pr.lxalt>span{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;font-size:22px;flex:none}
+.lo .pr.lxmain>span{background:#1c160714}.lo .pr.lxalt>span{background:#c9a24a1f;color:var(--gd2)}
+.lo .pr.lxmain b,.lo .pr.lxalt b{flex:1;display:grid;font-weight:700;line-height:1.25}
+.lo .pr.lxmain small,.lo .pr.lxalt small{font-weight:500;font-size:11.5px;opacity:.75}
+.lxsub{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:4px}
+.lxsub button{display:grid;justify-items:center;gap:2px;padding:12px 6px;border-radius:16px;background:#ffffff08;border:1px solid #ffffff17;color:#e9ecf7}
+.lxsub .ic{font-size:21px;color:var(--gd2);margin-bottom:2px}.lxsub b{font-size:13px;font-weight:650}.lxsub small{font-size:10.5px;color:#9aa3c4}
+.lxfoot{display:grid;gap:8px;justify-items:center;margin-top:10px}
+.lxfoot .srvpill{background:#ffffff0a;border-color:#ffffff1a;color:#cfd5ec;box-shadow:none}
+.lxfoot .lnk .gh{background:transparent;border-color:#ffffff1f;color:#b9c0dc;font-size:12px;padding:6px 10px}
+.lxfoot .lnk .ic{color:var(--gd2)}
+body:not(.in) .lo .us2{background:#ffffff0d;color:#eef0fa;border:1px solid #ffffff1a}body:not(.in) .lo .us2 small{color:#9aa3c4}
+body:not(.in) .lo .us2 em{background:linear-gradient(135deg,var(--gd2),var(--gd));color:#1c1607}
+body:not(.in) .lo>.cd.fm{border-radius:22px}
+body:not(.in) .lo .gh.big{background:transparent;color:#d9def2;border-color:#ffffff26}
+body:not(.in) .lo .cd .gh.big{color:var(--tx);border-color:var(--bd)}
+/* ===== v41: gaji & gerbang jam kerja ===== */
+.gico{width:74px;height:74px;margin:0 auto;border-radius:24px;display:grid;place-items:center;font-size:38px;color:var(--gd2);background:#ffffff12;box-shadow:inset 0 0 0 1px #c9a24a55}
+.gji{border-left:3px solid var(--gd)}
+.hapr{border:1px solid color-mix(in srgb,var(--gd) 45%,var(--bd))}
+.hapg{display:grid;gap:8px;margin:10px 0}@media(min-width:760px){.hapg{grid-template-columns:repeat(3,1fr)}}
+.hapg label{display:grid;gap:8px;padding:12px;border-radius:16px;background:linear-gradient(150deg,color-mix(in srgb,var(--tc) 10%,var(--cd)),var(--cd));border:1px solid color-mix(in srgb,var(--tc) 30%,var(--bd))}
+.hapg label>span{display:grid;grid-template-columns:auto 1fr;column-gap:8px;align-items:center}.hapg label>span .ic{grid-row:span 2;font-size:26px;color:var(--tc)}.hapg small{color:var(--mu);font-size:11px}
+.hain{display:flex;align-items:center;gap:6px}.hain em{font-style:normal;font-weight:700;color:var(--mu)}.hain input{font-size:18px;font-weight:700}
+body:not(.in) .lo .cd{color:var(--tx)}
