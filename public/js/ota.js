@@ -4,7 +4,7 @@
    disalin dari versi yang sedang berjalan, semua disimpan di memori aplikasi, lalu WebView Capacitor diarahkan ke folder
    itu (origin tetap https://localhost → data, login & antrian offline tidak hilang). Diterapkan saat aplikasi dibuka
    berikutnya, atau langsung lewat tombol "Perbarui sekarang". Bila versi baru gagal terbuka 2×, otomatis kembali. */
-const APPV = 44;
+const APPV = 45;
 const OTAK = 'jpos:ota', OTAT = 'jpos:otaTry';
 const otaFS = () => plug('Filesystem'), otaWV = () => plug('WebView');
 const otaOk = () => isNative() && otaFS() && otaWV() && otaFS().downloadFile && otaWV().setServerBasePath;

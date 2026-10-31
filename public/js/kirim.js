@@ -6,7 +6,7 @@ let kMap = null, kRoute = null, kFil = 'aktif';
 const DST = { baru: ['Menunggu', 'o'], tugas: ['Ditugaskan', ''], ambil: ['Barang dimuat', ''], jalan: ['Dalam perjalanan', ''], tiba: ['Tiba di outlet', 'g'], selesai: ['Selesai', 'g'], gagal: ['Gagal kirim', 'r'] };
 const dlSt = (s) => (s.dl ? s.dl.st : 'baru');
 const dlOpen = (s) => !['selesai', 'gagal'].includes(dlSt(s));
-const deliveries = () => S.sales.filter((s) => s.kirim && !(s.rtot >= s.tot));
+const deliveries = () => S.sales.filter((s) => s.kirim && s.cu && !(s.rtot >= s.tot)); // pengiriman hanya untuk penjualan yang punya outlet/pelanggan tujuan
 const isDrv = () => U.r == 'dropping';
 function myDl() { return deliveries().filter((s) => dlOpen(s) && (!s.dl || !s.dl.by || s.dl.by == U.n)); }
 function payTag(s) {
