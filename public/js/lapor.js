@@ -11,7 +11,13 @@ async function rptLoad() { if (!S || !S.srv || !canNet()) return; try { const r 
 function snapData() {
   const low = S.p.filter((p) => !p.x && p.st <= (p.min ?? 10)).sort((a, b) => a.st - (a.min ?? 10) - (b.st - (b.min ?? 10)));
   const now = Date.now(); let ar = 0, od = 0; for (const s of S.sales) { const o = sOut(s); if (o > 0) { ar += o; if (s.due && s.due < now) od += o; } }
-  return { sv: Math.round(S.p.reduce((a, p) => a + Math.max(0, p.st) * (p.co || 0), 0)), bad: Math.round(S.p.reduce((a, p) => a + (p.bv || 0), 0)), nlow: low.length, low: low.slice(0, 15).map((p) => [p.n, p.st, p.min ?? 10]), van: Object.fromEntries(Object.entries(S.van || {}).map(([u, m]) => [u, Object.values(m).reduce((a, v) => a + v, 0)])), kas: Math.round(bal('1101')), bank: Math.round(bal('1102')), ar: Math.round(ar), od: Math.round(od) };
+  return { sv: Math.round(S.p.reduce((a, p) => a + Math.max(0, p.st) * (p.co || 0), 0)), bad: Math.round(S.p.reduce((a, p) => a + (p.bv || 0), 0)), nlow: low.length, low: low.slice(0, 15).map((p) => [p.n, p.st, p.min ?? 10]), van: Object.fromEntries(Object.entries(S.van || {}).map(([u, m]) => [u, Object.values(m).reduce((a, v) => a + v, 0)])), kas: Math.round(bal('1101')), bank: Math.round(bal('1102')), ar: Math.round(ar), od: Math.round(od), ...snapMore() };
+}
+// tambahan untuk ringkasan Head Admin: jumlah SKU & unit, utang supplier, omzet & laba bulan berjalan
+function snapMore() {
+  const P = S.p.filter((p) => !p.x), m0 = new Date(); m0.setDate(1); m0.setHours(0, 0, 0, 0); let lm = 0;
+  for (const j of S.j || []) if (j.t >= m0.getTime()) for (const l of j.l || []) if (/^[4-9]/.test(String(l[0]))) lm += (l[2] || 0) - (l[1] || 0);
+  return { nsku: P.length, qty: Math.round(P.reduce((a, p) => a + Math.max(0, p.st), 0)), ap: Math.round((S.ap || []).reduce((a, x) => a + apOut(x), 0)), lm: Math.round(lm), om: Math.round(S.sales.filter((s) => s.t >= m0.getTime()).reduce((a, s) => a + netSale(s), 0)) };
 }
 async function snapPost(force) {
   try {
