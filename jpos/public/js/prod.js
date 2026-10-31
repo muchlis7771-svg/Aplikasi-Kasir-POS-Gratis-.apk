@@ -15,7 +15,7 @@ VW.prod = () => {
 <div class="pnums"><span><small>Harga jual</small><b>${rp(p.pr)}</b></span><span><small>HPP</small><b>${rp(p.co)}</b></span><span><small>Stok</small><b class="${lo ? 'rd' : 'gr'}">${p.st.toLocaleString('id-ID')}${p.u ? ' <i>' + esc(p.u) + '</i>' : ''}</b></span><span><small>Bad stock</small><b class="${p.bad ? 'rd' : 'mu'}">${(p.bad || 0).toLocaleString('id-ID')}</b></span></div>
 ${typeof vanAll == 'function' && vanAll(p.id) ? `<small class="mu">🏬 Gudang ${(p.st - vanAll(p.id)).toLocaleString('id-ID')} · 🚚 di mobil kanvas ${vanAll(p.id).toLocaleString('id-ID')}</small>` : ''}${lo ? `<small class="rd">⚠ Stok menipis (minimal ${p.min ?? 10})</small>` : ''}${can('prodEdit') ? `<div class="pact"><button class="gh" onclick="prodForm('${p.id}')">✏️ Edit</button><button class="gh pri" onclick="stkForm('${p.id}')">＋ Restok</button></div>` : ''}</div>`; }).join('') || '<div class="mu c" style="padding:20px">Belum ada produk. Tambahkan produk pertama Anda.</div>'}</div></div>`;
 };
-function prodForm(id, sku) {
+function prodForm(id, sku, then) {
   const p = id ? prod(id) : null, cats = [...new Set(actProds().map((x) => x.c))];
   const m = modal(`<h3>${p ? 'Edit' : 'Tambah'} produk</h3>
 <input id="fn" placeholder="Nama produk *" value="${esc(p ? p.n : '')}"><div class="fm2"><input id="fc" list="cl" placeholder="Kategori" value="${esc(p ? p.c : '')}"><datalist id="cl">${cats.map((c) => `<option value="${esc(c)}">`).join('')}</datalist><input id="fb" list="bl" placeholder="Merek / brand" value="${esc(p ? p.b || '' : '')}"><datalist id="bl">${[...new Set(S.p.map((x) => x.b).filter(Boolean))].map((c) => `<option value="${esc(c)}">`).join('')}</datalist><div class="srch"><input id="fk" placeholder="SKU / barcode" value="${esc(p ? p.sku || '' : sku || '')}"><button class="gh" id="fsc">▣</button></div></div>
@@ -36,7 +36,7 @@ function prodForm(id, sku) {
     const f = $('#fi', m).files[0], d = { id: p ? p.id : 'p' + uid(), n, c: $('#fc', m).value.trim() || 'Umum', b: $('#fb', m).value.trim(), pr, sku: sk, min: num($('#fm', m).value), opr: num($('#fo', m).value) || 0, u: $('#fu', m).value.trim(), on: $('#fon', m).checked, tiers: tr.filter((t) => t.min > 1 && cfac(t.d) < 1).map((t) => ({ min: t.min, d: t.d })) };
     const co = num($('#fh', m).value); if (!p) { d.co = co; d.s0 = num(($('#fs', m) || {}).value); } else if (co != p.co) d.co = co;
     if (f) d.img = await imgData(f, 360);
-    emit('pu', { p: d }); m.close(); R(); toast('Produk disimpan');
+    emit('pu', { p: d }); m.close(); R(); toast('Produk disimpan'); if (typeof then == 'function') try { then(d.id); } catch (e) { }
   };
   const ar = $('#ar', m); if (ar) ar.onclick = () => { if (confirm('Arsipkan ' + p.n + '? Produk disembunyikan dari kasir (riwayat tetap ada).')) { emit('pu', { p: { id: p.id, x: 1 } }); m.close(); R(); } };
 }
@@ -44,7 +44,7 @@ function scanFind() {
   scanCode((v) => {
     const p = bySku(v);
     if (p) { const m = modal(`<h3>${esc(p.n)}</h3><small>${esc(p.sku)} · stok ${p.st} · ${rp(p.pr)}</small><button class="pr" id="a">Restok</button><button class="gh" id="b">Edit produk</button>`); $('#a', m).onclick = () => { m.close(); stkForm(p.id); }; $('#b', m).onclick = () => { m.close(); prodForm(p.id); }; }
-    else if (confirm('SKU ' + v + ' belum terdaftar. Tambahkan produk baru?')) prodForm(null, v);
+    else skuUnknown(v);
   });
 }
 function stkForm(id) {

@@ -53,15 +53,16 @@ async function precisePos(target = 15, maxMs = 20000, onUpd) {
 /* ============ scan barcode ============ */
 // Urutan: ML Kit native (APK) -> BarcodeDetector -> ZXing JS. Input manual & scanner Bluetooth (mode keyboard) selalu bisa.
 async function scanCode(onCode, opt = {}) {
+  // onCode mengembalikan false bila kode tidak dikenal → scan beruntun berhenti agar pengguna bisa menambah produk
   const N = plug('BarcodeScanner');
   if (isNative() && N && N.scan) {
     try {
-      if (N.requestPermissions) await N.requestPermissions();
+      if (N.isGoogleBarcodeScannerModuleAvailable) { const a = await N.isGoogleBarcodeScannerModuleAvailable().catch(() => ({ available: true })); if (a && a.available === false) { toast('Menyiapkan pemindai Google… (sekali saja, butuh internet)', 4000); try { await N.installGoogleBarcodeScannerModule(); } catch (e) { } throw new Error('modul belum siap'); } }
       const r = await N.scan();
       const v = r && r.barcodes && r.barcodes[0] && (r.barcodes[0].rawValue || r.barcodes[0].displayValue);
-      if (v) { onCode(String(v)); if (opt.multi) return scanCode(onCode, opt); }
+      if (v) { const ok = onCode(String(v).trim()); if (opt.multi && ok !== false) setTimeout(() => scanCode(onCode, opt), 350); }
       return;
-    } catch (e) { if (/cancel/i.test(String(e && e.message))) return; console.warn('ML Kit gagal, pakai kamera web', e); }
+    } catch (e) { if (/cancel/i.test(String(e && (e.message || e.code)))) return; console.warn('ML Kit gagal, pakai kamera aplikasi', e); }
   }
   openWebScanner(onCode, opt);
 }
@@ -71,20 +72,20 @@ function openWebScanner(onCode, opt = {}) {
   document.body.appendChild(el);
   const video = $('video', el), inp = $('input', el); let stream = null, stop = false, reader = null, last = '', lastT = 0;
   const done = () => { stop = true; try { reader && reader.reset(); } catch (e) { } if (stream) stream.getTracks().forEach((t) => t.stop()); el.remove(); };
-  const hit = (v) => { v = String(v || '').trim(); if (!v) return; const n = Date.now(); if (v == last && n - lastT < 1800) return; last = v; lastT = n; if (navigator.vibrate) navigator.vibrate(60); onCode(v); if (!opt.multi) done(); };
+  const hit = (v) => { v = String(v || '').trim(); if (!v) return; const n = Date.now(); if (v == last && n - lastT < 1800) return; last = v; lastT = n; if (navigator.vibrate) navigator.vibrate(60); const ok = onCode(v); if (!opt.multi || ok === false) done(); };
   $('#sx', el).onclick = done;
   inp.addEventListener('keydown', (e) => { if (e.key == 'Enter') { hit(inp.value); inp.value = ''; } });
   (async () => {
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('kamera tidak tersedia');
-      const c = { video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } }, audio: false };
+      const c = { video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false };
       if ('BarcodeDetector' in window) {
-        const fm = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'itf', 'qr_code'], sup = await BarcodeDetector.getSupportedFormats().catch(() => fm);
+        const fm = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'code_93', 'codabar', 'itf', 'qr_code', 'data_matrix'], sup = await BarcodeDetector.getSupportedFormats().catch(() => fm);
         const det = new BarcodeDetector({ formats: fm.filter((f) => sup.includes(f)) });
         stream = await navigator.mediaDevices.getUserMedia(c); video.srcObject = stream; await video.play();
         const loop = async () => { if (stop) return; try { const r = await det.detect(video); if (r[0]) hit(r[0].rawValue); } catch (e) { } setTimeout(loop, 200); }; loop();
       } else if (window.ZXing) {
-        reader = new ZXing.BrowserMultiFormatReader();
+        const hints = new Map(); try { hints.set(ZXing.DecodeHintType.TRY_HARDER, true); } catch (e) { } reader = new ZXing.BrowserMultiFormatReader(hints, 300);
         await reader.decodeFromConstraints(c, video, (res) => { if (res && !stop) hit(res.getText()); });
       } else throw new Error('pemindai tidak tersedia');
     } catch (e) { toast('Kamera tidak bisa dibuka (' + (e.message || e) + '). Ketik kode secara manual.', 4500); inp.focus(); }

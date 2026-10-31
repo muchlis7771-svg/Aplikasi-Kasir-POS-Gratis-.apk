@@ -7,7 +7,11 @@ const resetCart = () => { cart = []; cCd = ''; cPay = 'Tunai'; cCu = ''; cDp = 0
 const krAuto = () => !!(U && S && U.r == 'sales' && pkgHas('kirim') && S.srv && S.set.autoKirim !== false);
 const krOn = () => U && U.r != 'kanvas' && (cKr == null ? krAuto() : cKr) && !!cCu && pkgHas('kirim') && !!S.srv;
 const actProds = () => S.p.filter((p) => !p.x);
-const bySku = (v) => { const k = String(v).trim().toLowerCase(); return S.p.find((p) => !p.x && p.sku && String(p.sku).toLowerCase() == k) || S.p.find((p) => !p.x && p.kd && p.kd.toLowerCase() == k); };
+// cocokkan kode hasil scan: persis, lalu tanpa spasi / nol di depan (UPC-A 12 digit = EAN-13 berawalan 0), lalu kode item
+const skuNorm = (v) => { const s = String(v ?? '').trim().toLowerCase().replace(/\s+/g, ''); return /^\d+$/.test(s) ? s.replace(/^0+/, '') : s; };
+const bySku = (v) => { const k = String(v).trim().toLowerCase(), n = skuNorm(v); if (!k) return null; return S.p.find((p) => !p.x && p.sku && String(p.sku).trim().toLowerCase() == k) || S.p.find((p) => !p.x && p.sku && skuNorm(p.sku) == n) || S.p.find((p) => !p.x && p.kd && p.kd.toLowerCase() == k); };
+// kode belum terdaftar: tawarkan tambah produk baru (bagi yang berhak), lalu lanjutkan aksinya
+function skuUnknown(v, then) { if (can('prodEdit') && confirm('Kode ' + v + ' belum terdaftar.\nTambahkan sebagai produk baru?')) prodForm(null, v, then); else toast('Kode belum terdaftar: ' + v, 3500); }
 const tierTxt = (p) => (p.tiers || []).slice().sort((a, b) => a.min - b.min).map((t) => '≥' + t.min + ': ' + t.d + '%').join(' · ');
 function gridH() {
   const t = pQ.toLowerCase();
@@ -80,7 +84,7 @@ function outPick() {
   if (!MYPOS || Date.now() - (MYPOS.t || 0) > 12e4) getPos().then((p) => { if (p) { p.t = Date.now(); MYPOS = p; } if (document.body.contains(m)) draw(); });
 }
 const ppay = (m) => { cPay = m; cartUp(); };
-function scanAdd() { scanCode((v) => { const p = bySku(v); if (p) { padd(p.id); toast('+ ' + p.n, 1200); } else toast('SKU belum terdaftar: ' + v, 3000); }, { multi: true }); }
+function scanAdd() { scanCode((v) => { const p = bySku(v); if (p) { padd(p.id); toast('+ ' + p.n, 1200); return true; } skuUnknown(v, (id) => padd(id)); return false; }, { multi: true }); }
 function ptahan() { if (!cart.length) return toast('Keranjang kosong'); S.hold.push({ cart, cCd, cPay, cCu, cDp, cDpm, cNote, cKr, t: Date.now() }); resetCart(); save(); cartUp(); toast('Transaksi ditahan'); }
 function planjut() { if (!S.hold.length) return toast('Tidak ada transaksi ditahan'); if (cart.length && !confirm('Keranjang saat ini akan diganti. Lanjutkan?')) return; const h = S.hold.pop(); ({ cart, cCd, cPay, cCu, cDp, cDpm, cNote } = h); cKr = h.cKr == null ? null : !!h.cKr; save(); cartUp(); }
 async function pbayar() {

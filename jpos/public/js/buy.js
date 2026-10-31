@@ -79,7 +79,7 @@ function poSearch(v) {
   el.innerHTML = L.map((p) => `<button class="gh" style="text-align:left" onclick="poAdd('${p.id}')">${esc(p.n)} <small class="mu">· stok ${p.st} · HPP ${rp(p.co)}</small></button>`).join('');
 }
 function poAdd(pid) { const p = prod(pid); if (!p) return; const l = POD.L.find((x) => x.p == pid); if (l) l.q++; else POD.L.push({ p: pid, n: p.n, q: Math.max(1, (p.min ?? 10) * 2 - p.st), c: p.co, rq: 0 }); const q = $('#ppq'); if (q) q.value = ''; poPaint($('.md')); }
-function poScan() { scanCode((v) => { const p = bySku(v); if (p) { poAdd(p.id); toast('+ ' + p.n, 1200); } else toast('SKU tidak dikenal: ' + v); }); }
+function poScan() { scanCode((v) => { const p = bySku(v); if (p) { poAdd(p.id); toast('+ ' + p.n + ' (ketuk jumlah untuk mengubah)', 1500); return true; } skuUnknown(v, (id) => poAdd(id)); return false; }, { multi: true }); }
 function poAddLow() { lowStock().forEach((p) => { if (!POD.L.some((x) => x.p == p.id)) POD.L.push({ p: p.id, n: p.n, q: Math.max(1, (p.min ?? 10) * 2 - p.st), c: p.co, rq: 0 }); }); poPaint($('.md')); }
 
 /* ---------- detail & aksi PO ---------- */

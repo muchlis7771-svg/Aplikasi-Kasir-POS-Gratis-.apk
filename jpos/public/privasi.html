@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kebijakan Privasi J-POS</title>
+<style>
+@font-face{font-family:Inter;font-weight:400;src:url(fonts/inter-Regular.woff2) format('woff2')}
+@font-face{font-family:Inter;font-weight:700;src:url(fonts/inter-Bold.woff2) format('woff2')}
+:root{--bg:#f6f7fb;--tx:#1b1d2a;--mu:#5c6175;--ac:#0b1330;--gd:#b8891f}
+@media(prefers-color-scheme:dark){:root{--bg:#0b1330;--tx:#eef0f8;--mu:#a9aec4;--ac:#f1d78a;--gd:#e9c763}}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.65 Inter,system-ui,sans-serif}
+main{max-width:760px;margin:0 auto;padding:32px 18px 64px}
+h1{font-size:28px;margin:0 0 4px;color:var(--ac)}h2{font-size:19px;margin:28px 0 6px;color:var(--ac)}
+p,li{color:var(--tx)}small,.mu{color:var(--mu)}ul{padding-left:20px}
+header{display:flex;align-items:center;gap:14px;margin-bottom:18px}header img{width:56px;height:56px;border-radius:14px}
+a{color:var(--gd)}
+</style>
+</head>
+<body>
+<main>
+<header><img src="icons/icon-192.png" alt="Logo J-POS"><div><h1>Kebijakan Privasi J-POS</h1><small>Berlaku sejak 31 Oktober 2026</small></div></header>
+
+<p>J-POS adalah aplikasi kasir, stok, akuntansi, dan tim lapangan untuk kios, toko grosir, dan distributor. Halaman ini menjelaskan data apa yang dikumpulkan aplikasi, untuk apa data itu dipakai, dan bagaimana data itu dijaga.</p>
+
+<h2>1. Data yang dikumpulkan</h2>
+<ul>
+<li><b>Akun toko dan pengguna</b>: nama toko, nama pemilik dan karyawan, peran, nomor WhatsApp dan email (bila diisi), serta PIN yang disimpan dalam bentuk tersandi (hash), bukan teks asli.</li>
+<li><b>Data usaha</b>: produk, stok, harga, transaksi penjualan dan pembelian, pelanggan / outlet, piutang dan utang, catatan keuangan, target dan insentif. Data ini dimasukkan sendiri oleh pengguna toko.</li>
+<li><b>Lokasi</b>: titik GPS saat absen, check-in / check-out outlet, serah terima barang, dan penentuan titik outlet atau kios. Untuk peran sales, sales kanvas, dan tim dropping, lokasi juga dibagikan ke pemilik toko secara berkala <b>hanya selama aplikasi dibuka dan karyawan sedang dalam jam kerja</b> (sudah absen masuk). Aplikasi tidak melacak lokasi di latar belakang.</li>
+<li><b>Kamera dan foto</b>: selfie absen, foto outlet, foto bukti serah terima, retur, pemusnahan, dan tugas kebersihan, serta pemindaian barcode. Foto hanya diambil saat pengguna menekan tombol foto.</li>
+<li><b>Verifikasi wajah</b>: bila pemilik toko mengaktifkannya, aplikasi membuat ciri wajah berupa deretan angka dari selfie absen untuk mencocokkan karyawan. Pemrosesan dilakukan di perangkat; yang disimpan hanya deretan angka tersebut, dan pemilik toko dapat menghapusnya.</li>
+<li><b>Sidik jari</b>: bila pengguna memilih masuk dengan sidik jari, pencocokan dilakukan oleh sistem Android. J-POS tidak pernah menerima atau menyimpan data sidik jari.</li>
+<li><b>Data pembeli dan kios</b> (menu Belanja): nomor HP, nama, nama kios, alamat, titik lokasi, pesanan, ulasan, dan chat dengan penjual.</li>
+<li><b>Data teknis</b>: halaman yang sedang dibuka dan waktu aktivitas, untuk keamanan dan dukungan teknis.</li>
+</ul>
+
+<h2>2. Untuk apa data dipakai</h2>
+<ul>
+<li>Menjalankan fitur aplikasi: kasir, stok, laporan, absensi, kunjungan outlet, pengantaran, dan sinkronisasi antar perangkat dalam satu toko.</li>
+<li>Mencegah kecurangan absen dan kunjungan (jam server, lokasi, foto, dan verifikasi wajah).</li>
+<li>Mengirim laporan harian dan laporan closing ke WhatsApp / email pemilik toko, bila pemilik mengaktifkannya.</li>
+<li>Menampilkan toko grosir terdekat kepada kios, dan menampilkan kios kepada toko grosir / distributor <b>hanya bila kios menyetujuinya</b>. Persetujuan bisa dicabut kapan saja di menu Akun.</li>
+<li>Berbagi data stok dan penjualan toko kepada distributor <b>hanya bila pemilik toko mengizinkan</b>, dengan cakupan data yang dipilih pemilik toko sendiri. Izin bisa dicabut kapan saja.</li>
+</ul>
+<p>J-POS tidak menjual data pengguna dan tidak memakai data untuk iklan.</p>
+
+<h2>3. Siapa yang bisa melihat data</h2>
+<ul>
+<li>Data toko hanya bisa dilihat oleh pengguna toko itu, sesuai hak akses yang diatur pemilik toko.</li>
+<li>Pengelola aplikasi (Head Admin) dapat melihat data akun toko untuk keperluan langganan dan dukungan teknis.</li>
+<li>Penyedia layanan yang membantu menjalankan aplikasi: Cloudflare (server dan basis data), serta layanan pengirim WhatsApp dan email untuk laporan otomatis bila diaktifkan.</li>
+<li>Peta dasar dimuat dari OpenStreetMap; pencarian alamat dari titik GPS memakai layanan OpenStreetMap Nominatim.</li>
+</ul>
+
+<h2>4. Penyimpanan dan keamanan</h2>
+<ul>
+<li>Data disimpan di perangkat (agar aplikasi tetap bisa dipakai tanpa internet) dan di server melalui koneksi terenkripsi (HTTPS).</li>
+<li>PIN disimpan dalam bentuk hash. Akses dibatasi per toko dan per peran.</li>
+<li>Foto bukti yang sudah terkirim ke server dapat dihapus dari perangkat untuk menghemat ruang.</li>
+</ul>
+
+<h2>5. Hak pengguna</h2>
+<ul>
+<li>Pemilik toko dapat mengekspor data (Excel / backup) kapan saja.</li>
+<li>Pengguna dapat meminta penghapusan akun dan data dengan menghubungi kami di kontak di bawah. Data toko dihapus dari server paling lambat 30 hari setelah permintaan diverifikasi.</li>
+<li>Izin lokasi, kamera, dan notifikasi dapat dicabut melalui pengaturan Android; fitur yang membutuhkannya tidak akan berfungsi.</li>
+</ul>
+
+<h2>6. Anak-anak</h2>
+<p>J-POS ditujukan untuk pelaku usaha dan karyawannya, bukan untuk anak-anak di bawah 13 tahun.</p>
+
+<h2>7. Perubahan kebijakan</h2>
+<p>Kebijakan ini dapat diperbarui. Tanggal berlaku di atas akan diubah setiap ada pembaruan.</p>
+
+<h2>8. Kontak</h2>
+<p>J-POS · WhatsApp <a href="https://wa.me/6281340641730">0813-4064-173</a> (Mucus)</p>
+</main>
+</body>
+</html>
