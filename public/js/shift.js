@@ -98,3 +98,25 @@ function shSave() {
   const ids = new Set(SHD.defs.map((d) => d.id)); for (const k in SHD.as) for (const d in SHD.as[k]) if (!ids.has(SHD.as[k][d])) delete SHD.as[k][d];
   emit('shs', { x: SHD }); SHD = null; toast('Shift & jadwal disimpan — berlaku di semua HP setelah sinkron'); R();
 }
+
+/* ---------- kalender shift & absensi milik karyawan (beranda kasir & halaman Absensi) ---------- */
+let MYCAL = 0; // geser bulan: 0 = bulan ini
+function myCal(u) {
+  u = u || U.n; const now = new Date(), base = new Date(now.getFullYear(), now.getMonth() + MYCAL, 1), y = base.getFullYear(), mo = base.getMonth(), today = dkey(Date.now());
+  const ins = {}; for (const a of S.att) if (a.u == u && a.k == 'in') { const k = dkey(a.t); if (!ins[k] || a.t < ins[k]) ins[k] = a.t; }
+  const hasSh = shDefs().length > 0, days = []; let nWork = 0, nIn = 0, nLate = 0, nAbs = 0;
+  for (let d = new Date(y, mo, 1); d.getMonth() == mo; d.setDate(d.getDate() + 1)) {
+    const k = dkey(d.getTime()), sh = hasSh ? shiftFor(u, d.getTime()) : null, work = hasSh ? !!sh : d.getDay() != 0, t = ins[k], jin = String(sh ? sh.s : S.set.jin || '08:00').split(':');
+    const late = t ? new Date(t).getHours() * 60 + new Date(t).getMinutes() > +jin[0] * 60 + +jin[1] + 10 : false, past = k < today;
+    let st = ''; if (t) { st = late ? 'late' : 'ok'; nIn++; if (late) nLate++; } else if (work && past) { st = 'abs'; nAbs++; }
+    if (work && k <= today) nWork++;
+    days.push({ d: d.getDate(), k, dow: d.getDay(), sh, work, st, t, td: k == today });
+  }
+  const first = days[0].dow, nm = base.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' }), tdy = days.find((x) => x.td);
+  return `<div class="cd mycal"><div class="row" style="margin:0"><button class="gh" aria-label="Bulan sebelumnya" onclick="MYCAL--;R()">‹</button><b style="font-size:15px">📅 ${esc(nm)}</b><button class="gh" aria-label="Bulan berikutnya" onclick="MYCAL++;R()" ${MYCAL >= 1 ? 'disabled' : ''}>›</button></div>
+${tdy ? `<div class="mctoday">Hari ini: <b>${tdy.sh ? esc(tdy.sh.n) + ' ' + tdy.sh.s + '–' + tdy.sh.e : tdy.work ? 'Masuk ' + esc(S.set.jin || '08:00') : 'Libur'}</b>${tdy.t ? ` · absen ${hm(tdy.t)}${tdy.st == 'late' ? ' <span class="rd">(terlambat)</span>' : ' <span class="gr">✓</span>'}` : ''}</div>` : ''}
+<div class="mcsum"><span><b>${nIn}</b><small>Kali absen</small></span><span><b class="${nLate ? 'or' : ''}">${nLate}</b><small>Terlambat</small></span><span><b class="${nAbs ? 'rd' : ''}">${nAbs}</b><small>Tidak hadir</small></span><span><b>${nWork}</b><small>Hari kerja s.d. hari ini</small></span></div>
+<div class="mcgrid">${SHARI.map((h) => `<i>${h}</i>`).join('')}${'<span></span>'.repeat(first)}${days.map((x) => `<span class="mcd ${x.work ? 'w' : 'off'} ${x.st} ${x.td ? 'td' : ''}" title="${x.k}"><b>${x.d}</b><small>${x.sh ? esc(x.sh.n.slice(0, 6)) : x.work ? '' : 'Libur'}</small>${x.t ? `<em>${hm(x.t)}</em>` : ''}</span>`).join('')}</div>
+<div class="mcleg"><span><i class="ok"></i>Hadir tepat waktu</span><span><i class="late"></i>Terlambat</span><span><i class="abs"></i>Tidak hadir</span><span><i class="off"></i>Libur</span></div>
+${hasSh ? '' : '<small class="mu">Jadwal shift belum diatur admin — hari kerja dianggap Senin–Sabtu.</small>'}</div>`;
+}
