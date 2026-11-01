@@ -17,4 +17,6 @@ trap 'kill $(jobs -p) 2>/dev/null; pkill -f "node server.js" 2>/dev/null; pkill 
     [ "$(stat -c%s web.log 2>/dev/null || echo 0)" -gt 1048576 ] && : > web.log
     sleep 120
   done ) &
+# 4) cadangan & cermin: tiap jam salin semua data website (pengaturan, media, APK, ulasan, pesanan, chat) ke folder ini
+( sleep 45; while true; do node sync.js >> sync.log 2>&1; [ "$(stat -c%s sync.log 2>/dev/null || echo 0)" -gt 524288 ] && : > sync.log; sleep 3600; done ) &
 wait

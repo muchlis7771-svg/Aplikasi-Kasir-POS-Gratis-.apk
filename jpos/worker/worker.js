@@ -1,7 +1,7 @@
 import { MSCHEMA, buyerRoutes, shopRoutes, shipCfg } from './market.js';
 import { SSCHEMA, SALTER, logAct, heartbeat, adminActivity } from './social.js';
 import { MSCH2, mitraRoutes } from './mitra.js';
-import { HSCHEMA, payHook, hqStore, hqAdmin, leadPost, trailStmt, trailGet, pruneTrail, tunnelPost, tunnelRedirect, apkPublic, apkPubOf, apkChunkGet, apkDlCount, siteOf, siteHit, webPublic } from './hq.js';
+import { HSCHEMA, payHook, hqStore, hqAdmin, leadPost, trailStmt, trailGet, pruneTrail, tunnelPost, tunnelRedirect, apkPublic, apkPubOf, apkChunkGet, apkDlCount, siteOf, siteHit, webPublic, mediaPublic, webExport } from './hq.js';
 import { RSCHEMA, RALTER, rptCfg, cleanCfg, dayRange, buildDaily, sendOut, cronDaily } from './lapor.js';
 // J-POS API v4 — Cloudflare Worker + D1 (SQLite)
 // Multi-tenant: 1 toko = 1 tenant. Data bisnis = LOG KEJADIAN (tabel ev) yang diputar ulang tiap perangkat (offline-first).
@@ -127,7 +127,7 @@ export default {
     const J = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
     if (M == 'OPTIONS') return new Response(null, { headers: cors });
     let b = {};
-    if ((M == 'POST' || M == 'PUT' || M == 'PATCH') && p != '/api/pay/hook' && p != '/api/admin/apk/chunk') { try { b = await req.json(); } catch { } }
+    if ((M == 'POST' || M == 'PUT' || M == 'PATCH') && p != '/api/pay/hook' && p != '/api/admin/apk/chunk' && p != '/api/admin/media/chunk') { try { b = await req.json(); } catch { } }
     const bearer = (req.headers.get('Authorization') || '').slice(7);
     try {
       if (!env.DB) return J({ e: 'Database D1 belum terhubung ke Worker (binding DB)' }, 500);
@@ -142,6 +142,8 @@ export default {
       if (p == '/api/apk/dl' && M == 'POST') return apkDlCount(env, ip, J, limited);
       if (p == '/api/pesan' && M == 'POST') return leadPost(env, b, ip, J, await cfgAll(env), pkgAll, limited); // pemesanan dari website promo
       if (p.startsWith('/api/chat/') || p == '/api/ulasan') { const r = await webPublic({ env, p, M, b, u, ip, J, limited, pkgAll }); if (r) return r; }
+      if (p == '/api/media' || p == '/api/media/chunk') { const r = await mediaPublic({ env, p, M, u, ip, J, limited }); if (r) return r; }
+      if (p == '/api/tunnel/export' && M == 'GET') return webExport(env, u, ip, J, await cfgAll(env), limited);
       if (p == '/api/ping') return J({ ok: 1, v: 5 });
       if (p == '/api/time') return J({ t: Date.now() });
       if (p == '/api/info') { const c = await cfgAll(env); const pk = pkgAll(), pkg = {}; for (const t of Object.keys(pk)) pkg[t] = { n: pk[t].n, max: pk[t].max, f: pk[t].f, pr: pk[t].pr }; return J({ wa: c.wa || '', price: c.price || '', trial: +(c.trial_days || 30), app: c.app_name || 'J-POS', pkg }); }
