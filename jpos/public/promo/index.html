@@ -121,7 +121,7 @@ footer a{color:var(--gold2)}
     <span class="eyebrow">Kasir · Stok · Grosir · Distributor</span>
     <h1>Kelola toko &amp; distribusi Anda <span class="gold">dalam satu aplikasi</span></h1>
     <p class="lead">Kasir yang tetap jalan tanpa internet, stok yang terpantau, sales lapangan dengan GPS, pengantaran, absensi, gaji, sampai laporan keuangan. Untuk kios, toko grosir, dan distributor.</p>
-    <div class="cta"><a class="btn g" href="#pesan">Pesan sekarang</a><a class="btn o" id="demoLink" href="#" target="_blank" rel="noopener">▶ Coba demo gratis</a></div>
+    <div class="cta"><a class="btn g" href="#pesan">Pesan sekarang</a><a class="btn o" id="demoLink" href="#" target="_blank" rel="noopener">▶ Coba demo gratis</a><a class="btn o" id="apkLink" href="apk/J-POS.apk" download hidden>⬇ Unduh aplikasi Android</a></div><p id="apkNote" hidden style="margin-top:10px;font-size:13px;color:var(--mu)">Android akan meminta izin “pasang dari sumber ini” saat membuka file APK. Itu normal untuk aplikasi di luar Play Store.</p>
     <div class="pts"><span>Online &amp; offline</span><span>Banyak pengguna</span><span>HP Android &amp; laptop</span></div>
   </div>
   <div class="phones" aria-hidden="true">
@@ -282,6 +282,7 @@ footer a{color:var(--gold2)}
       $('#formBody').hidden = true; $('#okBox').hidden = false; $('#okTxt').textContent = 'Koneksi ke server sedang bermasalah. Tekan tombol di bawah untuk mengirim pesanan langsung lewat WhatsApp.'; $('#okWa').href = waUrl(msg);
     }
   });
+  fetch('apk/J-POS.apk', { method: 'HEAD' }).then((r) => { if (r.ok && /android|octet/i.test(r.headers.get('content-type') || '')) { $('#apkLink').hidden = false; $('#apkNote').hidden = false; } }).catch(() => { });
   drawPkg(); links();
   api('/api/info').then((j) => { if (j && j.pkg) { INFO = { pkg: j.pkg, wa: j.wa, trial: j.trial }; drawPkg(); links(); } }).catch(() => links());
 })();
