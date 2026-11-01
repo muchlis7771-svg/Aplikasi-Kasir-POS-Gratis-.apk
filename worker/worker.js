@@ -1,7 +1,7 @@
 import { MSCHEMA, buyerRoutes, shopRoutes, shipCfg } from './market.js';
 import { SSCHEMA, SALTER, logAct, heartbeat, adminActivity } from './social.js';
 import { MSCH2, mitraRoutes } from './mitra.js';
-import { HSCHEMA, payHook, hqStore, hqAdmin, leadPost, trailStmt, trailGet, pruneTrail, tunnelPost, tunnelRedirect, apkPublic, apkPubOf, apkChunkGet, apkDlCount, siteOf, siteHit, webPublic, mediaPublic, webExport } from './hq.js';
+import { HSCHEMA, payHook, hqStore, hqAdmin, leadPost, trailStmt, trailGet, pruneTrail, tunnelPost, tunnelRedirect, apkPublic, apkPubOf, apkChunkGet, apkDlCount, siteOf, siteHit, webPublic, mediaPublic, webExport, trkIssue, trkOff, trkLoc } from './hq.js';
 import { RSCHEMA, RALTER, rptCfg, cleanCfg, dayRange, buildDaily, sendOut, cronDaily } from './lapor.js';
 // J-POS API v4 — Cloudflare Worker + D1 (SQLite)
 // Multi-tenant: 1 toko = 1 tenant. Data bisnis = LOG KEJADIAN (tabel ev) yang diputar ulang tiap perangkat (offline-first).
@@ -144,6 +144,7 @@ export default {
       if (p.startsWith('/api/chat/') || p == '/api/ulasan') { const r = await webPublic({ env, p, M, b, u, ip, J, limited, pkgAll }); if (r) return r; }
       if (p == '/api/media' || p == '/api/media/chunk') { const r = await mediaPublic({ env, p, M, u, ip, J, limited }); if (r) return r; }
       if (p == '/api/tunnel/export' && M == 'GET') return webExport(env, u, ip, J, await cfgAll(env), limited);
+      if (p == '/api/trk/loc' && M == 'POST') return trkLoc(env, b, bearer, ip, J, (tk) => verify(env, tk), limited); // titik lokasi dari pelacak HP (token khusus)
       if (p == '/api/ping') return J({ ok: 1, v: 5 });
       if (p == '/api/time') return J({ t: Date.now() });
       if (p == '/api/info') { const c = await cfgAll(env); const pk = pkgAll(), pkg = {}; for (const t of Object.keys(pk)) pkg[t] = { n: pk[t].n, max: pk[t].max, f: pk[t].f, pr: pk[t].pr }; return J({ wa: c.wa || '', price: c.price || '', trial: +(c.trial_days || 30), app: c.app_name || 'J-POS', pkg }); }
@@ -298,6 +299,8 @@ export default {
 
       if (p == '/api/me') return J({ sid, name: uname, role, ...stInfo(me) });
       if (p == '/api/trail' && M == 'GET') { if ((role != 'owner' && role != 'admin') || !featsOf(me, role).includes('gps')) return J({ e: 'Riwayat perjalanan hanya untuk pemilik / admin (paket Medium ke atas)' }, 403); return trailGet(env, sid, u, J); }
+      if (p == '/api/trk/issue' && M == 'POST') return trkIssue({ env, sid, uname, role, J, sign: (o) => sign(env, o) });
+      if (p == '/api/trk/off') return trkOff({ env, p, M, b, sid, role, J });
       { const hr = await hqStore({ env, p, M, b, J, sid, uname, role, C: await cfgAll(env), pkgAll, sname: me.sn, limited }); if (hr) return hr; } // perpanjangan & komplain (tetap jalan walau masa aktif habis)
 
       // ---------- toko belanja ke grosir / distributor lain (akun pembeli milik toko) ----------

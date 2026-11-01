@@ -13,7 +13,7 @@ function gpsPlace(lat, lng) { let best = null, bd = 1e9; for (const c of S.c || 
 // susun riwayat perjalanan dari jejak: berhenti (≥4 mnt di radius 70 m) vs perjalanan, beserta durasi & jarak
 function gpsHistory(P0, user) {
   const P = (P0 || []).filter((p) => p[1] != null && p[2] != null).slice().sort((a, b) => a[0] - b[0]);
-  const out = { km: 0, moveMs: 0, stopMs: 0, nStop: 0, first: P.length ? P[0][0] : 0, last: P.length ? P[P.length - 1][0] : 0, tl: [], maxStop: null };
+  const out = { km: 0, moveMs: 0, stopMs: 0, nStop: 0, first: P.length ? P[0][0] : 0, last: P.length ? P[P.length - 1][0] : 0, tl: [], maxStop: null, P };
   if (P.length < 2) return out;
   const hv = (a, b) => haversine(P[a][1], P[a][2], P[b][1], P[b][2]);
   const segDist = (a, b) => { let d = 0; for (let k = a + 1; k <= b; k++) { const x = haversine(P[k - 1][1], P[k - 1][2], P[k][1], P[k][2]); if (x < 3000) d += x; } return d; };
@@ -67,9 +67,16 @@ function gpsVisDraw(pts) {
   });
 }
 function gpsVisFocus(lat, lng) { try { GMAP.setView([lat, lng], 17); document.getElementById('gmap').scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) { } }
+let GOFF = null;
+function gpsOffLoad() { if (GOFF || U.r != 'owner' || !(S.srv && canNet())) return; GOFF = []; api('/api/trk/off').then((r) => { GOFF = r.off || []; if (V == 'gps' && !document.querySelector('.md')) R(); }).catch(() => { }); }
+async function gpsOffSet(name, off) { if (off && !confirm('Hentikan pelacakan lokasi HP ' + name + '? Posisinya tidak akan terkirim lagi sampai Anda mengaktifkan kembali.')) return; try { await api('/api/trk/off', { method: 'POST', body: JSON.stringify({ user: name, off }) }); GOFF = null; toast(off ? 'Pelacakan ' + name + ' dihentikan' : 'Pelacakan ' + name + ' diaktifkan'); R(); } catch (e) { toast(e.message); } }
+function trkSetCard() {
+  if (U.r != 'owner') return ''; const [f, t] = typeof trkHrs == 'function' ? trkHrs() : [6, 21];
+  return `<div class="cd"><b>⏱️ Jam pelacakan HP karyawan lapangan</b><div class="row" style="margin:8px 0 0;gap:8px;flex-wrap:wrap"><label style="margin:0">Dari jam <input type="number" id="tf" min="0" max="23" value="${f}" style="width:70px"></label><label style="margin:0">Sampai jam <input type="number" id="tt" min="1" max="24" value="${t}" style="width:70px"></label><button class="gh" onclick="emit('set',{set:{trkFrom:+$('#tf').value,trkTo:+$('#tt').value}});toast('Jam pelacakan disimpan');R()">Simpan</button></div><small class="mu">Lokasi sales / kanvas / dropping terkirim pada jam ini, walau aplikasi ditutup, keluar akun, atau belum absen (dengan persetujuan karyawan & notifikasi tetap di HP). Di luar jam ini tidak dilacak.</small></div>`;
+}
 function gpsVisCard(u) {
   if (!u) return '';
-  const A = gpsVisits(u.n), head = `<div class="row" style="margin:0"><b>📍 Riwayat kunjungan ${esc(u.n)}</b>${gpsDaysSel()}</div>`;
+  const A = gpsVisits(u.n), head = `<div class="row" style="margin:0"><b>📍 Riwayat kunjungan ${esc(u.n)}</b>${gpsDaysSel()}</div>` + (U.r == 'owner' ? (gpsOffLoad(), (GOFF || []).includes(u.n) ? `<button class="gh" style="margin-top:8px" onclick="gpsOffSet('${esc(u.n)}',false)">▶ Aktifkan lagi pelacakan HP ini</button>` : `<button class="gh d" style="margin-top:8px" onclick="gpsOffSet('${esc(u.n)}',true)">⏹ Hentikan pelacakan HP ini</button>`) : '');
   if (!A.length) return `<div class="cd">${head}<p class="mu" style="margin:8px 0 0">Belum ada kunjungan (check-in outlet) pada rentang ini. Riwayat kunjungan disimpan <b>1 bulan</b>, lebih lama dihapus otomatis dari server.</p></div>`;
   const dur = A.filter((x) => x.dur != null), tD = dur.reduce((a, x) => a + x.dur, 0), outl = new Set(A.map((x) => x.v.cid)).size, omz = A.reduce((a, x) => a + x.tot, 0), by = {};
   for (const x of A) (by[dkey(x.v.t)] = by[dkey(x.v.t)] || []).push(x);
@@ -115,7 +122,7 @@ function gpsTeam() {
   return [...m.values()].map((u) => {
     const loc = (S.locs || {})[u.n], tr = ((S.trail || {})[u.n] || []).filter((p) => dkey(p[0]) == td), st = gpsSt(loc && loc.t), ci = typeof openCI == 'function' ? openCI(u.n) : null;
     const vis = S.att.filter((a) => a.u == u.n && a.k == 'visit' && dkey(a.t) == td).length, omz = S.sales.filter((s) => s.u == u.n && dkey(s.t) == td).reduce((a, s) => a + netSale(s), 0);
-    const io = S.att.filter((a) => a.u == u.n && (a.k == 'in' || a.k == 'out') && dkey(a.t) == td).sort((a, b) => a.t - b.t), work = io.length > 0 && io[io.length - 1].k == 'in';
+    const work = GPSR.includes(u.r) && typeof trkInHours == 'function' && trkInHours();
     return { ...u, loc, tr, st, ci, vis, omz, km: gpsKm(tr), work };
   }).sort((a, b) => ({ live: 0, near: 1, off: 2 }[a.st[0]] - { live: 0, near: 1, off: 2 }[b.st[0]]) || a.n.localeCompare(b.n));
 }
@@ -124,8 +131,8 @@ VW.gps = () => {
   return `<div class="kp"><div class="cd k0"><small>Live sekarang</small><h2>${live} / ${T.length}</h2><small>sales · kanvas · dropping</small></div><div class="cd k1"><small>Jarak tempuh hari ini</small><h2>${T.reduce((a, u) => a + u.km, 0).toFixed(1)} km</h2><small>${T.reduce((a, u) => a + u.vis, 0)} kunjungan outlet</small></div></div>
 <div class="cd gpsc"><div class="row" style="margin:0 0 8px"><b>${GPSU ? '🧭 Jejak ' + esc(GPSU) + ' · ' + (GDAYS.find((d) => d[0] == GPSD) || [0, GPSD + ' hari'])[1].replace(' (maks)', '') : '🛰️ Posisi tim'}</b><span class="wrap">${GPSU ? '<button class="gh" onclick="GPSU=\'\';R()">Semua</button>' : ''}<button class="gh" onclick="gpsRefresh(1)">⟳</button></span></div><div class="map gmap" id="gmap"></div>
 <small class="mu" id="gupd">Diperbarui otomatis tiap ±20 detik</small></div>
-${GPSU ? gpsVisCard(T.find((x) => x.n == GPSU)) + gpsHistCard(T.find((x) => x.n == GPSU)) : ''}
-<div class="cd">${T.map((u) => `<div class="trow gpr ${GPSU == u.n ? 'on' : ''}" onclick="GPSU=GPSU=='${esc(u.n)}'?'':'${esc(u.n)}';R()"><em class="tav" style="background:${u.st[2]}">${esc(u.n[0].toUpperCase())}</em><span class="ti"><b>${esc(u.n)} <small class="mu">· ${esc(ROLE[u.r] || u.r)}</small></b><small><b style="color:${u.st[2]}">● ${u.st[1]}</b> · ${u.loc ? agoTxt(u.loc.t) : 'belum ada posisi'}${u.loc && u.loc.acc ? ' · ±' + u.loc.acc + ' m' : ''}</small>${u.work && u.st[0] == 'off' ? '<small class="or">⚠ HP belum mengirim data sejak ' + (u.loc ? agoTxt(u.loc.t) : 'absen') + '. Kunjungan / transaksi terbaru bisa masih tertahan di HP — minta karyawan membuka aplikasi dan memastikan tanda “Online”.</small>' : ''}<small class="mu">${u.ci ? '🏬 di ' + esc(u.ci.cn) + ' sejak ' + hm(u.ci.t) : 'tidak sedang check-in'} · ${u.km.toFixed(1)} km · ${u.vis} kunjungan${u.omz ? ' · ' + rp(u.omz) : ''}</small></span>${u.loc ? `<a class="gh" onclick="event.stopPropagation()" target="_blank" rel="noopener" href="https://www.google.com/maps?q=${u.loc.lat},${u.loc.lng}">Maps</a>` : ''}</div>`).join('') || '<p class="mu">Belum ada sales, kanvas, atau tim dropping.</p>'}</div>
+${GPSU ? '' : trkSetCard()}${GPSU ? gpsVisCard(T.find((x) => x.n == GPSU)) + gpsHistCard(T.find((x) => x.n == GPSU)) : ''}
+<div class="cd">${T.map((u) => `<div class="trow gpr ${GPSU == u.n ? 'on' : ''}" onclick="GPSU=GPSU=='${esc(u.n)}'?'':'${esc(u.n)}';R()"><em class="tav" style="background:${u.st[2]}">${esc(u.n[0].toUpperCase())}</em><span class="ti"><b>${esc(u.n)} <small class="mu">· ${esc(ROLE[u.r] || u.r)}</small></b><small><b style="color:${u.st[2]}">● ${u.st[1]}</b> · ${u.loc ? agoTxt(u.loc.t) : 'belum ada posisi'}${u.loc && u.loc.acc ? ' · ±' + u.loc.acc + ' m' : ''}</small>${u.work && u.st[0] == 'off' ? '<small class="or">⚠ Tidak terdeteksi' + (u.loc ? ' sejak ' + agoTxt(u.loc.t) : ' (belum pernah mengirim lokasi)') + ' pada jam kerja. Kemungkinan: HP mati / tanpa sinyal, lokasi atau izin “Sepanjang waktu” dimatikan, atau aplikasi dihentikan sistem (hemat baterai). Hubungi karyawan.</small>' : ''}<small class="mu">${u.ci ? '🏬 di ' + esc(u.ci.cn) + ' sejak ' + hm(u.ci.t) : 'tidak sedang check-in'} · ${u.km.toFixed(1)} km · ${u.vis} kunjungan${u.omz ? ' · ' + rp(u.omz) : ''}</small></span>${u.loc ? `<a class="gh" onclick="event.stopPropagation()" target="_blank" rel="noopener" href="https://www.google.com/maps?q=${u.loc.lat},${u.loc.lng}">Maps</a>` : ''}</div>`).join('') || '<p class="mu">Belum ada sales, kanvas, atau tim dropping.</p>'}</div>
 <small class="mu" style="display:block;margin:0 4px 14px">Lokasi dikirim HP karyawan ±1 menit sekali selama jam kerja (setelah absen masuk). Di aplikasi Android, posisi tetap terkirim <b>walau aplikasi ditutup</b> selama karyawan mengizinkan lokasi "sepanjang waktu" (ada notifikasi tetap di HP karyawan). Bila HP dimatikan, di-restart, kehabisan baterai, tanpa sinyal, atau karyawan mematikan berbagi lokasi / mencabut izin, posisi terakhir yang tetap ditampilkan.</small>`;
 };
 VW.gps.after = () => {
@@ -139,7 +146,20 @@ function gpsDraw(fit) {
   for (const u of T) {
     if (GPSU && u.n != GPSU) continue;
     const sel = GPSU && GTR && GTR.key == GPSU + '|' + GPSD && GTR.pts.length ? GTR.pts : null, src = sel || u.tr, ln = u.tr.map((p) => [p[1], p[2]]);
-    if (sel) { const bd = {}; for (const p of sel.slice().sort((a, b) => a[0] - b[0])) (bd[dkey(p[0])] = bd[dkey(p[0])] || []).push(p); Object.keys(bd).sort().reverse().forEach((k, i) => { const L2 = bd[k].map((p) => [p[1], p[2]]); L2.forEach((x) => pts.push(x)); if (L2.length > 1) L.polyline(L2, { color: GPCOL[i % GPCOL.length], weight: i ? 3 : 4.5, opacity: i ? .6 : .9 }).bindTooltip(k).addTo(GLAY); for (const e of gpsHistory(bd[k], u.n).tl) if (e.type == 'stop') L.circleMarker([e.lat, e.lng], { radius: 6, color: '#fff', weight: 1.5, fillColor: GPCOL[i % GPCOL.length], fillOpacity: 1 }).bindTooltip('Berhenti ' + gdur(e.dur) + ' · ' + hm(e.start) + (e.place ? ' · ' + e.place.n : '')).addTo(GLAY); }); }
+    if (sel) {
+      const bd = {}; for (const p of sel.slice().sort((a, b) => a[0] - b[0])) (bd[dkey(p[0])] = bd[dkey(p[0])] || []).push(p);
+      Object.keys(bd).sort().reverse().forEach((k, i) => {
+        const col = GPCOL[i % GPCOL.length], H = gpsHistory(bd[k], u.n), P = H.P || bd[k]; bd[k].forEach((p) => pts.push([p[1], p[2]]));
+        if (!H.tl.length) { const L2 = bd[k].map((p) => [p[1], p[2]]); if (L2.length > 1) L.polyline(L2, { color: col, weight: 3, opacity: .7 }).bindTooltip(k).addTo(GLAY); return; }
+        let sn = 0;
+        for (const e of H.tl) {
+          if (e.type == 'move') { const a = Math.max(0, e.fi - 1), b = Math.min(P.length - 1, e.ei + 1), L2 = []; for (let q = a; q <= b; q++) L2.push([P[q][1], P[q][2]]); if (L2.length > 1) L.polyline(L2, { color: col, weight: i ? 3.5 : 5, opacity: i ? .65 : .9 }).bindTooltip('🚗 Perjalanan ' + hm(e.start) + '–' + hm(e.end) + ' · ' + gdur(e.dur) + ' · ±' + (e.dist / 1000).toFixed(e.dist < 1000 ? 2 : 1) + ' km', { sticky: true }).addTo(GLAY); }
+          else { sn++; const nm = e.place ? e.place.n : e.ci ? e.ci : 'di luar outlet';
+            L.marker([e.lat, e.lng], { icon: L.divIcon({ className: 'gvn-w', html: `<span class="gst" style="border-color:${col};color:${col}">${sn}</span>`, iconSize: [28, 28], iconAnchor: [14, 14] }) })
+              .bindPopup(`<b>Singgah ${sn}: ${esc(nm)}</b><br>${esc(gvDay(k))}<br>🕐 ${hm(e.start)}–${hm(e.end)}<br>⏱️ <b>${gdur(e.dur)}</b> berhenti${e.place ? '<br>📏 ' + e.place.d + ' m dari titik outlet' : '<br>📍 bukan di titik outlet terdaftar'}<br><a href="https://www.google.com/maps?q=${e.lat},${e.lng}" target="_blank" rel="noopener">Buka di Maps</a>`).addTo(GLAY); }
+        }
+      });
+    }
     else if (ln.length > 1) L.polyline(ln, { color: GPSU ? '#22366e' : u.st[2], weight: GPSU ? 4 : 2.5, opacity: GPSU ? .85 : .45, dashArray: GPSU ? null : '4 6' }).addTo(GLAY);
     if (GPSU && !sel) for (const p of u.tr) if (p[3]) L.circleMarker([p[1], p[2]], { radius: 5, color: '#fff', weight: 1.5, fillColor: p[3] == 'visit' ? '#c9a24a' : '#22366e', fillOpacity: 1 }).bindTooltip((p[3] == 'visit' ? 'Check-in outlet' : p[3] == 'in' ? 'Absen masuk' : 'Absen pulang') + ' ' + hm(p[0])).addTo(GLAY);
     if (GPSU) gpsVisDraw(pts);
