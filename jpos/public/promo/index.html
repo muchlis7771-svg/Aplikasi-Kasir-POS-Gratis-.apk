@@ -96,6 +96,7 @@ footer{border-top:1px solid var(--line);padding:38px 0;color:var(--mu);font-size
 footer .wrap{display:flex;gap:24px;flex-wrap:wrap;justify-content:space-between;align-items:center}footer a{color:var(--gold2)}
 .wa{position:fixed;right:16px;bottom:16px;z-index:30;display:flex;align-items:center;gap:8px;padding:12px 18px;border-radius:99px;background:linear-gradient(135deg,#f0d88f,#c9a24a);color:#1c1607;font-weight:700;text-decoration:none;font-size:14px;box-shadow:0 14px 30px -10px #000}
 #bn{background:linear-gradient(90deg,#c9a24a,#f0d78c);color:#1c1607;text-align:center;padding:9px 14px;font-weight:700;font-size:14px}#bn a{color:inherit;text-decoration:underline}
+#iab{background:#3a1f0a;color:#ffe9c7;padding:12px 14px;font-size:13.5px;line-height:1.5;text-align:center;border-bottom:1px solid #c9a24a55}#iab b{display:block;margin-bottom:6px;font-size:14px}#iab .wrap2{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:8px}#iab button,#iab a.ibtn{border:1px solid #f0d78c88;background:#f0d78c;color:#1c1607;font:700 13px inherit;padding:8px 14px;border-radius:99px;cursor:pointer;text-decoration:none}
 #mt{position:fixed;inset:0;z-index:99;background:#070d22;color:#f1ecdc;display:flex;align-items:center;justify-content:center;text-align:center;padding:30px;font-size:18px;line-height:1.6}#mt[hidden]{display:none}
 #apkLink[disabled]{opacity:.7;pointer-events:none}.cl{padding:14px;border-radius:12px;background:#0c1736;border:1px solid #26335f;margin-bottom:12px}
 @media(max-width:860px){.fg,.pk{grid-template-columns:1fr}.strip .wrap{grid-template-columns:1fr 1fr}nav .links{display:none}nav .btn{margin-left:auto}.fm .r{grid-template-columns:1fr}.fm{padding:24px 18px}section{padding:64px 0}.hero{padding:56px 0 30px}.shot{height:340px}.shot .ph{width:170px;height:350px}.shot .ph:last-child{display:none}.wa span{display:none}}
@@ -137,6 +138,7 @@ dialog#vd{border:1px solid #c9a24a66;border-radius:22px;background:#070b1a;color
 </head>
 <body>
 <div id="bn" hidden></div>
+<div id="iab" hidden></div>
 <div id="mt" hidden></div>
 
 <nav><div class="wrap">
@@ -380,6 +382,19 @@ dialog#vd{border:1px solid #c9a24a66;border-radius:22px;background:#070b1a;color
   api('/api/site').then((S) => { if (S && !S.e) { applySite(S); api('/api/site/hit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ src: (new URLSearchParams(location.search).get('src') || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12) }) }).catch(() => { }); } }).catch(() => { });
   // ---- video, keamanan, ulasan, penguji, chat ----
   const T = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+  // ---- peringatan "browser dalam aplikasi" (TikTok/WhatsApp/Instagram/dll sering memblokir unduhan APK tanpa pesan error) ----
+  (function iabCheck() {
+    const UA = navigator.userAgent || '', android = /Android/i.test(UA), ios = /iPhone|iPad|iPod/i.test(UA);
+    const known = [[/TikTok|BytedanceWebview|musical_ly/i, 'TikTok'], [/\bLine\//i, 'LINE'], [/FBAN|FBAV|FB_IAB/i, 'Facebook'], [/Instagram/i, 'Instagram'], [/WhatsApp/i, 'WhatsApp'], [/MicroMessenger/i, 'WeChat'], [/Snapchat/i, 'Snapchat']];
+    const hit = known.find((x) => x[0].test(UA)); if (!hit && !(android && !/Chrome\/|CriOS\//.test(UA) && /wv\)/.test(UA))) return; // juga tangkap WebView generik Android
+    const name = hit ? hit[1] : 'aplikasi ini';
+    const box = $('#iab'), target = location.href, intentUrl = 'intent://' + location.host + location.pathname + location.search + '#Intent;scheme=https;package=com.android.chrome;end';
+    box.textContent = ''; const b1 = T('b', '', '⚠️ Dibuka lewat ' + name); const p1 = T('div', '', 'Unduhan aplikasi Android sering diblokir di dalam ' + name + ', walau tombolnya terlihat normal. Buka link ini lewat Chrome agar unduhan berhasil.');
+    const w2 = T('div', 'wrap2'); if (android) { const a1 = T('a', '', 'Buka di Chrome'); a1.className = 'ibtn'; a1.href = intentUrl; w2.appendChild(a1); }
+    const cp = T('button', '', 'Salin link'); cp.type = 'button'; cp.onclick = () => { try { navigator.clipboard.writeText(target); cp.textContent = 'Tersalin ✓'; setTimeout(() => (cp.textContent = 'Salin link'), 1800); } catch (e) { prompt('Salin link ini:', target); } }; w2.appendChild(cp);
+    box.append(b1, p1, w2); box.hidden = false;
+    if (ios) p1.appendChild(T('small', '', ' Di iPhone: ketuk ••• atau ⋯ di pojok, lalu pilih "Buka di Safari".'));
+  })();
   const ls = { g(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, s(k, v) { try { localStorage.setItem(k, v); } catch (e) { } } };
   $('#vidBtn').onclick = () => { const v = $('#vv'); if (!v.src) v.src = 'video/J-POS-promo.mp4'; $('#vd').showModal(); v.play().catch(() => { }); };
   $('#vx').onclick = () => { $('#vv').pause(); $('#vd').close(); };
