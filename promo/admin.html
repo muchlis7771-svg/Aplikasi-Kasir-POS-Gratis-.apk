@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#0b1330">
+<title>Admin · J-POS</title>
+<link rel="icon" href="img/logo-192.png">
+<style>
+:root{--ink:#f3eedd;--mu:#a7b0cc;--line:#ffffff1c;--gold:#c9a24a;--gold2:#ecd592;--gr:#58e0b0;--rd:#ff8d9a}
+*{box-sizing:border-box;margin:0}
+body{font-family:Inter,"Segoe UI",system-ui,-apple-system,Roboto,sans-serif;background:radial-gradient(900px 520px at 85% -10%,#2a4890aa,transparent 62%),#070d20;color:var(--ink);min-height:100dvh;line-height:1.5}
+.wrap{width:min(980px,100% - 28px);margin:auto;padding:18px 0 60px}
+.gold{background:linear-gradient(90deg,#f6e7b4,#c9a24a 55%,#f0d88f);-webkit-background-clip:text;background-clip:text;color:transparent}
+h1,h2,h3{font-family:Georgia,serif;font-weight:400}
+.top{display:flex;align-items:center;gap:12px;margin-bottom:18px}.top img{width:38px;height:38px;border-radius:11px;box-shadow:0 0 0 1px #c9a24a66}.top h1{font-size:21px;letter-spacing:.1em}.top .sp{flex:1}
+.cd{background:linear-gradient(160deg,#14224c,#0d1838);border:1px solid #c9a24a2e;border-radius:20px;padding:18px;margin-bottom:14px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:11px 18px;border-radius:12px;font-weight:700;font-size:14px;border:1px solid #c9a24a55;background:#0e1a3d;color:#f1e7c8;cursor:pointer;text-decoration:none;font-family:inherit}
+.btn.g{background:linear-gradient(135deg,#f0d88f,#c9a24a 58%,#a5802f);color:#1c1607;border:0}.btn.s{padding:7px 12px;font-size:13px;border-radius:10px}.btn.d{color:var(--rd);border-color:#ff8d9a55}
+input{width:100%;margin-top:6px;background:#091129;color:var(--ink);border:1px solid #2a3866;border-radius:12px;padding:13px 14px;font:inherit}input:focus{outline:2px solid #c9a24a88;border-color:#c9a24a}
+label{display:block;font-size:13px;color:var(--mu);margin-bottom:14px}
+.login{max-width:420px;margin:12vh auto 0}.login h2{font-size:26px;margin-bottom:4px}.err{color:var(--rd);font-size:14px;min-height:20px;margin-bottom:8px}
+.tabs{display:flex;gap:6px;background:#0a1330;border:1px solid #c9a24a26;border-radius:16px;padding:4px;margin-bottom:14px}
+.tabs button{flex:1;padding:10px;border:0;border-radius:12px;background:transparent;color:#b9c0da;font-weight:600;font-family:inherit;cursor:pointer}
+.tabs button.a{background:linear-gradient(135deg,#f0d88f,#c9a24a 60%,#a5802f);color:#1c1607}
+.kp{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}.kp div{background:#0e1a3b;border:1px solid #26335f;border-radius:16px;padding:12px 14px}.kp small{color:var(--mu);font-size:12px}.kp b{display:block;font-family:Georgia,serif;font-size:26px;font-weight:400;color:#f6e7b4}
+.chip{display:inline-block;font-size:11.5px;font-weight:700;padding:2px 10px;border-radius:99px;border:1px solid #c9a24a55;color:var(--gold2)}.chip.g{color:var(--gr);border-color:#2a7a64}.chip.n{color:#f1c36e;border-color:#8a6a2c;background:#2a2110}
+.row{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}.mu{color:var(--mu);font-size:13px}.acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.lead{border-left:3px solid #26335f}.lead.new{border-left-color:var(--gold)}
+code,.mono{font-family:ui-monospace,Consolas,monospace;background:#091129;border:1px solid #26335f;border-radius:8px;padding:8px 10px;display:block;overflow-wrap:anywhere;font-size:12.5px;color:#f6e7b4;margin:6px 0}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;background:#6b7390}.dot.on{background:#33d69f;box-shadow:0 0 0 4px #33d69f33}
+@media(max-width:640px){.kp{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><img src="img/logo-192.png" alt=""><h1 class="gold">J-POS · ADMIN</h1><span class="sp"></span><a class="btn s" href="./">← Website</a><button class="btn s d" id="out" hidden>Keluar</button></div>
+
+  <div id="loginBox" class="cd login">
+    <h2 class="gold">Masuk admin</h2><p class="mu" style="margin-bottom:16px">Gunakan akun <b>Head Admin</b> J-POS (sama dengan panel Head Admin di aplikasi).</p>
+    <form id="lf"><label>Username<input id="u" autocomplete="username" autocapitalize="none" required></label><label>Password<input id="p" type="password" autocomplete="current-password" required></label><div class="err" id="le" role="alert"></div><button class="btn g" style="width:100%;justify-content:center" id="lb">Masuk</button></form>
+  </div>
+
+  <div id="app" hidden>
+    <div class="tabs"><button data-t="lead" class="a">🛒 Pesanan</button><button data-t="tun">🔗 Link &amp; server Termux</button></div>
+    <div id="pLead"></div>
+    <div id="pTun" hidden></div>
+  </div>
+</div>
+<script src="config.js"></script>
+<script>
+(() => {
+  const $ = (s) => document.querySelector(s), esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const rp = (n) => 'Rp' + Math.round(n).toLocaleString('id-ID'), fmt = (t) => new Date(t).toLocaleString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  let TK = ''; try { TK = sessionStorage.getItem('pa:t') || ''; } catch (e) { }
+  let BASE = '', INFO = null, ST = {};
+  async function api(path, opt = {}) {
+    let last;
+    for (const b of (BASE ? [BASE] : window.PROMO_APIS)) {
+      try { const r = await fetch(b + path, { ...opt, headers: { 'Content-Type': 'application/json', ...(TK ? { Authorization: 'Bearer ' + TK } : {}) } }); const j = await r.json().catch(() => ({})); BASE = b; if (r.status == 401 && TK) { out(); throw new Error('Sesi berakhir, masuk lagi'); } if (!r.ok) throw Object.assign(new Error(j.e || 'Error ' + r.status), { st: r.status }); return j; }
+      catch (e) { if (e.st || /Sesi/.test(e.message)) throw e; last = e; }
+    }
+    throw new Error('Tidak bisa terhubung ke server J-POS');
+  }
+  const show = (on) => { $('#loginBox').hidden = on; $('#app').hidden = !on; $('#out').hidden = !on; };
+  function out() { TK = ''; try { sessionStorage.removeItem('pa:t'); } catch (e) { } show(false); }
+  $('#out').onclick = out;
+  $('#lf').addEventListener('submit', async (e) => {
+    e.preventDefault(); $('#le').textContent = ''; const b = $('#lb'); b.disabled = true; b.textContent = 'Memeriksa…';
+    try { const r = await api('/api/admin/login', { method: 'POST', body: JSON.stringify({ user: $('#u').value.trim(), pass: $('#p').value }) }); TK = r.token; try { sessionStorage.setItem('pa:t', TK); } catch (x) { } $('#p').value = ''; start(); }
+    catch (x) { $('#le').textContent = x.message; } finally { b.disabled = false; b.textContent = 'Masuk'; }
+  });
+  document.querySelectorAll('.tabs button').forEach((b) => (b.onclick = () => { document.querySelectorAll('.tabs button').forEach((x) => x.classList.toggle('a', x == b)); $('#pLead').hidden = b.dataset.t != 'lead'; $('#pTun').hidden = b.dataset.t != 'tun'; if (b.dataset.t == 'tun') loadTun(); }));
+
+  async function loadLead() {
+    try {
+      const [L, I] = await Promise.all([api('/api/admin/leads'), INFO ? INFO : api('/api/info')]); INFO = I;
+      const pk = I.pkg || {}, WA = (n, t) => 'https://wa.me/' + String(n).replace(/^0/, '62').replace(/\D/g, '') + '?text=' + encodeURIComponent(t);
+      const S = { baru: ['Baru', 'n'], dihubungi: ['Dihubungi', ''], deal: ['Deal', 'g'], batal: ['Batal', ''] };
+      $('#pLead').innerHTML = `<div class="kp"><div><small>Pesanan baru</small><b>${L.baru}</b></div><div><small>Diproses</small><b>${L.proses}</b></div><div><small>Deal</small><b>${L.deal}</b></div></div>`
+        + (L.list.map((x) => { const t = pk[x.tier] || {}, tot = (t.pr || 0) * x.months;
+          return `<div class="cd lead ${x.st == 'baru' ? 'new' : ''}"><div class="row"><b>${esc(x.name)}${x.store ? ' · ' + esc(x.store) : ''}</b><span class="chip ${S[x.st][1]}">${S[x.st][0]}</span></div>
+<div class="mu">${esc(t.n || x.tier)} · ${x.months} bulan${tot ? ' · ' + rp(tot) : ''} · ${esc(x.city || '-')} · ${fmt(x.t)}</div>${x.note ? `<div style="margin-top:6px">“${esc(x.note)}”</div>` : ''}
+<div class="acts"><a class="btn g s" target="_blank" rel="noopener" href="${WA(x.phone, 'Halo ' + x.name + ', terima kasih sudah memesan J-POS paket ' + (t.n || x.tier) + '. Saya dari tim J-POS, boleh kami bantu aktivasi?')}">💬 WhatsApp ${esc(x.phone)}</a>${['baru', 'dihubungi', 'deal', 'batal'].filter((s) => s != x.st).map((s) => `<button class="btn s ${s == 'batal' ? 'd' : ''}" data-id="${x.id}" data-st="${s}">→ ${S[s][0]}</button>`).join('')}</div></div>`; }).join('') || '<div class="cd mu">Belum ada pesanan.</div>')
+        + '<button class="btn s" id="rl">⟳ Muat ulang</button>';
+      document.querySelectorAll('[data-st]').forEach((b) => (b.onclick = async () => { b.disabled = true; try { await api('/api/admin/leads/' + b.dataset.id, { method: 'POST', body: JSON.stringify({ st: b.dataset.st }) }); loadLead(); } catch (e) { alert(e.message); } }));
+      $('#rl').onclick = loadLead;
+    } catch (e) { if ($('#app').hidden) return; $('#pLead').innerHTML = `<div class="cd err">${esc(e.message)}</div>`; }
+  }
+  async function loadTun() {
+    try {
+      const r = await api('/api/admin/tunnel'); ST = r;
+      $('#pTun').innerHTML = `<div class="cd"><h3 class="gold" style="font-size:20px;margin-bottom:6px">🔗 Link tetap website</h3><p class="mu">Bagikan link ini. Selalu mengarah ke server Termux yang sedang aktif; bila Termux mati, otomatis menampilkan website promo di server J-POS.</p><code id="lk">${esc(r.link)}</code><div class="acts"><button class="btn g s" id="cl">Salin link</button><a class="btn s" target="_blank" rel="noopener" href="${esc(r.link)}">Buka</a></div></div>
+<div class="cd"><div class="row"><b>Server Termux</b><span><span class="dot ${r.live ? 'on' : ''}"></span>${r.live ? 'Aktif' : 'Tidak aktif'}</span></div><p class="mu">${r.url ? 'Alamat terakhir: ' + esc(r.url) + '<br>Dilaporkan: ' + fmt(r.t) : 'Belum pernah melapor. Simpan kunci di bawah ke HP, lalu jalankan <b>bash jpos-bg.sh start</b>.'}</p></div>
+<div class="cd"><h3 class="gold" style="font-size:18px;margin-bottom:6px">🔑 Kunci Termux</h3><p class="mu">Rahasia — jangan dibagikan. Jalankan perintah ini <b>sekali</b> di Termux agar HP melaporkan alamatnya ke sini:</p><code id="cmd">echo ${esc(r.key)} > ~/jpos-promo/tunnel.key</code><div class="acts"><button class="btn s" id="cc">Salin perintah</button><button class="btn s d" id="rn">Buat kunci baru</button></div></div>`;
+      const cp = (id, b) => (b.onclick = () => { navigator.clipboard.writeText($(id).textContent).then(() => { const t = b.textContent; b.textContent = 'Tersalin ✓'; setTimeout(() => (b.textContent = t), 1500); }); });
+      cp('#lk', $('#cl')); cp('#cmd', $('#cc'));
+      $('#rn').onclick = async () => { if (!confirm('Buat kunci baru? Kunci lama tidak berlaku; perintah di Termux harus diulang.')) return; await api('/api/admin/tunnel', { method: 'POST', body: JSON.stringify({ renew: 1 }) }); loadTun(); };
+    } catch (e) { $('#pTun').innerHTML = `<div class="cd err">${esc(e.message)}</div>`; }
+  }
+  function start() { show(true); loadLead(); }
+  if (TK) api('/api/admin/leads').then(start).catch(() => out());
+  setInterval(() => { if (!$('#app').hidden && !$('#pLead').hidden) loadLead(); }, 60000);
+})();
+</script>
+</body>
+</html>

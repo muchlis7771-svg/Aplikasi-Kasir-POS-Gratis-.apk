@@ -7,6 +7,7 @@ export const HSCHEMA = [
   'CREATE INDEX IF NOT EXISTS inv_s ON inv(store_id,t)', 'CREATE INDEX IF NOT EXISTS inv_a ON inv(status,amount)',
   "CREATE TABLE IF NOT EXISTS tiket(id INTEGER PRIMARY KEY AUTOINCREMENT,store_id TEXT NOT NULL,sname TEXT,by TEXT,role TEXT,cat TEXT,sub TEXT,st TEXT DEFAULT 'baru',t INTEGER,upd INTEGER,uh INTEGER DEFAULT 1,us INTEGER DEFAULT 0,msgs TEXT)",
   'CREATE INDEX IF NOT EXISTS tiket_s ON tiket(store_id,upd)', 'CREATE INDEX IF NOT EXISTS tiket_u ON tiket(upd)',
+  'CREATE TABLE IF NOT EXISTS trail(sid TEXT NOT NULL,u TEXT NOT NULL,t INTEGER NOT NULL,lat REAL,lng REAL,k TEXT NOT NULL DEFAULT \'\')', 'CREATE UNIQUE INDEX IF NOT EXISTS trail_k ON trail(sid,u,t,k)', 'CREATE INDEX IF NOT EXISTS trail_t ON trail(t)',
   "CREATE TABLE IF NOT EXISTS leads(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT,store TEXT,phone TEXT,city TEXT,tier TEXT,months INTEGER,note TEXT,src TEXT,st TEXT DEFAULT 'baru',hnote TEXT,t INTEGER,upd INTEGER)", 'CREATE INDEX IF NOT EXISTS leads_t ON leads(st,t)',
 ];
 const DAY = 864e5, INV_TTL = 3 * DAY, MONTHS = [1, 3, 6, 12];
@@ -132,6 +133,11 @@ export async function hqAdmin(x) {
     if (b.op == 'lunas') { const r = await invPay(env, +m[1], 'manual', 'manual:' + m[1] + ':' + now); if (!r) return J({ e: 'Tagihan tidak ditemukan / sudah diproses' }, 400); return J({ ok: 1, exp: r.exp }); }
     if (b.op == 'batal') { await env.DB.prepare("UPDATE inv SET status='batal' WHERE id=? AND status='tunggu'").bind(+m[1]).run(); return J({ ok: 1 }); }
   }
+  if (p == '/api/admin/tunnel') {
+    if (M == 'POST' && b.renew || !C.tunnel_key) { const k = hex(crypto.getRandomValues(new Uint8Array(16))); await cfgSet(env, 'tunnel_key', k); C.tunnel_key = k; }
+    const fresh = C.tunnel_url && now - (+C.tunnel_t || 0) < 6 * 6e4;
+    return J({ key: C.tunnel_key, url: C.tunnel_url || '', t: +C.tunnel_t || 0, live: !!fresh, link: origin + '/termux' });
+  }
   if (p == '/api/admin/leads') {
     const L = (await env.DB.prepare('SELECT * FROM leads ORDER BY CASE st WHEN \'baru\' THEN 0 WHEN \'dihubungi\' THEN 1 ELSE 2 END, id DESC LIMIT 300').all()).results, n = await env.DB.prepare("SELECT SUM(CASE WHEN st='baru' THEN 1 ELSE 0 END) baru,SUM(CASE WHEN st='dihubungi' THEN 1 ELSE 0 END) proses,SUM(CASE WHEN st='deal' THEN 1 ELSE 0 END) deal FROM leads").first();
     return J({ list: L, baru: n.baru || 0, proses: n.proses || 0, deal: n.deal || 0 });
@@ -157,4 +163,42 @@ export async function hqAdmin(x) {
     return J({ ok: 1 });
   }
   return null;
+}
+
+/* ============ RIWAYAT PERJALANAN (jejak GPS) — disimpan 30 hari, lebih lama dihapus otomatis ============ */
+export const TRAIL_DAYS = 30;
+const okLL = (a, b) => Number.isFinite(+a) && Number.isFinite(+b) && Math.abs(+a) <= 90 && Math.abs(+b) <= 180 && !(Math.abs(+a) < 0.01 && Math.abs(+b) < 0.01);
+// pernyataan INSERT untuk satu kejadian (loc / absen / kunjungan) — kembali null bila tidak punya titik valid
+export function trailStmt(env, sid, uname, x, now) {
+  const kk = { loc: '', in: 'in', out: 'out', visit: 'visit', vout: 'vout' }[x.k]; if (kk === undefined || !okLL(x.lat, x.lng)) return null;
+  const t = Math.round(x.t); if (!(t < now + 6e5 && t > now - TRAIL_DAYS * DAY)) return null;
+  return env.DB.prepare('INSERT OR IGNORE INTO trail(sid,u,t,lat,lng,k) VALUES(?,?,?,?,?,?)').bind(sid, String(uname).slice(0, 40), t, +(+x.lat).toFixed(6), +(+x.lng).toFixed(6), kk);
+}
+export async function pruneTrail(env, now) { const c = now - TRAIL_DAYS * DAY; await env.DB.batch([env.DB.prepare('DELETE FROM trail WHERE t<?').bind(c), env.DB.prepare("DELETE FROM ev WHERE k='loc' AND t<?").bind(now - 3 * DAY)]); }
+const rad = Math.PI / 180, dm = (a, b, c, d) => { const x = (d - b) * rad * Math.cos((a + c) / 2 * rad), y = (c - a) * rad; return 6371000 * Math.sqrt(x * x + y * y); };
+// GET /api/trail?user=NAMA&days=N → titik jejak (ditipiskan: ±150 detik atau ≥25 m) untuk pemilik / admin
+export async function trailGet(env, sid, u, J) {
+  const user = String(u.searchParams.get('user') || '').slice(0, 40), days = Math.max(1, Math.min(TRAIL_DAYS, Math.round(+u.searchParams.get('days') || 1))), now = Date.now();
+  if (!user) return J({ e: 'Pilih karyawan' }, 400);
+  if (Math.random() < 0.02) pruneTrail(env, now).catch(() => { });
+  const from = now - days * DAY, r = (await env.DB.prepare('SELECT t,lat,lng,k FROM trail WHERE sid=? AND u=? COLLATE NOCASE AND t>=? ORDER BY t LIMIT 60000').bind(sid, user, from).all()).results, pts = [];
+  let last = null;
+  for (let i = 0; i < r.length; i++) { const p = r[i]; if (!last || p.k || p.t - last.t >= 150000 || dm(last.lat, last.lng, p.lat, p.lng) >= 25 || i == r.length - 1) { pts.push([p.t, p.lat, p.lng, p.k]); last = p; } }
+  return J({ user, days, from, n: r.length, pts, keep: TRAIL_DAYS });
+}
+
+/* ============ LINK TETAP KE SERVER TERMUX ============
+   Termux melaporkan alamat tunnel-nya (berubah tiap restart) ke sini tiap ±2 menit dengan kunci rahasia.
+   Alamat tetap  /termux  lalu mengarahkan pengunjung ke alamat Termux terbaru; bila Termux mati → ke halaman promo di server ini. */
+export async function tunnelPost(env, b, ip, J, C, cfgSet, limited) {
+  if (await limited(env, 'tun:' + ip, 90, 36e5)) return J({ e: 'terlalu sering' }, 429);
+  const key = String(b.key || ''), url = String(b.url || '').replace(/\/$/, '');
+  if (!C.tunnel_key || !safeEq(key, C.tunnel_key)) return J({ e: 'kunci salah' }, 401);
+  if (!/^https:\/\/[a-z0-9-]{4,60}\.trycloudflare\.com$/.test(url)) return J({ e: 'alamat tunnel tidak valid' }, 400);
+  await cfgSet(env, 'tunnel_url', url); await cfgSet(env, 'tunnel_t', Date.now());
+  return J({ ok: 1 });
+}
+export async function tunnelRedirect(env, C, req) {
+  const fresh = C.tunnel_url && Date.now() - (+C.tunnel_t || 0) < 6 * 6e4;
+  return Response.redirect(fresh ? C.tunnel_url + '/' : new URL('/promo/', req.url).href, 302);
 }

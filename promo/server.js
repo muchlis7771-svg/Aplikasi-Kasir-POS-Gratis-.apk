@@ -3,7 +3,7 @@
 const http = require('http'), fs = require('fs'), path = require('path');
 const ROOT = __dirname, PORT = +process.env.PORT || 8080;
 const MIME = { '.apk': 'application/vnd.android.package-archive', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
-const ALLOW = (u) => u == '/index.html' || u == '/config.js' || u == '/apk/J-POS.apk' || /^\/img\/[\w.-]+\.(png|jpg|svg)$/.test(u);
+const ALLOW = (u) => u == '/index.html' || u == '/admin.html' || u == '/config.js' || u == '/apk/J-POS.apk' || /^\/img\/[\w.-]+\.(png|jpg|svg)$/.test(u);
 let hits = 0;
 http.createServer((req, res) => {
   const H = { 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'X-Frame-Options': 'SAMEORIGIN' };
