@@ -406,7 +406,7 @@ dialog#vd{border:1px solid #c9a24a66;border-radius:22px;background:#070b1a;color
     const box = $('#iab');
     box.textContent = ''; const b1 = T('b', '', '⚠️ Dibuka lewat ' + name); const p1 = T('div', '', 'Unduhan aplikasi Android sering diblokir di dalam ' + name + ', walau tombolnya terlihat normal.');
     const w2 = T('div', 'wrap2');
-    const a2 = T('a', '', '⬇ Coba unduh langsung'); a2.className = 'ibtn'; a2.href = 'apk/J-POS-latest.apk'; a2.setAttribute('download', ''); a2.onclick = () => api('/api/apk/dl', { method: 'POST' }).catch(() => { }); w2.appendChild(a2); // file statis asli di domain sendiri — lebih kompatibel di WebView daripada rakitan JS
+    const a2 = T('a', '', '⬇ Coba unduh langsung'); a2.className = 'ibtn'; a2.href = 'https://raw.githubusercontent.com/muchlis7771-svg/Aplikasi-Kasir-POS-Gratis-.apk/main/jpos/apk-dist/J-POS-latest.apk'; a2.setAttribute('download', ''); a2.onclick = () => api('/api/apk/dl', { method: 'POST' }).catch(() => { }); w2.appendChild(a2); // file statis asli (bukan rakitan JS) — lebih kompatibel di WebView; dihost di GitHub karena batas 25 MB per file aset statis Cloudflare
     if (android) { const a1 = T('a', '', 'Atau buka di Chrome'); a1.className = 'ibtn'; a1.href = intentUrl; w2.appendChild(a1); }
     const cp = T('button', '', 'Salin link'); cp.type = 'button'; cp.onclick = () => { try { navigator.clipboard.writeText(target); cp.textContent = 'Tersalin ✓'; setTimeout(() => (cp.textContent = 'Salin link'), 1800); } catch (e) { prompt('Salin link ini:', target); } }; w2.appendChild(cp);
     box.append(b1, p1, w2); box.hidden = false;
