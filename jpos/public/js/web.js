@@ -7,7 +7,7 @@ const WCH = 360 * 1024;
 async function haWebLoad() {
   try {
     const [s, a, st] = await Promise.all([haApi('/api/admin/site'), haApi('/api/admin/apk'), haApi('/api/admin/site/stats')]);
-    HAW.site = s.site; HAW.def = s.def; HAW.apk = a; HAW.stats = st.days; HAW.err = '';
+    HAW.site = s.site; HAW.def = s.def; HAW.apk = a; HAW.stats = st.days; HAW.src = st.src || {}; HAW.err = '';
   } catch (e) { if (e.status == 401) return haOut(); HAW.err = e.message; }
   if (MODE == 'ha' && HA.tab == 'web' && !HAW.busy && !document.querySelector('.md')) R();
 }
@@ -29,24 +29,26 @@ ${A.has ? `<div class="hsg" style="margin:10px 0"><div><small>Nama</small><b sty
   const ctl = `<div class="cd"><h3>🎛️ Kontrol website</h3><small class="mu">Perubahan langsung tampil di website setelah disimpan (maks. ±30 detik).</small>
 <h4>📣 Pengumuman di atas halaman</h4>${wChk('wbo', S.banner.on, 'Tampilkan pengumuman')}${wTxt('wbt', S.banner.text, 'Teks pengumuman (mis. Diskon 20% bulan ini)', 160)}${wTxt('wbl', S.banner.link, 'Tautan (opsional): https://… atau #pesan', 200)}
 <h4>✏️ Teks utama</h4>${wTxt('wey', S.eyebrow, 'Label kecil di atas judul', 60)}${wTxt('wti', S.title, 'Judul', 90)}${wTxt('wgo', S.gold, 'Lanjutan judul (berwarna emas)', 90)}<textarea id="wld" rows="3" maxlength="320" placeholder="Kalimat pengantar">${esc(S.lead)}</textarea>${wTxt('wct', S.cta, 'Teks tombol utama', 30)}
-<h4>👁️ Bagian yang ditampilkan</h4>${[['fitur', 'Fitur'], ['tampilan', 'Tampilan aplikasi'], ['paket', 'Paket & harga'], ['langkah', 'Cara mulai'], ['tanya', 'Tanya jawab'], ['pesan', 'Formulir pemesanan'], ['apk', 'Tombol unduh aplikasi']].map(([k, l]) => wChk('wsh_' + k, S.show[k], l)).join('')}
+<h4>👁️ Bagian yang ditampilkan</h4>${[['fitur', 'Fitur'], ['tampilan', 'Tampilan aplikasi'], ['paket', 'Paket & harga'], ['tanya', 'Tanya jawab'], ['pesan', 'Formulir pemesanan'], ['apk', 'Tombol unduh aplikasi']].map(([k, l]) => wChk('wsh_' + k, S.show[k], l)).join('')}
 <h4>🛒 Pemesanan</h4>${wChk('wop', S.order.open, 'Terima pesanan (formulir terbuka)')}${wTxt('wom', S.order.closedMsg, 'Pesan saat ditutup', 200)}
 <h4>🛠 Mode pemeliharaan</h4>${wChk('wmo', S.maint.on, 'Aktifkan (pengunjung melihat pesan di bawah, bukan website)')}${wTxt('wmm', S.maint.msg, 'Pesan pemeliharaan', 200)}
 <h4>📞 Kontak</h4>${wTxt('wwa', S.wa, 'No. WhatsApp khusus website (kosong = pakai nomor Head Admin)', 16)}${wTxt('wft', S.foot, 'Teks tambahan di bagian bawah', 160)}
+<h4>🔎 Google Search Console</h4><small class="mu">Tempel kode verifikasi (mis. <code>google1a2b3c4d5e6f7a8b</code> atau nama file google….html) agar Google bisa memverifikasi website Anda.</small>${wTxt('wgs', S.gsv ? 'google' + S.gsv : '', 'google + 16 karakter', 40)}
 <h4>❓ Tanya jawab (FAQ)</h4><small class="mu">Kosongkan semua untuk memakai FAQ bawaan.</small>${faq}<button class="gh" onclick="haWebFaq(-1)">+ Tambah pertanyaan</button>
 <div class="wrap" style="margin-top:14px"><button class="pr" onclick="haWebSave()">💾 Simpan & terapkan</button><button class="gh" onclick="haWebReset()">↺ Kembalikan ke bawaan</button></div></div>`;
   const statCard = `<div class="cd"><h3>📈 Statistik website · 14 hari</h3>${kpi([['Kunjungan', tot('v')], ['Unduhan APK', tot('dl')], ['Pesanan masuk', tot('o')]])}
-<small class="mu">Kunjungan per hari</small>${vbars(st.map((d) => ({ l: d.d.slice(8), v: d.v })), (v) => v)}</div>`;
+<small class="mu">Kunjungan per hari</small>${vbars(st.map((d) => ({ l: d.d.slice(8), v: d.v })), (v) => v)}
+<small class="mu">Asal kunjungan (dari link promosi)</small>${Object.keys(HAW.src || {}).length ? '<div class="wrap" style="margin-top:6px">' + Object.entries(HAW.src).sort((a, b) => b[1] - a[1]).map(([k, n]) => `<span class="chip g">${esc(k)} · ${n}</span>`).join('') + '</div>' : '<p class="mu" style="margin:4px 0 0">Belum ada. Bagikan link dari Kit Promosi di atas.</p>'}</div>`;
   const links = `<div class="cd"><h3>🔗 Tautan</h3><div class="wrap"><a class="gh pri" target="_blank" rel="noopener" href="${esc(base)}/promo/">Buka website</a><a class="gh" target="_blank" rel="noopener" href="${esc(base)}/promo/admin.html">Halaman admin web</a><button class="gh" onclick="copyTx('${esc(base)}/termux')">Salin link tetap Termux</button><button class="gh" onclick="copyTx('${esc(base)}/promo/')">Salin link website</button></div>
 <small class="mu">Harga paket diatur di tab <b>Toko</b> (kartu “Harga paket langganan”). Pesanan masuk di tab <b>Pesanan</b>.</small></div>`;
-  return apkCard + ctl + statCard + links;
+  return apkCard + haKit(base) + ctl + statCard + links;
 }
 // ---- baca isian form → HAW.site ----
 function haWebCollect() {
   const v = (id) => ($('#' + id) || {}).value || '', c = (id) => !!($('#' + id) || {}).checked, S = HAW.site; if (!$('#wti')) return;
   S.banner = { on: c('wbo'), text: v('wbt').trim(), link: v('wbl').trim() }; S.eyebrow = v('wey').trim(); S.title = v('wti').trim(); S.gold = v('wgo').trim(); S.lead = v('wld').trim(); S.cta = v('wct').trim();
   for (const k of Object.keys(S.show)) S.show[k] = c('wsh_' + k);
-  S.order = { open: c('wop'), closedMsg: v('wom').trim() }; S.maint = { on: c('wmo'), msg: v('wmm').trim() }; S.wa = v('wwa').trim(); S.foot = v('wft').trim();
+  S.order = { open: c('wop'), closedMsg: v('wom').trim() }; S.maint = { on: c('wmo'), msg: v('wmm').trim() }; S.wa = v('wwa').trim(); S.foot = v('wft').trim(); S.gsv = v('wgs').trim();
   S.faq = $$('.wfq').map((r) => ({ q: ($('.fq', r) || {}).value || '', a: ($('.fa', r) || {}).value || '' }));
 }
 function haWebFaq(i) { haWebCollect(); const S = HAW.site; if (i < 0) { if (S.faq.length >= 12) return toast('Maksimal 12 pertanyaan'); S.faq.push({ q: '', a: '' }); } else S.faq.splice(i, 1); R(); }
@@ -84,3 +86,23 @@ async function haApkUp() {
   } catch (e) { HAW.busy = false; ps('Gagal: ' + e.message); if (btn) btn.disabled = false; toast('Unggah gagal: ' + e.message, 6000); }
 }
 async function haApkDel() { if (!confirm('Hapus APK dari website? Tombol unduh akan hilang.')) return; try { await haApi('/api/admin/apk', { method: 'DELETE' }); HAW.apk = { has: 0 }; toast('APK dihapus dari website'); R(); } catch (e) { toast(e.message); } }
+
+// ---- Kit Promosi: link pendek per kanal (terlacak) + teks siap salin ----
+const WKN = [['wa', 'WhatsApp', '📱'], ['fb', 'Facebook', '👍'], ['ig', 'Instagram', '📸'], ['tt', 'TikTok', '🎵'], ['tg', 'Telegram', '✈️'], ['gm', 'Google / lainnya', '🔎']];
+const WKT = {
+  wa: (l) => `Punya toko, kios, atau grosir? 🏪\n\nCoba *J-POS* — aplikasi kasir yang tetap jalan walau internet mati. Ada stok, sales GPS, pengantaran, gaji sampai laporan keuangan.\n\n✅ Mulai Rp25.000/bulan\n✅ Coba gratis dulu\n✅ HP Android & laptop\n\nLihat di sini: ${l}`,
+  fb: (l) => `Kasir toko sering error karena sinyal? 😅 J-POS tetap bisa jualan tanpa internet, data terkirim otomatis saat sinyal kembali. Cocok untuk kios, grosir, dan distributor. Mulai Rp25.000/bulan, coba gratis.\n\n👉 ${l}`,
+  ig: (l) => `Kasir offline • stok terpantau • sales GPS • laporan otomatis ✨\nJ-POS untuk kios, grosir & distributor. Mulai Rp25rb/bulan.\nCoba gratis — link di bio / ${l}\n\n#aplikasikasir #aplikasipos #kasirandroid #tokokelontong #grosir #distributor #umkm #jualan`,
+  tt: (l) => `Jualan tetap lancar walau sinyal hilang 📵➡️✅ J-POS: kasir + stok + sales GPS. Mulai Rp25rb/bln, coba gratis. Link: ${l}\n\n#kasir #aplikasikasir #umkm #tokokelontong #grosir #pos`,
+  tg: (l) => `J-POS — aplikasi kasir online & offline untuk kios, grosir, dan distributor. Stok, sales GPS, pengantaran, gaji, laporan keuangan. Mulai Rp25.000/bulan, coba gratis: ${l}`,
+  gm: (l) => `J-POS aplikasi kasir (POS) online-offline untuk toko, grosir & distributor: ${l}`,
+};
+function haKit(base) {
+  const L = (k) => base + '/p/' + k;
+  return `<div class="cd"><h3>🚀 Kit Promosi</h3><small class="mu">Link pendek per kanal supaya Anda tahu dari mana pengunjung datang (angkanya muncul di Statistik). Ketuk <b>Teks</b> untuk menyalin teks promosi siap pakai.</small>
+<div style="margin-top:8px"><b>${esc(base.replace(/^https?:\/\//, ''))}/p</b> <small class="mu">— link utama paling pendek</small></div>
+${WKN.map(([k, n, ic]) => `<div class="row wsw"><span>${ic} ${n}<br><small class="mu">/p/${k}</small></span><span class="wrap"><button class="gh" onclick="copyTx('${esc(L(k))}')">Link</button><button class="gh" onclick="wCopy(WKT.${k}('${esc(L(k))}'))">Teks</button><button class="gh" onclick="haShare('${k}')">Bagikan</button></span></div>`).join('')}
+<small class="mu">Tips: pasang <b>/p/ig</b> di bio Instagram dan <b>/p/tt</b> di bio TikTok. Untuk Google, daftarkan website di Search Console (lihat kotak “Google Search Console” di bawah), lalu kirim sitemap.</small></div>`;
+}
+function haShare(k) { const l = ((typeof AP == 'string' && AP) || location.origin) + '/p/' + k, t = WKT[k](l); if (navigator.share) navigator.share({ title: 'J-POS', text: t }).catch(() => { }); else wCopy(t); }
+function wCopy(t) { try { navigator.clipboard.writeText(t).then(() => toast('Teks disalin')).catch(() => prompt('Salin:', t)); } catch (e) { prompt('Salin:', t); } }
