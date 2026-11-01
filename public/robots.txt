@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /promo/
+Allow: /privasi
+Disallow: /api/
+Disallow: /promo/admin.html
+
+Sitemap: https://aplikasi-kasir-pos-gratis--apk.muchlis7771.workers.dev/sitemap.xml

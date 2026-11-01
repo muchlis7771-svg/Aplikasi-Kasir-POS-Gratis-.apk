@@ -120,6 +120,8 @@ export default {
     const u = new URL(req.url), p = u.pathname, M = req.method, ip = req.headers.get('CF-Connecting-IP') || 'x';
     if (p == '/ota.json') { const r = await env.ASSETS.fetch(req), h = new Headers(r.headers); h.set('Access-Control-Allow-Origin', '*'); h.set('Cache-Control', 'no-store'); return new Response(r.body, { status: r.status, headers: h }); } // manifest pembaruan otomatis aplikasi Android
     if (p == '/termux') { try { await ready(env); return await tunnelRedirect(env, await cfgAll(env), req); } catch (e) { return Response.redirect(new URL('/promo/', req.url).href, 302); } } // link tetap → server Termux (bila aktif)
+    { const m = p.match(/^\/(?:p|w|web|promo)(?:\/([a-z0-9]{1,12}))?\/?$/); if (m && (m[1] || p != '/promo/')) return Response.redirect(new URL('/promo/' + (m[1] ? '?src=' + m[1] : ''), req.url).href, 302); } // link pendek: /p  /p/wa  /p/fb …
+    { const g = p.match(/^\/google([a-f0-9]{16})\.html$/); if (g) { try { await ready(env); if (siteOf(await cfgAll(env)).gsv == g[1]) return new Response('google-site-verification: google' + g[1] + '.html', { headers: { 'Content-Type': 'text/html; charset=utf-8' } }); } catch (e) { } return new Response('Not found', { status: 404 }); } } // verifikasi Google Search Console
     if (!p.startsWith('/api/')) return env.ASSETS.fetch(req);
     const cors = { 'Access-Control-Allow-Origin': env.ORIGIN || '*', 'Access-Control-Allow-Headers': 'Authorization,Content-Type', 'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS' };
     const J = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
@@ -134,7 +136,7 @@ export default {
       if (p == '/api/pay/hook' && M == 'POST') return payHook(env, req, u, J, await cfgAll(env)); // konfirmasi transfer otomatis (layanan cek mutasi)
       if (p == '/api/tunnel' && M == 'POST') return tunnelPost(env, b, ip, J, await cfgAll(env), cfgSet, limited);
       if (p == '/api/site' && M == 'GET') { const C = await cfgAll(env); return J({ ...siteOf(C), apk: apkPubOf(C) }); } // isi & pengaturan website promo
-      if (p == '/api/site/hit' && M == 'POST') return siteHit(env, ip, J, limited);
+      if (p == '/api/site/hit' && M == 'POST') return siteHit(env, ip, J, limited, b);
       if (p == '/api/apk' && M == 'GET') return apkPublic(await cfgAll(env), J);
       if (p == '/api/apk/chunk' && M == 'GET') return apkChunkGet(env, u, ip, J, await cfgAll(env), limited);
       if (p == '/api/apk/dl' && M == 'POST') return apkDlCount(env, ip, J, limited);

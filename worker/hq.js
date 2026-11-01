@@ -252,7 +252,7 @@ export async function pruneApk(env, now) { await env.DB.prepare('DELETE FROM apk
 export const SITE_DEF = {
   eyebrow: 'Kasir · Stok · Grosir · Distributor', title: 'Kelola toko & distribusi Anda', gold: 'dalam satu aplikasi',
   lead: 'Kasir yang tetap jalan tanpa internet, stok yang terpantau, sales lapangan dengan GPS, pengantaran, absensi, gaji, sampai laporan keuangan. Untuk kios, toko grosir, dan distributor.',
-  cta: 'Pesan sekarang', wa: '', foot: '', banner: { on: false, text: '', link: '' },
+  cta: 'Pesan sekarang', wa: '', gsv: '', foot: '', banner: { on: false, text: '', link: '' },
   show: { fitur: true, tampilan: true, paket: true, langkah: true, tanya: true, pesan: true, apk: true },
   order: { open: true, closedMsg: 'Pemesanan sedang ditutup sementara. Silakan hubungi kami lewat WhatsApp.' },
   maint: { on: false, msg: 'Website sedang dalam pemeliharaan. Silakan kembali sebentar lagi.' }, faq: [],
@@ -261,6 +261,7 @@ const sTxt = (v, n, d) => (typeof v == 'string' ? clip(v.replace(/[\u0000-\u001f
 export function siteClean(raw, base) {
   const r = raw && typeof raw == 'object' ? raw : {}, d = base || SITE_DEF, o = JSON.parse(JSON.stringify(d)), bo = (v, x) => (typeof v == 'boolean' ? v : x);
   for (const [k, n] of [['eyebrow', 60], ['title', 90], ['gold', 90], ['lead', 320], ['cta', 30], ['foot', 160]]) o[k] = sTxt(r[k], n, o[k]);
+  o.gsv = typeof r.gsv == 'string' ? (r.gsv.trim().toLowerCase().replace(/^google|\.html$/g, '').match(/^[a-f0-9]{16}$/) || [''])[0] : o.gsv;
   o.wa = typeof r.wa == 'string' ? r.wa.replace(/[^\d+]/g, '').slice(0, 16) : o.wa;
   const bn = r.banner || {}; o.banner = { on: bo(bn.on, o.banner.on), text: sTxt(bn.text, 160, o.banner.text), link: typeof bn.link == 'string' && /^(https:\/\/[^\s<>"']{4,200}|#[\w-]{1,30})?$/.test(bn.link.trim()) ? bn.link.trim() : o.banner.link };
   for (const k of Object.keys(o.show)) o.show[k] = bo((r.show || {})[k], o.show[k]);
@@ -270,9 +271,11 @@ export function siteClean(raw, base) {
   return o;
 }
 export const siteOf = (C) => { try { return siteClean(JSON.parse(C.site || 'null'), SITE_DEF); } catch (e) { return siteClean(null, SITE_DEF); } };
-export async function siteHit(env, ip, J, limited) {
+export async function siteHit(env, ip, J, limited, b) {
   if (await limited(env, 'hit:' + ip, 40, 36e5)) return J({ ok: 1 });
-  await env.DB.prepare("INSERT INTO sitehits(k,n) VALUES(?,1) ON CONFLICT(k) DO UPDATE SET n=n+1").bind('v:' + new Date(Date.now() + 288e5).toISOString().slice(0, 10)).run(); return J({ ok: 1 });
+  const day = new Date(Date.now() + 288e5).toISOString().slice(0, 10), src = b && typeof b.src == 'string' && /^[a-z0-9]{1,12}$/.test(b.src) ? b.src : '', ins = "INSERT INTO sitehits(k,n) VALUES(?,1) ON CONFLICT(k) DO UPDATE SET n=n+1";
+  const st = [env.DB.prepare(ins).bind('v:' + day)]; if (src) st.push(env.DB.prepare(ins).bind('s:' + src + ':' + day));
+  await env.DB.batch(st); return J({ ok: 1 });
 }
 async function siteAdmin(x) {
   const { env, p, M, b, J, C, cfgSet } = x;
@@ -285,7 +288,8 @@ async function siteAdmin(x) {
     const days = []; for (let i = 13; i >= 0; i--) days.push(new Date(Date.now() + 288e5 - i * DAY).toISOString().slice(0, 10));
     const r = (await env.DB.prepare("SELECT k,n FROM sitehits WHERE k>=? ").bind('d:' + days[0]).all()).results, r2 = (await env.DB.prepare("SELECT k,n FROM sitehits WHERE k>=? AND k<'w'").bind('v:' + days[0]).all()).results, mp = {}; for (const x2 of [...r, ...r2]) mp[x2.k] = x2.n;
     const L = (await env.DB.prepare("SELECT strftime('%Y-%m-%d',(t/1000)+28800,'unixepoch') d,COUNT(*) n FROM leads WHERE t>? GROUP BY d").bind(Date.now() - 15 * DAY).all()).results, lm = {}; for (const y of L) lm[y.d] = y.n;
-    return J({ days: days.map((d) => ({ d, v: mp['v:' + d] || 0, dl: mp['d:' + d] || 0, o: lm[d] || 0 })) });
+    const srcs = {}; for (const x2 of r) if (x2.k.startsWith('s:') && x2.k.slice(-10) >= days[0]) { const n2 = x2.k.slice(2, -11); srcs[n2] = (srcs[n2] || 0) + x2.n; }
+    return J({ src: srcs, days: days.map((d) => ({ d, v: mp['v:' + d] || 0, dl: mp['d:' + d] || 0, o: lm[d] || 0 })) });
   }
   return null;
 }
