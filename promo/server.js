@@ -3,7 +3,7 @@
 const http = require('http'), fs = require('fs'), path = require('path');
 const ROOT = __dirname, PORT = +process.env.PORT || 8080;
 const MIME = { '.apk': 'application/vnd.android.package-archive', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.ico': 'image/x-icon' };
-const ALLOW = (u) => u == '/index.html' || u == '/admin.html' || u == '/config.js' || u == '/apk/J-POS.apk' || /^\/img\/[\w.-]+\.(png|jpg|svg)$/.test(u);
+const ALLOW = (u) => u == '/index.html' || u == '/admin.html' || u == '/config.js' || u == '/apk/J-POS.apk' || u == '/video/J-POS-promo.mp4' || /^\/img\/[\w.-]+\.(png|jpg|svg)$/.test(u);
 let hits = 0;
 http.createServer((req, res) => {
   const H = { 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'no-referrer', 'X-Frame-Options': 'SAMEORIGIN' };
@@ -13,6 +13,15 @@ http.createServer((req, res) => {
   if (u == '/' ) u = '/index.html';
   if (u.includes('..') || !ALLOW(u)) { res.writeHead(404, { ...H, 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('Tidak ditemukan'); }
   const f = path.join(ROOT, u);
+  if (u == '/video/J-POS-promo.mp4') { // video: dukung Range agar bisa diputar/geser di HP
+    fs.stat(f, (e, st) => {
+      if (e || !st.isFile()) { res.writeHead(404, H); return res.end('Tidak ditemukan'); }
+      const m = /bytes=(\d*)-(\d*)/.exec(req.headers.range || ''); let a = 0, z = st.size - 1, code = 200;
+      if (m) { a = m[1] ? +m[1] : 0; z = m[2] ? Math.min(+m[2], st.size - 1) : st.size - 1; if (a > z) { res.writeHead(416, { ...H, 'Content-Range': 'bytes */' + st.size }); return res.end(); } code = 206; }
+      const h = { ...H, 'Content-Type': 'video/mp4', 'Accept-Ranges': 'bytes', 'Content-Length': z - a + 1, 'Cache-Control': 'public, max-age=86400' }; if (code == 206) h['Content-Range'] = 'bytes ' + a + '-' + z + '/' + st.size;
+      res.writeHead(code, h); if (req.method == 'HEAD') return res.end(); fs.createReadStream(f, { start: a, end: z }).pipe(res);
+    }); return;
+  }
   if (u == '/apk/J-POS.apk') { // file besar → kirim bertahap (stream), bisa diunduh sebagai file
     fs.stat(f, (e, st) => {
       if (e || !st.isFile()) { res.writeHead(404, { ...H, 'Content-Type': 'text/plain; charset=utf-8' }); return res.end('APK belum disiapkan'); }

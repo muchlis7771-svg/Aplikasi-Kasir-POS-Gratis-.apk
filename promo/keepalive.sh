@@ -9,7 +9,7 @@ trap 'kill $(jobs -p) 2>/dev/null; pkill -f "node server.js" 2>/dev/null; pkill 
 # 1) server website
 ( while true; do node server.js >> web.log 2>&1; sleep 2; done ) &
 # 2) tunnel publik — alamat https://….trycloudflare.com ditulis ke tunnel.log
-( while true; do : > tunnel.log; cloudflared tunnel --no-autoupdate --protocol http2 --url "http://localhost:$PORT" >> tunnel.log 2>&1; sleep 5; done ) &
+( while true; do : > tunnel.log; cloudflared tunnel --no-autoupdate --protocol http2 --url "http://127.0.0.1:$PORT" >> tunnel.log 2>&1; sleep 5; done ) &
 # 3) laporkan alamat tunnel ke server J-POS agar link tetap …/termux selalu menunjuk ke sini (butuh file tunnel.key)
 ( sleep 25; while true; do
     URL=$(grep -o 'https://[-a-z0-9]*\.trycloudflare\.com' tunnel.log 2>/dev/null | tail -1); KEY=$(tr -d ' \r\n' < tunnel.key 2>/dev/null)
