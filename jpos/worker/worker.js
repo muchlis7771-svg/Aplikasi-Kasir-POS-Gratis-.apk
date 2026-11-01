@@ -1,7 +1,7 @@
 import { MSCHEMA, buyerRoutes, shopRoutes, shipCfg } from './market.js';
 import { SSCHEMA, SALTER, logAct, heartbeat, adminActivity } from './social.js';
 import { MSCH2, mitraRoutes } from './mitra.js';
-import { HSCHEMA, payHook, hqStore, hqAdmin, leadPost, trailStmt, trailGet, pruneTrail, tunnelPost, tunnelRedirect } from './hq.js';
+import { HSCHEMA, payHook, hqStore, hqAdmin, leadPost, trailStmt, trailGet, pruneTrail, tunnelPost, tunnelRedirect, apkPublic, apkPubOf, apkChunkGet, apkDlCount, siteOf, siteHit } from './hq.js';
 import { RSCHEMA, RALTER, rptCfg, cleanCfg, dayRange, buildDaily, sendOut, cronDaily } from './lapor.js';
 // J-POS API v4 — Cloudflare Worker + D1 (SQLite)
 // Multi-tenant: 1 toko = 1 tenant. Data bisnis = LOG KEJADIAN (tabel ev) yang diputar ulang tiap perangkat (offline-first).
@@ -125,7 +125,7 @@ export default {
     const J = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
     if (M == 'OPTIONS') return new Response(null, { headers: cors });
     let b = {};
-    if ((M == 'POST' || M == 'PUT' || M == 'PATCH') && p != '/api/pay/hook') { try { b = await req.json(); } catch { } }
+    if ((M == 'POST' || M == 'PUT' || M == 'PATCH') && p != '/api/pay/hook' && p != '/api/admin/apk/chunk') { try { b = await req.json(); } catch { } }
     const bearer = (req.headers.get('Authorization') || '').slice(7);
     try {
       if (!env.DB) return J({ e: 'Database D1 belum terhubung ke Worker (binding DB)' }, 500);
@@ -133,6 +133,11 @@ export default {
       // ---------- publik ----------
       if (p == '/api/pay/hook' && M == 'POST') return payHook(env, req, u, J, await cfgAll(env)); // konfirmasi transfer otomatis (layanan cek mutasi)
       if (p == '/api/tunnel' && M == 'POST') return tunnelPost(env, b, ip, J, await cfgAll(env), cfgSet, limited);
+      if (p == '/api/site' && M == 'GET') { const C = await cfgAll(env); return J({ ...siteOf(C), apk: apkPubOf(C) }); } // isi & pengaturan website promo
+      if (p == '/api/site/hit' && M == 'POST') return siteHit(env, ip, J, limited);
+      if (p == '/api/apk' && M == 'GET') return apkPublic(await cfgAll(env), J);
+      if (p == '/api/apk/chunk' && M == 'GET') return apkChunkGet(env, u, ip, J, await cfgAll(env), limited);
+      if (p == '/api/apk/dl' && M == 'POST') return apkDlCount(env, ip, J, limited);
       if (p == '/api/pesan' && M == 'POST') return leadPost(env, b, ip, J, await cfgAll(env), pkgAll, limited); // pemesanan dari website promo
       if (p == '/api/ping') return J({ ok: 1, v: 5 });
       if (p == '/api/time') return J({ t: Date.now() });
@@ -267,7 +272,7 @@ export default {
             return J({ ok: 1, name: s.name });
           }
         }
-        { const hr = await hqAdmin({ env, p, M, b, J, C: await cfgAll(env), cfgSet, origin: u.origin, u }); if (hr) return hr; }
+        { const hr = await hqAdmin({ env, p, M, b, J, C: await cfgAll(env), cfgSet, origin: u.origin, u, req }); if (hr) return hr; }
         if (p == '/api/admin/announce' && M == 'POST') {
           const tx = String(b.text || '').trim().slice(0, 500);
           if (!tx) return J({ e: 'Pesan kosong' }, 400);

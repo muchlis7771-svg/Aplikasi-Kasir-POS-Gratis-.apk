@@ -106,10 +106,15 @@ footer a{color:var(--gold2)}
   .eyebrow{letter-spacing:.12em;font-size:10px;padding:5px 11px}.wa{padding:10px 14px;font-size:13px;right:12px;bottom:12px}
   nav .links{display:none}nav .btn{margin-left:auto}.fm .r{grid-template-columns:1fr}.fm{padding:24px 20px}section{padding:60px 0}.hero{padding:44px 0 40px}
 }
+#bn{background:linear-gradient(90deg,#c9a24a,#f0d78c);color:#1c1607;text-align:center;padding:9px 14px;font-weight:700;font-size:14px}#bn a{color:inherit;text-decoration:underline}
+#mt{position:fixed;inset:0;z-index:99;background:#070d22;color:#f1ecdc;display:flex;align-items:center;justify-content:center;text-align:center;padding:30px;font-size:18px;line-height:1.6}#mt[hidden]{display:none}
+#apkLink[disabled]{opacity:.7;pointer-events:none}.cl{padding:14px;border-radius:12px;background:#0c1736;border:1px solid #26335f;margin-bottom:12px;color:#f1ecdc}
 </style>
 </head>
 <body>
 
+<div id="bn" hidden></div>
+<div id="mt" hidden></div>
 <nav><div class="wrap">
   <a class="brand" href="#"><img src="img/logo-192.png" alt="J-POS logo"><span class="gold">J-POS</span></a>
   <div class="links"><a href="#fitur">Fitur</a><a href="#tampilan">Tampilan</a><a href="#paket">Paket &amp; Harga</a><a href="#tanya">Tanya Jawab</a></div>
@@ -285,6 +290,47 @@ footer a{color:var(--gold2)}
   fetch('apk/J-POS.apk', { method: 'HEAD' }).then((r) => { if (r.ok && /android|octet/i.test(r.headers.get('content-type') || '')) { $('#apkLink').hidden = false; $('#apkNote').hidden = false; } }).catch(() => { });
   drawPkg(); links();
   api('/api/info').then((j) => { if (j && j.pkg) { INFO = { pkg: j.pkg, wa: j.wa, trial: j.trial }; drawPkg(); links(); } }).catch(() => links());
+  // ---- kontrol website dari dashboard Head Admin (/api/site) ----
+  const sh = (id, on) => { const e = document.getElementById(id); if (e) e.hidden = !on; document.querySelectorAll('nav .links a[href="#' + id + '"]').forEach((a) => (a.hidden = !on)); };
+  let APKM = null;
+  function applySite(S) {
+    if (!S || typeof S != 'object') return;
+    const h = document.querySelector('.hero');
+    if (S.eyebrow && h) h.querySelector('.eyebrow').textContent = S.eyebrow;
+    if (S.title && h) { const t = h.querySelector('h1'); t.textContent = S.title + ' '; if (S.gold) { const g = document.createElement('span'); g.className = 'gold'; g.textContent = S.gold; t.appendChild(g); } }
+    if (S.lead && h) h.querySelector('.lead').textContent = S.lead;
+    if (S.cta) document.querySelectorAll('a.btn.g[href="#pesan"]').forEach((a) => { if (!a.classList.contains('s')) a.textContent = S.cta; });
+    const bn = $('#bn'), b = S.banner || {};
+    if (b.on && b.text) { bn.textContent = ''; if (b.link) { const a = document.createElement('a'); a.href = b.link; a.textContent = b.text; if (/^https:/.test(b.link)) { a.target = '_blank'; a.rel = 'noopener'; } bn.appendChild(a); } else bn.textContent = b.text; bn.hidden = false; } else bn.hidden = true;
+    const sw = S.show || {};
+    for (const k of ['fitur', 'tampilan', 'paket', 'tanya', 'pesan']) if (k in sw) sh(k, !!sw[k]);
+    if ('pesan' in sw && !sw.pesan) document.querySelectorAll('a[href="#pesan"]').forEach((a) => (a.hidden = true));
+    if (S.order && !S.order.open) { $('#formBody').hidden = true; $('#okBox').hidden = true; let c = $('#closedBox'); if (!c) { c = document.createElement('div'); c.id = 'closedBox'; c.className = 'cl'; $('#form').appendChild(c); } c.textContent = S.order.closedMsg || 'Pemesanan sedang ditutup.'; const w = document.createElement('a'); w.className = 'btn g'; w.style.cssText = 'display:block;margin-top:10px;text-align:center'; w.target = '_blank'; w.rel = 'noopener'; w.href = waUrl('Halo, saya tertarik dengan aplikasi J-POS.'); w.textContent = '💬 Hubungi via WhatsApp'; c.appendChild(w); }
+    if (S.wa) { INFO.wa = S.wa; links(); }
+    if (S.foot) { const f = document.querySelector('footer .wrap > div'); if (f && !f.querySelector('.ft')) { const d = document.createElement('div'); d.className = 'ft'; d.textContent = S.foot; f.appendChild(d); } }
+    if (Array.isArray(S.faq) && S.faq.length) { const q = document.querySelector('#tanya .faq'); if (q) { q.textContent = ''; S.faq.forEach((x) => { const d = document.createElement('details'), m = document.createElement('summary'), p = document.createElement('p'); m.textContent = x.q; p.textContent = x.a; d.append(m, p); q.appendChild(d); }); } }
+    if (S.maint && S.maint.on) { $('#mt').textContent = S.maint.msg || 'Website sedang dalam pemeliharaan.'; $('#mt').hidden = false; } else $('#mt').hidden = true;
+    APKM = S.apk && S.apk.has && (!sw || sw.apk !== false) ? S.apk : null;
+    if (APKM) { const a = $('#apkLink'); a.hidden = false; $('#apkNote').hidden = false; a.textContent = '⬇ Unduh aplikasi Android (' + (APKM.size / 1048576).toFixed(0) + ' MB)'; a.removeAttribute('download'); a.href = '#'; a.onclick = dlApk; }
+    else if (sw && sw.apk === false) { $('#apkLink').hidden = true; $('#apkNote').hidden = true; }
+  }
+  const hex = (b) => [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, '0')).join('');
+  async function dlApk(e) {
+    e.preventDefault(); const a = $('#apkLink'), m = APKM; if (!m || a.disabled) return; const t0 = a.textContent; a.setAttribute('disabled', '');
+    try {
+      const out = new Uint8Array(m.size); let off = 0;
+      for (let i = 0; i < m.n; i++) {
+        let txt = ''; for (let t = 0; ; t++) { try { const r = await fetch((BASE || window.PROMO_APIS[0]) + '/api/apk/chunk?up=' + m.up + '&i=' + i); if (r.ok) { txt = await r.text(); break; } if (r.status == 404) throw new Error('File sedang diperbarui, muat ulang halaman.'); } catch (x) { if (t >= 3 || /diperbarui/.test(x.message)) throw x; } await new Promise((z) => setTimeout(z, 700 * (t + 1))); }
+        const bin = atob(txt.trim()); if (off + bin.length > out.length) throw new Error('Ukuran file tidak cocok.'); for (let k = 0; k < bin.length; k++) out[off + k] = bin.charCodeAt(k); off += bin.length;
+        a.textContent = 'Mengunduh… ' + Math.round((i + 1) / m.n * 100) + '%';
+      }
+      if (off != m.size) throw new Error('File tidak lengkap, coba lagi.');
+      a.textContent = 'Memeriksa keutuhan file…'; if (hex(await crypto.subtle.digest('SHA-256', out)) != m.sha) throw new Error('File rusak, coba lagi.');
+      const u = URL.createObjectURL(new Blob([out], { type: 'application/vnd.android.package-archive' })), l = document.createElement('a'); l.href = u; l.download = (String(m.name || 'J-POS').replace(/[^\w.\- ]/g, '_').replace(/\.apk$/i, '') || 'J-POS') + '.apk'; document.body.appendChild(l); l.click(); l.remove(); setTimeout(() => URL.revokeObjectURL(u), 60000);
+      api('/api/apk/dl', { method: 'POST' }).catch(() => { }); a.textContent = '✔ Selesai — buka file APK di unduhan'; setTimeout(() => { a.textContent = t0; a.removeAttribute('disabled'); }, 6000);
+    } catch (x) { a.textContent = t0; a.removeAttribute('disabled'); alert(x.message || 'Gagal mengunduh'); }
+  }
+  api('/api/site').then((S) => { if (S && !S.e) { applySite(S); api('/api/site/hit', { method: 'POST' }).catch(() => { }); } }).catch(() => { });
 })();
 </script>
 </body>
