@@ -97,6 +97,7 @@ footer .wrap{display:flex;gap:24px;flex-wrap:wrap;justify-content:space-between;
 .wa{position:fixed;right:16px;bottom:16px;z-index:30;display:flex;align-items:center;gap:8px;padding:12px 18px;border-radius:99px;background:linear-gradient(135deg,#f0d88f,#c9a24a);color:#1c1607;font-weight:700;text-decoration:none;font-size:14px;box-shadow:0 14px 30px -10px #000}
 #bn{background:linear-gradient(90deg,#c9a24a,#f0d78c);color:#1c1607;text-align:center;padding:9px 14px;font-weight:700;font-size:14px}#bn a{color:inherit;text-decoration:underline}
 #iab{background:#3a1f0a;color:#ffe9c7;padding:12px 14px;font-size:13.5px;line-height:1.5;text-align:center;border-bottom:1px solid #c9a24a55}#iab b{display:block;margin-bottom:6px;font-size:14px}#iab .wrap2{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:8px}#iab button,#iab a.ibtn{border:1px solid #f0d78c88;background:#f0d78c;color:#1c1607;font:700 13px inherit;padding:8px 14px;border-radius:99px;cursor:pointer;text-decoration:none}
+.dlok{max-width:520px;margin:16px auto 0;text-align:left;background:#0d2a1c;border:1px solid #3fae7a88;border-radius:16px;padding:16px 18px;font-size:13.5px;color:#d8ffe9;line-height:1.7}.dlok b{display:block;color:#7bedb3;font-size:15px;margin-bottom:6px}.dlok ol{margin:4px 0 0 18px;padding:0}.dlok .wn{margin-top:10px;padding-top:10px;border-top:1px dashed #3fae7a55;color:#ffd9a8}
 #mt{position:fixed;inset:0;z-index:99;background:#070d22;color:#f1ecdc;display:flex;align-items:center;justify-content:center;text-align:center;padding:30px;font-size:18px;line-height:1.6}#mt[hidden]{display:none}
 #apkLink[disabled]{opacity:.7;pointer-events:none}.cl{padding:14px;border-radius:12px;background:#0c1736;border:1px solid #26335f;margin-bottom:12px}
 @media(max-width:860px){.fg,.pk{grid-template-columns:1fr}.strip .wrap{grid-template-columns:1fr 1fr}nav .links{display:none}nav .btn{margin-left:auto}.fm .r{grid-template-columns:1fr}.fm{padding:24px 18px}section{padding:64px 0}.hero{padding:56px 0 30px}.shot{height:340px}.shot .ph{width:170px;height:350px}.shot .ph:last-child{display:none}.wa span{display:none}}
@@ -153,6 +154,7 @@ dialog#vd{border:1px solid #c9a24a66;border-radius:22px;background:#070b1a;color
   <p class="lead">Kasir yang tetap jalan tanpa internet, stok terpantau, sales lapangan dengan GPS, sampai laporan keuangan. Mulai <b style="color:var(--gold2)">Rp25.000/bulan</b>, coba gratis dulu.</p>
   <div class="cta"><a class="btn g" href="#pesan">Pesan sekarang</a><button class="btn o" id="vidBtn" type="button">🎬 Tonton video 30 detik</button><a class="btn o" id="demoLink" href="#" target="_blank" rel="noopener">▶ Coba demo gratis</a><a class="btn o" id="apkLink" href="apk/J-POS.apk" download hidden>⬇ Unduh aplikasi Android</a></div>
   <p id="apkNote" hidden>Android akan meminta izin “pasang dari sumber ini” saat membuka file APK. Itu normal untuk aplikasi di luar Play Store.</p>
+  <div id="dlOk" class="dlok" hidden></div>
   <div class="pts"><span>Online &amp; offline</span><span>Banyak pengguna</span><span>HP Android &amp; laptop</span><span>Tanpa biaya pemasangan</span></div>
   <div class="shot" aria-hidden="true"><div class="ph"><img src="img/s-dash.jpg" alt=""></div><div class="ph"><img src="img/s-kasir.jpg" alt=""></div><div class="ph"><img src="img/s-laporan.jpg" alt=""></div></div>
 </div></header>
@@ -364,8 +366,15 @@ dialog#vd{border:1px solid #c9a24a66;border-radius:22px;background:#070b1a;color
     else if (sw && sw.apk === false) { $('#apkLink').hidden = true; $('#apkNote').hidden = true; }
   }
   const hex = (b) => [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, '0')).join('');
+  async function dlNotify() { // ingatkan di HP begitu unduhan selesai (butuh izin notifikasi; diminta saat pengguna sendiri menekan tombol unduh)
+    try {
+      if (!('Notification' in window)) return;
+      let perm = Notification.permission; if (perm == 'default') perm = await Notification.requestPermission();
+      if (perm == 'granted') new Notification('J-POS siap dipasang ✓', { body: 'Buka Unduhan (Downloads) di HP Anda, lalu ketuk file J-POS.apk untuk memasang.' });
+    } catch (e) { }
+  }
   async function dlApk(e) {
-    e.preventDefault(); const a = $('#apkLink'), m = APKM; if (!m || a.disabled) return; const t0 = a.textContent; a.setAttribute('disabled', '');
+    e.preventDefault(); const a = $('#apkLink'), m = APKM; if (!m || a.disabled) return; const t0 = a.textContent; a.setAttribute('disabled', ''); $('#dlOk').hidden = true;
     try {
       const out = new Uint8Array(m.size); let off = 0;
       for (let i = 0; i < m.n; i++) {
@@ -376,7 +385,12 @@ dialog#vd{border:1px solid #c9a24a66;border-radius:22px;background:#070b1a;color
       if (off != m.size) throw new Error('File tidak lengkap, coba lagi.');
       a.textContent = 'Memeriksa keutuhan file…'; if (hex(await crypto.subtle.digest('SHA-256', out)) != m.sha) throw new Error('File rusak, coba lagi.');
       const u = URL.createObjectURL(new Blob([out], { type: 'application/vnd.android.package-archive' })), l = document.createElement('a'); l.href = u; l.download = (String(m.name || 'J-POS').replace(/[^\w.\- ]/g, '_').replace(/\.apk$/i, '') || 'J-POS') + '.apk'; document.body.appendChild(l); l.click(); l.remove(); setTimeout(() => URL.revokeObjectURL(u), 60000);
-      api('/api/apk/dl', { method: 'POST' }).catch(() => { }); a.textContent = '✔ Selesai — buka file APK di unduhan'; setTimeout(() => { a.textContent = t0; a.removeAttribute('disabled'); }, 6000);
+      api('/api/apk/dl', { method: 'POST' }).catch(() => { }); a.textContent = '✔ Selesai'; setTimeout(() => { a.textContent = t0; a.removeAttribute('disabled'); }, 4000);
+      dlNotify();
+      const bx = $('#dlOk'); bx.innerHTML = ''; bx.append(T('b', '', '✔ Unduhan selesai — masih ada satu langkah terakhir'),
+        (() => { const ol = T('ol'); ['Buka notifikasi "Download selesai" dari Chrome (geser dari atas layar), atau buka folder Unduhan di aplikasi File.', 'Ketuk file "' + (m.name || 'J-POS') + '.apk".', 'Jika Android bertanya "Pasang dari sumber ini?", ketuk Izinkan lalu Pasang.'].forEach((t) => { const li = T('li', '', t); ol.appendChild(li); }); return ol; })(),
+        T('div', 'wn', '⚠️ Kalau filenya hilang / tertulis "diblokir" di daftar Unduhan: itu pemindaian Google Play Protect terhadap aplikasi di luar Play Store, bukan file rusak. Ketuk file itu → "Download anyway" / "Pasang saja" untuk melanjutkan.'));
+      bx.hidden = false; bx.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     } catch (x) { a.textContent = t0; a.removeAttribute('disabled'); alert(x.message || 'Gagal mengunduh'); }
   }
   api('/api/site').then((S) => { if (S && !S.e) { applySite(S); api('/api/site/hit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ src: (new URLSearchParams(location.search).get('src') || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12) }) }).catch(() => { }); } }).catch(() => { });
