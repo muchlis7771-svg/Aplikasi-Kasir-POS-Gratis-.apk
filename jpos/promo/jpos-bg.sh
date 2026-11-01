@@ -13,7 +13,7 @@ show() {
   local U; U=$(geturl)
   echo "────────────────────────────────────────"
   if running; then echo "Status  : BERJALAN di latar belakang"; else echo "Status  : berhenti"; fi
-  [ "$(curl -s -m 3 localhost:${PORT:-8080}/healthz 2>/dev/null)" = ok ] && echo "Server  : OK (localhost:${PORT:-8080})" || echo "Server  : tidak merespons"
+  [ "$(curl -s -m 3 127.0.0.1:${PORT:-8080}/healthz 2>/dev/null)" = ok ] && echo "Server  : OK (localhost:${PORT:-8080})" || { echo "Server  : tidak merespons — 5 baris terakhir web.log:"; tail -n 5 web.log 2>/dev/null; }
   if [ -n "$U" ]; then echo "Alamat  : $U"; echo "Admin   : $U/admin.html"; else echo "Alamat  : (belum ada — tunggu sebentar lalu jalankan: bash jpos-bg.sh url)"; fi
   [ -s tunnel.key ] && echo "Link tetap: …workers.dev/termux (aktif, dilaporkan otomatis)" || echo "Link tetap: belum — simpan kunci dari halaman admin (lihat PETUNJUK-TERMUX.md)"
   echo "────────────────────────────────────────"

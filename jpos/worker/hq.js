@@ -3,6 +3,8 @@
 // Begitu transfer masuk ke rekening Head Admin, layanan cek mutasi (Moota / sejenis) memanggil webhook → nominal cocok
 // → masa aktif & paket toko diperpanjang otomatis. Tanpa layanan mutasi, Head Admin cukup menekan "Tandai lunas".
 export const HSCHEMA = [
+  "CREATE TABLE IF NOT EXISTS wchat(id INTEGER PRIMARY KEY AUTOINCREMENT,cid TEXT NOT NULL,who TEXT NOT NULL,name TEXT,txt TEXT,t INTEGER,rd INTEGER DEFAULT 0)", 'CREATE INDEX IF NOT EXISTS wchat_c ON wchat(cid,id)',
+  "CREATE TABLE IF NOT EXISTS wulasan(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT,store TEXT,stars INTEGER,txt TEXT,t INTEGER,ok INTEGER DEFAULT 0)",
   "CREATE TABLE IF NOT EXISTS inv(id INTEGER PRIMARY KEY AUTOINCREMENT,store_id TEXT NOT NULL,tier TEXT,months INTEGER,base INTEGER,code INTEGER,amount INTEGER,status TEXT DEFAULT 'tunggu',t INTEGER,paid_t INTEGER,via TEXT,ref TEXT,by TEXT)",
   'CREATE INDEX IF NOT EXISTS inv_s ON inv(store_id,t)', 'CREATE INDEX IF NOT EXISTS inv_a ON inv(status,amount)',
   "CREATE TABLE IF NOT EXISTS tiket(id INTEGER PRIMARY KEY AUTOINCREMENT,store_id TEXT NOT NULL,sname TEXT,by TEXT,role TEXT,cat TEXT,sub TEXT,st TEXT DEFAULT 'baru',t INTEGER,upd INTEGER,uh INTEGER DEFAULT 1,us INTEGER DEFAULT 0,msgs TEXT)",
@@ -27,7 +29,7 @@ export async function invPay(env, id, via, ref) {
   await env.DB.batch([
     env.DB.prepare("UPDATE inv SET status='lunas',paid_t=?,via=?,ref=? WHERE id=? AND status='tunggu'").bind(now, clip(via, 30), clip(ref, 80), id),
     env.DB.prepare("UPDATE stores SET exp=?,plan=?,tier=?,status='active' WHERE id=?").bind(exp, 'Langganan ' + v.months + ' bln', v.tier || s.tier || 'high', v.store_id),
-    env.DB.prepare('INSERT INTO chat(room,sid,sn,un,tx,t) VALUES(?,?,?,?,?,?)').bind('tk:' + v.store_id, 'hq', 'Pemilik Aplikasi', 'Head Admin', `✅ Pembayaran Rp${v.amount.toLocaleString('id-ID')} diterima. Paket diperpanjang ${v.months} bulan s/d ${new Date(exp + 8 * 36e5).toISOString().slice(0, 10)}. Terima kasih!`, now),
+    env.DB.prepare('INSERT INTO wchat(room,sid,sn,un,tx,t) VALUES(?,?,?,?,?,?)').bind('tk:' + v.store_id, 'hq', 'Pemilik Aplikasi', 'Head Admin', `✅ Pembayaran Rp${v.amount.toLocaleString('id-ID')} diterima. Paket diperpanjang ${v.months} bulan s/d ${new Date(exp + 8 * 36e5).toISOString().slice(0, 10)}. Terima kasih!`, now),
   ]);
   return { ...v, exp };
 }
@@ -117,7 +119,7 @@ export async function hqStore(x) {
 // rute Head Admin
 export async function hqAdmin(x) {
   const { env, p, M, b, J, C, cfgSet, origin } = x, now = Date.now();
-  { const ar = (await apkAdmin(x)) || (await siteAdmin(x)); if (ar) return ar; }
+  { const ar = (await apkAdmin(x)) || (await siteAdmin(x)) || (await chatAdmin(x)); if (ar) return ar; }
   if (p == '/api/admin/pay') {
     if (M == 'PUT') {
       if (b.bank != null) await cfgSet(env, 'pay_bank', clip(b.bank, 400).trim());
@@ -246,14 +248,14 @@ async function apkAdmin(x) {
   if (p == '/api/admin/apk' && M == 'GET') return J(apkPub(apkMetaOf(C)));
   return null;
 }
-export async function pruneApk(env, now) { await env.DB.prepare('DELETE FROM apkc WHERE t<? AND up NOT IN (SELECT json_extract(v,\'$.up\') FROM cfg WHERE k=\'apk_meta\' AND v!=\'\')').bind(now - 864e5).run(); }
+export async function pruneApk(env, now) { await env.DB.prepare('DELETE FROM wchat WHERE t<?').bind(now - 60 * 864e5).run(); await env.DB.prepare('DELETE FROM apkc WHERE t<? AND up NOT IN (SELECT json_extract(v,\'$.up\') FROM cfg WHERE k=\'apk_meta\' AND v!=\'\')').bind(now - 864e5).run(); }
 
 /* ============ KONTROL WEBSITE PROMO (diatur dari dashboard Head Admin) ============ */
 export const SITE_DEF = {
   eyebrow: 'Kasir · Stok · Grosir · Distributor', title: 'Kelola toko & distribusi Anda', gold: 'dalam satu aplikasi',
   lead: 'Kasir yang tetap jalan tanpa internet, stok yang terpantau, sales lapangan dengan GPS, pengantaran, absensi, gaji, sampai laporan keuangan. Untuk kios, toko grosir, dan distributor.',
   cta: 'Pesan sekarang', wa: '', gsv: '', foot: '', banner: { on: false, text: '', link: '' },
-  show: { fitur: true, tampilan: true, paket: true, langkah: true, tanya: true, pesan: true, apk: true },
+  show: { fitur: true, tampilan: true, paket: true, langkah: true, tanya: true, pesan: true, apk: true, aman: true, ulasan: true, video: true, chat: true },
   order: { open: true, closedMsg: 'Pemesanan sedang ditutup sementara. Silakan hubungi kami lewat WhatsApp.' },
   maint: { on: false, msg: 'Website sedang dalam pemeliharaan. Silakan kembali sebentar lagi.' }, faq: [],
 };
@@ -290,6 +292,63 @@ async function siteAdmin(x) {
     const L = (await env.DB.prepare("SELECT strftime('%Y-%m-%d',(t/1000)+28800,'unixepoch') d,COUNT(*) n FROM leads WHERE t>? GROUP BY d").bind(Date.now() - 15 * DAY).all()).results, lm = {}; for (const y of L) lm[y.d] = y.n;
     const srcs = {}; for (const x2 of r) if (x2.k.startsWith('s:') && x2.k.slice(-10) >= days[0]) { const n2 = x2.k.slice(2, -11); srcs[n2] = (srcs[n2] || 0) + x2.n; }
     return J({ src: srcs, days: days.map((d) => ({ d, v: mp['v:' + d] || 0, dl: mp['d:' + d] || 0, o: lm[d] || 0 })) });
+  }
+  return null;
+}
+
+
+/* ============ CHAT LANGSUNG & ULASAN DI WEBSITE PROMO ============ */
+const CID = /^[a-f0-9]{16}$/, wClean = (v, n) => clip(String(v == null ? '' : v).replace(/[\u0000-\u0008\u000b-\u001f<>]/g, ' '), n).trim();
+const CARA = 'Cara memakai J-POS:\n1) Pesan paket atau coba demo di website ini.\n2) Daftarkan toko: buat toko, tambah produk (bisa impor Excel) dan karyawan.\n3) Pasang aplikasi di HP Android, atau buka lewat browser di laptop.\n4) Jualan lewat menu Kasir — tetap jalan tanpa internet, data terkirim otomatis saat sinyal kembali.\nAdmin akan membalas jika ada yang ingin ditanyakan lebih lanjut.';
+function botReply(txt, first, pk) {
+  const t = txt.toLowerCase();
+  if (/cara (pakai|guna|menggunakan|mulai)|panduan|tutorial/.test(t)) return CARA;
+  if (/harga|paket|biaya|tarif|berapa/.test(t)) { try { return 'Paket J-POS (per bulan):\n' + Object.values(pk()).map((x) => '• ' + x.n + ' — Rp' + Number(x.pr).toLocaleString('id-ID') + ' (hingga ' + x.max + ' pengguna)').join('\n') + '\nAda masa coba gratis. Admin akan membalas untuk detail.'; } catch (e) { } }
+  if (/pesan|beli|order|daftar|langganan/.test(t)) return 'Untuk memesan, isi formulir di bagian “Pemesanan” pada halaman ini (nama & nomor WhatsApp), atau tulis nama dan nomor WhatsApp Anda di chat ini. Admin akan menghubungi untuk aktivasi.';
+  if (first) return 'Terima kasih, pesan Anda sudah masuk. Ini balasan otomatis; admin akan membalas secepatnya di chat ini. Ketik “cara pakai”, “harga”, atau “cara pesan” untuk jawaban cepat.';
+  return '';
+}
+export async function webPublic(x) {
+  const { env, p, M, b, u, ip, J, limited, pkgAll } = x;
+  if (p == '/api/chat/send' && M == 'POST') {
+    const cid = String(b.cid || ''), txt = wClean(b.text, 500); if (b.website) return J({ ok: 1 });
+    if (!CID.test(cid) || !txt) return J({ e: 'Pesan kosong' }, 400);
+    if (await limited(env, 'chs:' + ip, 40, 36e5) || await limited(env, 'chc:' + cid, 30, 36e5)) return J({ e: 'Terlalu banyak pesan. Coba lagi nanti atau hubungi lewat WhatsApp.' }, 429);
+    const now = Date.now(), first = !(await env.DB.prepare('SELECT 1 x FROM wchat WHERE cid=? LIMIT 1').bind(cid).first()), rep = botReply(txt, first, pkgAll);
+    const st = [env.DB.prepare('INSERT INTO wchat(cid,who,name,txt,t,rd) VALUES(?,?,?,?,?,0)').bind(cid, 'v', wClean(b.name, 40), txt, now)];
+    if (rep) st.push(env.DB.prepare("INSERT INTO wchat(cid,who,name,txt,t,rd) VALUES(?,'b','',?,?,1)").bind(cid, rep, now + 1));
+    await env.DB.batch(st); return J({ ok: 1 });
+  }
+  if (p == '/api/chat/poll' && M == 'GET') {
+    const cid = u.searchParams.get('cid') || ''; if (!CID.test(cid)) return J({ m: [] });
+    if (await limited(env, 'chp:' + ip, 1500, 36e5)) return J({ e: 'Terlalu sering' }, 429);
+    const r = (await env.DB.prepare('SELECT id,who,txt,t FROM wchat WHERE cid=? AND id>? ORDER BY id LIMIT 60').bind(cid, +u.searchParams.get('after') || 0).all()).results; return J({ m: r });
+  }
+  if (p == '/api/ulasan' && M == 'GET') { const r = (await env.DB.prepare('SELECT name,store,stars,txt,t FROM wulasan WHERE ok=1 ORDER BY t DESC LIMIT 12').all()).results; return J({ list: r }); }
+  if (p == '/api/ulasan' && M == 'POST') {
+    if (b.website) return J({ ok: 1 }); if (await limited(env, 'ul:' + ip, 3, 864e5)) return J({ e: 'Terlalu banyak ulasan dari jaringan ini. Coba lagi besok.' }, 429);
+    const name = wClean(b.name, 40), store = wClean(b.store, 60), txt = wClean(b.text, 300), stars = Math.round(+b.stars);
+    if (name.length < 2) return J({ e: 'Isi nama Anda' }, 400); if (!(stars >= 1 && stars <= 5)) return J({ e: 'Pilih bintang 1–5' }, 400); if (txt.length < 10) return J({ e: 'Tulis ulasan minimal 10 huruf' }, 400);
+    await env.DB.prepare('INSERT INTO wulasan(name,store,stars,txt,t,ok) VALUES(?,?,?,?,?,0)').bind(name, store, stars, txt, Date.now()).run(); return J({ ok: 1, msg: 'Terima kasih! Ulasan tampil setelah disetujui admin.' });
+  }
+  return null;
+}
+async function chatAdmin(x) {
+  const { env, p, M, b, J, u } = x;
+  if (p == '/api/admin/chat') {
+    const cid = u.searchParams.get('cid') || '';
+    if (M == 'GET' && !cid) {
+      const r = (await env.DB.prepare("SELECT c.cid, MAX(c.id) lid, MAX(c.t) t, SUM(CASE WHEN c.who='v' AND c.rd=0 THEN 1 ELSE 0 END) un, (SELECT n.name FROM wchat n WHERE n.cid=c.cid AND n.who='v' AND n.name!='' ORDER BY n.id DESC LIMIT 1) name, (SELECT l.txt FROM wchat l WHERE l.cid=c.cid ORDER BY l.id DESC LIMIT 1) last FROM wchat c GROUP BY c.cid ORDER BY lid DESC LIMIT 60").all()).results;
+      return J({ list: r, unread: r.reduce((a, x2) => a + (x2.un || 0), 0) });
+    }
+    if (!CID.test(cid)) return J({ e: 'cid tidak valid' }, 400);
+    if (M == 'GET') { const r = (await env.DB.prepare('SELECT id,who,name,txt,t FROM wchat WHERE cid=? ORDER BY id DESC LIMIT 200').bind(cid).all()).results.reverse(); await env.DB.prepare("UPDATE wchat SET rd=1 WHERE cid=? AND who='v' AND rd=0").bind(cid).run(); return J({ m: r }); }
+    if (M == 'POST') { const txt = wClean(b.text, 800); if (!txt) return J({ e: 'Pesan kosong' }, 400); await env.DB.prepare("INSERT INTO wchat(cid,who,name,txt,t,rd) VALUES(?,'a','',?,?,1)").bind(cid, txt, Date.now()).run(); return J({ ok: 1 }); }
+    if (M == 'DELETE') { await env.DB.prepare('DELETE FROM wchat WHERE cid=?').bind(cid).run(); return J({ ok: 1 }); }
+  }
+  if (p == '/api/admin/ulasan') {
+    if (M == 'POST') { const id = +b.id | 0; if (b.act == 'del') await env.DB.prepare('DELETE FROM wulasan WHERE id=?').bind(id).run(); else await env.DB.prepare('UPDATE wulasan SET ok=? WHERE id=?').bind(b.act == 'ok' ? 1 : 0, id).run(); return J({ ok: 1 }); }
+    return J({ list: (await env.DB.prepare('SELECT id,name,store,stars,txt,t,ok FROM wulasan ORDER BY ok,t DESC LIMIT 100').all()).results });
   }
   return null;
 }

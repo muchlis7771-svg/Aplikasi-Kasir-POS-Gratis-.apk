@@ -99,6 +99,19 @@ footer .wrap{display:flex;gap:24px;flex-wrap:wrap;justify-content:space-between;
 #mt{position:fixed;inset:0;z-index:99;background:#070d22;color:#f1ecdc;display:flex;align-items:center;justify-content:center;text-align:center;padding:30px;font-size:18px;line-height:1.6}#mt[hidden]{display:none}
 #apkLink[disabled]{opacity:.7;pointer-events:none}.cl{padding:14px;border-radius:12px;background:#0c1736;border:1px solid #26335f;margin-bottom:12px}
 @media(max-width:860px){.fg,.pk{grid-template-columns:1fr}.strip .wrap{grid-template-columns:1fr 1fr}nav .links{display:none}nav .btn{margin-left:auto}.fm .r{grid-template-columns:1fr}.fm{padding:24px 18px}section{padding:64px 0}.hero{padding:56px 0 30px}.shot{height:340px}.shot .ph{width:170px;height:350px}.shot .ph:last-child{display:none}.wa span{display:none}}
+
+.tr{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.tc{border:1px solid var(--line);border-radius:22px;padding:24px;background:var(--bg2)}.tc i{font-style:normal;font-size:24px;display:block;margin-bottom:10px}.tc h3{font-size:18px;color:#f3e6bf;margin-bottom:6px}.tc p{color:var(--mu);font-size:14px}.tc a{color:var(--gold2)}
+.vf{margin:26px auto 0;max-width:760px;border:1px dashed #c9a24a66;border-radius:18px;padding:18px 20px;font-size:13.5px;color:var(--mu)}.vf b{color:var(--ink)}.vf code{display:block;word-break:break-all;margin-top:6px;color:var(--gold2);font-size:12px}
+.rv{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.rc{border:1px solid var(--line);border-radius:22px;padding:22px;background:var(--bg2)}.rc .st{color:#e8bf5a;letter-spacing:2px}.rc p{margin:8px 0 12px;font-size:14.5px;color:#dfe3f3}.rc small{color:var(--mu)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:22px}.two .fm{margin:0;padding:24px;max-width:none}.two h3{font-size:20px;margin-bottom:6px;color:#f3e6bf}.two p.n{color:var(--mu);font-size:13.5px;margin-bottom:14px}
+dialog#vd{border:1px solid #c9a24a66;border-radius:22px;background:#070b1a;color:var(--ink);padding:14px;width:min(420px,94vw)}dialog#vd::backdrop{background:#000b}dialog#vd video{width:100%;border-radius:14px;max-height:78vh;background:#000}dialog#vd .rw{display:flex;gap:10px;margin-top:10px;justify-content:space-between;align-items:center}
+#chBtn{position:fixed;right:16px;bottom:74px;z-index:31;border:0;cursor:pointer;font:700 14px inherit;padding:12px 18px;border-radius:99px;background:#121b38;color:var(--ink);border:1px solid #c9a24a88;box-shadow:0 14px 30px -10px #000}#chBtn b{background:#e5484d;color:#fff;border-radius:99px;padding:1px 7px;margin-left:6px;font-size:12px}#chBtn b[hidden]{display:none}
+#chP{position:fixed;right:16px;bottom:130px;z-index:32;width:min(360px,100vw - 32px);height:min(520px,calc(100vh - 150px));display:none;flex-direction:column;background:var(--bg2);border:1px solid #c9a24a66;border-radius:20px;box-shadow:0 30px 60px -20px #000;overflow:hidden}#chP.on{display:flex}
+#chP header{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}#chP header b{font-family:Georgia,serif;font-weight:400;font-size:17px;color:#f3e6bf}#chP header small{display:block;color:var(--mu);font-size:11.5px}#chP header button{background:none;border:0;color:var(--mu);font-size:20px;cursor:pointer}
+#chM{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:8px}.cm{max-width:84%;padding:9px 13px;border-radius:14px;font-size:14px;white-space:pre-wrap;word-break:break-word;line-height:1.5}.cm.v{align-self:flex-end;background:linear-gradient(135deg,#e6c878,#c9a24a);color:#1c1607}.cm.a{align-self:flex-start;background:#18254d}.cm.b{align-self:flex-start;background:#101a38;border:1px dashed #2f3f78;color:#cbd3ee}.cm small{display:block;font-size:10.5px;opacity:.7;margin-bottom:2px}
+#chQ{display:flex;gap:6px;flex-wrap:wrap;padding:0 14px 8px}#chQ button{background:none;border:1px solid #c9a24a66;color:var(--gold2);border-radius:99px;padding:5px 11px;font-size:12.5px;cursor:pointer}
+#chF{display:flex;gap:8px;padding:10px;border-top:1px solid var(--line)}#chF input{margin:0;flex:1}#chF button{border:0;border-radius:12px;padding:0 16px;background:linear-gradient(135deg,#f0d88f,#c9a24a);color:#1c1607;font-weight:700;cursor:pointer}
+@media(max-width:860px){.tr,.rv,.two{grid-template-columns:1fr}#chBtn{bottom:72px}}
 </style>
 </head>
 <body>
@@ -107,7 +120,7 @@ footer .wrap{display:flex;gap:24px;flex-wrap:wrap;justify-content:space-between;
 
 <nav><div class="wrap">
   <a class="brand" href="#"><img src="img/logo-192.png" alt="Logo J-POS"><span class="gold">J-POS</span></a>
-  <div class="links"><a href="#fitur">Fitur</a><a href="#tampilan">Tampilan</a><a href="#paket">Harga</a><a href="#tanya">Tanya Jawab</a></div>
+  <div class="links"><a href="#fitur">Fitur</a><a href="#tampilan">Tampilan</a><a href="#aman">Terpercaya</a><a href="#paket">Harga</a><a href="#ulasan">Ulasan</a><a href="#tanya">Tanya Jawab</a></div>
   <a class="btn g s" href="#pesan">Pesan</a>
 </div></nav>
 
@@ -115,7 +128,7 @@ footer .wrap{display:flex;gap:24px;flex-wrap:wrap;justify-content:space-between;
   <span class="eyebrow">Kasir · Stok · Grosir · Distributor</span>
   <h1>Kelola toko &amp; distribusi Anda <span class="gold">dalam satu aplikasi</span></h1>
   <p class="lead">Kasir yang tetap jalan tanpa internet, stok terpantau, sales lapangan dengan GPS, sampai laporan keuangan. Mulai <b style="color:var(--gold2)">Rp25.000/bulan</b>, coba gratis dulu.</p>
-  <div class="cta"><a class="btn g" href="#pesan">Pesan sekarang</a><a class="btn o" id="demoLink" href="#" target="_blank" rel="noopener">▶ Coba demo gratis</a><a class="btn o" id="apkLink" href="apk/J-POS.apk" download hidden>⬇ Unduh aplikasi Android</a></div>
+  <div class="cta"><a class="btn g" href="#pesan">Pesan sekarang</a><button class="btn o" id="vidBtn" type="button">🎬 Tonton video 30 detik</button><a class="btn o" id="demoLink" href="#" target="_blank" rel="noopener">▶ Coba demo gratis</a><a class="btn o" id="apkLink" href="apk/J-POS.apk" download hidden>⬇ Unduh aplikasi Android</a></div>
   <p id="apkNote" hidden>Android akan meminta izin “pasang dari sumber ini” saat membuka file APK. Itu normal untuk aplikasi di luar Play Store.</p>
   <div class="pts"><span>Online &amp; offline</span><span>Banyak pengguna</span><span>HP Android &amp; laptop</span><span>Tanpa biaya pemasangan</span></div>
   <div class="shot" aria-hidden="true"><div class="ph"><img src="img/s-dash.jpg" alt=""></div><div class="ph"><img src="img/s-kasir.jpg" alt=""></div><div class="ph"><img src="img/s-laporan.jpg" alt=""></div></div>
@@ -140,6 +153,19 @@ footer .wrap{display:flex;gap:24px;flex-wrap:wrap;justify-content:space-between;
   </div>
 </div></section>
 
+<section id="aman" style="border-block:1px solid var(--line)"><div class="wrap">
+  <div class="sh"><span class="eyebrow">Aman &amp; transparan</span><h2>Data toko Anda <span class="gold">dijaga</span></h2><p>Yang kami lakukan, dan yang tidak kami lakukan, ditulis terbuka.</p></div>
+  <div class="tr">
+    <div class="tc"><i>🔒</i><h3>Koneksi terenkripsi</h3><p>Data tersimpan di HP dan di server lewat koneksi HTTPS. Aplikasi tetap bisa dipakai saat offline.</p></div>
+    <div class="tc"><i>🔑</i><h3>Akses per peran</h3><p>Pemilik, admin, kasir, sales, dan akuntan punya hak berbeda. PIN disimpan dalam bentuk tersandi.</p></div>
+    <div class="tc"><i>📍</i><h3>Lokasi dengan izin</h3><p>Pelacakan tim lapangan hanya berjalan dengan izin karyawan, dengan notifikasi tetap di HP. Riwayat dihapus otomatis setelah 30 hari.</p></div>
+    <div class="tc"><i>🚫</i><h3>Tanpa jual data &amp; iklan</h3><p>J-POS tidak menjual data pengguna dan tidak memakainya untuk iklan. Baca <a id="privLink2" href="#" target="_blank" rel="noopener">kebijakan privasi</a>.</p></div>
+    <div class="tc"><i>✍️</i><h3>APK bertanda tangan</h3><p>File aplikasi ditandatangani dan sidik SHA-256-nya ditampilkan di bawah, jadi Anda bisa mencocokkan keasliannya.</p></div>
+    <div class="tc"><i>💬</i><h3>Bantuan langsung</h3><p>Tanya lewat chat di halaman ini atau WhatsApp. Balasan otomatis ditandai jelas sebagai balasan otomatis.</p></div>
+  </div>
+  <div class="vf" id="vf" hidden><b>Cek keaslian file unduhan</b><br><span id="vfT"></span><code id="vfH"></code><span style="display:block;margin-top:8px">Cara cek: di HP/laptop hitung SHA-256 file yang diunduh (mis. perintah <code style="display:inline">sha256sum J-POS.apk</code>) dan pastikan sama dengan di atas. Website ini juga memeriksanya otomatis saat mengunduh.</span></div>
+</div></section>
+
 <section id="tampilan" style="border-block:1px solid var(--line);padding-bottom:50px">
   <div class="wrap"><div class="sh"><span class="eyebrow">Tampilan</span><h2>Rapi, jelas, <span class="gold">mudah dipakai</span></h2><p>Geser untuk melihat tampilan aplikasi (data contoh).</p></div></div>
   <div class="gal">
@@ -158,6 +184,21 @@ footer .wrap{display:flex;gap:24px;flex-wrap:wrap;justify-content:space-between;
 </div></section>
 
 <section id="langkah" style="display:none"></section>
+
+<section id="ulasan" style="border-block:1px solid var(--line)"><div class="wrap">
+  <div class="sh"><span class="eyebrow">Ulasan &amp; penguji</span><h2>Kata <span class="gold">pengguna</span></h2><p id="rvNote">Ulasan ditampilkan setelah dicek admin. Kami tidak menampilkan ulasan buatan.</p></div>
+  <div class="rv" id="rvList"></div>
+  <div class="two">
+    <form class="fm" id="tsForm" novalidate><h3>🧪 Jadi penguji gratis</h3><p class="n">Coba J-POS lebih dulu dan beri masukan. Tim kami menghubungi lewat WhatsApp.</p>
+      <label>Nama<input name="name" maxlength="60" required></label><label>Nomor WhatsApp<input name="phone" type="tel" inputmode="tel" maxlength="16" required placeholder="08xxxxxxxxxx"></label>
+      <div class="hp" aria-hidden="true"><label>Website<input name="website" tabindex="-1" autocomplete="off"></label></div><div class="err" id="tsE"></div><button class="btn g" style="width:100%" type="submit">Daftar jadi penguji</button></form>
+    <form class="fm" id="rvForm" novalidate><h3>⭐ Tulis ulasan</h3><p class="n">Sudah mencoba J-POS? Ceritakan pengalaman Anda.</p>
+      <div class="r"><label>Nama<input name="name" maxlength="40" required></label><label>Toko / usaha<input name="store" maxlength="60"></label></div>
+      <label>Bintang<select name="stars"><option value="5">★★★★★ (5)</option><option value="4">★★★★ (4)</option><option value="3">★★★ (3)</option><option value="2">★★ (2)</option><option value="1">★ (1)</option></select></label>
+      <label>Ulasan<textarea name="text" rows="3" maxlength="300" required></textarea></label>
+      <div class="hp" aria-hidden="true"><label>Website<input name="website" tabindex="-1" autocomplete="off"></label></div><div class="err" id="rvE"></div><button class="btn o" style="width:100%" type="submit">Kirim ulasan</button></form>
+  </div>
+</div></section>
 
 <section id="tanya" style="border-block:1px solid var(--line)"><div class="wrap">
   <div class="sh"><span class="eyebrow">Tanya jawab</span><h2>Pertanyaan <span class="gold">umum</span></h2></div>
@@ -204,10 +245,13 @@ footer .wrap{display:flex;gap:24px;flex-wrap:wrap;justify-content:space-between;
 </div></section>
 
 <footer><div class="wrap">
-  <div><b class="gold" style="font-family:Georgia,serif;letter-spacing:.14em">J-POS</b> · Kasir, Stok &amp; Distribusi<br>Kontak: <a href="#" id="ftWa">0813-4064-173 (Mucus)</a></div>
+  <div><b class="gold" style="font-family:Georgia,serif;letter-spacing:.14em">J-POS</b> · Kasir, Stok &amp; Distribusi<br>Kontak: <a href="#" id="ftWa">0813-4064-173 (Mucus)</a><br><span style="font-size:12.5px">Aplikasi untuk Android, web, dan Windows · Versi terbaru: <span id="ftV">—</span></span></div>
   <div><a href="#" id="privLink" target="_blank" rel="noopener">Kebijakan privasi</a> · <a href="admin.html" rel="nofollow">Admin</a> · © J-POS</div>
 </div></footer>
 
+<dialog id="vd"><video id="vv" controls playsinline preload="none" poster="img/video-poster.jpg"></video><div class="rw"><a class="btn o s" id="vdl" href="video/J-POS-promo.mp4" download>⬇ Unduh video</a><button class="btn g s" id="vx" type="button">Tutup</button></div></dialog>
+<button id="chBtn" type="button">💬 Chat dengan admin<b id="chN" hidden>0</b></button>
+<div id="chP" role="dialog" aria-label="Chat"><header><div><b>Chat J-POS</b><small>Admin membalas di sini · jam kerja</small></div><button id="chX" type="button" aria-label="Tutup">✕</button></header><div id="chM"></div><div id="chQ"></div><form id="chF"><input id="chI" maxlength="500" placeholder="Tulis pesan…" autocomplete="off"><button type="submit">Kirim</button></form></div>
 <a class="wa" id="waFab" href="#" target="_blank" rel="noopener">💬 Tanya via WhatsApp</a>
 
 <script src="config.js"></script>
@@ -307,6 +351,53 @@ footer .wrap{display:flex;gap:24px;flex-wrap:wrap;justify-content:space-between;
     } catch (x) { a.textContent = t0; a.removeAttribute('disabled'); alert(x.message || 'Gagal mengunduh'); }
   }
   api('/api/site').then((S) => { if (S && !S.e) { applySite(S); api('/api/site/hit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ src: (new URLSearchParams(location.search).get('src') || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 12) }) }).catch(() => { }); } }).catch(() => { });
+  // ---- video, keamanan, ulasan, penguji, chat ----
+  const T = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+  const ls = { g(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, s(k, v) { try { localStorage.setItem(k, v); } catch (e) { } } };
+  $('#vidBtn').onclick = () => { const v = $('#vv'); if (!v.src) v.src = 'video/J-POS-promo.mp4'; $('#vd').showModal(); v.play().catch(() => { }); };
+  $('#vx').onclick = () => { $('#vv').pause(); $('#vd').close(); };
+  $('#vd').addEventListener('click', (e) => { if (e.target.id == 'vd') $('#vx').click(); });
+  const origLinks = links; links = function () { origLinks(); const a = $('#privLink2'); if (a) a.href = $('#privLink').href; };
+  const origApply = applySite; applySite = function (S) {
+    origApply(S); const sw = (S && S.show) || {}; if ('aman' in sw) sh('aman', !!sw.aman); if ('ulasan' in sw) sh('ulasan', !!sw.ulasan);
+    if (sw.video === false) $('#vidBtn').hidden = true; if (sw.chat === false) { $('#chBtn').hidden = true; $('#chP').classList.remove('on'); }
+    const m = APKM; $('#vf').hidden = !m; if (m) { $('#vfT').textContent = m.name + ' · ' + (m.size / 1048576).toFixed(1) + ' MB · diunggah ' + new Date(m.t).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) + ' · SHA-256:'; $('#vfH').textContent = m.sha; $('#ftV').textContent = m.name; }
+  };
+  // ulasan
+  const stars = (n) => '★'.repeat(n) + '☆'.repeat(5 - n);
+  api('/api/ulasan').then((j) => {
+    const L = $('#rvList'); L.textContent = '';
+    if (!j || !j.list || !j.list.length) { const c = T('div', 'rc'); c.style.gridColumn = '1/-1'; c.style.textAlign = 'center'; c.appendChild(T('p', '', 'Belum ada ulasan. Jadilah pengguna pertama yang memberi ulasan, atau daftar jadi penguji gratis di bawah.')); L.appendChild(c); return; }
+    j.list.forEach((r) => { const c = T('div', 'rc'); c.append(T('div', 'st', stars(r.stars)), T('p', '', r.txt), T('small', '', r.name + (r.store ? ' · ' + r.store : ''))); L.appendChild(c); });
+  }).catch(() => { });
+  const sendForm = (id, errId, path, mk, okMsg) => $(id).addEventListener('submit', async (e) => {
+    e.preventDefault(); const f = e.target, v = Object.fromEntries(new FormData(f)), er = $(errId), b = f.querySelector('button[type=submit]'); er.style.color = ''; er.textContent = ''; b.disabled = true;
+    try { const r = await api(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(mk(v)) }); if (r.__s >= 400 || !r.ok) { er.textContent = r.e || 'Belum terkirim.'; } else { er.style.color = '#58e0b0'; er.textContent = okMsg; f.reset(); } } catch (x) { er.textContent = 'Koneksi bermasalah. Coba lagi atau hubungi lewat WhatsApp.'; }
+    b.disabled = false;
+  });
+  sendForm('#tsForm', '#tsE', '/api/pesan', (v) => ({ name: v.name, phone: v.phone, tier: 'biasa', months: 1, note: 'PENGUJI: ingin mencoba gratis', src: 'tester', website: v.website }), 'Terima kasih! Tim kami akan menghubungi lewat WhatsApp.');
+  sendForm('#rvForm', '#rvE', '/api/ulasan', (v) => v, 'Terima kasih! Ulasan tampil setelah disetujui admin.');
+  // chat
+  let cid = ls.g('jp_cid'); if (!/^[a-f0-9]{16}$/.test(cid || '')) { cid = [...crypto.getRandomValues(new Uint8Array(8))].map((x) => x.toString(16).padStart(2, '0')).join(''); ls.s('jp_cid', cid); }
+  let last = +ls.g('jp_last') || 0, seen = +ls.g('jp_seen') || 0, open = false, tm = 0, welcomed = false;
+  const M = $('#chM'), bubble = (who, txt) => { const d = T('div', 'cm ' + who); if (who == 'b') d.appendChild(T('small', '', 'Balasan otomatis')); if (who == 'a') d.appendChild(T('small', '', 'Admin J-POS')); d.appendChild(document.createTextNode(txt)); M.appendChild(d); M.scrollTop = M.scrollHeight; };
+  function welcome() { if (welcomed) return; welcomed = true; bubble('b', 'Halo! 👋 Ada yang bisa kami bantu? Pilih topik cepat di bawah, atau tulis pertanyaan Anda. Admin akan membalas di chat ini.'); const q = $('#chQ'); q.textContent = ''; [['Cara pakai', 'Cara pakai J-POS'], ['Harga & paket', 'Berapa harga paketnya?'], ['Cara pesan', 'Cara pesan bagaimana?']].forEach(([l, t]) => { const b = T('button', '', l); b.type = 'button'; b.onclick = () => send(t); q.appendChild(b); }); }
+  async function poll() {
+    clearTimeout(tm); if (!document.hidden && ls.g('jp_started')) {
+      try { const r = await api('/api/chat/poll?cid=' + cid + '&after=' + last); (r.m || []).forEach((m) => { if (m.id <= last) return; last = m.id; if (m.who != 'v') { if (open) bubble(m.who, m.txt); else if (m.id > seen) $('#chN').hidden = false, $('#chN').textContent = (+$('#chN').textContent || 0) + 1; } }); ls.s('jp_last', last); if (open) { seen = last; ls.s('jp_seen', seen); } } catch (e) { }
+    }
+    tm = setTimeout(poll, open ? 4000 : 30000);
+  }
+  async function hist() { M.textContent = ''; last = 0; try { const r = await api('/api/chat/poll?cid=' + cid + '&after=0'); (r.m || []).forEach((m) => { last = Math.max(last, m.id); bubble(m.who, m.txt); }); ls.s('jp_last', last); } catch (e) { } if (!M.childNodes.length) { welcomed = false; welcome(); } else { welcomed = true; } seen = last; ls.s('jp_seen', seen); }
+  async function send(t) {
+    t = String(t || '').trim(); if (!t) return; bubble('v', t); M.dataset.h = ''; $('#chQ').textContent = ''; ls.s('jp_started', '1');
+    try { const r = await api('/api/chat/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cid, text: t, name: ls.g('jp_name') || '' }) }); if (r.__s >= 400 || !r.ok) bubble('b', r.e || 'Pesan belum terkirim. Coba lagi atau hubungi lewat WhatsApp.'); } catch (x) { bubble('b', 'Koneksi bermasalah. Anda bisa menghubungi kami lewat WhatsApp.'); }
+    setTimeout(poll, 1200);
+  }
+  $('#chBtn').onclick = async () => { open = !open; $('#chP').classList.toggle('on', open); if (open) { $('#chN').hidden = true; $('#chN').textContent = '0'; await hist(); $('#chI').focus(); poll(); } };
+  $('#chX').onclick = () => { open = false; $('#chP').classList.remove('on'); poll(); };
+  $('#chF').addEventListener('submit', (e) => { e.preventDefault(); const i = $('#chI'), t = i.value; i.value = ''; if (!ls.g('jp_name')) { const m = /(?:nama (?:saya|aku)|saya|aku)\s+([A-Za-zÀ-ÿ' ]{2,30})/i.exec(t); if (m) ls.s('jp_name', m[1].trim()); } send(t); });
+  if (ls.g('jp_started')) setTimeout(poll, 3000);
 })();
 </script>
 </body>
