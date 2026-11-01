@@ -720,3 +720,5 @@ select.gdays{width:auto;max-width:150px;padding:7px 10px;font-size:13px;border-r
 .wprog{height:10px;border-radius:6px;background:rgba(128,128,128,.25);overflow:hidden}.wprog>i{display:block;height:100%;width:0;background:linear-gradient(90deg,#c9a24a,#f0d78c);transition:width .2s}
 .wfq{display:grid;grid-template-columns:1fr auto;gap:6px;margin:8px 0;padding:8px;border:1px solid var(--bd,#2a3550);border-radius:10px}
 .wfq input,.wfq textarea{grid-column:1}.wfq button{grid-column:2;grid-row:1/3;align-self:start}
+
+.gvn{display:inline-grid;place-items:center;min-width:24px;height:24px;padding:0 4px;border-radius:99px;color:#fff;font:700 13px system-ui;border:2px solid #fff;box-shadow:0 2px 6px #0006}.gvn-w{background:none;border:0}.gvn-w .gvn{width:30px;height:30px;font-size:15px}

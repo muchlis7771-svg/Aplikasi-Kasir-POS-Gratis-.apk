@@ -3,7 +3,7 @@
    Posisi sales, sales kanvas & tim dropping dikirim HP karyawan ±1 menit sekali selama jam kerja
    (setelah absen masuk & aplikasi terbuka). Karyawan melihat pemberitahuan bahwa lokasinya dibagikan. */
 const GPSR = ['sales', 'kanvas', 'dropping'];
-let GPSU = '', GMAP = null, GLAY = null, GSIG = '', GPSD = 1, GTR = null, GTRQ = 0;
+let GPSU = '', GMAP = null, GLAY = null, GSIG = '', GPSD = 7, GTR = null, GTRQ = 0;
 const GDAYS = [[1, 'Hari ini'], [2, '2 hari'], [3, '3 hari'], [7, '7 hari'], [14, '14 hari'], [30, '30 hari (maks)']], GPCOL = ['#22366e', '#c9772a', '#1f8a5e', '#8e3b8a', '#b8392f', '#2b7fa8', '#6b6f1f'];
 const gpsSt = (t) => { const m = t ? (Date.now() - t) / 6e4 : 1e9; return m <= 3 ? ['live', 'Live', '#16a34a'] : m <= 15 ? ['near', 'Baru saja', '#d97706'] : ['off', 'Tidak aktif', '#94a3b8']; };
 function gpsKm(L) { let d = 0; for (let i = 1; i < L.length; i++) { const x = haversine(L[i - 1][1], L[i - 1][2], L[i][1], L[i][2]); if (x < 5000) d += x; } return d / 1000; }
@@ -45,6 +45,46 @@ function gpsTrailLoad(force) {
   api('/api/trail?user=' + encodeURIComponent(GPSU) + '&days=' + GPSD).then((r) => { GTR = { key, t: Date.now(), pts: r.pts || [], n: r.n }; }).catch((e) => { GTR = { key, t: Date.now(), pts: [], err: e.message }; }).then(() => { GTRQ = 0; if (V == 'gps' && GPSU + '|' + GPSD == key && !document.querySelector('.md')) { R(); } });
 }
 const gpsDaysSel = () => `<select class="gdays" aria-label="Rentang riwayat" onchange="GPSD=+this.value;GTR=null;R()">${GDAYS.map((d) => `<option value="${d[0]}" ${GPSD == d[0] ? 'selected' : ''}>${d[1]}</option>`).join('')}</select>`;
+
+// ---- Riwayat KUNJUNGAN (check-in / check-out outlet): garis di peta, urutan, lama kunjungan, perjalanan antar outlet ----
+function gpsVisits(user) { const f = new Date(); f.setHours(0, 0, 0, 0); return visitsIn(f.getTime() - (GPSD - 1) * 864e5, Date.now() + 36e5, user).slice().reverse(); } // urut waktu naik
+function gpsVp(v) { if (v.lat != null && v.lng != null && Math.abs(v.lat) > 0.01) return [v.lat, v.lng]; const c = (S.c || []).find((x) => x.id == v.cid); return c && c.lat != null ? [c.lat, c.lng] : null; }
+const gvDay = (k) => new Date(k + 'T12:00:00').toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'short' });
+function gpsVisPop(x, n, k) {
+  const v = x.v, p = gpsVp(v), out = x.co ? hm(x.co.t) : null;
+  return `<b>${n}. ${esc(v.cn || 'Outlet')}</b><br>${esc(gvDay(k))}<br>🕐 Masuk ${hm(v.t)}${out ? ' · keluar ' + out : ' · <i>belum check-out</i>'}<br>⏱️ ${x.dur != null ? 'Lama ' + gdur(x.dur) : 'Lama belum tercatat'}${v.dist != null ? '<br>📏 ' + Math.round(v.dist) + ' m dari titik outlet' : ''}${x.ord.length ? '<br>🧾 ' + x.ord.length + ' transaksi · ' + rp(x.tot) : '<br>🧾 Tidak ada transaksi'}${v.why ? '<br>⚠️ ' + esc(v.why) : ''}${v.note ? '<br>📝 ' + esc(v.note) : ''}${p ? `<br><a href="https://www.google.com/maps?q=${p[0]},${p[1]}" target="_blank" rel="noopener">Buka di Maps</a>` : ''}`;
+}
+function gpsVisDraw(pts) {
+  const by = {}; for (const x of gpsVisits(GPSU)) (by[dkey(x.v.t)] = by[dkey(x.v.t)] || []).push(x);
+  Object.keys(by).sort().reverse().forEach((k, di) => {
+    const col = GPCOL[di % GPCOL.length], arr = by[k];
+    arr.forEach((x, i) => {
+      const p = gpsVp(x.v); if (!p) return; pts.push(p);
+      L.marker(p, { icon: L.divIcon({ className: 'gvn-w', html: `<span class="gvn" style="background:${col}">${i + 1}</span>`, iconSize: [30, 30], iconAnchor: [15, 15] }) }).bindPopup(gpsVisPop(x, i + 1, k)).addTo(GLAY);
+      const nx = arr[i + 1], q = nx && gpsVp(nx.v);
+      if (q) L.polyline([p, q], { color: col, weight: 3.5, opacity: .85, dashArray: '9 6' }).bindTooltip('🚗 ' + (i + 1) + ' → ' + (i + 2) + ' · ' + gdur(Math.max(0, nx.v.t - (x.co ? x.co.t : x.v.t))) + ' · ±' + (haversine(p[0], p[1], q[0], q[1]) / 1000).toFixed(1) + ' km (garis lurus)', { sticky: true }).addTo(GLAY);
+    });
+  });
+}
+function gpsVisFocus(lat, lng) { try { GMAP.setView([lat, lng], 17); document.getElementById('gmap').scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (e) { } }
+function gpsVisCard(u) {
+  if (!u) return '';
+  const A = gpsVisits(u.n), head = `<div class="row" style="margin:0"><b>📍 Riwayat kunjungan ${esc(u.n)}</b>${gpsDaysSel()}</div>`;
+  if (!A.length) return `<div class="cd">${head}<p class="mu" style="margin:8px 0 0">Belum ada kunjungan (check-in outlet) pada rentang ini. Riwayat kunjungan disimpan <b>1 bulan</b>, lebih lama dihapus otomatis dari server.</p></div>`;
+  const dur = A.filter((x) => x.dur != null), tD = dur.reduce((a, x) => a + x.dur, 0), outl = new Set(A.map((x) => x.v.cid)).size, omz = A.reduce((a, x) => a + x.tot, 0), by = {};
+  for (const x of A) (by[dkey(x.v.t)] = by[dkey(x.v.t)] || []).push(x);
+  const days = Object.keys(by).sort().reverse();
+  const row = (x, i, arr) => { const v = x.v, p = gpsVp(v), prev = arr[i - 1], gap = prev ? v.t - (prev.co ? prev.co.t : prev.v.t) : 0;
+    return (prev ? `<div class="gh2 move"><span class="gd">🚗</span><span class="gi"><small class="mu">${gdur(Math.max(0, gap))} perjalanan${p && gpsVp(prev.v) ? ' · ±' + (haversine(gpsVp(prev.v)[0], gpsVp(prev.v)[1], p[0], p[1]) / 1000).toFixed(1) + ' km' : ''}</small></span></div>` : '')
+      + `<div class="gh2 stop"><span class="gd"><b class="gvn" style="background:var(--dc)">${i + 1}</b></span><span class="gi"><b>${esc(v.cn || 'Outlet')}</b><small class="mu">${hm(v.t)}–${x.co ? hm(x.co.t) : '<i>belum check-out</i>'}${v.dist != null ? ' · ' + Math.round(v.dist) + ' m dari outlet' : ''} · ${x.ord.length ? x.ord.length + ' transaksi ' + rp(x.tot) : 'tanpa transaksi'}${v.why ? ' · ⚠️ ' + esc(v.why) : ''}${v.note ? ' · 📝 ' + esc(v.note) : ''}${p ? ` · <a href="#" onclick="gpsVisFocus(${p[0]},${p[1]});return false">lihat di peta</a>` : ''}</small></span><b class="gt">${x.dur != null ? gdur(x.dur) : '–'}</b></div>`; };
+  const dayRow = (k, di) => { const arr = by[k], d = arr.filter((x) => x.dur != null).reduce((a, x) => a + x.dur, 0);
+    return `<details class="gday" ${di == 0 ? 'open' : ''} style="--dc:${GPCOL[di % GPCOL.length]}"><summary><span class="gdc" style="background:${GPCOL[di % GPCOL.length]}"></span><b>${esc(gvDay(k))}</b><small class="mu">${arr.length} kunjungan · di outlet ${gdur(d)} · ${hm(arr[0].v.t)}–${hm(arr[arr.length - 1].co ? arr[arr.length - 1].co.t : arr[arr.length - 1].v.t)}</small></summary><div class="gtl">${arr.map(row).join('')}</div></details>`; };
+  return `<div class="cd">${head}
+<div class="pnums" style="margin:10px 0"><span><small>Kunjungan</small><b>${A.length}×</b></span><span><small>Outlet berbeda</small><b>${outl}</b></span><span><small>Total di outlet</small><b class="gr">${gdur(tD)}</b></span><span><small>Rata-rata</small><b>${dur.length ? gdur(tD / dur.length) : '–'}</b></span></div>
+<small class="mu">${days.length} hari · omzet dari kunjungan ${rp(omz)} · garis putus-putus di peta = urutan kunjungan per hari (warna sama dengan hari ini). Ketuk garis untuk melihat lama perjalanan.</small>
+<div class="gdays-l">${days.map(dayRow).join('')}</div>
+<small class="mu" style="display:block;margin-top:8px">Kunjungan = check-in/check-out outlet. Riwayat disimpan <b>1 bulan</b>; data lebih lama dihapus otomatis dari server.</small></div>`;
+}
 function gpsHistCard(u) {
   if (!u) return '';
   const ok = GTR && GTR.key == GPSU + '|' + GPSD;
@@ -84,7 +124,7 @@ VW.gps = () => {
   return `<div class="kp"><div class="cd k0"><small>Live sekarang</small><h2>${live} / ${T.length}</h2><small>sales · kanvas · dropping</small></div><div class="cd k1"><small>Jarak tempuh hari ini</small><h2>${T.reduce((a, u) => a + u.km, 0).toFixed(1)} km</h2><small>${T.reduce((a, u) => a + u.vis, 0)} kunjungan outlet</small></div></div>
 <div class="cd gpsc"><div class="row" style="margin:0 0 8px"><b>${GPSU ? '🧭 Jejak ' + esc(GPSU) + ' · ' + (GDAYS.find((d) => d[0] == GPSD) || [0, GPSD + ' hari'])[1].replace(' (maks)', '') : '🛰️ Posisi tim'}</b><span class="wrap">${GPSU ? '<button class="gh" onclick="GPSU=\'\';R()">Semua</button>' : ''}<button class="gh" onclick="gpsRefresh(1)">⟳</button></span></div><div class="map gmap" id="gmap"></div>
 <small class="mu" id="gupd">Diperbarui otomatis tiap ±20 detik</small></div>
-${GPSU ? gpsHistCard(T.find((x) => x.n == GPSU)) : ''}
+${GPSU ? gpsVisCard(T.find((x) => x.n == GPSU)) + gpsHistCard(T.find((x) => x.n == GPSU)) : ''}
 <div class="cd">${T.map((u) => `<div class="trow gpr ${GPSU == u.n ? 'on' : ''}" onclick="GPSU=GPSU=='${esc(u.n)}'?'':'${esc(u.n)}';R()"><em class="tav" style="background:${u.st[2]}">${esc(u.n[0].toUpperCase())}</em><span class="ti"><b>${esc(u.n)} <small class="mu">· ${esc(ROLE[u.r] || u.r)}</small></b><small><b style="color:${u.st[2]}">● ${u.st[1]}</b> · ${u.loc ? agoTxt(u.loc.t) : 'belum ada posisi'}${u.loc && u.loc.acc ? ' · ±' + u.loc.acc + ' m' : ''}</small>${u.work && u.st[0] == 'off' ? '<small class="or">⚠ HP belum mengirim data sejak ' + (u.loc ? agoTxt(u.loc.t) : 'absen') + '. Kunjungan / transaksi terbaru bisa masih tertahan di HP — minta karyawan membuka aplikasi dan memastikan tanda “Online”.</small>' : ''}<small class="mu">${u.ci ? '🏬 di ' + esc(u.ci.cn) + ' sejak ' + hm(u.ci.t) : 'tidak sedang check-in'} · ${u.km.toFixed(1)} km · ${u.vis} kunjungan${u.omz ? ' · ' + rp(u.omz) : ''}</small></span>${u.loc ? `<a class="gh" onclick="event.stopPropagation()" target="_blank" rel="noopener" href="https://www.google.com/maps?q=${u.loc.lat},${u.loc.lng}">Maps</a>` : ''}</div>`).join('') || '<p class="mu">Belum ada sales, kanvas, atau tim dropping.</p>'}</div>
 <small class="mu" style="display:block;margin:0 4px 14px">Lokasi dikirim HP karyawan ±1 menit sekali selama jam kerja (setelah absen masuk). Di aplikasi Android, posisi tetap terkirim <b>walau aplikasi ditutup</b> selama karyawan mengizinkan lokasi "sepanjang waktu" (ada notifikasi tetap di HP karyawan). Bila HP dimatikan, di-restart, kehabisan baterai, tanpa sinyal, atau karyawan mematikan berbagi lokasi / mencabut izin, posisi terakhir yang tetap ditampilkan.</small>`;
 };
@@ -102,6 +142,7 @@ function gpsDraw(fit) {
     if (sel) { const bd = {}; for (const p of sel.slice().sort((a, b) => a[0] - b[0])) (bd[dkey(p[0])] = bd[dkey(p[0])] || []).push(p); Object.keys(bd).sort().reverse().forEach((k, i) => { const L2 = bd[k].map((p) => [p[1], p[2]]); L2.forEach((x) => pts.push(x)); if (L2.length > 1) L.polyline(L2, { color: GPCOL[i % GPCOL.length], weight: i ? 3 : 4.5, opacity: i ? .6 : .9 }).bindTooltip(k).addTo(GLAY); for (const e of gpsHistory(bd[k], u.n).tl) if (e.type == 'stop') L.circleMarker([e.lat, e.lng], { radius: 6, color: '#fff', weight: 1.5, fillColor: GPCOL[i % GPCOL.length], fillOpacity: 1 }).bindTooltip('Berhenti ' + gdur(e.dur) + ' · ' + hm(e.start) + (e.place ? ' · ' + e.place.n : '')).addTo(GLAY); }); }
     else if (ln.length > 1) L.polyline(ln, { color: GPSU ? '#22366e' : u.st[2], weight: GPSU ? 4 : 2.5, opacity: GPSU ? .85 : .45, dashArray: GPSU ? null : '4 6' }).addTo(GLAY);
     if (GPSU && !sel) for (const p of u.tr) if (p[3]) L.circleMarker([p[1], p[2]], { radius: 5, color: '#fff', weight: 1.5, fillColor: p[3] == 'visit' ? '#c9a24a' : '#22366e', fillOpacity: 1 }).bindTooltip((p[3] == 'visit' ? 'Check-in outlet' : p[3] == 'in' ? 'Absen masuk' : 'Absen pulang') + ' ' + hm(p[0])).addTo(GLAY);
+    if (GPSU) gpsVisDraw(pts);
     if (!u.loc) continue; pts.push([u.loc.lat, u.loc.lng]); ln.forEach((x) => GPSU && pts.push(x));
     const ic = L.divIcon({ className: 'gpin', html: `<span class="gp ${u.st[0]}" style="--c:${u.st[2]}"><b>${esc(u.n[0].toUpperCase())}</b></span><i>${esc(u.n)}</i>`, iconSize: [36, 36], iconAnchor: [18, 18] });
     L.marker([u.loc.lat, u.loc.lng], { icon: ic }).bindPopup(`<b>${esc(u.n)}</b> · ${esc(ROLE[u.r] || u.r)}<br>${u.st[1]} · ${agoTxt(u.loc.t)}<br>${u.ci ? '🏬 ' + esc(u.ci.cn) : 'Tidak check-in'}<br>${u.km.toFixed(1)} km · ${u.vis} kunjungan`).on('click', () => { GPSU = u.n; R(); }).addTo(GLAY);
