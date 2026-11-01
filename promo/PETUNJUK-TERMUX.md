@@ -6,6 +6,14 @@
 3. Tunggu muncul alamat `https://….trycloudflare.com`. Itu alamat publik: bisa dibuka siapa saja di internet. Bagikan ke calon pelanggan.
 4. Berhenti: tekan `Ctrl+C`.
 
+## Menyediakan unduhan APK di website
+1. Izinkan Termux membaca penyimpanan (sekali): `termux-setup-storage`
+2. Salin APK dari folder `jpos` di HP ke website, **ganti nama jadi J-POS.apk**:
+   `mkdir -p ~/jpos-promo/apk && cp /sdcard/jpos/NAMA-FILE.apk ~/jpos-promo/apk/J-POS.apk`
+   (lihat nama file dengan `ls /sdcard/jpos`)
+3. Muat ulang halaman, tombol **⬇ Unduh aplikasi Android** muncul otomatis. Tidak perlu restart server.
+Pakai APK yang sudah **ditandatangani rilis** (bukan APK debug dari GitHub, karena itu memicu peringatan "aplikasi berbahaya").
+
 ## Yang perlu diketahui
 - Alamat `trycloudflare.com` **berubah setiap kali dijalankan** dan tidak ada jaminan aktif terus. Cocok untuk promo sementara, bukan alamat tetap.
 - Website hanya bisa dibuka selama **HP menyala, Termux terbuka, dan ada internet**. Matikan penghemat baterai untuk Termux (Pengaturan → Aplikasi → Termux → Baterai → Tanpa batasan) dan pasang **Termux:API** agar `termux-wake-lock` bekerja.
