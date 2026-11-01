@@ -652,3 +652,55 @@ body:not(.buyer) .pr{box-shadow:inset 0 1px 0 #ffffff2e,0 0 0 1px #c9a24a40,0 8p
 .gh2.stop{border-left:3px solid var(--or)}.gh2.move{border-left:3px solid var(--gr)}
 .gh2 .gd{font-size:18px;line-height:1}.gh2 .gi{display:grid;min-width:0}.gh2 .gi small{font-size:11px;overflow:hidden;text-overflow:ellipsis}.gh2 .gt{font-weight:700;white-space:nowrap;font-size:13px}
 .gbar{height:7px;border-radius:7px;background:color-mix(in srgb,var(--or) 30%,var(--bd));overflow:hidden;margin:2px 0 4px}.gbar i{display:block;height:100%;background:linear-gradient(90deg,#16a34a,var(--gr))}
+/* ===== v47: Head Admin — navy & emas mewah ===== */
+body:has(.ha){background:radial-gradient(900px 520px at 85% -10%,#2a4890aa,transparent 62%),radial-gradient(700px 420px at -10% 105%,#c9a24a1f,transparent 60%),#070d1f!important;color:#f1ecdc;min-height:100dvh}
+.ha{--bg:#0b1430;--cd:#101c40;--tx:#f1ecdc;--mu:#a3abc6;--bd:#26335f;--ac:#d9b866;--a2:#c9a24a;--gr:#58e0b0;--rd:#ff7f8e;--or:#f1b15a;--bl:#8fb0ff;color:var(--tx);color-scheme:dark;max-width:1080px;gap:14px}
+.ha .row h2.lg1{font-family:Georgia,"Times New Roman",serif;font-weight:400;font-size:22px;letter-spacing:.1em;background:linear-gradient(90deg,#f6e7b4,#c9a24a 55%,#f0d88f);-webkit-background-clip:text;background-clip:text;color:transparent;display:flex;align-items:center;gap:10px}
+.ha .hacrown{display:grid;place-items:center;width:36px;height:36px;border-radius:12px;font-size:20px;color:#1c1607;background:linear-gradient(145deg,#f6e7b4,#c9a24a 60%,#8f6a22);box-shadow:inset 0 1px 0 #fff9,0 8px 18px -6px #c9a24a99;-webkit-text-fill-color:#1c1607}
+.ha .cd{background:linear-gradient(160deg,#14224c 0%,#0e1a3b 100%);border:1px solid #c9a24a2e;border-radius:20px;box-shadow:0 18px 40px -22px #000d,inset 0 1px 0 #ffffff0d;color:var(--tx)}
+.ha .cd h3{font-family:Georgia,serif;font-weight:500;letter-spacing:.02em;color:#f3e6bf}
+.ha h4{color:#e8cf8a}
+.ha small,.ha .mu{color:var(--mu)}
+.ha .seg{background:#0a1330;border:1px solid #c9a24a26;border-radius:16px;padding:4px;gap:4px}
+.ha .seg button{background:transparent;border:0;color:#b9c0da;border-radius:12px;font-weight:600}
+.ha .seg button.a{background:linear-gradient(135deg,#f0d88f,#c9a24a 60%,#a5802f);color:#1c1607;box-shadow:0 8px 18px -8px #c9a24a99}
+.ha .gh{background:#0e1a3d;border:1px solid #c9a24a40;color:#f1e7c8;border-radius:12px}
+.ha .gh:hover{background:#15244f}
+.ha .gh.d{color:#ff9aa6;border-color:#ff7f8e55}
+.ha .gh.pri,.ha .pr{background:linear-gradient(135deg,#f0d88f,#c9a24a 58%,#a5802f)!important;color:#1c1607!important;border:0;font-weight:700;box-shadow:0 12px 26px -12px #c9a24acc}
+.ha input,.ha select,.ha textarea{background:#091129;border:1px solid #2a3866;color:#f1ecdc;border-radius:12px}
+.ha input::placeholder,.ha textarea::placeholder{color:#7f89ab}
+.ha input:focus,.ha select:focus,.ha textarea:focus{outline:2px solid #c9a24a88;border-color:#c9a24a}
+.ha .kp{gap:12px}
+.ha .kp>.cd{background:linear-gradient(160deg,#16265a,#0e1a3b);position:relative;overflow:hidden;padding:16px}
+.ha .kp>.cd::after{content:'';position:absolute;right:-26px;top:-26px;width:90px;height:90px;border-radius:50%;background:radial-gradient(#c9a24a30,transparent 70%)}
+.ha .kp>.cd small{color:#a9b1cc;letter-spacing:.02em}
+.ha .kp>.cd h2{font-family:Georgia,serif;font-weight:500;font-size:26px;color:#f6e7b4;letter-spacing:-.01em}
+.ha .kp>.cd.k0{background:linear-gradient(145deg,#f0d88f,#c9a24a 55%,#8f6a22)!important;border:0!important;box-shadow:0 16px 34px -14px #c9a24acc!important}
+.ha .kp>.cd.k0 small{color:#1c160799}.ha .kp>.cd.k0 h2{color:#1c1607}
+.ha .kp>.cd.kpb{text-align:left;color:var(--tx);cursor:pointer;transition:transform .15s,border-color .15s}.ha .kp>.cd.kpb:hover{transform:translateY(-2px);border-color:#c9a24a88}
+.ha .cd.hero,.ha .hero{background:radial-gradient(120% 140% at 100% -10%,#c9a24a38,transparent 55%),linear-gradient(150deg,#0d1834,#1c2f62 60%,#22366e)!important;border:1px solid #c9a24a55!important;box-shadow:0 22px 50px -22px #000,0 0 0 1px #00000040!important;color:#f6efdc}
+.ha .hero h2{font-family:Georgia,serif;font-weight:400;font-size:38px;color:#f6e7b4}
+.ha .sc{background:linear-gradient(160deg,#122046,#0d1838);border:1px solid #c9a24a2b;border-radius:16px}
+.ha .chip{background:#0a1330;border:1px solid #c9a24a40;color:#e8cf8a}.ha .chip.g{background:#0e2a26;color:#7fe6c0;border-color:#2a7a64}.ha .chip.o{background:#2a2110;color:#f1c36e;border-color:#8a6a2c}
+.ha .halr,.ha .je{background:#0c1736;border-color:#26335f;color:var(--tx)}
+.ha .halr:hover{border-color:#c9a24a80}
+.ha .halr em{background:#c9a24a2e;color:#f3e6bf}
+.ha .halr.hact em{width:14px;height:14px;border-radius:50%;background:#46507a;padding:0}.ha .halr.hact em.near{background:#d9a23a}.ha .halr.hact em.live{background:#33d69f;box-shadow:0 0 0 4px #33d69f33}
+.ha .hsg>div,.ha .tkc{background:#0c1736;border-color:#26335f}
+.ha .je p span{color:#f1e7c8}
+.ha .pnums{background:#0a1330}
+.ha .hapr{border:1px solid #c9a24a66}
+.ha .hapg label{background:linear-gradient(150deg,#16265a,#0e1a3b);border-color:#c9a24a40}
+.ha table th{background:#0a1330;color:#e8cf8a}.ha table td{border-color:#26335f}
+.ha .tkm{background:#0c1736;border-color:#26335f}.ha .tkm.h{background:#1a2c5c}
+.ha .warnbox{background:#2a1a1c;border:1px solid #6a3038;color:#ffb3bc}
+.ha svg text{fill:#a9b1cc}
+.md .halr.hact em{width:14px;height:14px;border-radius:50%;background:#c5c9d6;padding:0}.md .halr.hact em.near{background:#e0a830}.md .halr.hact em.live{background:#22b985;box-shadow:0 0 0 4px #22b98533}
+body:has(.ha) .md .dg{--cd:#101c40;--bg:#0b1430;--tx:#f1ecdc;--mu:#a3abc6;--bd:#26335f;--ac:#d9b866;background:linear-gradient(160deg,#14224c,#0e1a3b);color:#f1ecdc;border:1px solid #c9a24a55;color-scheme:dark}
+body:has(.ha) .md .dg h3,body:has(.ha) .md .dg h4{color:#f3e6bf;font-family:Georgia,serif}
+body:has(.ha) .md .dg .halr,body:has(.ha) .md .dg .je,body:has(.ha) .md .dg .hsg>div{background:#0c1736;border-color:#26335f;color:#f1ecdc}
+body:has(.ha) .md .dg .gh{background:#0e1a3d;border:1px solid #c9a24a40;color:#f1e7c8}
+body:has(.ha) .md .dg .gh.pri{background:linear-gradient(135deg,#f0d88f,#c9a24a);color:#1c1607;border:0}
+body:has(.ha) .md .dg input,body:has(.ha) .md .dg textarea,body:has(.ha) .md .dg select{background:#091129;border:1px solid #2a3866;color:#f1ecdc}
+body:has(.ha) .md .dg .chip{background:#0a1330;border:1px solid #c9a24a40;color:#e8cf8a}

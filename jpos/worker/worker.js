@@ -1,7 +1,7 @@
 import { MSCHEMA, buyerRoutes, shopRoutes, shipCfg } from './market.js';
 import { SSCHEMA, SALTER, logAct, heartbeat, adminActivity } from './social.js';
 import { MSCH2, mitraRoutes } from './mitra.js';
-import { HSCHEMA, payHook, hqStore, hqAdmin } from './hq.js';
+import { HSCHEMA, payHook, hqStore, hqAdmin, leadPost } from './hq.js';
 import { RSCHEMA, RALTER, rptCfg, cleanCfg, dayRange, buildDaily, sendOut, cronDaily } from './lapor.js';
 // J-POS API v4 — Cloudflare Worker + D1 (SQLite)
 // Multi-tenant: 1 toko = 1 tenant. Data bisnis = LOG KEJADIAN (tabel ev) yang diputar ulang tiap perangkat (offline-first).
@@ -131,6 +131,7 @@ export default {
       await ready(env); await cfgAll(env);
       // ---------- publik ----------
       if (p == '/api/pay/hook' && M == 'POST') return payHook(env, req, u, J, await cfgAll(env)); // konfirmasi transfer otomatis (layanan cek mutasi)
+      if (p == '/api/pesan' && M == 'POST') return leadPost(env, b, ip, J, await cfgAll(env), pkgAll, limited); // pemesanan dari website promo
       if (p == '/api/ping') return J({ ok: 1, v: 5 });
       if (p == '/api/time') return J({ t: Date.now() });
       if (p == '/api/info') { const c = await cfgAll(env); const pk = pkgAll(), pkg = {}; for (const t of Object.keys(pk)) pkg[t] = { n: pk[t].n, max: pk[t].max, f: pk[t].f, pr: pk[t].pr }; return J({ wa: c.wa || '', price: c.price || '', trial: +(c.trial_days || 30), app: c.app_name || 'J-POS', pkg }); }

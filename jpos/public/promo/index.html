@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>J-POS · Aplikasi Kasir, Stok & Distribusi untuk Kios, Grosir & Distributor</title>
+<meta name="description" content="J-POS: aplikasi kasir online-offline untuk kios, toko grosir, dan distributor. Stok, sales lapangan dengan GPS, pengantaran, absensi, gaji, laporan keuangan. Coba gratis, pesan sekarang.">
+<meta name="theme-color" content="#0b1330">
+<meta property="og:title" content="J-POS — Kasir, Stok & Distribusi dalam Satu Aplikasi">
+<meta property="og:description" content="Online & offline, multi-user, sales GPS, pengantaran, gaji & laporan keuangan. Mulai Rp25.000/bulan.">
+<meta property="og:image" content="img/s-dash.jpg">
+<link rel="icon" href="img/logo-192.png">
+<style>
+:root{--navy:#0b1330;--navy2:#13204a;--navy3:#1b2d63;--gold:#c9a24a;--gold2:#ecd592;--ink:#f3eedd;--mu:#a7b0cc;--line:#ffffff1c;--gr:#58e0b0}
+*{box-sizing:border-box;margin:0}
+html{scroll-behavior:smooth}
+body{font-family:Inter,"Segoe UI",system-ui,-apple-system,Roboto,sans-serif;background:#070d20;color:var(--ink);line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+img{max-width:100%;display:block}
+a{color:inherit}
+.wrap{width:min(1120px,100% - 40px);margin:auto}
+h1,h2,h3{font-family:Georgia,"Times New Roman",serif;font-weight:400;line-height:1.15}
+.gold{background:linear-gradient(90deg,#f6e7b4,#c9a24a 55%,#f0d88f);-webkit-background-clip:text;background-clip:text;color:transparent}
+/* nav */
+nav{position:sticky;top:0;z-index:20;backdrop-filter:blur(14px);background:#070d20cc;border-bottom:1px solid var(--line)}
+nav .wrap{display:flex;align-items:center;gap:18px;height:64px}
+.brand{display:flex;align-items:center;gap:10px;text-decoration:none;font-family:Georgia,serif;letter-spacing:.16em;font-size:19px}
+.brand img{width:34px;height:34px;border-radius:10px;box-shadow:0 0 0 1px #c9a24a55}
+nav .links{margin-left:auto;display:flex;gap:22px;font-size:14px;color:var(--mu)}
+nav .links a{text-decoration:none}nav .links a:hover{color:var(--gold2)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 24px;border-radius:14px;font-weight:700;font-size:15px;text-decoration:none;border:0;cursor:pointer;font-family:inherit}
+.btn.g{background:linear-gradient(135deg,#f0d88f,#c9a24a 58%,#a5802f);color:#1c1607;box-shadow:0 14px 30px -12px #c9a24acc}
+.btn.o{background:#ffffff0a;color:var(--ink);border:1px solid #c9a24a66}
+.btn.s{padding:9px 16px;font-size:13.5px;border-radius:11px}
+/* hero */
+.hero{position:relative;padding:72px 0 64px;background:radial-gradient(900px 520px at 80% -10%,#2a4890aa,transparent 62%),radial-gradient(600px 400px at 0% 100%,#c9a24a1f,transparent 60%)}
+.hero .wrap{display:grid;grid-template-columns:1.1fr .9fr;gap:40px;align-items:center}
+.eyebrow{display:inline-block;letter-spacing:.28em;text-transform:uppercase;font-size:11.5px;color:var(--gold2);border:1px solid #c9a24a55;border-radius:99px;padding:6px 14px;margin-bottom:18px}
+.hero h1{font-size:clamp(34px,5.2vw,58px);margin-bottom:18px}
+.hero p.lead{font-size:18px;color:var(--mu);max-width:560px;margin-bottom:26px}
+.cta{display:flex;gap:12px;flex-wrap:wrap}
+.pts{display:flex;gap:22px;flex-wrap:wrap;margin-top:28px;color:var(--mu);font-size:14px}.pts span::before{content:'✓ ';color:var(--gold2);font-weight:700}
+.phones{position:relative;height:560px}
+.ph{position:absolute;border-radius:34px;border:6px solid #0c1633;box-shadow:0 0 0 1.5px #c9a24a66,0 40px 80px -30px #000;overflow:hidden;background:#000}
+.ph img{width:100%;height:100%;object-fit:cover;object-position:top}
+.ph.a{width:250px;height:520px;left:6%;top:20px;z-index:2;transform:rotate(-4deg)}
+.ph.b{width:230px;height:480px;right:2%;top:60px;transform:rotate(5deg)}
+/* strip */
+.strip{border-block:1px solid var(--line);background:#0a1230}
+.strip .wrap{display:grid;grid-template-columns:repeat(4,1fr);gap:20px;padding:26px 0}
+.strip div{text-align:center}.strip b{display:block;font-family:Georgia,serif;font-size:19px;color:var(--gold2);font-weight:400}.strip span{font-size:13px;color:var(--mu)}
+section{padding:84px 0}
+.sh{text-align:center;max-width:700px;margin:0 auto 46px}
+.sh h2{font-size:clamp(28px,4vw,42px);margin-bottom:12px}.sh p{color:var(--mu)}
+.sh .eyebrow{margin-bottom:14px}
+/* fitur */
+.fg{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
+.fc{background:linear-gradient(160deg,#14224c,#0d1838);border:1px solid #c9a24a2e;border-radius:22px;padding:24px;transition:transform .2s,border-color .2s}
+.fc:hover{transform:translateY(-4px);border-color:#c9a24a88}
+.fc .ic{width:48px;height:48px;border-radius:15px;display:grid;place-items:center;font-size:24px;margin-bottom:14px;background:linear-gradient(145deg,#f6e7b4,#c9a24a 60%,#8f6a22);box-shadow:inset 0 1px 0 #fff9,0 10px 20px -8px #c9a24a99}
+.fc h3{font-size:20px;margin-bottom:8px;color:#f3e6bf}.fc p{color:var(--mu);font-size:14.5px}.fc ul{margin:10px 0 0;padding-left:18px;color:#cfd5ea;font-size:14px}.fc li{margin:3px 0}
+/* galeri */
+.gal{display:flex;gap:18px;overflow-x:auto;padding:6px 20px 24px;scroll-snap-type:x mandatory}
+.gal figure{flex:0 0 auto;width:232px;scroll-snap-align:center}
+.gal .ph{position:relative;width:232px;height:480px;transform:none}
+.gal figcaption{text-align:center;margin-top:12px;font-size:14px;color:var(--mu)}
+/* paket */
+.pk{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;align-items:stretch}
+.pc{position:relative;background:linear-gradient(160deg,#14224c,#0d1838);border:1px solid #ffffff22;border-radius:26px;padding:30px 26px;display:flex;flex-direction:column}
+.pc.pop{border-color:#c9a24a;box-shadow:0 30px 60px -30px #c9a24a88;transform:translateY(-8px)}
+.pc .badge{position:absolute;top:-13px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,#f0d88f,#c9a24a);color:#1c1607;font-size:11.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;padding:4px 14px;border-radius:99px}
+.pc h3{font-size:24px;color:#f3e6bf}.pc .for{color:var(--mu);font-size:14px;margin:4px 0 16px}
+.pc .pr{font-family:Georgia,serif;font-size:42px;color:#f6e7b4;line-height:1}.pc .pr small{font-family:Inter,sans-serif;font-size:14px;color:var(--mu)}
+.pc .mx{margin:8px 0 18px;color:var(--gold2);font-size:14px}
+.pc ul{list-style:none;padding:0;margin:0 0 24px;flex:1}.pc li{padding:6px 0 6px 26px;position:relative;font-size:14.5px;color:#dfe3f3;border-bottom:1px dashed #ffffff14}.pc li::before{content:'✔';position:absolute;left:0;color:var(--gr)}
+.pc li.pl{color:var(--gold2);font-weight:600}.pc li.pl::before{content:'＋';color:var(--gold2)}
+.note{text-align:center;color:var(--mu);font-size:13.5px;margin-top:22px}
+/* langkah */
+.st{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;counter-reset:s}
+.st div{border:1px solid var(--line);border-radius:22px;padding:26px;background:#0a1230;counter-increment:s;position:relative}
+.st div::before{content:counter(s);width:38px;height:38px;border-radius:50%;display:grid;place-items:center;font-family:Georgia,serif;font-size:19px;color:#1c1607;background:linear-gradient(135deg,#f0d88f,#c9a24a);margin-bottom:14px}
+.st h3{font-size:19px;margin-bottom:6px;color:#f3e6bf}.st p{color:var(--mu);font-size:14.5px}
+/* faq */
+.faq{max-width:780px;margin:auto}
+details{border:1px solid var(--line);border-radius:16px;padding:16px 20px;margin-bottom:10px;background:#0a1230}
+summary{cursor:pointer;font-weight:600;list-style:none;display:flex;justify-content:space-between;gap:12px}summary::after{content:'＋';color:var(--gold2)}details[open] summary::after{content:'－'}
+details p{margin-top:10px;color:var(--mu);font-size:14.5px}
+/* form */
+.order{background:radial-gradient(700px 400px at 50% 0%,#2a4890aa,transparent 65%),#070d20}
+.fm{max-width:720px;margin:auto;background:linear-gradient(160deg,#14224c,#0d1838);border:1px solid #c9a24a55;border-radius:28px;padding:34px;box-shadow:0 40px 80px -40px #000}
+.fm .r{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+label{display:block;font-size:13px;color:var(--mu);margin-bottom:14px}
+input,select,textarea{width:100%;margin-top:6px;background:#091129;color:var(--ink);border:1px solid #2a3866;border-radius:12px;padding:13px 14px;font:inherit}
+input:focus,select:focus,textarea:focus{outline:2px solid #c9a24a88;border-color:#c9a24a}
+.hp{position:absolute;left:-9999px;opacity:0;height:0;overflow:hidden}
+.total{display:flex;justify-content:space-between;align-items:center;padding:14px 18px;border-radius:14px;background:#0a1330;border:1px dashed #c9a24a66;margin:4px 0 18px}
+.total b{font-family:Georgia,serif;font-size:26px;color:#f6e7b4;font-weight:400}
+.err{color:#ff9aa6;font-size:14px;margin-bottom:10px;min-height:1px}
+.ok{text-align:center;padding:10px 0}.ok h3{font-size:28px;margin-bottom:8px}.ok p{color:var(--mu);margin-bottom:18px}
+footer{border-top:1px solid var(--line);padding:38px 0;color:var(--mu);font-size:14px;background:#050a19}
+footer .wrap{display:flex;gap:24px;flex-wrap:wrap;justify-content:space-between;align-items:center}
+footer a{color:var(--gold2)}
+.wa{position:fixed;right:18px;bottom:18px;z-index:30;display:flex;align-items:center;gap:8px;padding:12px 18px;border-radius:99px;background:linear-gradient(135deg,#f0d88f,#c9a24a);color:#1c1607;font-weight:800;text-decoration:none;box-shadow:0 16px 36px -10px #000,0 0 0 1px #fff3;font-size:14px}
+@media(max-width:900px){
+  .hero .wrap{grid-template-columns:1fr}.phones{height:470px;max-width:420px;margin:auto;width:100%}.ph.a{width:210px;height:440px;left:2%}.ph.b{width:190px;height:400px;right:0}
+  .strip .wrap{grid-template-columns:1fr 1fr}.fg,.pk,.st{grid-template-columns:1fr}.pc.pop{transform:none}
+  .eyebrow{letter-spacing:.12em;font-size:10px;padding:5px 11px}.wa{padding:10px 14px;font-size:13px;right:12px;bottom:12px}
+  nav .links{display:none}nav .btn{margin-left:auto}.fm .r{grid-template-columns:1fr}.fm{padding:24px 20px}section{padding:60px 0}.hero{padding:44px 0 40px}
+}
+</style>
+</head>
+<body>
+
+<nav><div class="wrap">
+  <a class="brand" href="#"><img src="img/logo-192.png" alt="J-POS logo"><span class="gold">J-POS</span></a>
+  <div class="links"><a href="#fitur">Fitur</a><a href="#tampilan">Tampilan</a><a href="#paket">Paket &amp; Harga</a><a href="#tanya">Tanya Jawab</a></div>
+  <a class="btn g s" href="#pesan">Pesan sekarang</a>
+</div></nav>
+
+<header class="hero"><div class="wrap">
+  <div>
+    <span class="eyebrow">Kasir · Stok · Grosir · Distributor</span>
+    <h1>Kelola toko &amp; distribusi Anda <span class="gold">dalam satu aplikasi</span></h1>
+    <p class="lead">Kasir yang tetap jalan tanpa internet, stok yang terpantau, sales lapangan dengan GPS, pengantaran, absensi, gaji, sampai laporan keuangan. Untuk kios, toko grosir, dan distributor.</p>
+    <div class="cta"><a class="btn g" href="#pesan">Pesan sekarang</a><a class="btn o" id="demoLink" href="#" target="_blank" rel="noopener">▶ Coba demo gratis</a></div>
+    <div class="pts"><span>Online &amp; offline</span><span>Banyak pengguna</span><span>HP Android &amp; laptop</span></div>
+  </div>
+  <div class="phones" aria-hidden="true">
+    <div class="ph a"><img src="img/s-dash.jpg" alt=""></div>
+    <div class="ph b"><img src="img/s-kasir.jpg" alt=""></div>
+  </div>
+</div></header>
+
+<div class="strip"><div class="wrap">
+  <div><b>Offline siap</b><span>Jualan terus walau sinyal hilang</span></div>
+  <div><b>Multi-peran</b><span>Owner, kasir, sales, dropping, akuntan</span></div>
+  <div><b>GPS &amp; absensi</b><span>Pantau tim lapangan dengan izin karyawan</span></div>
+  <div><b>Laporan otomatis</b><span>Dikirim ke WhatsApp / email pemilik</span></div>
+</div></div>
+
+<section id="fitur"><div class="wrap">
+  <div class="sh"><span class="eyebrow">Fitur</span><h2>Semua yang dibutuhkan toko <span class="gold">dari kasir sampai distribusi</span></h2><p>Dibuat untuk cara kerja toko dan distributor di Indonesia.</p></div>
+  <div class="fg">
+    <div class="fc"><div class="ic">🛒</div><h3>Kasir &amp; penjualan</h3><p>Tunai, QRIS, transfer, dan kredit. Scan barcode, diskon, harga grosir bertingkat, retur, dan cetak struk atau faktur.</p></div>
+    <div class="fc"><div class="ic">📦</div><h3>Stok &amp; pembelian</h3><p>Stok per produk, peringatan menipis, opname, PO ke supplier, dan utang supplier. Import &amp; export Excel.</p></div>
+    <div class="fc"><div class="ic">🧠</div><h3>Analisa order cerdas</h3><p>Saran SKU yang harus dipesan dari riwayat penjualan, tren, dan musim puasa, lebaran, Natal, serta tahun ajaran baru, lengkap dengan penjelasannya.</p></div>
+    <div class="fc"><div class="ic">📍</div><h3>Sales lapangan &amp; GPS</h3><p>Check-in outlet berbasis GPS, order dari lapangan, terima bayar, dan pantau posisi serta riwayat perjalanan tim.</p></div>
+    <div class="fc"><div class="ic">🚚</div><h3>Dropping &amp; sales kanvas</h3><p>Antrean pengantaran, rute terdekat, bukti foto serah terima, dan jual langsung dari stok mobil dengan muat &amp; balik barang.</p></div>
+    <div class="fc"><div class="ic">📊</div><h3>Keuangan &amp; akuntansi</h3><p>Buku kas, piutang &amp; utang, laba-rugi, hingga jurnal akuntansi. Ekspor Excel dan PDF.</p></div>
+    <div class="fc"><div class="ic">🕒</div><h3>Absensi, shift &amp; gaji</h3><p>Absensi dengan selfie, jadwal shift, hitung gaji otomatis dengan potongan absen, dan izin lembur.</p></div>
+    <div class="fc"><div class="ic">🏆</div><h3>Target &amp; insentif</h3><p>Target omzet, outlet aktif, dan SKU per karyawan, lengkap dengan insentif dan sisa target di beranda.</p></div>
+    <div class="fc"><div class="ic">🛍️</div><h3>Toko online &amp; jaringan</h3><p>Buka lapak online, peta kios terdekat, dan order antar-toko: kios ke grosir, grosir ke distributor.</p></div>
+  </div>
+</div></section>
+
+<section id="tampilan" style="background:#0a1230;border-block:1px solid var(--line);padding-bottom:50px"><div class="wrap">
+  <div class="sh"><span class="eyebrow">Tampilan</span><h2>Rapi, jelas, <span class="gold">mudah dipakai</span></h2><p>Geser untuk melihat beberapa tampilan aplikasi (data contoh).</p></div></div>
+  <div class="gal">
+    <figure><div class="ph"><img loading="lazy" src="img/s-dash.jpg" alt="Beranda"></div><figcaption>Beranda &amp; ringkasan</figcaption></figure>
+    <figure><div class="ph"><img loading="lazy" src="img/s-kasir.jpg" alt="Kasir"></div><figcaption>Kasir cepat</figcaption></figure>
+    <figure><div class="ph"><img loading="lazy" src="img/s-produk.jpg" alt="Produk"></div><figcaption>Produk &amp; stok</figcaption></figure>
+    <figure><div class="ph"><img loading="lazy" src="img/s-order.jpg" alt="Analisa order"></div><figcaption>Analisa order</figcaption></figure>
+    <figure><div class="ph"><img loading="lazy" src="img/s-laporan.jpg" alt="Laporan"></div><figcaption>Laporan keuangan</figcaption></figure>
+    <figure><div class="ph"><img loading="lazy" src="img/s-menu.jpg" alt="Menu"></div><figcaption>Menu terkelompok</figcaption></figure>
+  </div>
+</section>
+
+<section id="paket"><div class="wrap">
+  <div class="sh"><span class="eyebrow">Paket &amp; harga</span><h2>Pilih paket yang <span class="gold">sesuai usaha Anda</span></h2><p id="trialTxt">Coba dulu gratis. Bayar bulanan, tanpa biaya pemasangan.</p></div>
+  <div class="pk" id="pk"></div>
+  <p class="note">Harga per bulan. Ada pilihan langganan 1, 3, 6, dan 12 bulan. Paket bisa dinaikkan kapan saja.</p>
+</div></section>
+
+<section style="background:#0a1230;border-block:1px solid var(--line)"><div class="wrap">
+  <div class="sh"><span class="eyebrow">Cara mulai</span><h2>Tiga langkah <span class="gold">siap berjualan</span></h2></div>
+  <div class="st">
+    <div><h3>Pesan paket</h3><p>Isi formulir di bawah. Tim kami menghubungi Anda lewat WhatsApp untuk aktivasi.</p></div>
+    <div><h3>Daftarkan toko</h3><p>Buat toko, tambah produk dan karyawan. Bisa impor produk dari Excel.</p></div>
+    <div><h3>Mulai berjualan</h3><p>Pasang di HP Android atau buka lewat browser di laptop. Data tersinkron di semua perangkat.</p></div>
+  </div>
+</div></section>
+
+<section id="tanya"><div class="wrap">
+  <div class="sh"><span class="eyebrow">Tanya jawab</span><h2>Pertanyaan <span class="gold">yang sering diajukan</span></h2></div>
+  <div class="faq">
+    <details><summary>Apakah bisa dipakai tanpa internet?</summary><p>Bisa. Semua transaksi tersimpan di HP dan terkirim otomatis saat ada sinyal. Login pertama di HP baru butuh internet sekali.</p></details>
+    <details><summary>Apa bedanya tiap paket?</summary><p>Standar·Kios untuk kasir, stok, dan pembukuan dasar. Medium·Grosir menambah keuangan, pembelian, sales lapangan dengan GPS, pengantaran, dan toko online. High·Distributor menambah jurnal akuntansi, absensi anti-curang, audit lapangan, dan jaringan mitra.</p></details>
+    <details><summary>Bagaimana dengan data toko saya?</summary><p>Data tersimpan di HP dan di server dengan koneksi terenkripsi. Akses dibatasi per toko dan per peran, dan PIN disimpan dalam bentuk tersandi. Berbagi data antar-toko hanya jika pemilik toko menyetujui.</p></details>
+    <details><summary>Apakah lokasi karyawan dilacak diam-diam?</summary><p>Tidak. Pelacakan lokasi tim lapangan berjalan dengan izin karyawan dan menampilkan notifikasi tetap di HP selama lokasi dibagikan.</p></details>
+    <details><summary>Bagaimana cara membayar?</summary><p>Transfer ke rekening kami sesuai nominal tagihan, lalu kirim bukti transfer lewat WhatsApp. Paket aktif setelah pembayaran dikonfirmasi.</p></details>
+    <details><summary>Bisa dipakai di laptop?</summary><p>Bisa. Pemilik, admin, akuntan, dan kasir dapat memakainya lewat browser. Peran lapangan seperti sales dan dropping memakai aplikasi Android karena butuh GPS dan kamera.</p></details>
+  </div>
+</div></section>
+
+<section class="order" id="pesan"><div class="wrap">
+  <div class="sh"><span class="eyebrow">Pemesanan</span><h2>Pesan <span class="gold">J-POS sekarang</span></h2><p>Isi data singkat. Kami hubungi lewat WhatsApp untuk aktivasi, tanpa kewajiban bayar di muka di formulir ini.</p></div>
+  <form class="fm" id="form" novalidate>
+    <div id="formBody">
+      <div class="r">
+        <label>Nama Anda *<input name="name" maxlength="60" autocomplete="name" required placeholder="Nama lengkap"></label>
+        <label>Nomor WhatsApp *<input name="phone" type="tel" inputmode="tel" maxlength="16" autocomplete="tel" required placeholder="08xxxxxxxxxx"></label>
+      </div>
+      <div class="r">
+        <label>Nama toko / usaha<input name="store" maxlength="80" placeholder="mis. Toko Berkah"></label>
+        <label>Kota<input name="city" maxlength="60" placeholder="mis. Makassar"></label>
+      </div>
+      <div class="r">
+        <label>Paket<select name="tier" id="fTier"></select></label>
+        <label>Lama langganan<select name="months" id="fMonths"><option value="1">1 bulan</option><option value="3">3 bulan</option><option value="6">6 bulan</option><option value="12">12 bulan</option></select></label>
+      </div>
+      <label>Catatan (opsional)<textarea name="note" rows="3" maxlength="300" placeholder="Jumlah karyawan, kebutuhan khusus, pertanyaan…"></textarea></label>
+      <div class="hp" aria-hidden="true"><label>Website<input name="website" tabindex="-1" autocomplete="off"></label></div>
+      <div class="total"><span>Perkiraan total<br><small style="color:var(--mu)" id="totNote"></small></span><b id="tot">–</b></div>
+      <div class="err" id="err" role="alert"></div>
+      <button class="btn g" style="width:100%" id="send" type="submit">Kirim pesanan</button>
+      <p class="note" style="margin-top:12px">Dengan mengirim, Anda setuju dihubungi lewat WhatsApp terkait pesanan ini. Data hanya dipakai untuk memproses pesanan.</p>
+    </div>
+    <div class="ok" id="okBox" hidden>
+      <h3 class="gold">Pesanan terkirim ✓</h3>
+      <p id="okTxt">Terima kasih! Tim kami segera menghubungi Anda lewat WhatsApp.</p>
+      <a class="btn g" id="okWa" target="_blank" rel="noopener" href="#">💬 Lanjut chat WhatsApp</a>
+    </div>
+  </form>
+</div></section>
+
+<footer><div class="wrap">
+  <div><b class="gold" style="font-family:Georgia,serif;letter-spacing:.14em">J-POS</b> · Kasir, Stok &amp; Distribusi<br>Kontak: <a href="#" id="ftWa">0813-4064-173 (Mucus)</a></div>
+  <div><a href="#" id="privLink" target="_blank" rel="noopener">Kebijakan privasi</a> · © J-POS</div>
+</div></footer>
+
+<a class="wa" id="waFab" href="#" target="_blank" rel="noopener">💬 Tanya via WhatsApp</a>
+
+<script src="config.js"></script>
+<script>
+(() => {
+  const $ = (s) => document.querySelector(s), rp = (n) => 'Rp' + Math.round(n).toLocaleString('id-ID');
+  const DEF = {
+    biasa: { n: 'Standar · Kios', max: 3, pr: 25000, f: 'Kasir, penjualan & retur|Produk & stok|Outlet / pelanggan|Buku kas & laporan dasar|Absensi, shift & jadwal|Gaji, lembur & izin jam kerja|Import / export Excel & backup', for: 'Kios & toko kecil' },
+    standar: { n: 'Medium · Grosir', max: 15, pr: 50000, f: 'Keuangan, piutang & utang|Pembelian ke supplier + analisa order|Sales lapangan: check-in & terima bayar|Pengantaran (dropping) & sales kanvas|Pantau GPS & riwayat perjalanan|Target & insentif|Toko online & peta kios|Hak akses fleksibel', for: 'Grosir yang punya sales', pop: 1 },
+    high: { n: 'High · Distributor', max: 100, pr: 100000, f: 'Jurnal akuntansi & biaya|Absensi anti-curang (selfie & wajah)|Audit lapangan|Jaringan mitra distributor', for: 'Distributor & trader' },
+  };
+  const ORD = ['biasa', 'standar', 'high'];
+  let INFO = { pkg: {}, wa: '', trial: 30 }, BASE = '';
+  const wa = () => String(INFO.wa || window.PROMO_WA || '').replace(/^0/, '62').replace(/\D/g, '') || window.PROMO_WA;
+  const waUrl = (t) => 'https://wa.me/' + wa() + '?text=' + encodeURIComponent(t);
+  async function api(path, opt) {
+    let last;
+    for (const b of window.PROMO_APIS) {
+      try { const c = new AbortController(), to = setTimeout(() => c.abort(), 9000); const r = await fetch(b + path, { ...(opt || {}), signal: c.signal }); clearTimeout(to); const j = await r.json(); j.__s = r.status; BASE = b; return j; } catch (e) { last = e; }
+    }
+    throw last || new Error('offline');
+  }
+  const price = (t) => (INFO.pkg[t] && INFO.pkg[t].pr) || DEF[t].pr, nm = (t) => (INFO.pkg[t] && INFO.pkg[t].n) || DEF[t].n, mx = (t) => (INFO.pkg[t] && INFO.pkg[t].max) || DEF[t].max;
+  function drawPkg() {
+    $('#pk').innerHTML = ORD.map((t, i) => {
+      const d = DEF[t], prev = i ? DEF[ORD[i - 1]].n : '';
+      return `<div class="pc ${d.pop ? 'pop' : ''}">${d.pop ? '<span class="badge">Populer</span>' : ''}<h3>${nm(t)}</h3><div class="for">${d.for}</div><div class="pr">${rp(price(t))}<small> / bulan</small></div><div class="mx">👥 Hingga ${mx(t)} pengguna</div><ul>${i ? `<li class="pl">Semua fitur ${prev}, plus:</li>` : ''}${d.f.split('|').map((x) => `<li>${x}</li>`).join('')}</ul><a class="btn ${d.pop ? 'g' : 'o'}" href="#pesan" data-t="${t}">Pilih paket ini</a></div>`;
+    }).join('');
+    const cur = $('#fTier').value || 'standar'; $('#fTier').innerHTML = ORD.map((t) => `<option value="${t}">${nm(t)} · ${rp(price(t))}/bln</option>`).join(''); $('#fTier').value = cur;
+    document.querySelectorAll('[data-t]').forEach((a) => (a.onclick = () => { $('#fTier').value = a.dataset.t; tot(); }));
+    tot();
+  }
+  function tot() { const m = +$('#fMonths').value, p = price($('#fTier').value) * m; $('#tot').textContent = rp(p); $('#totNote').textContent = m + ' bulan × ' + rp(price($('#fTier').value)); }
+  function links() {
+    const u = waUrl('Halo, saya tertarik dengan aplikasi J-POS. Boleh minta info lebih lanjut?');
+    $('#waFab').href = u; $('#ftWa').href = u;
+    const app = BASE || window.PROMO_APIS[0] || ''; $('#demoLink').href = app + '/'; $('#privLink').href = app + '/privasi';
+    if (INFO.trial) $('#trialTxt').textContent = 'Coba gratis ' + INFO.trial + ' hari. Bayar bulanan, tanpa biaya pemasangan.';
+  }
+  $('#fTier').onchange = $('#fMonths').onchange = tot;
+  $('#form').addEventListener('submit', async (e) => {
+    e.preventDefault(); const f = e.target, v = Object.fromEntries(new FormData(f)), err = $('#err'); err.textContent = '';
+    if (String(v.name).trim().length < 2) return (err.textContent = 'Isi nama Anda.');
+    if (!/^(\+?62|0)\d{8,13}$/.test(String(v.phone).replace(/[\s-]/g, ''))) return (err.textContent = 'Isi nomor WhatsApp yang benar, contoh 0812xxxxxxxx.');
+    const b = $('#send'); b.disabled = true; b.textContent = 'Mengirim…';
+    const msg = `Halo, saya ${v.name}${v.store ? ' (' + v.store + ')' : ''} mau pesan J-POS paket ${nm(v.tier)} ${v.months} bulan (${rp(price(v.tier) * +v.months)}). Mohon dibantu aktivasi.`;
+    try {
+      const r = await api('/api/pesan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...v, src: 'web' }) });
+      if (r.__s >= 400 || !r.ok) { err.textContent = r.e || 'Pesanan belum terkirim.'; b.disabled = false; b.textContent = 'Kirim pesanan'; return; }
+      if (r.wa) INFO.wa = r.wa;
+      $('#formBody').hidden = true; $('#okBox').hidden = false; $('#okWa').href = waUrl(msg);
+    } catch (x) { // server tidak terjangkau → arahkan langsung ke WhatsApp agar pesanan tidak hilang
+      $('#formBody').hidden = true; $('#okBox').hidden = false; $('#okTxt').textContent = 'Koneksi ke server sedang bermasalah. Tekan tombol di bawah untuk mengirim pesanan langsung lewat WhatsApp.'; $('#okWa').href = waUrl(msg);
+    }
+  });
+  drawPkg(); links();
+  api('/api/info').then((j) => { if (j && j.pkg) { INFO = { pkg: j.pkg, wa: j.wa, trial: j.trial }; drawPkg(); links(); } }).catch(() => links());
+})();
+</script>
+</body>
+</html>
