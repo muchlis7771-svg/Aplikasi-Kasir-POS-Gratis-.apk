@@ -1,7 +1,7 @@
 import { MSCHEMA, buyerRoutes, shopRoutes, shipCfg } from './market.js';
 import { SSCHEMA, SALTER, logAct, heartbeat, adminActivity } from './social.js';
 import { MSCH2, mitraRoutes } from './mitra.js';
-import { HSCHEMA, payHook, hqStore, hqAdmin, leadPost } from './hq.js';
+import { HSCHEMA, payHook, hqStore, hqAdmin, leadPost, trailStmt, trailGet, pruneTrail, tunnelPost, tunnelRedirect } from './hq.js';
 import { RSCHEMA, RALTER, rptCfg, cleanCfg, dayRange, buildDaily, sendOut, cronDaily } from './lapor.js';
 // J-POS API v4 — Cloudflare Worker + D1 (SQLite)
 // Multi-tenant: 1 toko = 1 tenant. Data bisnis = LOG KEJADIAN (tabel ev) yang diputar ulang tiap perangkat (offline-first).
@@ -119,6 +119,7 @@ export default {
   async fetch(req, env) {
     const u = new URL(req.url), p = u.pathname, M = req.method, ip = req.headers.get('CF-Connecting-IP') || 'x';
     if (p == '/ota.json') { const r = await env.ASSETS.fetch(req), h = new Headers(r.headers); h.set('Access-Control-Allow-Origin', '*'); h.set('Cache-Control', 'no-store'); return new Response(r.body, { status: r.status, headers: h }); } // manifest pembaruan otomatis aplikasi Android
+    if (p == '/termux') { try { await ready(env); return await tunnelRedirect(env, await cfgAll(env), req); } catch (e) { return Response.redirect(new URL('/promo/', req.url).href, 302); } } // link tetap → server Termux (bila aktif)
     if (!p.startsWith('/api/')) return env.ASSETS.fetch(req);
     const cors = { 'Access-Control-Allow-Origin': env.ORIGIN || '*', 'Access-Control-Allow-Headers': 'Authorization,Content-Type', 'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS' };
     const J = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
@@ -131,6 +132,7 @@ export default {
       await ready(env); await cfgAll(env);
       // ---------- publik ----------
       if (p == '/api/pay/hook' && M == 'POST') return payHook(env, req, u, J, await cfgAll(env)); // konfirmasi transfer otomatis (layanan cek mutasi)
+      if (p == '/api/tunnel' && M == 'POST') return tunnelPost(env, b, ip, J, await cfgAll(env), cfgSet, limited);
       if (p == '/api/pesan' && M == 'POST') return leadPost(env, b, ip, J, await cfgAll(env), pkgAll, limited); // pemesanan dari website promo
       if (p == '/api/ping') return J({ ok: 1, v: 5 });
       if (p == '/api/time') return J({ t: Date.now() });
@@ -285,6 +287,7 @@ export default {
       const RO = () => J({ e: 'Masa aktif toko habis. Hubungi pemilik aplikasi untuk perpanjangan.', expired: 1, ...stInfo(me) }, 402);
 
       if (p == '/api/me') return J({ sid, name: uname, role, ...stInfo(me) });
+      if (p == '/api/trail' && M == 'GET') { if ((role != 'owner' && role != 'admin') || !featsOf(me, role).includes('gps')) return J({ e: 'Riwayat perjalanan hanya untuk pemilik / admin (paket Medium ke atas)' }, 403); return trailGet(env, sid, u, J); }
       { const hr = await hqStore({ env, p, M, b, J, sid, uname, role, C: await cfgAll(env), pkgAll, sname: me.sn, limited }); if (hr) return hr; } // perpanjangan & komplain (tetap jalan walau masa aktif habis)
 
       // ---------- toko belanja ke grosir / distributor lain (akun pembeli milik toko) ----------
@@ -364,6 +367,7 @@ export default {
             if (d.length > 150000) { rej.push({ no: x.no, e: 'terlalu besar' }); continue; }
             const tot = x.k == 'sale' ? Math.round(+x.tot) || 0 : x.k == 'retur' ? -Math.abs(Math.round(+x.tot) || 0) : 0;
             st.push(env.DB.prepare('INSERT OR IGNORE INTO ev(store_id,no,k,t,tot,data) VALUES(?,?,?,?,?,?)').bind(sid, x.no, x.k, Math.round(x.t), tot, d));
+            { const ts = trailStmt(env, sid, uname, x, rt); if (ts) st.push(ts); } // riwayat perjalanan (30 hari)
           }
           if (st.length) { await env.DB.batch(st); const kinds = {}; for (const x of b.items || []) if (x && x.k) kinds[x.k] = (kinds[x.k] || 0) + 1; if (kinds.loc) { try { await env.DB.prepare("DELETE FROM ev WHERE store_id=? AND k='loc' AND json_extract(data,'$.u')=? AND seq < (SELECT MAX(seq) FROM ev WHERE store_id=? AND k='loc' AND json_extract(data,'$.u')=?)").bind(sid, uname, sid, uname).run(); } catch (e) { } } await logAct(env, 'staff', uname, uname, sid, 'sinkron data', Object.entries(kinds).map(([k, n]) => k + '×' + n).join(', ')); }
           return J({ done, rej, st: stInfo(me) });
@@ -460,5 +464,5 @@ export default {
     } catch (x) { console.error(x && x.stack || x); return J({ e: 'Server error' }, 500); }
   },
   // Cron Trigger (tiap jam): laporan harian otomatis ke WA & email pemilik toko
-  async scheduled(ev, env, ctx) { await ready(env); ctx.waitUntil(cronDaily(env, await cfgAll(env), ev.scheduledTime || Date.now())); },
+  async scheduled(ev, env, ctx) { await ready(env); ctx.waitUntil(Promise.all([cronDaily(env, await cfgAll(env), ev.scheduledTime || Date.now()), pruneTrail(env, Date.now()).catch(() => { })])); }, // tiap jam: laporan harian + hapus riwayat > 30 hari
 };

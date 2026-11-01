@@ -1,25 +1,43 @@
-# Website promo J-POS di Termux
+# Website promo J-POS di Termux — jalan terus di latar belakang
 
-## Cara cepat
-1. Simpan folder ini di HP, mis. `~/jpos-promo` (ekstrak ZIP: `termux-setup-storage`, lalu `unzip ~/storage/downloads/jpos-promo-termux.zip -d ~/`).
-2. Di Termux: `cd ~/jpos-promo && bash start-termux.sh`
-3. Tunggu muncul alamat `https://….trycloudflare.com`. Itu alamat publik: bisa dibuka siapa saja di internet. Bagikan ke calon pelanggan.
-4. Berhenti: tekan `Ctrl+C`.
+## Pertama kali (sekali saja)
+```
+cd ~/jpos-promo
+bash jpos-bg.sh start
+```
+Pertama kali akan memasang paket (`nodejs`, `cloudflared`, `curl`); jawab **y** bila ditanya. Tunggu sampai muncul alamat `https://….trycloudflare.com`.
+Setelah itu **jendela Termux boleh ditutup**: server tetap berjalan di latar belakang dan otomatis hidup lagi bila mati.
 
-## Menyediakan unduhan APK di website
-1. Izinkan Termux membaca penyimpanan (sekali): `termux-setup-storage`
-2. Salin APK dari folder `jpos` di HP ke website, **ganti nama jadi J-POS.apk**:
-   `mkdir -p ~/jpos-promo/apk && cp /sdcard/jpos/NAMA-FILE.apk ~/jpos-promo/apk/J-POS.apk`
-   (lihat nama file dengan `ls /sdcard/jpos`)
-3. Muat ulang halaman, tombol **⬇ Unduh aplikasi Android** muncul otomatis. Tidak perlu restart server.
-Pakai APK yang sudah **ditandatangani rilis** (bukan APK debug dari GitHub, karena itu memicu peringatan "aplikasi berbahaya").
+## Perintah sehari-hari
+| Perintah | Fungsi |
+|---|---|
+| `bash jpos-bg.sh start` | jalankan |
+| `bash jpos-bg.sh status` | status + alamat publik |
+| `bash jpos-bg.sh url` | tampilkan alamat publik |
+| `bash jpos-bg.sh stop` | hentikan |
+| `bash jpos-bg.sh boot` | jalan otomatis saat HP menyala (pasang aplikasi **Termux:Boot** dari F-Droid dan buka sekali) |
 
-## Yang perlu diketahui
-- Alamat `trycloudflare.com` **berubah setiap kali dijalankan** dan tidak ada jaminan aktif terus. Cocok untuk promo sementara, bukan alamat tetap.
-- Website hanya bisa dibuka selama **HP menyala, Termux terbuka, dan ada internet**. Matikan penghemat baterai untuk Termux (Pengaturan → Aplikasi → Termux → Baterai → Tanpa batasan) dan pasang **Termux:API** agar `termux-wake-lock` bekerja.
-- Pesanan dari formulir **tidak disimpan di HP**. Formulir mengirim ke server J-POS, jadi pesanan tetap masuk ke Head Admin → tab **🛒 Pesanan** walau Termux mati.
-- Alamat tetap & selalu aktif (disarankan): website yang sama sudah tersedia di server J-POS, di alamat `…workers.dev/promo/`. Alamat itu aktif 24 jam tanpa HP Anda.
-- Mau alamat tetap dari Termux? Perlu domain sendiri di Cloudflare dan *named tunnel* (`cloudflared tunnel login`, `create`, `route dns`). Bisa dibantu bila diperlukan.
+## Agar tidak dimatikan Android (penting, terutama Xiaomi/HyperOS)
+1. Pengaturan → Aplikasi → Termux → Hemat baterai → **Tanpa batasan**.
+2. Aktifkan **Mulai otomatis** untuk Termux.
+3. Di layar aplikasi terbaru, **kunci** (tahan) kartu Termux.
+4. Tarik notifikasi Termux → tekan **Acquire wakelock**.
+Tanpa langkah ini, Android bisa mematikan Termux kapan saja. Server **tidak** bisa jalan bila HP mati, internet mati, atau Termux dihentikan paksa.
 
-## Mengubah isi
-Edit `index.html` (teks), `config.js` (alamat server), dan ganti gambar di `img/`. Muat ulang browser, tanpa perlu restart.
+## Link tetap (tidak berubah walau Termux restart)
+Alamat `trycloudflare.com` **berubah tiap tunnel dijalankan ulang**. Supaya ada link yang selalu sama:
+1. Buka `…/admin.html` (di website promo) → login dengan akun **Head Admin**.
+2. Tab **Link & server Termux** → salin **perintah kunci** → tempel di Termux (sekali).
+3. Bagikan **link tetap** `…workers.dev/termux`. Link itu otomatis mengarah ke server Termux yang sedang aktif; bila Termux mati, pengunjung dialihkan ke website promo di server J-POS (`…workers.dev/promo/`).
+
+## Admin website
+`…/admin.html` → login Head Admin → daftar **pesanan** masuk (WhatsApp pelanggan + ubah status) dan status server Termux.
+Login dibatasi 8 percobaan per 15 menit; password tidak disimpan di website.
+
+## Unduhan APK
+Taruh file di `~/jpos-promo/apk/J-POS.apk` (pakai APK rilis bertanda tangan). Tombol "Unduh aplikasi Android" muncul otomatis.
+
+## Catatan
+- Pesanan dari formulir **tidak disimpan di HP**; langsung masuk ke Head Admin → tab Pesanan.
+- Alamat tetap & selalu aktif tanpa HP: `…workers.dev/promo/`.
+- Mengubah teks/gambar: edit `index.html`, `config.js`, `img/`; muat ulang browser tanpa restart.
