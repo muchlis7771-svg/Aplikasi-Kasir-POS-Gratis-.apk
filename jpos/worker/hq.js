@@ -16,7 +16,7 @@ export const HSCHEMA = [
   'CREATE TABLE IF NOT EXISTS sitehits(k TEXT PRIMARY KEY,n INTEGER NOT NULL DEFAULT 0)',
   "CREATE TABLE IF NOT EXISTS leads(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT,store TEXT,phone TEXT,city TEXT,tier TEXT,months INTEGER,note TEXT,src TEXT,st TEXT DEFAULT 'baru',hnote TEXT,t INTEGER,upd INTEGER)", 'CREATE INDEX IF NOT EXISTS leads_t ON leads(st,t)',
 ];
-const DAY = 864e5, INV_TTL = 3 * DAY, MONTHS = [1, 3, 6, 12];
+const VIS_DAYS = 31, DAY = 864e5, INV_TTL = 3 * DAY, MONTHS = [1, 3, 6, 12];
 const pj = (s, d) => { try { return JSON.parse(s); } catch (e) { return d; } };
 const CATS = { bug: 'Error / aplikasi bermasalah', pakai: 'Cara pakai', data: 'Data / sinkron', bayar: 'Pembayaran & paket', saran: 'Saran fitur', lain: 'Lainnya' };
 const clip = (s, n) => String(s == null ? '' : s).slice(0, n);
@@ -181,7 +181,7 @@ export function trailStmt(env, sid, uname, x, now) {
   const t = Math.round(x.t); if (!(t < now + 6e5 && t > now - TRAIL_DAYS * DAY)) return null;
   return env.DB.prepare('INSERT OR IGNORE INTO trail(sid,u,t,lat,lng,k) VALUES(?,?,?,?,?,?)').bind(sid, String(uname).slice(0, 40), t, +(+x.lat).toFixed(6), +(+x.lng).toFixed(6), kk);
 }
-export async function pruneTrail(env, now) { await pruneApk(env, now).catch(() => { }); const c = now - TRAIL_DAYS * DAY; await env.DB.batch([env.DB.prepare('DELETE FROM trail WHERE t<?').bind(c), env.DB.prepare("DELETE FROM ev WHERE k='loc' AND t<?").bind(now - 3 * DAY)]); }
+export async function pruneTrail(env, now) { await pruneApk(env, now).catch(() => { }); const c = now - TRAIL_DAYS * DAY; await env.DB.batch([env.DB.prepare('DELETE FROM trail WHERE t<?').bind(c), env.DB.prepare("DELETE FROM ev WHERE k='loc' AND t<?").bind(now - 3 * DAY), env.DB.prepare("DELETE FROM ev WHERE k IN ('visit','vout') AND t<?").bind(now - VIS_DAYS * DAY)]); }
 const rad = Math.PI / 180, dm = (a, b, c, d) => { const x = (d - b) * rad * Math.cos((a + c) / 2 * rad), y = (c - a) * rad; return 6371000 * Math.sqrt(x * x + y * y); };
 // GET /api/trail?user=NAMA&days=N → titik jejak (ditipiskan: ±150 detik atau ≥25 m) untuk pemilik / admin
 export async function trailGet(env, sid, u, J) {
