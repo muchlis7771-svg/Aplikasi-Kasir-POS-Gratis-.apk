@@ -2,11 +2,11 @@
 /* ============ HEAD ADMIN → tab 🌐 Web ============
    Kontrol website promo J-POS dari dashboard: unggah APK (diunduh pengunjung dari website), teks & bagian yang tampil,
    pengumuman, tutup/buka form pesanan, mode pemeliharaan, FAQ, dan statistik kunjungan. */
-const HAW = { site: null, apk: null, stats: null, busy: false, err: '' };
+const HAW = { med: null, site: null, apk: null, stats: null, busy: false, err: '' };
 const WCH = 360 * 1024;
 async function haWebLoad() {
   try {
-    const [s, a, st] = await Promise.all([haApi('/api/admin/site'), haApi('/api/admin/apk'), haApi('/api/admin/site/stats')]);
+    const [s, a, st, md] = await Promise.all([haApi('/api/admin/site'), haApi('/api/admin/apk'), haApi('/api/admin/site/stats'), haApi('/api/admin/media')]); HAW.med = md.list;
     HAW.site = s.site; HAW.def = s.def; HAW.apk = a; HAW.stats = st.days; HAW.src = st.src || {}; HAW.err = '';
   } catch (e) { if (e.status == 401) return haOut(); HAW.err = e.message; }
   if (MODE == 'ha' && HA.tab == 'web' && !HAW.busy && !document.querySelector('.md')) R();
@@ -29,7 +29,7 @@ ${A.has ? `<div class="hsg" style="margin:10px 0"><div><small>Nama</small><b sty
   const ctl = `<div class="cd"><h3>🎛️ Kontrol website</h3><small class="mu">Perubahan langsung tampil di website setelah disimpan (maks. ±30 detik).</small>
 <h4>📣 Pengumuman di atas halaman</h4>${wChk('wbo', S.banner.on, 'Tampilkan pengumuman')}${wTxt('wbt', S.banner.text, 'Teks pengumuman (mis. Diskon 20% bulan ini)', 160)}${wTxt('wbl', S.banner.link, 'Tautan (opsional): https://… atau #pesan', 200)}
 <h4>✏️ Teks utama</h4>${wTxt('wey', S.eyebrow, 'Label kecil di atas judul', 60)}${wTxt('wti', S.title, 'Judul', 90)}${wTxt('wgo', S.gold, 'Lanjutan judul (berwarna emas)', 90)}<textarea id="wld" rows="3" maxlength="320" placeholder="Kalimat pengantar">${esc(S.lead)}</textarea>${wTxt('wct', S.cta, 'Teks tombol utama', 30)}
-<h4>👁️ Bagian yang ditampilkan</h4>${[['fitur', 'Fitur'], ['tampilan', 'Tampilan aplikasi'], ['paket', 'Paket & harga'], ['tanya', 'Tanya jawab'], ['pesan', 'Formulir pemesanan'], ['apk', 'Tombol unduh aplikasi'], ['aman', 'Aman & transparan'], ['ulasan', 'Ulasan & penguji'], ['video', 'Tombol video'], ['chat', 'Chat langsung']].map(([k, l]) => wChk('wsh_' + k, S.show[k], l)).join('')}
+<h4>👁️ Bagian yang ditampilkan</h4>${[['fitur', 'Fitur'], ['tampilan', 'Tampilan aplikasi'], ['paket', 'Paket & harga'], ['tanya', 'Tanya jawab'], ['pesan', 'Formulir pemesanan'], ['apk', 'Tombol unduh aplikasi'], ['aman', 'Aman & transparan'], ['ulasan', 'Ulasan & penguji'], ['video', 'Tombol video'], ['chat', 'Chat langsung'], ['galeri', 'Galeri iklan']].map(([k, l]) => wChk('wsh_' + k, S.show[k], l)).join('')}
 <h4>🛒 Pemesanan</h4>${wChk('wop', S.order.open, 'Terima pesanan (formulir terbuka)')}${wTxt('wom', S.order.closedMsg, 'Pesan saat ditutup', 200)}
 <h4>🛠 Mode pemeliharaan</h4>${wChk('wmo', S.maint.on, 'Aktifkan (pengunjung melihat pesan di bawah, bukan website)')}${wTxt('wmm', S.maint.msg, 'Pesan pemeliharaan', 200)}
 <h4>📞 Kontak</h4>${wTxt('wwa', S.wa, 'No. WhatsApp khusus website (kosong = pakai nomor Head Admin)', 16)}${wTxt('wft', S.foot, 'Teks tambahan di bagian bawah', 160)}
@@ -41,7 +41,7 @@ ${A.has ? `<div class="hsg" style="margin:10px 0"><div><small>Nama</small><b sty
 <small class="mu">Asal kunjungan (dari link promosi)</small>${Object.keys(HAW.src || {}).length ? '<div class="wrap" style="margin-top:6px">' + Object.entries(HAW.src).sort((a, b) => b[1] - a[1]).map(([k, n]) => `<span class="chip g">${esc(k)} · ${n}</span>`).join('') + '</div>' : '<p class="mu" style="margin:4px 0 0">Belum ada. Bagikan link dari Kit Promosi di atas.</p>'}</div>`;
   const links = `<div class="cd"><h3>🔗 Tautan</h3><div class="wrap"><a class="gh pri" target="_blank" rel="noopener" href="${esc(base)}/promo/">Buka website</a><a class="gh" target="_blank" rel="noopener" href="${esc(base)}/promo/admin.html">Halaman admin web</a><button class="gh" onclick="copyTx('${esc(base)}/termux')">Salin link tetap Termux</button><button class="gh" onclick="copyTx('${esc(base)}/promo/')">Salin link website</button></div>
 <small class="mu">Harga paket diatur di tab <b>Toko</b> (kartu “Harga paket langganan”). Pesanan masuk di tab <b>Pesanan</b>.</small></div>`;
-  return apkCard + haKit(base) + ctl + statCard + links;
+  return apkCard + haMediaCard() + haKit(base) + ctl + statCard + links;
 }
 // ---- baca isian form → HAW.site ----
 function haWebCollect() {
@@ -104,5 +104,44 @@ function haKit(base) {
 ${WKN.map(([k, n, ic]) => `<div class="row wsw"><span>${ic} ${n}<br><small class="mu">/p/${k}</small></span><span class="wrap"><button class="gh" onclick="copyTx('${esc(L(k))}')">Link</button><button class="gh" onclick="wCopy(WKT.${k}('${esc(L(k))}'))">Teks</button><button class="gh" onclick="haShare('${k}')">Bagikan</button></span></div>`).join('')}
 <small class="mu">Tips: pasang <b>/p/ig</b> di bio Instagram dan <b>/p/tt</b> di bio TikTok. Untuk Google, daftarkan website di Search Console (lihat kotak “Google Search Console” di bawah), lalu kirim sitemap.</small></div>`;
 }
-function haShare(k) { const l = ((typeof AP == 'string' && AP) || location.origin) + '/p/' + k, t = WKT[k](l); if (navigator.share) navigator.share({ title: 'J-POS', text: t }).catch(() => { }); else wCopy(t); }
+async function haShare(k) {
+  const l = ((typeof AP == 'string' && AP) || location.origin) + '/p/' + k, t = WKT[k](l), e = encodeURIComponent, AL = typeof plug == 'function' && plug('AppLauncher');
+  const go = { wa: 'https://wa.me/?text=' + e(t), tg: 'https://t.me/share/url?url=' + e(l) + '&text=' + e(t.replace(l, '').trim()), fb: 'https://www.facebook.com/sharer/sharer.php?u=' + e(l) }[k];
+  if (go) { try { if (AL) { await AL.openUrl({ url: go }); return; } window.open(go, '_blank'); return; } catch (x) { } }
+  shareText('J-POS', t); // Instagram/TikTok/lainnya: buka lembar bagikan Android (pilih aplikasinya)
+}
 function wCopy(t) { try { navigator.clipboard.writeText(t).then(() => toast('Teks disalin')).catch(() => prompt('Salin:', t)); } catch (e) { prompt('Salin:', t); } }
+
+// ---- Media iklan: unggah gambar (otomatis diperkecil) & video untuk galeri website ----
+const wRand = () => wHex(crypto.getRandomValues(new Uint8Array(8)));
+function haMediaCard() {
+  const L = HAW.med || [];
+  return `<div class="cd"><h3>🖼️ Media iklan (gambar &amp; video)</h3><small class="mu">Tampil di bagian <b>Galeri</b> website. Gambar JPG/PNG/WebP diperkecil otomatis; video MP4/WebM maks. 40 MB. Maks. 24 file.</small>
+<div class="wup"><label class="gh wfl"><input type="file" id="wmf" accept="image/*,video/mp4,video/webm" multiple hidden onchange="$('#wmn').textContent=this.files.length?this.files.length+' file dipilih':'Belum ada file'">📂 Pilih gambar / video</label><small class="mu" id="wmn">Belum ada file</small><input id="wmc" placeholder="Keterangan (opsional, mis. Promo November)" maxlength="120"><div class="wprog" id="wmw" hidden><i id="wmb"></i></div><small id="wms" class="mu"></small><button class="pr" id="wmu" onclick="haMediaUp()" ${HAW.busy ? 'disabled' : ''}>⬆ Unggah ke galeri</button></div>
+${L.length ? L.map((m) => `<div class="row wsw"><span style="min-width:0">${m.kind == 'video' ? '🎬' : '🖼️'} <b style="overflow-wrap:anywhere">${esc(m.name)}</b><br><small class="mu">${(m.size / 1048576).toFixed(2)} MB${m.cap ? ' · ' + esc(m.cap) : ''}</small></span><button class="gh d" onclick="haMediaDel('${m.id}')">Hapus</button></div>`).join('') : '<p class="mu" style="margin:10px 0 0">Belum ada media.</p>'}</div>`;
+}
+async function wImg(f) { // perkecil gambar → JPEG maks 1280px (kecuali PNG/WebP kecil)
+  if (f.size < 250 * 1024 && /jpeg|png|webp/.test(f.type)) return f;
+  const bm = await createImageBitmap(f), k = Math.min(1, 1280 / Math.max(bm.width, bm.height)), c = document.createElement('canvas'); c.width = Math.round(bm.width * k); c.height = Math.round(bm.height * k);
+  c.getContext('2d').drawImage(bm, 0, 0, c.width, c.height); return await new Promise((ok) => c.toBlob((b) => ok(b), 'image/jpeg', 0.82));
+}
+async function haMediaUp() {
+  const fs = [...(($('#wmf') || {}).files || [])]; if (HAW.busy) return; if (!fs.length) return toast('Pilih file dulu');
+  const ps = (t) => { const e = $('#wms'); if (e) e.textContent = t; }, pb = (p) => { const w = $('#wmw'), b = $('#wmb'); if (w) w.hidden = false; if (b) b.style.width = p + '%'; };
+  HAW.busy = true; $('#wmu').disabled = true; let okN = 0;
+  try {
+    for (let k = 0; k < fs.length; k++) {
+      let f = fs[k], kind = /^video\//.test(f.type) ? 'video' : 'image'; ps('(' + (k + 1) + '/' + fs.length + ') ' + f.name); pb(1);
+      if (kind == 'image') f = await wImg(f); else if (f.size > 40 * 1048576) { toast(f.name + ': video lebih dari 40 MB, dilewati', 5000); continue; }
+      const sha = wHex(await crypto.subtle.digest('SHA-256', await f.arrayBuffer())), id = wRand(), n = Math.ceil(f.size / WCH); let done = 0;
+      for (let i = 0; i < n; i++) {
+        const body = await wB64(f.slice(i * WCH, (i + 1) * WCH));
+        for (let t = 0; ; t++) { try { const r = await fetch(AP + '/api/admin/media/chunk?id=' + id + '&i=' + i + '&k=' + kind, { method: 'PUT', headers: { Authorization: 'Bearer ' + HT, 'Content-Type': 'text/plain' }, body }); if (r.ok) break; const j = await r.json().catch(() => ({})); if (r.status < 500 && r.status != 429) throw Object.assign(new Error(j.e || 'Ditolak (' + r.status + ')'), { fatal: 1 }); } catch (e) { if (e.fatal || t >= 3) throw e; } await new Promise((z) => setTimeout(z, 700 * (t + 1))); }
+        done++; pb(Math.max(1, Math.round(done / n * 96)));
+      }
+      await haApi('/api/admin/media/commit', { method: 'POST', body: JSON.stringify({ id, n, size: f.size, sha, kind, name: fs[k].name, cap: ($('#wmc') || {}).value || '' }) }); okN++;
+    }
+    HAW.busy = false; toast(okN + ' file masuk galeri website'); const md = await haApi('/api/admin/media'); HAW.med = md.list; R();
+  } catch (e) { HAW.busy = false; $('#wmu') && ($('#wmu').disabled = false); ps('Gagal: ' + e.message); toast('Unggah gagal: ' + e.message, 6000); }
+}
+async function haMediaDel(id) { if (!confirm('Hapus file ini dari galeri website?')) return; try { await haApi('/api/admin/media?id=' + id, { method: 'DELETE' }); HAW.med = HAW.med.filter((m) => m.id != id); R(); } catch (e) { toast(e.message); } }

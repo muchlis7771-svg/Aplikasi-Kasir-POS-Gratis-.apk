@@ -3,6 +3,8 @@
 // Begitu transfer masuk ke rekening Head Admin, layanan cek mutasi (Moota / sejenis) memanggil webhook → nominal cocok
 // → masa aktif & paket toko diperpanjang otomatis. Tanpa layanan mutasi, Head Admin cukup menekan "Tandai lunas".
 export const HSCHEMA = [
+  'CREATE TABLE IF NOT EXISTS wmedia(id TEXT PRIMARY KEY,kind TEXT,name TEXT,type TEXT,size INTEGER,sha TEXT,n INTEGER,cap TEXT,t INTEGER)',
+  'CREATE TABLE IF NOT EXISTS wmediac(id TEXT NOT NULL,i INTEGER NOT NULL,d TEXT NOT NULL,t INTEGER,PRIMARY KEY(id,i))',
   "CREATE TABLE IF NOT EXISTS wchat(id INTEGER PRIMARY KEY AUTOINCREMENT,cid TEXT NOT NULL,who TEXT NOT NULL,name TEXT,txt TEXT,t INTEGER,rd INTEGER DEFAULT 0)", 'CREATE INDEX IF NOT EXISTS wchat_c ON wchat(cid,id)',
   "CREATE TABLE IF NOT EXISTS wulasan(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT,store TEXT,stars INTEGER,txt TEXT,t INTEGER,ok INTEGER DEFAULT 0)",
   "CREATE TABLE IF NOT EXISTS inv(id INTEGER PRIMARY KEY AUTOINCREMENT,store_id TEXT NOT NULL,tier TEXT,months INTEGER,base INTEGER,code INTEGER,amount INTEGER,status TEXT DEFAULT 'tunggu',t INTEGER,paid_t INTEGER,via TEXT,ref TEXT,by TEXT)",
@@ -119,7 +121,7 @@ export async function hqStore(x) {
 // rute Head Admin
 export async function hqAdmin(x) {
   const { env, p, M, b, J, C, cfgSet, origin } = x, now = Date.now();
-  { const ar = (await apkAdmin(x)) || (await siteAdmin(x)) || (await chatAdmin(x)); if (ar) return ar; }
+  { const ar = (await apkAdmin(x)) || (await siteAdmin(x)) || (await chatAdmin(x)) || (await mediaAdmin(x)); if (ar) return ar; }
   if (p == '/api/admin/pay') {
     if (M == 'PUT') {
       if (b.bank != null) await cfgSet(env, 'pay_bank', clip(b.bank, 400).trim());
@@ -248,14 +250,14 @@ async function apkAdmin(x) {
   if (p == '/api/admin/apk' && M == 'GET') return J(apkPub(apkMetaOf(C)));
   return null;
 }
-export async function pruneApk(env, now) { await env.DB.prepare('DELETE FROM wchat WHERE t<?').bind(now - 60 * 864e5).run(); await env.DB.prepare('DELETE FROM apkc WHERE t<? AND up NOT IN (SELECT json_extract(v,\'$.up\') FROM cfg WHERE k=\'apk_meta\' AND v!=\'\')').bind(now - 864e5).run(); }
+export async function pruneApk(env, now) { await env.DB.prepare('DELETE FROM wmediac WHERE t<? AND id NOT IN (SELECT id FROM wmedia)').bind(now - 864e5).run(); await env.DB.prepare('DELETE FROM wchat WHERE t<?').bind(now - 60 * 864e5).run(); await env.DB.prepare('DELETE FROM apkc WHERE t<? AND up NOT IN (SELECT json_extract(v,\'$.up\') FROM cfg WHERE k=\'apk_meta\' AND v!=\'\')').bind(now - 864e5).run(); }
 
 /* ============ KONTROL WEBSITE PROMO (diatur dari dashboard Head Admin) ============ */
 export const SITE_DEF = {
   eyebrow: 'Kasir · Stok · Grosir · Distributor', title: 'Kelola toko & distribusi Anda', gold: 'dalam satu aplikasi',
   lead: 'Kasir yang tetap jalan tanpa internet, stok yang terpantau, sales lapangan dengan GPS, pengantaran, absensi, gaji, sampai laporan keuangan. Untuk kios, toko grosir, dan distributor.',
   cta: 'Pesan sekarang', wa: '', gsv: '', foot: '', banner: { on: false, text: '', link: '' },
-  show: { fitur: true, tampilan: true, paket: true, langkah: true, tanya: true, pesan: true, apk: true, aman: true, ulasan: true, video: true, chat: true },
+  show: { fitur: true, tampilan: true, paket: true, langkah: true, tanya: true, pesan: true, apk: true, aman: true, ulasan: true, video: true, chat: true, galeri: true },
   order: { open: true, closedMsg: 'Pemesanan sedang ditutup sementara. Silakan hubungi kami lewat WhatsApp.' },
   maint: { on: false, msg: 'Website sedang dalam pemeliharaan. Silakan kembali sebentar lagi.' }, faq: [],
 };
@@ -351,4 +353,51 @@ async function chatAdmin(x) {
     return J({ list: (await env.DB.prepare('SELECT id,name,store,stars,txt,t,ok FROM wulasan ORDER BY ok,t DESC LIMIT 100').all()).results });
   }
   return null;
+}
+
+/* ============ MEDIA IKLAN (gambar & video) untuk website — disimpan per potongan base64 di D1, dirakit di browser ============ */
+const MID = /^[a-f0-9]{16}$/, MMAGIC = { image: [['/9j/', 'image/jpeg'], ['iVBOR', 'image/png'], ['UklGR', 'image/webp']], video: [['AAAA', 'video/mp4'], ['GkXfo', 'video/webm']] };
+const MAX_MEDIA = 24, MAX_MCHUNKS = { image: 24, video: 120 };
+const mPub = (r) => ({ id: r.id, kind: r.kind, name: r.name, type: r.type, size: r.size, sha: r.sha, n: r.n, cap: r.cap || '', t: r.t });
+export async function mediaPublic(x) {
+  const { env, p, M, u, ip, J, limited } = x;
+  if (p == '/api/media' && M == 'GET') return J({ list: (await env.DB.prepare('SELECT * FROM wmedia ORDER BY t DESC LIMIT 24').all()).results.map(mPub) });
+  if (p == '/api/media/chunk' && M == 'GET') {
+    const id = u.searchParams.get('id') || '', i = Math.round(+u.searchParams.get('i')); if (!MID.test(id) || !(i >= 0)) return J({ e: 'tidak ada' }, 404);
+    if (await limited(env, 'med:' + ip, 1500, 36e5)) return J({ e: 'terlalu sering' }, 429);
+    const r = await env.DB.prepare('SELECT d FROM wmediac WHERE id=? AND i=?').bind(id, i).first(); if (!r) return J({ e: 'tidak ada' }, 404);
+    return new Response(r.d, { headers: { 'Content-Type': 'text/plain', 'Cache-Control': 'public, max-age=86400, immutable', 'Access-Control-Allow-Origin': '*' } });
+  }
+  return null;
+}
+async function mediaAdmin(x) {
+  const { env, p, M, b, J, req, u } = x, now = Date.now();
+  if (p == '/api/admin/media/chunk' && M == 'PUT') {
+    const id = String(u.searchParams.get('id') || ''), i = Math.round(+u.searchParams.get('i')), kind = u.searchParams.get('k') == 'video' ? 'video' : 'image';
+    if (!MID.test(id) || !(i >= 0 && i < MAX_MCHUNKS[kind])) return J({ e: 'parameter salah' }, 400);
+    const d = await req.text(); if (!d || d.length > 520000 || !/^[A-Za-z0-9+/=]+$/.test(d)) return J({ e: 'potongan tidak valid' }, 400);
+    if (i == 0 && !MMAGIC[kind].some(([m]) => d.startsWith(m))) return J({ e: kind == 'video' ? 'Video harus berformat MP4 atau WebM' : 'Gambar harus JPG, PNG, atau WebP' }, 400);
+    if (!(await env.DB.prepare('SELECT 1 x FROM wmedia WHERE id=?').bind(id).first()) && (await env.DB.prepare('SELECT COUNT(*) n FROM wmedia').first()).n >= MAX_MEDIA) return J({ e: 'Maksimal ' + MAX_MEDIA + ' file. Hapus yang lama dulu.' }, 400);
+    await env.DB.prepare('INSERT OR REPLACE INTO wmediac(id,i,d,t) VALUES(?,?,?,?)').bind(id, i, d, now).run(); return J({ ok: 1 });
+  }
+  if (p == '/api/admin/media/commit' && M == 'POST') {
+    const id = String(b.id || ''), n = Math.round(+b.n), size = Math.round(+b.size), kind = b.kind == 'video' ? 'video' : 'image', sha = String(b.sha || '');
+    if (!MID.test(id) || !(n >= 1 && n <= MAX_MCHUNKS[kind]) || !(size > 0 && size <= n * 360 * 1024) || !/^[a-f0-9]{64}$/.test(sha)) return J({ e: 'data tidak valid' }, 400);
+    const have = (await env.DB.prepare('SELECT COUNT(*) c, MIN(i) mn, MAX(i) mx FROM wmediac WHERE id=?').bind(id).first());
+    if (have.c != n || have.mn != 0 || have.mx != n - 1) return J({ e: 'Potongan belum lengkap (' + have.c + ' dari ' + n + '). Ulangi unggah.' }, 400);
+    const first = (await env.DB.prepare('SELECT d FROM wmediac WHERE id=? AND i=0').bind(id).first()).d, type = (MMAGIC[kind].find(([m]) => first.startsWith(m)) || [0, ''])[1];
+    const row = { id, kind, name: wClean(b.name, 80) || 'file', type, size, sha, n, cap: wClean(b.cap, 120), t: now };
+    await env.DB.prepare('INSERT OR REPLACE INTO wmedia(id,kind,name,type,size,sha,n,cap,t) VALUES(?,?,?,?,?,?,?,?,?)').bind(id, kind, row.name, type, size, sha, n, row.cap, now).run(); return J({ ok: 1, item: mPub(row) });
+  }
+  if (p == '/api/admin/media' && M == 'GET') return J({ list: (await env.DB.prepare('SELECT * FROM wmedia ORDER BY t DESC LIMIT 24').all()).results.map(mPub) });
+  if (p == '/api/admin/media' && M == 'POST') { const id = String(b.id || ''); if (!MID.test(id)) return J({ e: 'id salah' }, 400); await env.DB.prepare('UPDATE wmedia SET cap=? WHERE id=?').bind(wClean(b.cap, 120), id).run(); return J({ ok: 1 }); }
+  if (p == '/api/admin/media' && M == 'DELETE') { const id = String(u.searchParams.get('id') || ''); if (!MID.test(id)) return J({ e: 'id salah' }, 400); await env.DB.batch([env.DB.prepare('DELETE FROM wmedia WHERE id=?').bind(id), env.DB.prepare('DELETE FROM wmediac WHERE id=?').bind(id)]); return J({ ok: 1 }); }
+  return null;
+}
+// Cadangan semua data website ke server Termux (dilindungi kunci tunnel yang sama)
+export async function webExport(env, u, ip, J, C, limited) {
+  if (await limited(env, 'exp:' + ip, 40, 36e5)) return J({ e: 'terlalu sering' }, 429);
+  if (!C.tunnel_key || !safeEq(String(u.searchParams.get('key') || ''), C.tunnel_key)) return J({ e: 'kunci salah' }, 401);
+  const q = async (sql) => (await env.DB.prepare(sql).all()).results;
+  return J({ t: Date.now(), site: siteOf(C), apk: apkPubOf(C), media: (await q('SELECT * FROM wmedia ORDER BY t DESC')).map(mPub), ulasan: await q('SELECT * FROM wulasan ORDER BY t DESC LIMIT 500'), leads: await q('SELECT * FROM leads ORDER BY t DESC LIMIT 1000'), chat: await q('SELECT * FROM wchat ORDER BY id DESC LIMIT 3000') });
 }
