@@ -3,6 +3,7 @@
 // Begitu transfer masuk ke rekening Head Admin, layanan cek mutasi (Moota / sejenis) memanggil webhook → nominal cocok
 // → masa aktif & paket toko diperpanjang otomatis. Tanpa layanan mutasi, Head Admin cukup menekan "Tandai lunas".
 export const HSCHEMA = [
+  'CREATE TABLE IF NOT EXISTS trkoff(sid TEXT NOT NULL,u TEXT NOT NULL,t INTEGER,PRIMARY KEY(sid,u))',
   'CREATE TABLE IF NOT EXISTS wmedia(id TEXT PRIMARY KEY,kind TEXT,name TEXT,type TEXT,size INTEGER,sha TEXT,n INTEGER,cap TEXT,t INTEGER)',
   'CREATE TABLE IF NOT EXISTS wmediac(id TEXT NOT NULL,i INTEGER NOT NULL,d TEXT NOT NULL,t INTEGER,PRIMARY KEY(id,i))',
   "CREATE TABLE IF NOT EXISTS wchat(id INTEGER PRIMARY KEY AUTOINCREMENT,cid TEXT NOT NULL,who TEXT NOT NULL,name TEXT,txt TEXT,t INTEGER,rd INTEGER DEFAULT 0)", 'CREATE INDEX IF NOT EXISTS wchat_c ON wchat(cid,id)',
@@ -400,4 +401,34 @@ export async function webExport(env, u, ip, J, C, limited) {
   if (!C.tunnel_key || !safeEq(String(u.searchParams.get('key') || ''), C.tunnel_key)) return J({ e: 'kunci salah' }, 401);
   const q = async (sql) => (await env.DB.prepare(sql).all()).results;
   return J({ t: Date.now(), site: siteOf(C), apk: apkPubOf(C), media: (await q('SELECT * FROM wmedia ORDER BY t DESC')).map(mPub), ulasan: await q('SELECT * FROM wulasan ORDER BY t DESC LIMIT 500'), leads: await q('SELECT * FROM leads ORDER BY t DESC LIMIT 1000'), chat: await q('SELECT * FROM wchat ORDER BY id DESC LIMIT 3000') });
+}
+
+
+/* ============ PELACAK HP LAPANGAN (tetap jalan tanpa login & absen, pada jam kerja, dengan persetujuan karyawan) ============
+   Token pelacak KHUSUS (typ 'trk', tanpa field sid) hanya boleh mengirim titik lokasi — tidak bisa membaca/menulis data toko lain. */
+const GPSR_ = ['sales', 'kanvas', 'dropping'];
+export async function trkIssue({ env, sid, uname, role, J, sign }) {
+  if (!GPSR_.includes(role)) return J({ e: 'Hanya untuk sales / kanvas / dropping' }, 403);
+  const exp = Date.now() + 90 * DAY; return J({ trk: await sign({ typ: 'trk', ts: sid, name: uname, exp }), exp });
+}
+export async function trkOff({ env, p, M, b, sid, role, J }) {
+  if (role != 'owner') return J({ e: 'Khusus pemilik' }, 403);
+  if (M == 'POST') { const u = String(b.user || '').slice(0, 40); if (!u) return J({ e: 'Pilih karyawan' }, 400); if (b.off) await env.DB.prepare('INSERT OR REPLACE INTO trkoff(sid,u,t) VALUES(?,?,?)').bind(sid, u, Date.now()).run(); else await env.DB.prepare('DELETE FROM trkoff WHERE sid=? AND u=?').bind(sid, u).run(); return J({ ok: 1 }); }
+  return J({ off: (await env.DB.prepare('SELECT u FROM trkoff WHERE sid=?').bind(sid).all()).results.map((x) => x.u) });
+}
+export async function trkLoc(env, b, bearer, ip, J, verify, limited) {
+  const tk = await verify(bearer); if (!tk || tk.typ != 'trk' || !tk.ts || !tk.name) return J({ e: 'Unauthorized', stop: 1 }, 401);
+  if (await limited(env, 'trk:' + tk.ts + ':' + tk.name, 300, 36e5)) return J({ e: 'terlalu sering' }, 429);
+  const me = await env.DB.prepare('SELECT s.status,s.exp,st.role FROM stores s JOIN staff st ON st.store_id=s.id AND st.name=? WHERE s.id=?').bind(tk.name, tk.ts).first();
+  if (!me || me.status != 'active' || (me.exp && me.exp < Date.now()) || !GPSR_.includes(me.role)) return J({ e: 'Akun / toko tidak aktif', stop: 1 }, 401);
+  if (await env.DB.prepare('SELECT 1 x FROM trkoff WHERE sid=? AND u=?').bind(tk.ts, tk.name).first()) return J({ e: 'Pelacakan dihentikan oleh pemilik', stop: 1 }, 403);
+  const now = Date.now(), st = []; let n = 0;
+  for (const x of (Array.isArray(b.items) ? b.items : []).slice(0, 20)) {
+    const t = Math.round(+x.t); if (!okLL(x.lat, x.lng) || !(t < now + 3e5 && t > now - 6 * 36e5)) continue;
+    const no = 'loc-k' + t.toString(36) + hex(crypto.getRandomValues(new Uint8Array(3))), ev = { no, k: 'loc', t, lat: +(+x.lat).toFixed(6), lng: +(+x.lng).toFixed(6), acc: x.acc != null ? Math.round(+x.acc) || null : null, pg: 'bg', via: 'trk', u: tk.name, r: me.role, rt: now };
+    st.push(env.DB.prepare('INSERT OR IGNORE INTO ev(store_id,no,k,t,tot,data) VALUES(?,?,?,?,0,?)').bind(tk.ts, no, 'loc', t, JSON.stringify(ev)));
+    const ts = trailStmt(env, tk.ts, tk.name, ev, now); if (ts) st.push(ts); n++;
+  }
+  if (st.length) { await env.DB.batch(st); try { await env.DB.prepare("DELETE FROM ev WHERE store_id=? AND k='loc' AND json_extract(data,'$.u')=? AND seq < (SELECT MAX(seq) FROM ev WHERE store_id=? AND k='loc' AND json_extract(data,'$.u')=?)").bind(tk.ts, tk.name, tk.ts, tk.name).run(); } catch (e) { } }
+  return J({ ok: 1, n });
 }
