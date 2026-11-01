@@ -8,6 +8,8 @@ export const HSCHEMA = [
   "CREATE TABLE IF NOT EXISTS tiket(id INTEGER PRIMARY KEY AUTOINCREMENT,store_id TEXT NOT NULL,sname TEXT,by TEXT,role TEXT,cat TEXT,sub TEXT,st TEXT DEFAULT 'baru',t INTEGER,upd INTEGER,uh INTEGER DEFAULT 1,us INTEGER DEFAULT 0,msgs TEXT)",
   'CREATE INDEX IF NOT EXISTS tiket_s ON tiket(store_id,upd)', 'CREATE INDEX IF NOT EXISTS tiket_u ON tiket(upd)',
   'CREATE TABLE IF NOT EXISTS trail(sid TEXT NOT NULL,u TEXT NOT NULL,t INTEGER NOT NULL,lat REAL,lng REAL,k TEXT NOT NULL DEFAULT \'\')', 'CREATE UNIQUE INDEX IF NOT EXISTS trail_k ON trail(sid,u,t,k)', 'CREATE INDEX IF NOT EXISTS trail_t ON trail(t)',
+  'CREATE TABLE IF NOT EXISTS apkc(up TEXT NOT NULL,i INTEGER NOT NULL,d TEXT NOT NULL,t INTEGER,PRIMARY KEY(up,i))',
+  'CREATE TABLE IF NOT EXISTS sitehits(k TEXT PRIMARY KEY,n INTEGER NOT NULL DEFAULT 0)',
   "CREATE TABLE IF NOT EXISTS leads(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT,store TEXT,phone TEXT,city TEXT,tier TEXT,months INTEGER,note TEXT,src TEXT,st TEXT DEFAULT 'baru',hnote TEXT,t INTEGER,upd INTEGER)", 'CREATE INDEX IF NOT EXISTS leads_t ON leads(st,t)',
 ];
 const DAY = 864e5, INV_TTL = 3 * DAY, MONTHS = [1, 3, 6, 12];
@@ -115,6 +117,7 @@ export async function hqStore(x) {
 // rute Head Admin
 export async function hqAdmin(x) {
   const { env, p, M, b, J, C, cfgSet, origin } = x, now = Date.now();
+  { const ar = (await apkAdmin(x)) || (await siteAdmin(x)); if (ar) return ar; }
   if (p == '/api/admin/pay') {
     if (M == 'PUT') {
       if (b.bank != null) await cfgSet(env, 'pay_bank', clip(b.bank, 400).trim());
@@ -174,7 +177,7 @@ export function trailStmt(env, sid, uname, x, now) {
   const t = Math.round(x.t); if (!(t < now + 6e5 && t > now - TRAIL_DAYS * DAY)) return null;
   return env.DB.prepare('INSERT OR IGNORE INTO trail(sid,u,t,lat,lng,k) VALUES(?,?,?,?,?,?)').bind(sid, String(uname).slice(0, 40), t, +(+x.lat).toFixed(6), +(+x.lng).toFixed(6), kk);
 }
-export async function pruneTrail(env, now) { const c = now - TRAIL_DAYS * DAY; await env.DB.batch([env.DB.prepare('DELETE FROM trail WHERE t<?').bind(c), env.DB.prepare("DELETE FROM ev WHERE k='loc' AND t<?").bind(now - 3 * DAY)]); }
+export async function pruneTrail(env, now) { await pruneApk(env, now).catch(() => { }); const c = now - TRAIL_DAYS * DAY; await env.DB.batch([env.DB.prepare('DELETE FROM trail WHERE t<?').bind(c), env.DB.prepare("DELETE FROM ev WHERE k='loc' AND t<?").bind(now - 3 * DAY)]); }
 const rad = Math.PI / 180, dm = (a, b, c, d) => { const x = (d - b) * rad * Math.cos((a + c) / 2 * rad), y = (c - a) * rad; return 6371000 * Math.sqrt(x * x + y * y); };
 // GET /api/trail?user=NAMA&days=N → titik jejak (ditipiskan: ±150 detik atau ≥25 m) untuk pemilik / admin
 export async function trailGet(env, sid, u, J) {
@@ -201,4 +204,88 @@ export async function tunnelPost(env, b, ip, J, C, cfgSet, limited) {
 export async function tunnelRedirect(env, C, req) {
   const fresh = C.tunnel_url && Date.now() - (+C.tunnel_t || 0) < 6 * 6e4;
   return Response.redirect(fresh ? C.tunnel_url + '/' : new URL('/promo/', req.url).href, 302);
+}
+
+/* ============ APK DI WEBSITE (diunggah Head Admin) ============
+   File dipecah jadi potongan ±360 KB (base64) di D1 — tanpa R2 / biaya tambahan. Pengunjung mengunduh potongan satu per satu lalu
+   browser merakit & memeriksa SHA-256. Hanya satu versi aktif; unggahan lama otomatis dibersihkan. */
+const APK_CHUNK = 360 * 1024, APK_MAX_CHUNKS = 340, UPID = /^[a-f0-9]{16}$/;
+const apkMetaOf = (C) => { try { const m = JSON.parse(C.apk_meta || 'null'); return m && m.up ? m : null; } catch (e) { return null; } };
+const apkPub = (m) => (m ? { has: 1, up: m.up, n: m.n, size: m.size, sha: m.sha, name: m.name, note: m.note || '', t: m.t, chunk: APK_CHUNK } : { has: 0 });
+export const apkPubOf = (C) => apkPub(apkMetaOf(C));
+export async function apkPublic(C, J) { return J(apkPubOf(C)); }
+export async function apkChunkGet(env, u, ip, J, C, limited) {
+  const m = apkMetaOf(C), up = String(u.searchParams.get('up') || ''), i = Math.round(+u.searchParams.get('i'));
+  if (!m || up != m.up || !(i >= 0 && i < m.n)) return J({ e: 'tidak ada' }, 404);
+  if (await limited(env, 'apk:' + ip, 900, 36e5)) return J({ e: 'terlalu sering' }, 429);
+  const r = await env.DB.prepare('SELECT d FROM apkc WHERE up=? AND i=?').bind(up, i).first(); if (!r) return J({ e: 'potongan hilang' }, 404);
+  return new Response(r.d, { headers: { 'Content-Type': 'text/plain', 'Cache-Control': 'public, max-age=86400, immutable', 'Access-Control-Allow-Origin': '*' } });
+}
+export async function apkDlCount(env, ip, J, limited) {
+  if (await limited(env, 'apkdl:' + ip, 20, 36e5)) return J({ ok: 1 });
+  await env.DB.prepare("INSERT INTO sitehits(k,n) VALUES(?,1) ON CONFLICT(k) DO UPDATE SET n=n+1").bind('d:' + new Date(Date.now() + 288e5).toISOString().slice(0, 10)).run(); return J({ ok: 1 });
+}
+// ----- Head Admin -----
+async function apkAdmin(x) {
+  const { env, p, M, b, J, C, cfgSet, req, u } = x, now = Date.now();
+  if (p == '/api/admin/apk/chunk' && M == 'PUT') {
+    const up = String(u.searchParams.get('up') || ''), i = Math.round(+u.searchParams.get('i')); if (!UPID.test(up) || !(i >= 0 && i < APK_MAX_CHUNKS)) return J({ e: 'parameter salah' }, 400);
+    const d = await req.text(); if (!d || d.length > 520000 || !/^[A-Za-z0-9+/=]+$/.test(d)) return J({ e: 'potongan tidak valid' }, 400);
+    if (i == 0 && !d.startsWith('UEsD')) return J({ e: 'File ini bukan APK (format ZIP tidak dikenali)' }, 400);
+    await env.DB.prepare('INSERT INTO apkc(up,i,d,t) VALUES(?,?,?,?) ON CONFLICT(up,i) DO UPDATE SET d=excluded.d,t=excluded.t').bind(up, i, d, now).run(); return J({ ok: 1, i });
+  }
+  if (p == '/api/admin/apk/commit' && M == 'POST') {
+    const up = String(b.up || ''), n = Math.round(+b.n), size = Math.round(+b.size), sha = String(b.sha || '').toLowerCase();
+    if (!UPID.test(up) || !(n >= 1 && n <= APK_MAX_CHUNKS) || !(size > 100000 && size <= n * APK_CHUNK) || !/^[a-f0-9]{64}$/.test(sha)) return J({ e: 'data unggahan tidak valid' }, 400);
+    const got = await env.DB.prepare('SELECT COUNT(*) c,MIN(i) a,MAX(i) z FROM apkc WHERE up=?').bind(up).first();
+    if (got.c != n || got.a != 0 || got.z != n - 1) return J({ e: 'potongan belum lengkap (' + got.c + ' dari ' + n + '), ulangi unggah' }, 400);
+    const meta = { up, n, size, sha, name: clip(String(b.name || 'J-POS.apk').replace(/[^\w.\- ()]/g, ''), 60) || 'J-POS.apk', note: clip(String(b.note || '').replace(/[\u0000-\u001f<>]/g, ' '), 200).trim(), t: now };
+    await cfgSet(env, 'apk_meta', JSON.stringify(meta)); await env.DB.prepare('DELETE FROM apkc WHERE up!=?').bind(up).run(); return J({ ok: 1, ...apkPub(meta) });
+  }
+  if (p == '/api/admin/apk' && M == 'DELETE') { await cfgSet(env, 'apk_meta', ''); await env.DB.prepare('DELETE FROM apkc').run(); return J({ ok: 1 }); }
+  if (p == '/api/admin/apk' && M == 'GET') return J(apkPub(apkMetaOf(C)));
+  return null;
+}
+export async function pruneApk(env, now) { await env.DB.prepare('DELETE FROM apkc WHERE t<? AND up NOT IN (SELECT json_extract(v,\'$.up\') FROM cfg WHERE k=\'apk_meta\' AND v!=\'\')').bind(now - 864e5).run(); }
+
+/* ============ KONTROL WEBSITE PROMO (diatur dari dashboard Head Admin) ============ */
+export const SITE_DEF = {
+  eyebrow: 'Kasir · Stok · Grosir · Distributor', title: 'Kelola toko & distribusi Anda', gold: 'dalam satu aplikasi',
+  lead: 'Kasir yang tetap jalan tanpa internet, stok yang terpantau, sales lapangan dengan GPS, pengantaran, absensi, gaji, sampai laporan keuangan. Untuk kios, toko grosir, dan distributor.',
+  cta: 'Pesan sekarang', wa: '', foot: '', banner: { on: false, text: '', link: '' },
+  show: { fitur: true, tampilan: true, paket: true, langkah: true, tanya: true, pesan: true, apk: true },
+  order: { open: true, closedMsg: 'Pemesanan sedang ditutup sementara. Silakan hubungi kami lewat WhatsApp.' },
+  maint: { on: false, msg: 'Website sedang dalam pemeliharaan. Silakan kembali sebentar lagi.' }, faq: [],
+};
+const sTxt = (v, n, d) => (typeof v == 'string' ? clip(v.replace(/[\u0000-\u001f<>]/g, ' '), n).trim() : d);
+export function siteClean(raw, base) {
+  const r = raw && typeof raw == 'object' ? raw : {}, d = base || SITE_DEF, o = JSON.parse(JSON.stringify(d)), bo = (v, x) => (typeof v == 'boolean' ? v : x);
+  for (const [k, n] of [['eyebrow', 60], ['title', 90], ['gold', 90], ['lead', 320], ['cta', 30], ['foot', 160]]) o[k] = sTxt(r[k], n, o[k]);
+  o.wa = typeof r.wa == 'string' ? r.wa.replace(/[^\d+]/g, '').slice(0, 16) : o.wa;
+  const bn = r.banner || {}; o.banner = { on: bo(bn.on, o.banner.on), text: sTxt(bn.text, 160, o.banner.text), link: typeof bn.link == 'string' && /^(https:\/\/[^\s<>"']{4,200}|#[\w-]{1,30})?$/.test(bn.link.trim()) ? bn.link.trim() : o.banner.link };
+  for (const k of Object.keys(o.show)) o.show[k] = bo((r.show || {})[k], o.show[k]);
+  o.order = { open: bo((r.order || {}).open, o.order.open), closedMsg: sTxt((r.order || {}).closedMsg, 200, o.order.closedMsg) };
+  o.maint = { on: bo((r.maint || {}).on, o.maint.on), msg: sTxt((r.maint || {}).msg, 200, o.maint.msg) };
+  if (Array.isArray(r.faq)) o.faq = r.faq.slice(0, 12).map((f) => ({ q: sTxt(f && f.q, 140, ''), a: sTxt(f && f.a, 600, '') })).filter((f) => f.q && f.a);
+  return o;
+}
+export const siteOf = (C) => { try { return siteClean(JSON.parse(C.site || 'null'), SITE_DEF); } catch (e) { return siteClean(null, SITE_DEF); } };
+export async function siteHit(env, ip, J, limited) {
+  if (await limited(env, 'hit:' + ip, 40, 36e5)) return J({ ok: 1 });
+  await env.DB.prepare("INSERT INTO sitehits(k,n) VALUES(?,1) ON CONFLICT(k) DO UPDATE SET n=n+1").bind('v:' + new Date(Date.now() + 288e5).toISOString().slice(0, 10)).run(); return J({ ok: 1 });
+}
+async function siteAdmin(x) {
+  const { env, p, M, b, J, C, cfgSet } = x;
+  if (p == '/api/admin/site') {
+    if (M == 'PUT') { const o = siteClean(b, siteOf(C)); await cfgSet(env, 'site', JSON.stringify(o)); return J({ ok: 1, site: o }); }
+    if (M == 'DELETE') { await cfgSet(env, 'site', ''); return J({ ok: 1, site: siteClean(null, SITE_DEF) }); }
+    return J({ site: siteOf(C), def: SITE_DEF });
+  }
+  if (p == '/api/admin/site/stats') {
+    const days = []; for (let i = 13; i >= 0; i--) days.push(new Date(Date.now() + 288e5 - i * DAY).toISOString().slice(0, 10));
+    const r = (await env.DB.prepare("SELECT k,n FROM sitehits WHERE k>=? ").bind('d:' + days[0]).all()).results, r2 = (await env.DB.prepare("SELECT k,n FROM sitehits WHERE k>=? AND k<'w'").bind('v:' + days[0]).all()).results, mp = {}; for (const x2 of [...r, ...r2]) mp[x2.k] = x2.n;
+    const L = (await env.DB.prepare("SELECT strftime('%Y-%m-%d',(t/1000)+28800,'unixepoch') d,COUNT(*) n FROM leads WHERE t>? GROUP BY d").bind(Date.now() - 15 * DAY).all()).results, lm = {}; for (const y of L) lm[y.d] = y.n;
+    return J({ days: days.map((d) => ({ d, v: mp['v:' + d] || 0, dl: mp['d:' + d] || 0, o: lm[d] || 0 })) });
+  }
+  return null;
 }
