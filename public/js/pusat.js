@@ -150,3 +150,19 @@ ${TKD.list.map((x) => `<div class="cd tkc ${x.us ? 'nw' : ''}" data-v="${x.id}">
 // tanda balasan baru dari tim J-POS
 async function tiketPoll() { try { if (!U || !S || !S.srv || !['owner', 'admin'].includes(U.r) || !canNet()) return; const r = await api('/api/tiket'); TKD = r; const n = r.list.filter((x) => x.us).length; if (n && LS.get('jpos:tkn:' + SID, 0) != n) { LS.set('jpos:tkn:' + SID, n); toast('🛟 Ada balasan dari tim J-POS untuk komplain Anda', 5000); } } catch (e) { } }
 setInterval(tiketPoll, 5 * 6e4); setTimeout(tiketPoll, 20000);
+
+/* ---------- Head Admin: pesanan dari website promo ---------- */
+let HAL2 = null, HALF = '';
+async function haLeadLoad() { try { HAL2 = await haApi('/api/admin/leads'); } catch (e) { HAL2 = { err: e.message, list: [] }; } if (MODE == 'ha' && HA.tab == 'lead') R(); }
+const LDST = { baru: ['Baru', 'o'], dihubungi: ['Dihubungi', ''], deal: ['Deal', 'g'], batal: ['Batal', ''] };
+function haLeadView() {
+  if (!HAL2) { haLeadLoad(); return '<div class="cd mu">Memuat…</div>'; } if (HAL2.err) return `<div class="cd rd">${esc(HAL2.err)}</div>`;
+  const L = HAL2.list.filter((x) => !HALF || x.st == HALF), pk = (HA.cfg && HA.cfg.pkg) || {};
+  return kpi([['Pesanan baru', HAL2.baru, 'belum dihubungi'], ['Sedang diproses', HAL2.proses], ['Deal', HAL2.deal]])
+    + `<div class="cd"><div class="seg" style="margin:0">${[['', 'Semua'], ['baru', 'Baru'], ['dihubungi', 'Dihubungi'], ['deal', 'Deal'], ['batal', 'Batal']].map((x) => `<button class="${HALF == x[0] ? 'a' : ''}" onclick="HALF='${x[0]}';R()">${x[1]}</button>`).join('')}</div><small class="mu">Pesanan masuk dari website promo J-POS. Hubungi lewat WhatsApp, lalu ubah statusnya.</small></div>`
+    + (L.map((x) => { const t = pk[x.tier] || {}, tot = (t.pr || 0) * x.months;
+      return `<div class="cd ${x.st == 'baru' ? 'tkc nw' : ''}"><div class="row" style="margin:0"><b>${esc(x.name)}${x.store ? ' · ' + esc(x.store) : ''}</b><span class="chip ${LDST[x.st][1]}">${LDST[x.st][0]}</span></div>
+<small class="mu">${esc(t.n || x.tier)} · ${x.months} bulan${tot ? ' · ' + rp(tot) : ''} · ${esc(x.city || '-')} · ${dstr(x.t)} ${hm(x.t)}</small>${x.note ? `<small style="display:block;margin-top:4px">“${esc(x.note)}”</small>` : ''}
+<div class="wrap" style="margin-top:8px"><a class="gh pri" target="_blank" rel="noopener" href="${esc(waLink(x.phone, 'Halo ' + x.name + ', terima kasih sudah memesan J-POS paket ' + (t.n || x.tier) + '. Saya dari tim J-POS, boleh kami bantu aktivasi?'))}">💬 WhatsApp ${esc(x.phone)}</a>${['baru', 'dihubungi', 'deal', 'batal'].filter((s) => s != x.st).map((s) => `<button class="gh ${s == 'batal' ? 'd' : ''}" onclick="haLeadSet(${x.id},'${s}')">→ ${LDST[s][0]}</button>`).join('')}</div></div>`; }).join('') || '<div class="cd mu c">Belum ada pesanan 🎯</div>');
+}
+async function haLeadSet(id, st) { try { await haApi('/api/admin/leads/' + id, { method: 'POST', body: JSON.stringify({ st }) }); HAL2 = null; R(); } catch (e) { toast(e.message); } }

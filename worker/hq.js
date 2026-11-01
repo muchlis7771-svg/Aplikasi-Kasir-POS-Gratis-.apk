@@ -7,6 +7,7 @@ export const HSCHEMA = [
   'CREATE INDEX IF NOT EXISTS inv_s ON inv(store_id,t)', 'CREATE INDEX IF NOT EXISTS inv_a ON inv(status,amount)',
   "CREATE TABLE IF NOT EXISTS tiket(id INTEGER PRIMARY KEY AUTOINCREMENT,store_id TEXT NOT NULL,sname TEXT,by TEXT,role TEXT,cat TEXT,sub TEXT,st TEXT DEFAULT 'baru',t INTEGER,upd INTEGER,uh INTEGER DEFAULT 1,us INTEGER DEFAULT 0,msgs TEXT)",
   'CREATE INDEX IF NOT EXISTS tiket_s ON tiket(store_id,upd)', 'CREATE INDEX IF NOT EXISTS tiket_u ON tiket(upd)',
+  "CREATE TABLE IF NOT EXISTS leads(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT,store TEXT,phone TEXT,city TEXT,tier TEXT,months INTEGER,note TEXT,src TEXT,st TEXT DEFAULT 'baru',hnote TEXT,t INTEGER,upd INTEGER)", 'CREATE INDEX IF NOT EXISTS leads_t ON leads(st,t)',
 ];
 const DAY = 864e5, INV_TTL = 3 * DAY, MONTHS = [1, 3, 6, 12];
 const pj = (s, d) => { try { return JSON.parse(s); } catch (e) { return d; } };
@@ -30,6 +31,20 @@ export async function invPay(env, id, via, ref) {
 const hex = (buf) => [...new Uint8Array(buf)].map((x) => x.toString(16).padStart(2, '0')).join('');
 async function hmac(key, txt) { const k = await crypto.subtle.importKey('raw', new TextEncoder().encode(key), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']); return hex(await crypto.subtle.sign('HMAC', k, new TextEncoder().encode(txt))); }
 const safeEq = (a, b) => { a = String(a || ''); b = String(b || ''); if (!a || a.length != b.length) return false; let r = 0; for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i); return r == 0; };
+
+// POST /api/pesan — pemesanan dari website promo (publik, dibatasi per IP, ada perangkap bot)
+export async function leadPost(env, b, ip, J, C, pkgAll, limited) {
+  if (b.website) return J({ ok: 1 }); // kolom jebakan terisi = bot; pura-pura sukses
+  if (await limited(env, 'lead:' + ip, 4, 36e5)) return J({ e: 'Terlalu banyak pesanan dari jaringan ini. Coba lagi nanti atau hubungi lewat WhatsApp.' }, 429);
+  const clean = (v, n) => clip(String(v == null ? '' : v).replace(/[\u0000-\u001f<>]/g, ' '), n).trim();
+  const name = clean(b.name, 60), store = clean(b.store, 80), city = clean(b.city, 60), note = clean(b.note, 300), phone = String(b.phone || '').replace(/[^\d+]/g, '').replace(/^\+?62/, '0').slice(0, 16), pk = pkgAll();
+  if (name.length < 2) return J({ e: 'Isi nama Anda' }, 400);
+  if (!/^0\d{8,14}$/.test(phone)) return J({ e: 'Isi nomor WhatsApp yang benar (mis. 0812…)' }, 400);
+  const tier = pk[b.tier] ? b.tier : 'standar', mo = MONTHS.includes(+b.months) ? +b.months : 1, now = Date.now();
+  const dup = await env.DB.prepare("SELECT id FROM leads WHERE phone=? AND tier=? AND t>? AND st='baru'").bind(phone, tier, now - 864e5).first();
+  const id = dup ? dup.id : (await env.DB.prepare('INSERT INTO leads(name,store,phone,city,tier,months,note,src,st,t,upd) VALUES(?,?,?,?,?,?,?,?,?,?,?) RETURNING id').bind(name, store, phone, city, tier, mo, note, clean(b.src, 20) || 'web', 'baru', now, now).first()).id;
+  return J({ ok: 1, id, wa: C.wa || '', total: (pk[tier].pr || 0) * mo, tn: pk[tier].n });
+}
 
 // POST /api/pay/hook?key=…  (body mentah; Moota: header Signature = HMAC-SHA256(secret, body))
 export async function payHook(env, req, u, J, C) {
@@ -116,6 +131,16 @@ export async function hqAdmin(x) {
   if (m && M == 'POST') {
     if (b.op == 'lunas') { const r = await invPay(env, +m[1], 'manual', 'manual:' + m[1] + ':' + now); if (!r) return J({ e: 'Tagihan tidak ditemukan / sudah diproses' }, 400); return J({ ok: 1, exp: r.exp }); }
     if (b.op == 'batal') { await env.DB.prepare("UPDATE inv SET status='batal' WHERE id=? AND status='tunggu'").bind(+m[1]).run(); return J({ ok: 1 }); }
+  }
+  if (p == '/api/admin/leads') {
+    const L = (await env.DB.prepare('SELECT * FROM leads ORDER BY CASE st WHEN \'baru\' THEN 0 WHEN \'dihubungi\' THEN 1 ELSE 2 END, id DESC LIMIT 300').all()).results, n = await env.DB.prepare("SELECT SUM(CASE WHEN st='baru' THEN 1 ELSE 0 END) baru,SUM(CASE WHEN st='dihubungi' THEN 1 ELSE 0 END) proses,SUM(CASE WHEN st='deal' THEN 1 ELSE 0 END) deal FROM leads").first();
+    return J({ list: L, baru: n.baru || 0, proses: n.proses || 0, deal: n.deal || 0 });
+  }
+  m = p.match(/^\/api\/admin\/leads\/(\d+)$/);
+  if (m && M == 'POST') {
+    const st = ['baru', 'dihubungi', 'deal', 'batal'].includes(b.st) ? b.st : null;
+    await env.DB.prepare('UPDATE leads SET st=COALESCE(?,st),hnote=COALESCE(?,hnote),upd=? WHERE id=?').bind(st, b.hnote != null ? clip(b.hnote, 300) : null, now, +m[1]).run();
+    return J({ ok: 1 });
   }
   if (p == '/api/admin/tiket') {
     const st = ['baru', 'proses', 'selesai'].includes(x.u.searchParams.get('st')) ? x.u.searchParams.get('st') : '';

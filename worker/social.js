@@ -193,15 +193,30 @@ export async function heartbeat(env, who, page, dev) {
     .bind(who.k, who.typ, who.name, who.sid || null, who.role || null, String(page || '').slice(0, 30), String(dev || '').slice(0, 60), Date.now()).run();
 }
 export async function adminActivity(env, u) {
-  const now = Date.now(), typ = u.searchParams.get('typ') || '', q = String(u.searchParams.get('q') || '').trim(), d0 = now - DAY;
-  let sql = 'SELECT a.*,s.name sn FROM act a LEFT JOIN stores s ON s.id=a.sid WHERE 1=1'; const a = [];
-  if (typ) { sql += ' AND a.typ=?'; a.push(typ); }
-  if (q) { sql += ' AND (a.name LIKE ? OR a.act LIKE ? OR a.det LIKE ? OR s.name LIKE ?)'; a.push(...Array(4).fill('%' + q + '%')); }
-  const [log, online, today, hourly] = await Promise.all([
-    env.DB.prepare(sql + ' ORDER BY a.id DESC LIMIT 300').bind(...a).all(),
+  const now = Date.now(), d0 = now - DAY, q = String(u.searchParams.get('q') || '').trim(), sid = String(u.searchParams.get('sid') || ''), user = String(u.searchParams.get('user') || '');
+  // rincian satu toko: ringkasan per pengguna (+ log bila memilih satu pengguna)
+  if (sid) {
+    const isB = sid == '-buyer', w = isB ? "a.typ='buyer'" : 'a.sid=?', bw = isB ? [] : [sid];
+    const [users, pres, log, st] = await Promise.all([
+      env.DB.prepare(`SELECT a.name,a.uid,COUNT(*) n,SUM(CASE WHEN a.t>? THEN 1 ELSE 0 END) n24,MAX(a.t) last FROM act a WHERE ${w} GROUP BY a.name ORDER BY last DESC LIMIT 200`).bind(d0, ...bw).all(),
+      env.DB.prepare(`SELECT name,role,page,dev,t FROM presence p WHERE ${isB ? "typ='buyer'" : 'sid=?'} AND t>? ORDER BY t DESC LIMIT 200`).bind(...bw, now - 5 * 6e4).all(),
+      env.DB.prepare(`SELECT a.* FROM act a WHERE ${w}${user ? ' AND a.name=?' : ''} ORDER BY a.id DESC LIMIT ${user ? 300 : 40}`).bind(...bw, ...(user ? [user] : [])).all(),
+      isB ? { name: 'Pembeli (Belanja)' } : env.DB.prepare('SELECT id,name,owner,phone FROM stores WHERE id=?').bind(sid).first(),
+    ]);
+    return { store: st, users: users.results, online: pres.results, log: log.results, user };
+  }
+  // pencarian bebas (opsional)
+  if (q) {
+    const a = Array(4).fill('%' + q + '%'), log = await env.DB.prepare('SELECT a.*,s.name sn FROM act a LEFT JOIN stores s ON s.id=a.sid WHERE (a.name LIKE ? OR a.act LIKE ? OR a.det LIKE ? OR s.name LIKE ?) ORDER BY a.id DESC LIMIT 100').bind(...a).all();
+    return { search: true, log: log.results };
+  }
+  // ringkasan: online sekarang, aktif hari ini, jam, dan ringkasan per toko
+  const [online, today, hourly, stores, buyers] = await Promise.all([
     env.DB.prepare('SELECT p.*,s.name sn FROM presence p LEFT JOIN stores s ON s.id=p.sid WHERE p.t>? ORDER BY p.t DESC LIMIT 300').bind(now - 5 * 6e4).all(),
     env.DB.prepare("SELECT typ,role,COUNT(DISTINCT k) n FROM presence WHERE t>? GROUP BY typ,role").bind(d0).all(),
     env.DB.prepare("SELECT strftime('%H',(t/1000)+28800,'unixepoch') h,COUNT(*) n FROM act WHERE t>? GROUP BY h ORDER BY h").bind(d0).all(),
+    env.DB.prepare("SELECT s.id,s.name,s.tier,COALESCE(a.n24,0) n24,COALESCE(a.u24,0) u24,a.last,COALESCE(p.on_n,0) on_n FROM stores s LEFT JOIN (SELECT sid,SUM(CASE WHEN t>?1 THEN 1 ELSE 0 END) n24,COUNT(DISTINCT CASE WHEN t>?1 THEN name END) u24,MAX(t) last FROM act WHERE typ!='buyer' AND sid IS NOT NULL GROUP BY sid) a ON a.sid=s.id LEFT JOIN (SELECT sid,COUNT(DISTINCT k) on_n FROM presence WHERE t>?2 GROUP BY sid) p ON p.sid=s.id ORDER BY on_n DESC,n24 DESC,a.last DESC LIMIT 500").bind(d0, now - 5 * 6e4).all(),
+    env.DB.prepare("SELECT SUM(CASE WHEN t>? THEN 1 ELSE 0 END) n24,COUNT(DISTINCT CASE WHEN t>? THEN name END) u24,MAX(t) last FROM act WHERE typ='buyer'").bind(d0, d0).first(),
   ]);
-  return { log: log.results, online: online.results, today: today.results, hourly: hourly.results };
+  return { online: online.results, today: today.results, hourly: hourly.results, stores: stores.results, buyers };
 }
