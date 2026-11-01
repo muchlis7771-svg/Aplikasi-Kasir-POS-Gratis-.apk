@@ -14,6 +14,7 @@ show() {
   local U; U=$(geturl)
   echo "────────────────────────────────────────"
   if running; then echo "Status  : BERJALAN di latar belakang"; else echo "Status  : berhenti"; fi
+  for _i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do [ "$(curl -s -m 3 127.0.0.1:${PORT:-8080}/healthz 2>/dev/null)" = ok ] && break; sleep 1; done
   [ "$(curl -s -m 3 127.0.0.1:${PORT:-8080}/healthz 2>/dev/null)" = ok ] && echo "Server  : OK (localhost:${PORT:-8080})" || { echo "Server  : tidak merespons — 5 baris terakhir web.log:"; tail -n 5 web.log 2>/dev/null; }
   if [ -n "$U" ]; then echo "Alamat  : $U"; echo "Admin   : $U/admin.html"; else echo "Alamat  : (belum ada — tunggu sebentar lalu jalankan: bash jpos-bg.sh url)"; fi
   [ -s tunnel.key ] && echo "Link tetap: …workers.dev/termux (aktif, dilaporkan otomatis)" || echo "Link tetap: belum — simpan kunci dari halaman admin (lihat PETUNJUK-TERMUX.md)"
@@ -28,6 +29,7 @@ case "$1" in
     if running; then echo "Sudah berjalan."; else nohup bash keepalive.sh >/dev/null 2>&1 & echo $! > "$PIDF"; disown 2>/dev/null; echo "Dijalankan di latar belakang."; fi
     echo "Menunggu alamat publik (maks 60 detik)…"; for i in $(seq 1 30); do [ -n "$(geturl)" ] && break; sleep 2; done; show ;;
   stop) if running; then kill "$(cat "$PIDF")" 2>/dev/null; sleep 1; fi; pkill -f "node server.js" 2>/dev/null; pkill -f "cloudflared tunnel" 2>/dev/null; rm -f "$PIDF"; echo "Dihentikan." ;;
+  diag) echo "node: $(node -v 2>&1)"; echo "proses:"; ps -ef 2>/dev/null | grep -E 'node server|cloudflared|keepalive' | grep -v grep; echo "healthz: $(curl -s -m 3 127.0.0.1:${PORT:-8080}/healthz 2>&1)"; echo "--- web.log"; tail -n 8 web.log 2>/dev/null ;;
   sync) node sync.js 2>&1 | tail -n 20 ;;
   status) show; echo "Sinkron terakhir: $(cat data/terakhir-sinkron.txt 2>/dev/null || echo belum)"; ls media 2>/dev/null | wc -l | xargs echo "Media tersimpan:" ;;
   url) U=$(geturl); [ -n "$U" ] && echo "$U" || echo "Belum ada alamat. Jalankan: bash jpos-bg.sh start" ;;
