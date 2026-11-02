@@ -85,9 +85,15 @@ const RPT = {
 RPT.akt = (f, t) => [...RPT.lr(f, t), ...RPT.neraca(f, t), ...RPT.cf(f, t), ...RPT.ns(f, t)];
 const RTABS = [['lr', 'Laba Rugi'], ['neraca', 'Neraca'], ['cf', 'Arus Kas'], ['ns', 'Neraca Saldo'], ['gl', 'Buku Besar'], ['jual', 'Penjualan'], ['piutang', 'Piutang'], ['utang', 'Utang'], ['stok', 'Stok'], ['kanvas', 'Kanvas'], ['absen', 'Absensi']];
 const cellH = (v, f) => (v === '' || v == null ? '' : typeof v == 'string' ? esc(v) : f == 'm' ? rp(v) : f == 'q' ? Number(v).toLocaleString('id-ID') : f == 'd' ? dstr(v) : esc(v));
+// cari outlet dari namanya persis seperti yang tampil di laporan (laporan hanya menyimpan nama, bukan id)
+const outletByName = (n) => (S.c || []).find((c) => c.n === n);
 function tblH(s) {
-  const fm = s.fmt || s.head.map((_, i) => (i ? 'm' : 't')), nh = s.head.length;
-  return `<div class="ov"><table><tr>${s.head.map((h, i) => `<th class="${fm[i] != 't' ? 'n' : ''}">${esc(h)}</th>`).join('')}</tr>${s.rows.map((r) => { const fl = r.length > nh ? r[nh] : ''; return `<tr class="${fl == 'b' ? 'bo' : ''}">${fl == 'h' ? `<td colspan="${nh}" class="mu bo">${esc(r[0])}</td>` : s.head.map((_, i) => `<td class="${fm[i] != 't' ? 'n' : ''}">${cellH(r[i], fm[i])}</td>`).join('')}</tr>`; }).join('') || `<tr><td colspan="${nh}" class="mu">Tidak ada data</td></tr>`}</table></div>`;
+  const fm = s.fmt || s.head.map((_, i) => (i ? 'm' : 't')), nh = s.head.length, outCol = s.head[0] == 'Outlet';
+  return `<div class="ov"><table><tr>${s.head.map((h, i) => `<th class="${fm[i] != 't' ? 'n' : ''}">${esc(h)}</th>`).join('')}</tr>${s.rows.map((r) => {
+    const fl = r.length > nh ? r[nh] : ''; if (fl == 'h') return `<tr><td colspan="${nh}" class="mu bo">${esc(r[0])}</td></tr>`;
+    const oc = outCol && fl != 'b' ? outletByName(r[0]) : null;
+    return `<tr class="${fl == 'b' ? 'bo' : ''}">${s.head.map((_, i) => i == 0 && oc ? `<td><a href="#" class="olk" onclick="outletDetail('${esc(oc.id)}');return false">${esc(r[0])}</a></td>` : `<td class="${fm[i] != 't' ? 'n' : ''}">${cellH(r[i], fm[i])}</td>`).join('')}</tr>`;
+  }).join('') || `<tr><td colspan="${nh}" class="mu">Tidak ada data</td></tr>`}</table></div>`;
 }
 const secH = (s) => `<div class="cd"><h3>${esc(s.title)}</h3>${tblH(s)}</div>`;
 VW.lap = () => {
