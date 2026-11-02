@@ -94,6 +94,26 @@ function tUserCard(u, m, wi) {
 function tCalCard(wi, m) {
   return `<div class="cd tcal"><div class="row" style="margin:0"><b>📅 ${esc(ymName(m))}</b><small class="mu">${tcal(m).wd.map((d) => THARI[d]).join(', ')}</small></div><div class="tgrid"><span><small class="mu">Hari kerja</small><b>${wi.tot}</b></span><span><small class="mu">Berjalan (s.d. hari ini)</small><b>${wi.run}</b></span><span><small class="mu">Sisa (termasuk hari ini)</small><b class="or">${wi.left}</b></span></div>${tBar(wi.tot ? wi.run / wi.tot * 100 : 0, 'ac')}</div>`;
 }
+/* ---------- monitoring cost ratio (satu halaman jelas: biaya apa saja, sudah tertutup berapa persen, sesuai jadwal atau tidak) ---------- */
+function costRatioCard(m, wi) {
+  const gjT = gjMonthTotal(m), opc = opexByCat(m), opT = Object.values(opc).reduce((a, b) => a + b, 0), biaya = gjT + opT;
+  const bt = tgtOf(m).filter((x) => x.ty == 'biaya'), assigned = bt.reduce((a, x) => a + x.v, 0);
+  const margin = (actuals(m)['*'] || { margin: 0 }).margin, pct = biaya ? margin / biaya * 100 : 0;
+  const exp = wi.tot ? biaya * wi.run / wi.tot : 0, rate = wi.run ? margin / wi.run : 0, proj = margin + rate * wi.after, ppct = biaya ? proj / biaya * 100 : 0;
+  const st = !biaya ? ['mu', '⚪ Belum ada biaya tercatat'] : pct >= 100 ? ['gr', '✅ Sudah tertutup'] : !wi.left ? ['rd', '❌ Belum tertutup, bulan berakhir'] : ppct >= 100 ? ['gr', '🟢 Sesuai jalur, diproyeksikan tertutup'] : ppct >= 85 ? ['or', '🟡 Perlu dikejar'] : ['rd', '🔴 Tertinggal, berisiko tidak tertutup'];
+  const catRow = (ic, n, v) => v ? `<div class="row" style="margin:2px 0"><span>${ic} ${n}</span><b>${rp(v)}</b></div>` : '';
+  return `<div class="cd"><div class="row" style="margin:0"><b style="font-size:16px">📊 Monitoring Cost Ratio · ${esc(ymName(m))}</b><button class="gh" onclick="opexForm()">📝 Catat biaya</button></div>
+<small class="mu">Memantau apakah margin kotor yang terkumpul bulan ini sudah cukup menutup seluruh biaya operasional, dibandingkan dengan berapa hari kerja yang sudah berlalu.</small>
+<div class="cd" style="margin:10px 0;padding:12px;background:var(--bg)"><b style="font-size:13px">Rincian biaya operasional bulan ini</b>
+${catRow('🧑‍🤝‍🧑', 'Gaji & upah (sistem payroll)', gjT)}
+${catRow('⛽', 'BBM & transport', opc['6106'])}${catRow('💡', 'Listrik & air', opc['6103'])}${catRow('🏬', 'Sewa gudang', opc['6102'])}${catRow('🚚', 'Sewa armada pengantaran', opc['6109'])}${catRow('🎯', 'Komisi sales', opc['6107'])}${catRow('📣', 'Pemasaran', opc['6108'])}${catRow('🧾', 'Pajak & perizinan', opc['6110'])}${catRow('🔧', 'Perawatan & perbaikan', opc['6111'])}${catRow('🗑️', 'Pemusnahan barang', opc['6112'])}${catRow('📋', 'Lain-lain', opc['6104'])}
+<div class="row" style="margin-top:6px;border-top:1px dashed var(--bd,#2a3550);padding-top:6px"><span><b>Total biaya operasional</b></span><b style="font-size:16px">${rp(biaya)}</b></div>
+${!biaya ? '<small class="mu">Belum ada data gaji / beban operasional bulan ini. Atur Gaji di menu Gaji, atau ketuk "📝 Catat biaya" di atas.</small>' : ''}</div>
+<div class="tgrid"><span><small class="mu">Margin kotor terkumpul</small><b class="gr">${rp(margin)}</b></span><span><small class="mu">Dibutuhkan (100%)</small><b>${rp(biaya)}</b></span><span><small class="mu">Seharusnya s.d. hari ini</small><b>${rp(Math.round(exp))}</b></span><span><small class="mu">Proyeksi akhir bulan</small><b class="${ppct >= 100 ? 'gr' : 'or'}">${rp(Math.round(proj))}</b></span></div>
+${tBar(Math.min(100, pct), st[0])}<div class="row" style="margin:4px 0 0"><b class="${st[0]}" style="font-size:14px">${st[1]}</b><b class="${st[0]}">${pct.toFixed(0)}% tertutup</b></div>
+<small class="mu" style="display:block;margin-top:8px">${wi.run} dari ${wi.tot} hari kerja berlalu (${wi.tot ? Math.round(wi.run / wi.tot * 100) : 0}% bulan berjalan) · ${assigned ? 'Target "Tutup biaya" sudah dibagi ke tim senilai ' + rp(assigned) + (Math.abs(assigned - biaya) > 1000 ? ' <span class="or">(berbeda dari total biaya saat ini — buka 🧮 Hitung & bagi target biaya untuk menyamakan)</span>' : '') : 'Belum dibagi jadi target ke tim — buka tab <b>Atur target</b> → 🧮 Hitung &amp; bagi target biaya.'}</small>
+</div>`;
+}
 function tTeam(m, wi) {
   const us = [...new Set(tgtOf(m).map((x) => x.u))].sort((a, b) => (a == '*' ? -1 : b == '*' ? 1 : a.localeCompare(b)));
   if (!us.length) return '';
@@ -108,7 +128,7 @@ VW.tgt = () => {
   else if (TTAB == 'kal' && set) body = tKal(m, wi);
   else {
     const us = all ? (TU ? [TU] : [...new Set(tgtOf(m).map((x) => x.u))].sort((a, b) => (a == '*' ? -1 : b == '*' ? 1 : a.localeCompare(b)))) : [U.n];
-    body = tCalCard(wi, m) + (all && !TU ? tTeam(m, wi) : '') + (us.map((u) => tUserCard(u, m, wi)).join('') || `<div class="cd mu c">Belum ada target untuk ${all && TU ? esc(TU) + ' di ' : ''}${esc(ymName(m))}.${set ? ' Buka tab <b>Atur target</b> untuk membuat.' : ' Target diatur oleh pemilik / admin.'}</div>`);
+    body = tCalCard(wi, m) + (all ? costRatioCard(m, wi) : '') + (all && !TU ? tTeam(m, wi) : '') + (us.map((u) => tUserCard(u, m, wi)).join('') || `<div class="cd mu c">Belum ada target untuk ${all && TU ? esc(TU) + ' di ' : ''}${esc(ymName(m))}.${set ? ' Buka tab <b>Atur target</b> untuk membuat.' : ' Target diatur oleh pemilik / admin.'}</div>`);
   }
   return `<div class="cd"><div class="fm2"><label><small class="mu">Bulan</small><input type="month" value="${m}" onchange="TM=this.value||ymNow();R()"></label>${all && TTAB == 'hasil' ? `<label><small class="mu">Karyawan</small><select onchange="TU=this.value;R()"><option value="">Semua</option><option value="*" ${TU == '*' ? 'selected' : ''}>👥 Seluruh tim</option>${tgtUsers().map((u) => `<option ${TU == u.n ? 'selected' : ''}>${esc(u.n)}</option>`).join('')}</select></label>` : ''}</div>${tabs.length > 1 ? `<div class="seg" style="margin-top:8px">${tabs.map((t) => `<button class="${TTAB == t[0] ? 'a' : ''}" onclick="TTAB='${t[0]}';R()">${t[1]}</button>`).join('')}</div>` : ''}</div>${body}`;
 };
@@ -117,7 +137,7 @@ document.addEventListener('click', (e) => { const r = e.target.closest('[data-tu
 /* ---------- atur target (tgtSet) ---------- */
 function tAtur(m) {
   const L = tgtOf(m), us = [...new Set(L.map((x) => x.u))].sort();
-  return `<div class="cd"><div class="wrap"><button class="pr" onclick="tEdit()">+ Tambah target</button><button class="gh" onclick="tCopy()">📋 Salin dari ${esc(ymName(ymPrev(m)))}</button><button class="gh" onclick="tCalc()">🧮 Hitung &amp; bagi target biaya</button></div><small class="mu">Satu target bisa diberikan ke beberapa karyawan sekaligus (sales, kasir, admin, dll). Pilih “Seluruh tim” untuk target total toko.</small></div>
+  return `<div class="cd"><div class="wrap"><button class="pr" onclick="tEdit()">+ Tambah target</button><button class="gh" onclick="tCopy()">📋 Salin dari ${esc(ymName(ymPrev(m)))}</button><button class="gh" onclick="tCalc()">🧮 Hitung &amp; bagi target biaya</button><button class="gh" onclick="opexForm()">📝 Catat biaya operasional</button></div><small class="mu">Satu target bisa diberikan ke beberapa karyawan sekaligus (sales, kasir, admin, dll). Pilih “Seluruh tim” untuk target total toko.</small></div>
 ${us.map((u) => `<div class="cd"><b>${tWho(u)}</b>${tgtOf(m, u).map((x) => `<div class="row tgrw2"><span>${TGT[x.ty][0]} ${TGT[x.ty][1]}${tRef(x)}<br><small class="mu">Target ${tUnit(x.ty, x.v)}${x.im != 'none' && x.iv ? ' · 🎁 ' + esc(insTxt(x)) : ''}</small></span><span class="wrap" style="flex-wrap:nowrap"><button class="gh" onclick="tEdit('${esc(x.id)}')">Ubah</button><button class="gh d" onclick="tDel('${esc(x.id)}')">Hapus</button></span></div>`).join('')}</div>`).join('') || '<div class="cd mu c">Belum ada target bulan ini.</div>'}`;
 }
 function tEdit(id) {
@@ -156,11 +176,28 @@ function gjMonthTotal(m) {
   if (typeof gjCalc != 'function' || !gjLock()) return 0;
   return tgtUsers().reduce((a, u) => { const lv = gjLevel(u.n); return a + (lv.g > 0 || lv.lv ? gjCalc(u.n, m).tot : 0); }, 0);
 }
-// beban operasional LAIN (di luar Beban Gaji 6101, supaya tak dobel hitung dengan gjMonthTotal) dari Buku kas bulan m
-function opexMonthTotal(m) {
-  if (typeof kasRows != 'function') return 0;
+// beban operasional per kategori (akun 6102–6112, di luar Beban Gaji 6101 supaya tak dobel hitung dengan gjMonthTotal) dari Buku kas bulan m
+function opexByCat(m) {
+  const out = {}; for (const a of EXPA) if (a != '6101') out[a] = 0;
+  if (typeof kasRows != 'function') return out;
   const [y, mo] = m.split('-').map(Number), f = new Date(y, mo - 1, 1).getTime(), t = new Date(y, mo, 1).getTime() - 1;
-  return kasRows(f, Math.min(t, Date.now()), 'all').rows.filter((r) => r.d < 0 && r.e.l.some((x) => EXPA.includes(x[0]) && x[0] != '6101' && x[1] > x[2])).reduce((a, r) => a - r.d, 0);
+  for (const r of kasRows(f, Math.min(t, Date.now()), 'all').rows) { if (r.d >= 0) continue; const a = r.e.l.find((x) => EXPA.includes(x[0]) && x[0] != '6101' && x[1] > x[2]); if (a) out[a[0]] = (out[a[0]] || 0) + (a[1] - a[2]); }
+  return out;
+}
+function opexMonthTotal(m) { return Object.values(opexByCat(m)).reduce((a, b) => a + b, 0); }
+// akun "biaya operasional" yang paling sering dipakai distributor/grosir, untuk form input cepat
+const OPEXQ = [['6106', '⛽', 'BBM & transport'], ['6103', '💡', 'Listrik & air'], ['6102', '🏬', 'Sewa gudang'], ['6109', '🚚', 'Sewa armada pengantaran'], ['6104', '📋', 'Biaya operasional lainnya']];
+// catat cepat biaya operasional bulan ini → langsung tercatat di Buku kas & jurnal akuntansi (akun yang sama dipakai laporan keuangan)
+function opexForm() {
+  const m = modal(`<h3>📝 Catat biaya operasional bulan ini</h3><small class="mu">Isi yang perlu saja. Setiap baris otomatis tercatat sebagai kas keluar di <b>Buku kas</b> dan masuk ke laporan keuangan — tidak perlu dicatat ulang di menu Kas.</small>
+${OPEXQ.map(([a, ic, n], i) => `<div class="cd" style="padding:10px"><b>${ic} ${n}</b><div class="fm2"><input id="oa${i}" type="number" min="0" inputmode="numeric" placeholder="Jumlah (Rp)"><input id="od${i}" placeholder="Keterangan (opsional)"></div></div>`).join('')}
+<select id="opay"><option value="Tunai">Bayar dari kas tunai</option><option value="Transfer">Bayar dari bank / transfer</option></select>
+<button class="pr" id="opok">Simpan ke Buku kas</button>`, 'w');
+  $('#opok', m).onclick = () => {
+    let n = 0; OPEXQ.forEach(([a, ic, nm], i) => { const amt = num($('#oa' + i, m).value); if (amt > 0) { emit('kas', { dir: 'out', a, amt, m: $('#opay', m).value, d: $('#od' + i, m).value.trim() || nm, cat: nm }); n++; } });
+    if (!n) return toast('Isi minimal satu biaya');
+    m.close(); toast(n + ' biaya operasional tercatat di Buku kas'); R();
+  };
 }
 // margin kotor rata-rata dari katalog (harga jual vs harga beli ke supplier/HPP), untuk toko yang belum punya riwayat penjualan bulan lalu
 function catalogMargin() {
