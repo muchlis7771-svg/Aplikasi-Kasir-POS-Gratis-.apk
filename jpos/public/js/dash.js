@@ -40,8 +40,20 @@ function uiOrgCard() {
 let UTH = null;
 function uiOrgSave() { const md = {}; $$('[data-um]').forEach((s) => (md[s.dataset.um] = s.value)); emit('set', { set: { uiTheme: UTH || S.set.uiTheme || 'modern', uiModel: md, uiOwn: $('#uown').checked } }); toast('Tampilan semua karyawan disimpan — berlaku setelah sinkron'); LS.set(thKey(), ''); R(); }
 document.addEventListener('click', (e) => { const b = e.target.closest('[data-ut]'); if (!b) return; UTH = b.dataset.ut; $$('[data-ut]').forEach((x) => x.classList.toggle('a', x == b)); document.body.dataset.th = document.documentElement.dataset.th = UTH; });
+/* ---- pemberitahuan penting untuk semua karyawan & pemilik — muncul otomatis tiap ada perubahan (promo, harga, stok, pembelian dll) ---- */
+const NOTIF_ICO = { promo: '🎁', harga: '💲', stok: '📦', beli: '📥', produk: '🆕' };
+const notifSeenKey = () => 'jpos:notifSeen:' + (U ? U.n.toLowerCase() : '');
+let NOTIFOPEN = 0;
+function notifCard() {
+  const L = S.notif || []; if (!L.length) return '';
+  const seen = LS.get(notifSeenKey(), 0), unseen = L.filter((x) => x.t > seen).length, show = L.slice(0, NOTIFOPEN ? 20 : 5);
+  return `<div class="cd fbar" id="notifcd"><div class="row" style="margin:0"><b>🔔 Pemberitahuan${unseen ? ' <span class="chip r">' + unseen + ' baru</span>' : ''}</b>${unseen ? '<button class="gh" style="padding:4px 8px" onclick="notifSeenAll()">Tandai dibaca</button>' : ''}</div>
+${show.map((x) => `<div class="row" style="margin:4px 0;align-items:flex-start"><small>${NOTIF_ICO[x.kind] || '🔔'} ${esc(x.msg)}</small><small class="mu" style="white-space:nowrap;flex:none;margin-left:6px">${agoTxt(x.t)}</small></div>`).join('')}
+${L.length > 5 ? `<button class="gh" style="margin-top:4px" onclick="NOTIFOPEN=${NOTIFOPEN ? 0 : 1};R()">${NOTIFOPEN ? 'Sembunyikan' : 'Lihat semua (' + L.length + ')'}</button>` : ''}</div>`;
+}
+function notifSeenAll() { LS.set(notifSeenKey(), Date.now()); R(); }
 const dashWrap = (h) => { const l = dlayNow(), t = (THEMES.find((x) => x[0] == themeNow()) || THEMES[0]); return `<div class="dlay dl-${l}">${typeof tgtMini == 'function' && U.r != 'dropping' ? tgtMini() : ''}${['owner', 'admin'].includes(U.r) && typeof kvPend == 'function' && kvPend().length ? '<button class="cd fbar" style="width:100%;text-align:left;cursor:pointer" onclick="go(\'kanvas\')"><b>⏳ ' + kvPend().length + ' permintaan muat / balik barang kanvas</b><small class="mu">Ketuk untuk menyiapkan & menyetujui</small></button>' : ''}${S.srv && ['owner', 'admin'].includes(U.r) && S.tier != 'high' ? '<button class="cd kioshead" style="width:100%;text-align:left;cursor:pointer" onclick="startBuyerAsStore()"><b>🛒 Order stok ke ' + (S.tier == 'biasa' ? 'grosir / distributor' : 'distributor') + ' terdekat</b><br><small class="mu">Lihat stok ready, harga & diskon grosir, lalu pesan langsung atas nama toko Anda.</small></button>' : ''}<div class="dlbar"><button class="gh" onclick="dlayPick()">🎨 ${esc(t[2])} · ${esc((DLAY.find((x) => x[0] == l) || DLAY[1])[2])}${ownOk() ? '' : ' 🔒'}</button></div>${l == 'grafik' ? h.replace('<details class="more"', '<details class="more" open') : h}</div>`; };
-VW.dash = () => (U.r == 'dropping' ? VW.kirim() : dashWrap(U.r == 'kasir' || U.r == 'spg' ? dashKasir() : U.r == 'sales' || U.r == 'kanvas' ? (typeof kvMini == 'function' ? kvMini() : '') + dashSales() : dashAdmin()));
+VW.dash = () => notifCard() + (U.r == 'dropping' ? VW.kirim() : dashWrap(U.r == 'kasir' || U.r == 'spg' ? dashKasir() : U.r == 'sales' || U.r == 'kanvas' ? (typeof kvMini == 'function' ? kvMini() : '') + dashSales() : dashAdmin()));
 VW.dash.after = () => { if (U.r == 'dropping') return VW.kirim.after(); if (teamMapPending) { teamMapPending = 0; drawTeamMap(); } };
 
 /* ---- pantau lokasi & kehadiran tim lapangan (untuk owner/admin) ---- */
