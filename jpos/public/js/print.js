@@ -137,18 +137,22 @@ async function printReceipt(s, how, doc) {
 }
 function printMenu(s, doc) {
   doc = doc || 'faktur'; s = S.sales.find((x) => x.no == s.no) || s;
+  const c = s.cu ? cust(s.cu) : null;
   const sys = sysPrint(), G = [
     ['📶 Printer thermal (kertas 58 / 80 mm)', sys ? [['tw', '🧾', 'Thermal USB / Bluetooth', 'printer terpasang di Windows']] : [['rawbt', '🧾', 'Thermal Bluetooth', 'lewat RawBT · semua merek'], ['ble', '📡', 'Thermal BLE', PRN.ble ? esc(PRN.ble.name) : 'langsung dari aplikasi']]],
     ['🖨️ Printer tinta / laser (cartridge)', [['a4', '📄', 'A4', sys ? 'langsung ke printer' : 'PDF → cetak'], ['a5', '📃', 'A5', sys ? 'setengah A4' : 'PDF setengah A4']]],
     ['🧮 Printer dot matrix (continuous form)', [['cf', '🗒️', '9½ × 11 inci', sys ? 'kertas penuh · rangkap' : 'PDF ukuran CF'], ['cf2', '📑', '9½ × 5½ inci', sys ? 'setengah · hemat' : 'PDF ½ CF']]],
-    ['📤 Kirim', [['pdf', '📎', 'PDF', 'WA, email, Drive'], ['text', '💬', 'Teks', 'WA / SMS']]],
+    ['📤 Kirim', [...(c && c.ph ? [['wa', '🟢', 'WhatsApp ' + c.n, 'langsung ke ' + c.ph + ', tanpa cari kontak']] : []), ['pdf', '📎', 'PDF', 'WA, email, Drive'], ['text', '💬', 'Teks', 'WA / SMS']]],
   ];
   const m = modal(`<h3>🖨️ Cetak ${esc(s.no)}</h3><small class="mu">${esc(s.cn || 'Pelanggan umum')} · ${rp(s.tot)} · ${sOut(s) > 0 ? '<b class="or">belum lunas ' + rp(sOut(s)) + '</b>' : '<b class="gr">lunas</b>'}</small>
 <div class="seg" style="margin:6px 0"><button data-d="faktur" class="${doc == 'faktur' ? 'a' : ''}">🧾 Faktur (dengan harga)</button><button data-d="sj" class="${doc == 'sj' ? 'a' : ''}">📦 Surat jalan (gudang & dropping)</button></div>
 ${G.map((g) => `<b style="font-size:12px;margin-top:4px">${g[0]}</b><div class="mg pmg">${g[1].map((x) => `<button data-h="${x[0]}" class="${PRN.mode == x[0] ? 'a' : ''}"><i>${x[1]}</i><b>${x[2]}</b><small>${x[3]}</small></button>`).join('')}</div>`).join('')}
 <label class="row" style="margin:4px 0"><span>Jadikan printer utama</span><input type="checkbox" id="pdef" style="width:22px;height:22px"></label><button class="gh" id="ps">⚙️ Pengaturan printer & cetak tes</button>`, 'w');
   $$('[data-d]', m).forEach((b) => (b.onclick = () => { m.close(); printMenu(s, b.dataset.d); }));
-  $$('[data-h]', m).forEach((b) => (b.onclick = () => { if ($('#pdef', m).checked && !['pdf', 'text'].includes(b.dataset.h)) { PRN.mode = b.dataset.h; prnSave(); } m.close(); printReceipt(s, b.dataset.h, doc); }));
+  $$('[data-h]', m).forEach((b) => (b.onclick = () => {
+    if (b.dataset.h == 'wa') { m.close(); const L = receiptLines(s, doc); window.open(waLink(c.ph, linesText(L)), '_blank'); return; }
+    if ($('#pdef', m).checked && !['pdf', 'text'].includes(b.dataset.h)) { PRN.mode = b.dataset.h; prnSave(); } m.close(); printReceipt(s, b.dataset.h, doc);
+  }));
   $('#ps', m).onclick = () => { m.close(); printerSettings(); };
 }
 function printerSettings() {

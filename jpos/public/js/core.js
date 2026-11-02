@@ -286,7 +286,10 @@ const Ap = {
     }
     if (!got.length) return;
     const ship = Math.max(0, Math.round(+e.ship) || 0), tot = sub + ship;
-    got.forEach((g) => { const share = sub ? ship * g.q * g.c / sub : 0, unit = (g.q * g.c + share) / g.q, base = Math.max(g.pr.st, 0); g.pr.co = Math.round((base * g.pr.co + g.q * unit) / (base + g.q)); g.pr.st += g.q; g.l.rq += g.q; });
+    // biaya kirim/ongkir dibebankan ke HPP, dibagi antar SKU yang diterima — bobot lebih besar ke SKU bermargin besar (selisih harga jual − harga beli),
+    // supaya SKU bermargin tipis tidak ikut terbebani berat dan harga jualnya tetap kompetitif; SKU tanpa margin (rugi/harga jual belum diisi) tetap kebagian porsi kecil via bobot qty.
+    const wQ = got.reduce((a, g) => a + g.q, 0), wM = got.reduce((a, g) => a + g.q * Math.max(0, (g.pr.pr || 0) - g.c), 0);
+    got.forEach((g) => { const w = wM ? (g.q * Math.max(0, (g.pr.pr || 0) - g.c)) / wM : wQ ? g.q / wQ : 0, share = ship * w, unit = (g.q * g.c + share) / g.q, base = Math.max(g.pr.st, 0); g.pr.co = Math.round((base * g.pr.co + g.q * unit) / (base + g.q)); g.pr.st += g.q; g.l.rq += g.q; });
     const kredit = e.pay == 'Kredit', paid = kredit ? Math.min(Math.max(0, Math.round(+e.dp) || 0), tot) : tot, ar = tot - paid;
     (po.rc = po.rc || []).push({ no: e.no, t: e.t, u: e.u, tot, inv: e.inv || '', pay: e.pay || 'Tunai', ship });
     po.st = po.L.every((l) => l.rq >= l.q) ? 'diterima' : 'sebagian';

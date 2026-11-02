@@ -70,7 +70,7 @@ function R() {
   if (HT && MODE == 'ha') { app.innerHTML = haShell(); return; }
   if (MODE == 'buyer') { app.innerHTML = buyerShell(); bAfter(); return; }
   if (typeof applyUiTheme == 'function') applyUiTheme();
-  if (!U || !S) { app.innerHTML = homeView(); if (MODE == 'home') checkSrv(); return; }
+  if (!U || !S) { app.innerHTML = homeView(); if (MODE == 'home') { checkSrv(); appHitOnce(); } return; }
   if (!isNative() && ['sales', 'kanvas', 'dropping'].includes(U.r) && LS.get('jpos:dev', '') != '1') { app.innerHTML = `<main class="gate"><div class="gc"><div style="font-size:60px">📱</div><h2 style="margin:8px 0">Gunakan aplikasi Android</h2><div class="gmsg"><small>Peran ${esc(ROLE[U.r])} memakai GPS, check-in outlet, dan selfie, sehingga hanya bisa dijalankan dari aplikasi J-POS di HP Android. Versi laptop / browser untuk pemilik, admin, akuntan, kasir, dan Head Admin.</small></div><button class="gbtn" onclick="logout()">Keluar</button></div></main>`; return; }
   if (typeof workGate == 'function' && workGate()) { app.innerHTML = workGateView(); return; }
   if (typeof absGate == 'function' && absGate()) { app.innerHTML = absGateView(); absGateAfter(); almSync(); return; }
@@ -117,6 +117,11 @@ async function checkSrv() {
   const el = $('#srvst'); if (el) el.innerHTML = srvTxt();
 }
 const srvTxt = () => ({ ok: '<span class="gr">● Server online</span>', down: '<span class="rd">● Server belum aktif / tidak bisa dihubungi</span> — toko yang pernah dibuka tetap bisa dipakai offline', off: '<span class="or">● Offline</span> — toko yang pernah dibuka tetap bisa dipakai', none: '○ Mode lokal (server belum diatur)' }[SRV] || '○ Memeriksa server…');
+// app dibuka tapi belum login — satu ping per hari per HP, dipantau Head Admin (tab Aktivitas)
+function appHitOnce() {
+  if (!AP || !canNet()) return; const today = dkey(Date.now()); if (LS.get('jpos:ahit', '') == today) return; LS.set('jpos:ahit', today);
+  fetch(AP + '/api/app/hit', { method: 'POST' }).catch(() => { });
+}
 function homeView() {
   const reg = REG(), last = LS.get('jpos:last', null), info = LS.get('jpos:info', {}) || {};
   const splash = `<div class="splash lx"><div class="lxlogo"><img src="icons/icon-512.png" alt="J-POS" width="84" height="84"></div><h1>J-POS</h1><span class="lxrule"></span></div>`;
@@ -159,7 +164,7 @@ async function startDemo() {
 function haShell() {
   const t = HA.tab || 'dash';
   if (t == 'act') { clearInterval(HAA.t); HAA.t = setInterval(() => { if (MODE == 'ha' && HA.tab == 'act') haAct(); else clearInterval(HAA.t); }, 20000); if (!HAA.d) haAct(); }
-  return `<div class="ha"><div class="row"><h2 class="lg1"><span class="hacrown">${ico('crown')}</span> Head Admin</h2><span class="wrap"><button class="gh" onclick="${t == 'act' ? 'haAct()' : t == 'chat' ? 'HAC.list=null;R()' : t == 'web' ? 'HAW.site=null;R()' : 'haLoad()'}">⟳</button><button class="gh d" onclick="haOut();MODE='home';R()">Keluar</button></span></div><div class="seg" style="margin:0">${[['dash', '📊 Toko'], ['lead', '🛒 Pesanan'], ['bayar', '💳 Bayar'], ['tiket', '🛟 Komplain <em id="hatkb" class="hbdg" style="display:none"></em>'], ['act', '👁️ Aktivitas'], ['chat', '💬 Chat <em id="hacb" class="hbdg" style="display:none"></em>'], ['web', '🌐 Web']].map((x) => `<button class="${t == x[0] ? 'a' : ''}" onclick="HA.tab='${x[0]}';R()">${x[1]}</button>`).join('')}</div>${t == 'chat' ? haChatView() : t == 'web' ? haWebView() : t == 'act' ? haActView() : t == 'bayar' ? haPayView() : t == 'lead' ? haLeadView() : t == 'tiket' ? haTkView() : haView()}</div>`;
+  return `<div class="ha"><div class="row"><h2 class="lg1"><span class="hacrown">${ico('crown')}</span> Head Admin</h2><span class="wrap"><button class="gh" onclick="${t == 'act' ? 'haAct()' : t == 'chat' ? 'HAC.list=null;R()' : t == 'web' ? 'HAW.site=null;R()' : 'haLoad()'}">⟳</button><button class="gh d" onclick="haOut();MODE='home';R()">Keluar</button></span></div><div class="seg" style="margin:0">${[['dash', '📊 Toko'], ['lead', '🛒 Pesanan'], ['bayar', '💳 Bayar'], ['tiket', '🛟 Komplain <em id="hatkb" class="hbdg" style="display:none"></em>'], ['act', '👁️ Aktivitas <em id="habdg" class="hbdg" style="display:none"></em>'], ['chat', '💬 Chat <em id="hacb" class="hbdg" style="display:none"></em>'], ['web', '🌐 Web']].map((x) => `<button class="${t == x[0] ? 'a' : ''}" onclick="HA.tab='${x[0]}';R()">${x[1]}</button>`).join('')}</div>${t == 'chat' ? haChatView() : t == 'web' ? haWebView() : t == 'act' ? haActView() : t == 'bayar' ? haPayView() : t == 'lead' ? haLeadView() : t == 'tiket' ? haTkView() : haView()}</div>`;
 }
 
 /* ---------- boot ---------- */

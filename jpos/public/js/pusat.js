@@ -86,7 +86,7 @@ function haTk(id) {
   $('#ok', m).onclick = async () => { try { await haApi('/api/admin/tiket/' + id, { method: 'POST', body: JSON.stringify({ tx: $('#tr', m).value, st: $('#ts', m).value }) }); m.close(); toast('Terkirim'); HAK = null; R(); } catch (e) { toast(e.message); } };
   const th = $('.tkth', m); if (th) th.scrollTop = th.scrollHeight;
 }
-setInterval(() => { if (typeof HT != 'undefined' && HT && MODE == 'ha' && !$('.md')) { if (HA.tab == 'tiket') haTkLoad(); else haApi('/api/admin/tiket?st=baru').then((r) => { HAK = HAK && HA.tab == 'tiket' ? HAK : { ...(HAK || {}), unread: r.unread, open: r.open, list: (HAK && HAK.list) || null }; if (!HAK.list) HAK = null; const b = $('#hatkb'); if (b) { b.textContent = r.unread || ''; b.style.display = r.unread ? '' : 'none'; } }).catch(() => { }); } }, 45000);
+setInterval(() => { if (typeof HT != 'undefined' && HT && MODE == 'ha' && !$('.md')) { if (HA.tab == 'tiket') haTkLoad(); else haApi('/api/admin/tiket?st=baru').then((r) => { HAK = HAK && HA.tab == 'tiket' ? HAK : { ...(HAK || {}), unread: r.unread, open: r.open, list: (HAK && HAK.list) || null }; if (!HAK.list) HAK = null; const b = $('#hatkb'); if (b) { b.textContent = r.unread || ''; b.style.display = r.unread ? '' : 'none'; } }).catch(() => { }); haPulse(); } }, 45000);
 
 /* ---------- Pemilik toko: perpanjang paket ---------- */
 let RNW = { tier: '', mo: 1 };
