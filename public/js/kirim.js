@@ -123,7 +123,7 @@ ${pkgHas('kirim') ? '' : '<div class="cd warn"><b>⚠ Paket toko belum termasuk 
 ${staff.length ? `<div class="cd"><h3>Tim dropping</h3>${staff.map((u) => `<div class="row"><span><b>${esc(u.name)}</b><br><small class="mu">${u.lbl}${u.act ? ' · ' + u.act + ' tugas' : ''}</small></span><small class="mu">${u.loc ? '📍 ' + agoTxt(u.loc.t) : ''}</small></div>`).join('')}</div>` : ''}
 ${L.map((s, i) => dlCard(s, kFil == 'aktif' ? i : null)).join('') || `<div class="cd mu">${kFil == 'aktif' ? 'Tidak ada tugas. Order sales bertanda 🚚 akan muncul di sini.' : 'Tidak ada data.'}</div>`}`;
 };
-VW.kirim.after = () => setTimeout(drawKMap, 60);
+VW.kirim.after = () => drawKMap();
 function teamDrv() {
   const td = dkey(Date.now());
   return (S.staff || []).filter((u) => u.role == 'dropping').map((u) => {

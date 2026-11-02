@@ -216,7 +216,7 @@ const Ap = {
   // tugas harian SPG / SPB (centang + foto bukti)
   gji(e) {
     const G = (S.gj = S.gj || { cfg: {}, req: [], paid: {} }); G.req = G.req || []; G.paid = G.paid || {};
-    if (e.op == 'cfg') { const c = e.cfg || {}; G.cfg = { lv: (Array.isArray(c.lv) ? c.lv : []).filter((l) => l && /^[\w-]{1,20}$/.test(l.id)).slice(0, 20).map((l) => ({ id: l.id, n: String(l.n || '').slice(0, 40), g: Math.max(0, +l.g || 0), ot: Math.max(0, +l.ot || 0) })), emp: c.emp && typeof c.emp == 'object' ? c.emp : {}, lock: c.lock !== false, since: /^\d{4}-\d\d-\d\d$/.test(c.since) ? c.since : (G.cfg && G.cfg.since) || dkey(e.t), hol: (Array.isArray(c.hol) ? c.hol : []).filter((d) => /^\d{4}-\d\d-\d\d$/.test(d)).slice(0, 400) }; return; }
+    if (e.op == 'cfg') { const c = e.cfg || {}, ct = c.telat && typeof c.telat == 'object' ? c.telat : {}; G.cfg = { lv: (Array.isArray(c.lv) ? c.lv : []).filter((l) => l && /^[\w-]{1,20}$/.test(l.id)).slice(0, 20).map((l) => ({ id: l.id, n: String(l.n || '').slice(0, 40), g: Math.max(0, +l.g || 0), ot: Math.max(0, +l.ot || 0) })), emp: c.emp && typeof c.emp == 'object' ? c.emp : {}, lock: c.lock !== false, since: /^\d{4}-\d\d-\d\d$/.test(c.since) ? c.since : (G.cfg && G.cfg.since) || dkey(e.t), hol: (Array.isArray(c.hol) ? c.hol : []).filter((d) => /^\d{4}-\d\d-\d\d$/.test(d)).slice(0, 400), telat: { on: !!ct.on, tol: Math.max(0, +ct.tol || 0) || 10, jam: Math.max(0.5, +ct.jam || 0) || 8 } }; return; }
     if (e.op == 'izin') { if (!/^\d{4}-\d\d-\d\d$/.test(e.d) || G.req.some((r) => r.u == e.u && r.d == e.d && r.st == 'tunggu')) return; G.req.push({ no: e.no, t: e.t, u: e.u, d: e.d, kind: e.kind == 'lembur' ? 'lembur' : 'luar', note: String(e.note || '').slice(0, 120), st: 'tunggu' }); if (G.req.length > 600) G.req = G.req.slice(-600); return; }
     if (e.op == 'ok' || e.op == 'tolak') { const r = G.req.find((x) => x.no == e.ref); if (r && r.st == 'tunggu') Object.assign(r, { st: e.op, oleh: e.u, tt: e.t, why: String(e.why || '').slice(0, 120), amt: e.op == 'ok' && e.amt != null ? Math.max(0, +e.amt || 0) : undefined }); return; }
     if (e.op == 'paid' && /^\d{4}-\d\d$/.test(e.m)) G.paid[String(e.u || '').toLowerCase() + '|' + e.m] = e.t;
@@ -241,6 +241,15 @@ const Ap = {
   out(e) { trailAdd(e); S.att.push({ no: e.no, k: 'out', t: e.t, u: e.u, lat: e.lat, lng: e.lng, acc: e.acc, note: e.note, ph: e.ph, fl: e.fl, fx: e.fx, sk: e.sk, rt: e.rt, fm: e.fm }); },
   visit(e) { trailAdd(e); S.att.push({ no: e.no, k: 'visit', t: e.t, u: e.u, cid: e.cid, cn: e.cn, lat: e.lat, lng: e.lng, dist: e.dist, acc: e.acc, note: e.note, ph: e.ph, fl: e.fl, fx: e.fx, sk: e.sk, why: e.why }); },
   vout(e) { S.att.push({ no: e.no, k: 'vout', t: e.t, u: e.u, cid: e.cid, cn: e.cn, lat: e.lat, lng: e.lng, dist: e.dist, acc: e.acc, note: e.note, fl: e.fl, fx: e.fx, sk: e.sk, why: e.why }); },
+  // produk yang diminta outlet saat kunjungan tapi belum ada / belum dijual — bahan evaluasi pemilik untuk mengadakan barang
+  preq(e) {
+    S.preq = S.preq || [];
+    if (e.op == 'done') { const r = S.preq.find((x) => x.no == e.ref); if (r) { r.done = !!e.v; r.doneBy = e.v ? e.u : undefined; r.doneT = e.v ? e.t : undefined; } return; }
+    const items = (Array.isArray(e.items) ? e.items : []).filter((i) => i && String(i.n || '').trim()).slice(0, 20).map((i) => ({ n: String(i.n).slice(0, 80), cat: String(i.cat || '').slice(0, 40), warna: String(i.warna || '').slice(0, 30), ukuran: String(i.ukuran || '').slice(0, 30) }));
+    if (!items.length) return;
+    S.preq.push({ no: e.no, t: e.t, u: e.u, cid: e.cid || '', cn: String(e.cn || '').slice(0, 80), items, note: String(e.note || '').slice(0, 200), done: false });
+    if (S.preq.length > 2000) S.preq = S.preq.slice(-2000);
+  },
   // bad stock: pindah (layak jual → bad), layak (bad → layak jual setelah sortir), musnah (dari bad / layak jual). Hanya pemilik & admin.
   bst(e) {
     if (e.r != 'owner' && e.r != 'admin') return; const p = prod(e.id), q = Math.round(+e.q || 0); if (!p || q <= 0) return;

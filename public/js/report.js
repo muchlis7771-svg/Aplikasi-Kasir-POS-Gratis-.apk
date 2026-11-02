@@ -81,9 +81,18 @@ const RPT = {
       { title: 'Mutasi Barang Kanvas · ' + perLabel(), head: ['Tanggal', 'Kejadian', 'Sales', 'Produk', 'Qty', 'Nilai HPP', 'Disetujui'], fmt: ['d', 't', 't', 't', 'q', 'm', 't'], rows: mv.length ? mv.sort((a, b) => a[0] - b[0]) : [['', 'Tidak ada mutasi', '', '', '', '', '']] }];
   },
   absen(f, t) { return [{ title: 'Rekap Absensi · ' + perLabel(), head: ['Karyawan', 'Hari hadir', 'Terlambat', 'Total jam', 'Kunjungan'], fmt: ['t', 'q', 'q', 'q', 'q'], rows: attRecap(f, t).map((r) => [r.u, r.days, r.late, +r.hours.toFixed(1), r.visits]) }]; },
+  preq(f, t) {
+    const L = (S.preq || []).filter((x) => x.t >= f && x.t <= t), g = {};
+    for (const r of L) for (const i of r.items) { const k = i.n.toLowerCase(); const x = g[k] || (g[k] = { n: i.n, n2: 0, out: new Set(), cat: {}, done: 0 }); x.n2++; x.out.add(r.cn); if (i.cat) x.cat[i.cat] = (x.cat[i.cat] || 0) + 1; if (r.done) x.done++; }
+    const top = Object.values(g).sort((a, b) => b.n2 - a.n2);
+    return [
+      { title: 'Produk Paling Sering Diminta Outlet · ' + perLabel(), head: ['Produk', 'Diminta', 'Outlet berbeda', 'Kategori harga terbanyak', 'Sudah diadakan'], fmt: ['t', 'q', 'q', 't', 't'], rows: top.map((x) => { const tc = Object.entries(x.cat).sort((a, b) => b[1] - a[1])[0]; return [x.n, x.n2, x.out.size, tc ? tc[0] : '-', x.done + ' / ' + x.n2]; }) },
+      { title: 'Rincian Permintaan per Kunjungan', head: ['Tanggal', 'Outlet', 'Dicatat oleh', 'Barang', 'Status'], fmt: ['d', 't', 't', 't', 't'], rows: L.slice().reverse().map((r) => [r.t, r.cn || '-', r.u, r.items.map((i) => i.n + (i.cat ? ' (' + i.cat + ')' : '') + (i.warna ? ' · ' + i.warna : '') + (i.ukuran ? ' · ' + i.ukuran : '')).join(', '), r.done ? '✅ Diadakan' : '⏳ Belum']) },
+    ];
+  },
 };
 RPT.akt = (f, t) => [...RPT.lr(f, t), ...RPT.neraca(f, t), ...RPT.cf(f, t), ...RPT.ns(f, t)];
-const RTABS = [['lr', 'Laba Rugi'], ['neraca', 'Neraca'], ['cf', 'Arus Kas'], ['ns', 'Neraca Saldo'], ['gl', 'Buku Besar'], ['jual', 'Penjualan'], ['piutang', 'Piutang'], ['utang', 'Utang'], ['stok', 'Stok'], ['kanvas', 'Kanvas'], ['absen', 'Absensi']];
+const RTABS = [['lr', 'Laba Rugi'], ['neraca', 'Neraca'], ['cf', 'Arus Kas'], ['ns', 'Neraca Saldo'], ['gl', 'Buku Besar'], ['jual', 'Penjualan'], ['piutang', 'Piutang'], ['utang', 'Utang'], ['stok', 'Stok'], ['kanvas', 'Kanvas'], ['absen', 'Absensi'], ['preq', 'Diminta outlet']];
 const cellH = (v, f) => (v === '' || v == null ? '' : typeof v == 'string' ? esc(v) : f == 'm' ? rp(v) : f == 'q' ? Number(v).toLocaleString('id-ID') : f == 'd' ? dstr(v) : esc(v));
 // cari outlet dari namanya persis seperti yang tampil di laporan (laporan hanya menyimpan nama, bukan id)
 const outletByName = (n) => (S.c || []).find((c) => c.n === n);

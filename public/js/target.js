@@ -86,6 +86,8 @@ function tRow(x, m, wi) {
 <div class="row" style="margin:4px 0 0"><small class="${e.st[0]}"><b>${e.st[1]}</b> · seharusnya s.d. hari ini ${tUnit(x.ty, e.exp)}</small>${x.im != 'none' && x.iv ? `<small>🎁 ${e.ins ? `<b class="gr">${rp(e.ins)}</b>` : `<span class="mu">potensi ${rp(e.insP)}</span>`} <span class="mu">(${insTxt(x)})</span></small>` : ''}</div></div>`;
 }
 const insTxt = (x) => (x.im == 'flat' ? rp(x.iv) : x.im == 'pct' ? x.iv + '% omzet' : rp(x.iv) + '/' + TGT[x.ty][2]) + ' bila ≥ ' + x.min + '%';
+// total insentif target (sudah tercapai bulan berjalan) milik satu karyawan — dipakai di kartu gaji
+function userIns(u, m) { const L = tgtOf(m, u); if (!L.length) return 0; const wi = workInfo(m); return L.reduce((a, x) => a + evalT(x, m, wi).ins, 0); }
 function tUserCard(u, m, wi) {
   const L = tgtOf(m, u); if (!L.length) return '';
   const ins = L.reduce((a, x) => a + evalT(x, m, wi).ins, 0), insP = L.reduce((a, x) => a + evalT(x, m, wi).insP, 0);

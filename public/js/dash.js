@@ -42,7 +42,7 @@ function uiOrgSave() { const md = {}; $$('[data-um]').forEach((s) => (md[s.datas
 document.addEventListener('click', (e) => { const b = e.target.closest('[data-ut]'); if (!b) return; UTH = b.dataset.ut; $$('[data-ut]').forEach((x) => x.classList.toggle('a', x == b)); document.body.dataset.th = document.documentElement.dataset.th = UTH; });
 const dashWrap = (h) => { const l = dlayNow(), t = (THEMES.find((x) => x[0] == themeNow()) || THEMES[0]); return `<div class="dlay dl-${l}">${typeof tgtMini == 'function' && U.r != 'dropping' ? tgtMini() : ''}${['owner', 'admin'].includes(U.r) && typeof kvPend == 'function' && kvPend().length ? '<button class="cd fbar" style="width:100%;text-align:left;cursor:pointer" onclick="go(\'kanvas\')"><b>⏳ ' + kvPend().length + ' permintaan muat / balik barang kanvas</b><small class="mu">Ketuk untuk menyiapkan & menyetujui</small></button>' : ''}${S.srv && ['owner', 'admin'].includes(U.r) && S.tier != 'high' ? '<button class="cd kioshead" style="width:100%;text-align:left;cursor:pointer" onclick="startBuyerAsStore()"><b>🛒 Order stok ke ' + (S.tier == 'biasa' ? 'grosir / distributor' : 'distributor') + ' terdekat</b><br><small class="mu">Lihat stok ready, harga & diskon grosir, lalu pesan langsung atas nama toko Anda.</small></button>' : ''}<div class="dlbar"><button class="gh" onclick="dlayPick()">🎨 ${esc(t[2])} · ${esc((DLAY.find((x) => x[0] == l) || DLAY[1])[2])}${ownOk() ? '' : ' 🔒'}</button></div>${l == 'grafik' ? h.replace('<details class="more"', '<details class="more" open') : h}</div>`; };
 VW.dash = () => (U.r == 'dropping' ? VW.kirim() : dashWrap(U.r == 'kasir' || U.r == 'spg' ? dashKasir() : U.r == 'sales' || U.r == 'kanvas' ? (typeof kvMini == 'function' ? kvMini() : '') + dashSales() : dashAdmin()));
-VW.dash.after = () => { if (U.r == 'dropping') return VW.kirim.after(); if (teamMapPending) { teamMapPending = 0; setTimeout(drawTeamMap, 60); } };
+VW.dash.after = () => { if (U.r == 'dropping') return VW.kirim.after(); if (teamMapPending) { teamMapPending = 0; drawTeamMap(); } };
 
 /* ---- pantau lokasi & kehadiran tim lapangan (untuk owner/admin) ---- */
 let teamMapPending = 0, tmap = null;
@@ -76,7 +76,7 @@ ${mangkir.length ? `<div class="warnbox">⚠️ ${mangkir.length} perlu dicek: $
 const hrNow = () => new Date().getHours();
 function drawTeamMap() {
   const el = $('#tmap'); if (!el || !window.L) return; const T = teamStatus().filter((u) => u.loc);
-  if (tmap) { tmap.remove(); tmap = null; } if (!T.length) { el.innerHTML = '<p class="mu" style="padding:14px">Belum ada posisi diterima.</p>'; return; }
+  if (tmap) { try { tmap.remove(); } catch (e) { } tmap = null; } if (!T.length) { el.innerHTML = '<p class="mu" style="padding:14px">Belum ada posisi diterima.</p>'; return; }
   tmap = L.map(el).setView([T[0].loc.lat, T[0].loc.lng], 13); tiles(tmap);
   const col = { on: '#00b894', idle: '#ff9f43', off: '#b2bec3', done: '#54a0ff' };
   const g = L.featureGroup(T.map((u) => L.circleMarker([u.loc.lat, u.loc.lng], { radius: 9, color: '#fff', weight: 2, fillColor: col[u.st], fillOpacity: 1 }).bindPopup(`<b>${esc(u.name)}</b><br>${esc(u.lbl)}<br>📍 ${agoTxt(u.loc.t)}${u.lastV ? '<br>Terakhir: ' + esc(u.lastV.cn || '') : ''}`).bindTooltip(esc(u.name), { permanent: true, direction: 'top', className: 'tmt' }))).addTo(tmap);
