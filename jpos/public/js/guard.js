@@ -142,7 +142,7 @@ async function checkIn(cid, why) {
     }
   } else if (pr.lat != null) {
     dist = Math.round(haversine(pr.lat, pr.lng, c.lat, c.lng));
-    if (enforce && dist > CIR()) return alertBox('Anda ' + distStr(dist) + ' dari titik ' + c.n + '. Check-in hanya bisa dalam radius ' + distStr(CIR()) + ' dari titik outlet.');
+    if (enforce && dist > CIR() && U.r != 'owner') return alertBox('Anda ' + distStr(dist) + ' dari titik ' + c.n + '. Check-in hanya bisa dalam radius ' + distStr(CIR()) + ' dari titik outlet.'); // pemilik (owner distributor) boleh check-in dari jarak berapa pun
   }
   if (cur) autoOut(cur, pr, c.n);
   emit('visit', { cid, cn: c.n, lat: pr.lat, lng: pr.lng, acc: pr.acc, dist, why: why || '', on: pr.on, sk: pr.sk, fx: fxs(fx), note: '' }, pr.t);
@@ -161,7 +161,7 @@ async function checkOut(silent) {
   if (pr.err) { alertBox(pr.err); return false; }
   const fx = pr.fx.slice(); let dist = null, note = '';
   if (pr.lat != null && c.lat != null) dist = Math.round(haversine(pr.lat, pr.lng, c.lat, c.lng));
-  if (enforce && dist != null && dist > CIR()) { note = prompt('Anda ' + distStr(dist) + ' dari ' + c.n + ' (di luar radius ' + distStr(CIR()) + ').\nTulis alasan check-out di sini (dilaporkan ke pemilik):') || ''; if (!note.trim()) return false; fx.push('luar'); }
+  if (enforce && dist != null && dist > CIR() && U.r != 'owner') { note = prompt('Anda ' + distStr(dist) + ' dari ' + c.n + ' (di luar radius ' + distStr(CIR()) + ').\nTulis alasan check-out di sini (dilaporkan ke pemilik):') || ''; if (!note.trim()) return false; fx.push('luar'); }
   emit('vout', { cid: cur.cid, cn: c.n, lat: pr.lat, lng: pr.lng, acc: pr.acc, dist, on: pr.on, sk: pr.sk, fx: fxs(fx), note }, pr.t);
   if (!silent) { toast('Check-out ' + c.n + ' · durasi ' + Math.max(1, Math.round((pr.t - cur.t) / 6e4)) + ' mnt'); R(); } return true;
 }

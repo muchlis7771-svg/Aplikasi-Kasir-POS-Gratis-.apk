@@ -377,6 +377,7 @@ export default {
             if ((x.k == 'kvl' || x.k == 'kvb') && role != 'owner' && role != 'admin') { rej.push({ no: x.no, e: 'muat & balik barang kanvas harus disetujui admin / pemilik' }); continue; }
             if (x.k == 'bst' && role != 'owner' && role != 'admin') { rej.push({ no: x.no, e: 'bad stock & pemusnahan hanya oleh pemilik / admin' }); continue; }
             if (role != 'owner' && ((x.k == 'pu' && x.p && x.p.x) || (x.k == 'cu' && x.c && x.c.x) || (x.k == 'sup' && x.s && x.s.x))) { rej.push({ no: x.no, e: 'hapus/arsip data hanya oleh pemilik' }); continue; }
+            if (x.k == 'sale' && role != 'owner' && (x.asu || x.asr)) { rej.push({ no: x.no, e: 'memberikan omzet ke karyawan lain hanya oleh pemilik' }); continue; }
             const ev = { ...x, u: uname, r: role, rt }; if (x.t > rt + 3e5 || (x.on && Math.abs(x.t - rt) > 3e5)) ev.fl = 'jam';
             const d = JSON.stringify(ev);
             if (d.length > 150000) { rej.push({ no: x.no, e: 'terlalu besar' }); continue; }

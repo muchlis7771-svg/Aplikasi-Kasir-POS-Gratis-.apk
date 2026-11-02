@@ -387,7 +387,9 @@ function mkSale(o, t, by) { // o: {items,cd,pay,cu,dpay,dpm,note,kirim}; melempa
     }
   }
   const tm = t || Date.now();
-  const ev = emit('sale', { tot: r.tot, sub: r.sub, disc: r.disc, cdA: r.cdA, cd: o.cd || '', tax: r.tax, hpp: r.hpp, L: r.lines, pay: o.pay, cu: c ? c.id : '', cn: c ? c.n : '', dpay: o.pay == 'Piutang' ? Math.min(o.dpay || 0, r.tot) : 0, dpm: o.dpm || 'Tunai', due: o.pay == 'Piutang' ? tm + (o.cod ? 864e5 : (c.tempo || 30) * 864e5) : 0, note: o.note || '', ppn: S.set.ppn || 0, ...(o.kirim ? { kirim: 1 } : {}), ...(o.cod ? { cod: 1, cm: o.cm } : {}), ...(ci ? { ci } : {}) }, tm, by);
+  // pemilik bisa menginput penjualan atas nama sendiri tapi memberikan omzetnya ke sales/kanvas pilihan (mis. membetulkan kesalahan order karyawan) — hanya berlaku bila pemilik yang menginput
+  const asg = !by && a.r == 'owner' && o.asu && typeof tgtUsers == 'function' ? tgtUsers().find((u) => u.n == o.asu && ['sales', 'kanvas'].includes(u.r)) : null;
+  const ev = emit('sale', { tot: r.tot, sub: r.sub, disc: r.disc, cdA: r.cdA, cd: o.cd || '', tax: r.tax, hpp: r.hpp, L: r.lines, pay: o.pay, cu: c ? c.id : '', cn: c ? c.n : '', dpay: o.pay == 'Piutang' ? Math.min(o.dpay || 0, r.tot) : 0, dpm: o.dpm || 'Tunai', due: o.pay == 'Piutang' ? tm + (o.cod ? 864e5 : (c.tempo || 30) * 864e5) : 0, note: o.note || '', ppn: S.set.ppn || 0, ...(o.kirim ? { kirim: 1 } : {}), ...(o.cod ? { cod: 1, cm: o.cm } : {}), ...(ci ? { ci } : {}), ...(asg ? { asu: asg.n, asr: asg.r } : {}) }, tm, by);
   return S.sales.find((x) => x.no == ev.no);
 }
 const netSale = (s) => s.sub - s.disc - (s.rn || 0); // penjualan bersih (tanpa PPN) setelah retur

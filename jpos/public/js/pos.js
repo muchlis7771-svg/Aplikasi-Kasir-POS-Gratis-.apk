@@ -1,8 +1,8 @@
 'use strict';
 const VW = {};
 /* ============ KASIR / ORDER ============ */
-let cart = [], cCd = '', cPay = 'Tunai', cCu = '', cDp = 0, cDpm = 'Tunai', cNote = '', cKr = null, pQ = '', pCat = '';
-const resetCart = () => { cart = []; cCd = ''; cPay = 'Tunai'; cCu = ''; cDp = 0; cDpm = 'Tunai'; cNote = ''; cKr = null; };
+let cart = [], cCd = '', cPay = 'Tunai', cCu = '', cDp = 0, cDpm = 'Tunai', cNote = '', cKr = null, pQ = '', pCat = '', cAs = '';
+const resetCart = () => { cart = []; cCd = ''; cPay = 'Tunai'; cCu = ''; cDp = 0; cDpm = 'Tunai'; cNote = ''; cKr = null; cAs = ''; };
 // order sales otomatis diantar tim dropping (bisa dimatikan per order, atau oleh pemilik di Pengaturan)
 const krAuto = () => !!(U && S && U.r == 'sales' && pkgHas('kirim') && S.srv && S.set.autoKirim !== false);
 const krOn = () => U && U.r != 'kanvas' && (cKr == null ? krAuto() : cKr) && !!cCu && pkgHas('kirim') && !!S.srv;
@@ -31,6 +31,7 @@ function cartH() {
   let h = `<div class="cthd"><h3>Keranjang</h3><button class="gh x" onclick="cartOpen(false)">Tutup ✕</button></div>`;
   h += r.lines.length ? r.lines.map((l) => { const ci = cart.find((x) => x.id == l.id); return `<div class="ci"><div class="t"><b>${esc(l.n)}</b><b>${rp(l.p * l.q - l.dd)}</b></div><small>${rp(l.p)} × ${l.q}${l.dd ? ` · diskon ${rp(l.dd)}${l.tier ? ' (grosir ' + esc(l.tier) + '%)' : ''}` : ''}</small><div class="qt" style="margin-top:6px"><button onclick="pstep('${l.id}',-1)">−</button><input type="number" min="1" value="${l.q}" onchange="pset('${l.id}',this.value)"><button onclick="pstep('${l.id}',1)">+</button><input placeholder="Disk % (5+2)" value="${esc(ci.ld || '')}" onchange="pld('${l.id}',this.value)" style="flex:1"><button onclick="pdel('${l.id}')">✕</button></div></div>`; }).join('') : '<p class="mu">Belum ada item. Ketuk produk atau scan barcode.</p>';
   h += `<div class="wrap" style="margin-top:8px"><button class="gh opick" style="flex:1" onclick="outPick()">${cCu && cust(cCu) ? '📍 <b>' + esc(cust(cCu).n) + '</b>' + (cust(cCu).kd ? ' <small class="kd">' + esc(cust(cCu).kd) + '</small>' : '') : '🔎 ' + ((U.r == 'sales' || U.r == 'kanvas') ? 'Pilih / cari outlet…' : 'Pelanggan umum — cari outlet…')}</button><button class="gh" onclick="outletForm(null,function(id){pcu(id);R()})">+ Outlet</button></div>${creditInfo()}`;
+  if (U.r == 'owner' && typeof tgtUsers == 'function') { const SK = tgtUsers().filter((u) => ['sales', 'kanvas'].includes(u.r)); if (SK.length) h += `<label><small class="mu">🎯 Omzet order ini untuk (mis. membetulkan kesalahan order karyawan)</small><select onchange="cAs=this.value">${['<option value="">— atas nama sendiri (pemilik) —</option>', ...SK.map((u) => `<option value="${esc(u.n)}" ${cAs == u.n ? 'selected' : ''}>${esc(u.n)} (${esc(ROLE[u.r] || u.r)})</option>`)].join('')}</select></label>`; }
   h += `<div class="seg">${['Tunai', 'QRIS', 'Transfer', 'Piutang'].map((m) => `<button class="${cPay == m ? 'a' : ''}" onclick="ppay('${m}')">${m == 'Piutang' ? 'Kredit' : m}</button>`).join('')}</div>`;
   if ((cPay == 'QRIS' || cPay == 'Transfer') && typeof payBtn == 'function') { const b = payBtn(cPay, r.tot); if (b) h += `<div class="wrap" style="margin:6px 0">${b}</div>`; }
   if (pkgHas('kirim') && S.srv && cCu && U.r != 'kanvas') h += `<label class="row" style="margin:6px 0"><span>🚚 Diantar tim dropping${krOn() && cPay != 'Piutang' ? '<br><small class="or">Dibayar ' + cPay + ' saat barang tiba (ditagih dropping)</small>' : ''}</span><input type="checkbox" style="width:auto" ${krOn() ? 'checked' : ''} onchange="cKr=this.checked;cartUp()"></label>`;
@@ -85,15 +86,15 @@ function outPick() {
 }
 const ppay = (m) => { cPay = m; cartUp(); };
 function scanAdd() { scanCode((v) => { const p = bySku(v); if (p) { padd(p.id); toast('+ ' + p.n, 1200); return true; } skuUnknown(v, (id) => padd(id)); return false; }, { multi: true }); }
-function ptahan() { if (!cart.length) return toast('Keranjang kosong'); S.hold.push({ cart, cCd, cPay, cCu, cDp, cDpm, cNote, cKr, t: Date.now() }); resetCart(); save(); cartUp(); toast('Transaksi ditahan'); }
-function planjut() { if (!S.hold.length) return toast('Tidak ada transaksi ditahan'); if (cart.length && !confirm('Keranjang saat ini akan diganti. Lanjutkan?')) return; const h = S.hold.pop(); ({ cart, cCd, cPay, cCu, cDp, cDpm, cNote } = h); cKr = h.cKr == null ? null : !!h.cKr; save(); cartUp(); }
+function ptahan() { if (!cart.length) return toast('Keranjang kosong'); S.hold.push({ cart, cCd, cPay, cCu, cDp, cDpm, cNote, cKr, cAs, t: Date.now() }); resetCart(); save(); cartUp(); toast('Transaksi ditahan'); }
+function planjut() { if (!S.hold.length) return toast('Tidak ada transaksi ditahan'); if (cart.length && !confirm('Keranjang saat ini akan diganti. Lanjutkan?')) return; const h = S.hold.pop(); ({ cart, cCd, cPay, cCu, cDp, cDpm, cNote } = h); cKr = h.cKr == null ? null : !!h.cKr; cAs = h.cAs || ''; save(); cartUp(); }
 async function pbayar() {
   try {
     // bayar langsung QRIS / Transfer → tampilkan QRIS / rekening toko ke pelanggan dulu
     const now = !(U.r == 'sales' || krOn() || cPay == 'Piutang');
     if (now && (cPay == 'QRIS' || cPay == 'Transfer') && typeof payShow == 'function') { const t = calc(cart.map((i) => ({ id: i.id, q: i.q, ld: i.ld })), cCd).tot; if (!(await payShow(cPay, t, (cCu && cust(cCu) ? cust(cCu).n + ' · ' : '') + 'Pembayaran ' + cPay))) return; }
-    const s = mkSale({ items: cart.map((i) => ({ id: i.id, q: i.q, ld: i.ld })), cd: cCd, pay: cPay, cu: cCu, dpay: cDp, dpm: cDpm, note: cNote, kirim: krOn() });
-    const ord = U.r == 'sales' || s.kirim || s.pay == 'Piutang'; resetCart(); R(); if (ord) orderDone(s); else receipt(s); if (PRN.auto) printReceipt(s, null, 'faktur');
+    const s = mkSale({ items: cart.map((i) => ({ id: i.id, q: i.q, ld: i.ld })), cd: cCd, pay: cPay, cu: cCu, dpay: cDp, dpm: cDpm, note: cNote, kirim: krOn(), asu: cAs });
+    const asTxt = s.asu ? ' · omzet untuk ' + s.asu : ''; const ord = U.r == 'sales' || s.kirim || s.pay == 'Piutang'; resetCart(); R(); if (ord) orderDone(s); else receipt(s); if (PRN.auto) printReceipt(s, null, 'faktur'); if (asTxt) toast('Transaksi tersimpan' + asTxt, 4000);
   } catch (e) { if (e.message != 'Dibatalkan') toast(e.message, 5000); }
 }
 

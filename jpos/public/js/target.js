@@ -47,13 +47,13 @@ function actuals(m) {
   const U2 = {}, me = (u) => (U2[u] = U2[u] || { omzet: 0, margin: 0, brand: {}, item: {}, ao: new Set(), sku: new Set(), noo: 0, n: 0 });
   for (const s of S.sales) {
     if (ymOf(s.t) != m) continue; const net = (s.sub - s.disc) - (s.rn || 0);
-    for (const who of [s.u, '*']) {
+    for (const who of [s.asu || s.u, '*']) {
       const a = me(who); a.omzet += net; a.margin += net - (s.hpp || 0) * (s.sub ? net / s.sub : 1); a.n++; if (s.cu && net > 0) a.ao.add(s.cu);
       const net0 = s.L.reduce((x, i) => x + i.p * i.q - i.dd, 0), k = net0 ? (net0 - (s.cdA || 0)) / net0 : 1;
       for (const i of s.L) { const left = i.q - (i.rq || 0); if (left <= 0) continue; const v = (i.p * i.q - i.dd) * (left / i.q) * k, b = brandOf(prod(i.id) || { c: '' }); a.brand[b] = (a.brand[b] || 0) + v; a.item[i.id] = (a.item[i.id] || 0) + left; a.sku.add(i.id); }
     }
   }
-  for (const cu in first) { const s = first[cu]; if (ymOf(s.t) == m) { me(s.u).noo++; me('*').noo++; } }
+  for (const cu in first) { const s = first[cu]; if (ymOf(s.t) == m) { me(s.asu || s.u).noo++; me('*').noo++; } }
   ACTM = { k: key, v: U2 }; return U2;
 }
 function actOf(x, m) {
