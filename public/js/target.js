@@ -10,6 +10,7 @@ const TGT = {
   noo: ['🆕', 'Outlet baru (NOO)', 'outlet', 'Outlet yang order pertama kali di bulan itu'],
   sku: ['📦', 'Jumlah SKU terjual', 'SKU', 'Jumlah produk (SKU) berbeda yang terjual di bulan itu'],
   ec: ['🧾', 'Transaksi / effective call', 'nota', 'Jumlah nota penjualan (order berhasil) di bulan itu'],
+  biaya: ['💸', 'Tutup biaya operasional (cost ratio)', 'Rp', 'Margin kotor (omzet dikurangi HPP, setelah diskon & retur) yang terkumpul bulan ini — untuk memantau apakah sudah menutup target biaya operasional'],
 };
 const IMODE = { none: 'Tanpa insentif', flat: 'Bonus tetap (Rp) bila tercapai', pct: '% dari pencapaian (omzet)', unit: 'Rp per satuan tercapai (pcs / outlet)' };
 const THARI = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
@@ -43,11 +44,11 @@ let ACTM = null;
 function actuals(m) {
   const key = m + '|' + S.sales.length + '|' + (S.rtr || []).length + '|' + S.c.length; if (ACTM && ACTM.k == key) return ACTM.v;
   const first = {}; for (const s of S.sales) if (s.cu && (!first[s.cu] || s.t < first[s.cu].t)) first[s.cu] = s;
-  const U2 = {}, me = (u) => (U2[u] = U2[u] || { omzet: 0, brand: {}, item: {}, ao: new Set(), sku: new Set(), noo: 0, n: 0 });
+  const U2 = {}, me = (u) => (U2[u] = U2[u] || { omzet: 0, margin: 0, brand: {}, item: {}, ao: new Set(), sku: new Set(), noo: 0, n: 0 });
   for (const s of S.sales) {
     if (ymOf(s.t) != m) continue; const net = (s.sub - s.disc) - (s.rn || 0);
     for (const who of [s.u, '*']) {
-      const a = me(who); a.omzet += net; a.n++; if (s.cu && net > 0) a.ao.add(s.cu);
+      const a = me(who); a.omzet += net; a.margin += net - (s.hpp || 0) * (s.sub ? net / s.sub : 1); a.n++; if (s.cu && net > 0) a.ao.add(s.cu);
       const net0 = s.L.reduce((x, i) => x + i.p * i.q - i.dd, 0), k = net0 ? (net0 - (s.cdA || 0)) / net0 : 1;
       for (const i of s.L) { const left = i.q - (i.rq || 0); if (left <= 0) continue; const v = (i.p * i.q - i.dd) * (left / i.q) * k, b = brandOf(prod(i.id) || { c: '' }); a.brand[b] = (a.brand[b] || 0) + v; a.item[i.id] = (a.item[i.id] || 0) + left; a.sku.add(i.id); }
     }
@@ -56,8 +57,8 @@ function actuals(m) {
   ACTM = { k: key, v: U2 }; return U2;
 }
 function actOf(x, m) {
-  const a = actuals(m)[x.u] || { omzet: 0, brand: {}, item: {}, ao: new Set(), sku: new Set(), noo: 0, n: 0 };
-  return x.ty == 'omzet' ? a.omzet : x.ty == 'brand' ? a.brand[x.ref] || 0 : x.ty == 'item' ? a.item[x.ref] || 0 : x.ty == 'ao' ? a.ao.size : x.ty == 'sku' ? a.sku.size : x.ty == 'ec' ? a.n : a.noo;
+  const a = actuals(m)[x.u] || { omzet: 0, margin: 0, brand: {}, item: {}, ao: new Set(), sku: new Set(), noo: 0, n: 0 };
+  return x.ty == 'omzet' ? a.omzet : x.ty == 'brand' ? a.brand[x.ref] || 0 : x.ty == 'item' ? a.item[x.ref] || 0 : x.ty == 'ao' ? a.ao.size : x.ty == 'sku' ? a.sku.size : x.ty == 'ec' ? a.n : x.ty == 'biaya' ? a.margin : a.noo;
 }
 function insOf(x, act) {
   const pct = x.v ? act / x.v * 100 : 0; if (x.im == 'none' || !x.iv || pct < x.min) return 0;
@@ -116,7 +117,7 @@ document.addEventListener('click', (e) => { const r = e.target.closest('[data-tu
 /* ---------- atur target (tgtSet) ---------- */
 function tAtur(m) {
   const L = tgtOf(m), us = [...new Set(L.map((x) => x.u))].sort();
-  return `<div class="cd"><div class="wrap"><button class="pr" onclick="tEdit()">+ Tambah target</button><button class="gh" onclick="tCopy()">📋 Salin dari ${esc(ymName(ymPrev(m)))}</button></div><small class="mu">Satu target bisa diberikan ke beberapa karyawan sekaligus (sales, kasir, admin, dll). Pilih “Seluruh tim” untuk target total toko.</small></div>
+  return `<div class="cd"><div class="wrap"><button class="pr" onclick="tEdit()">+ Tambah target</button><button class="gh" onclick="tCopy()">📋 Salin dari ${esc(ymName(ymPrev(m)))}</button><button class="gh" onclick="tCalc()">🧮 Hitung &amp; bagi target biaya</button></div><small class="mu">Satu target bisa diberikan ke beberapa karyawan sekaligus (sales, kasir, admin, dll). Pilih “Seluruh tim” untuk target total toko.</small></div>
 ${us.map((u) => `<div class="cd"><b>${tWho(u)}</b>${tgtOf(m, u).map((x) => `<div class="row tgrw2"><span>${TGT[x.ty][0]} ${TGT[x.ty][1]}${tRef(x)}<br><small class="mu">Target ${tUnit(x.ty, x.v)}${x.im != 'none' && x.iv ? ' · 🎁 ' + esc(insTxt(x)) : ''}</small></span><span class="wrap" style="flex-wrap:nowrap"><button class="gh" onclick="tEdit('${esc(x.id)}')">Ubah</button><button class="gh d" onclick="tDel('${esc(x.id)}')">Hapus</button></span></div>`).join('')}</div>`).join('') || '<div class="cd mu c">Belum ada target bulan ini.</div>'}`;
 }
 function tEdit(id) {
@@ -146,6 +147,37 @@ ${x ? `<small class="mu">Untuk: <b>${tWho(x.u)}</b></small>` : `<small class="mu
     if (im == 'pct' && !['omzet', 'brand'].includes(ty)) return toast('Insentif % hanya untuk target omzet / merek');
     for (const u of who) emit('tgt', { op: 'put', x: { id: x ? x.id : 't' + uid(), m: x ? x.m : TM, u, ty, ref, v, im, iv: +$('#tiv', m).value || 0, min: +$('#tmin', m).value || 100 } });
     m.close(); toast(who.length > 1 ? 'Target disimpan untuk ' + who.length + ' karyawan' : 'Target disimpan'); R();
+  };
+}
+
+/* ---------- kalkulator target biaya (cost ratio) & bagi ke tim lapangan ---------- */
+function tCalc() {
+  const m = TM, wi = workInfo(m), prevA = actuals(ymPrev(m))['*'] || { omzet: 0, margin: 0 };
+  const defMargin = prevA.omzet ? Math.max(1, Math.round(prevA.margin / prevA.omzet * 1000) / 10) : 25;
+  const users = tgtUsers().filter((u) => ['sales', 'kanvas', 'spg', 'dropping'].includes(u.r));
+  const mm = modal(`<h3>🧮 Hitung &amp; bagi target biaya</h3><small class="mu">Hitung berapa margin / omzet yang harus terjual bulan ini supaya menutup biaya operasional, lalu bagikan jadi target per karyawan lapangan.</small>
+<label><small class="mu">Biaya operasional bulan ini (Rp)</small><input id="cbiaya" type="number" min="0" placeholder="mis. 15000000"></label>
+<label><small class="mu">Margin kotor rata-rata (%) <span class="mu">— bawaan dari bulan lalu, boleh diubah</span></small><input id="cmarg" type="number" min="1" max="100" value="${defMargin}"></label>
+<div class="cd" id="cres" style="padding:10px"><small class="mu">Isi biaya operasional untuk melihat hasil.</small></div>
+<b style="font-size:13px">Bagikan ke tim lapangan</b><div class="wrap tusr">${users.length ? users.map((u) => `<label class="chip"><input type="checkbox" value="${esc(u.n)}" style="width:auto" checked> ${esc(u.n)}</label>`).join('') : '<small class="mu">Belum ada karyawan dengan peran sales / kanvas / SPG / dropping.</small>'}</div>
+<label><small class="mu">Metode bagi</small><select id="cmet"><option value="rata">Rata rata per orang</option><option value="prop">Proporsional omzet bulan lalu</option></select></label>
+<button class="pr" id="cok">Buat target "Tutup biaya" untuk tim</button>`, 'w');
+  const calc = () => {
+    const biaya = num($('#cbiaya', mm).value), marg = Math.max(1, Math.min(100, num($('#cmarg', mm).value) || defMargin));
+    if (!biaya) { $('#cres', mm).innerHTML = '<small class="mu">Isi biaya operasional untuk melihat hasil.</small>'; return 0; }
+    const needOmzet = Math.round(biaya / (marg / 100));
+    $('#cres', mm).innerHTML = `<div class="tgrid"><span><small class="mu">Margin kotor dibutuhkan</small><b>${rp(biaya)}</b></span><span><small class="mu">≈ Omzet dibutuhkan</small><b>${rp(needOmzet)}</b></span><span><small class="mu">Sisa hari kerja</small><b>${wi.left} hari</b></span><span><small class="mu">Omzet / hari kerja tersisa</small><b>${wi.left ? rp(Math.round(needOmzet / wi.left)) : '-'}</b></span></div>`;
+    return biaya;
+  };
+  mm.addEventListener('input', calc); calc();
+  $('#cok', mm).onclick = () => {
+    const needMargin = calc(); if (!needMargin) return toast('Isi biaya operasional dulu');
+    const who = $$('.tusr input', mm).filter((c) => c.checked).map((c) => c.value); if (!who.length) return toast('Pilih minimal satu karyawan');
+    const met = $('#cmet', mm).value; let shares;
+    if (met == 'prop') { const pv = who.map((u) => Math.max(0, (actuals(ymPrev(m))[u] || {}).omzet || 0)), tot = pv.reduce((a, b) => a + b, 0); shares = tot > 0 ? pv.map((v) => Math.round(needMargin * v / tot)) : who.map(() => Math.round(needMargin / who.length)); }
+    else shares = who.map(() => Math.round(needMargin / who.length));
+    who.forEach((u, i) => emit('tgt', { op: 'put', x: { id: 't' + uid(), m, u, ty: 'biaya', ref: '', v: shares[i], im: 'none', iv: 0, min: 100 } }));
+    mm.close(); toast('Target "Tutup biaya" dibuat untuk ' + who.length + ' karyawan'); R();
   };
 }
 function tDel(id) { const x = S.tgt.find((y) => y.id == id); if (!x || !confirm('Hapus target ' + TGT[x.ty][1] + ' untuk ' + (x.u == '*' ? 'seluruh tim' : x.u) + '?')) return; emit('tgt', { op: 'del', id }); R(); }
