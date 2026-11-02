@@ -175,8 +175,10 @@ const Ap = {
   },
   opn(e) {
     const p = prod(e.p); if (!p || !e.delta) return;
-    p.st += e.delta; const v = Math.abs(Math.round(e.delta * p.co));
-    jr(e, 'Opname ' + p.n + ' (' + (e.delta > 0 ? '+' : '') + e.delta + ')', e.delta < 0 ? [['6105', v, 0], ['1201', 0, v]] : [['1201', v, 0], ['6105', 0, v]]);
+    p.st += e.delta; const v = Math.abs(Math.round(e.delta * p.co)), why = String(e.why || '').slice(0, 80);
+    jr(e, 'Opname ' + p.n + ' (' + (e.delta > 0 ? '+' : '') + e.delta + ')' + (why ? ' · ' + why : ''), e.delta < 0 ? [['6105', v, 0], ['1201', 0, v]] : [['1201', v, 0], ['6105', 0, v]]);
+    (S.opn = S.opn || []).push({ no: e.no, t: e.t, u: e.u, id: p.id, n: p.n, delta: e.delta, v, why });
+    if (S.opn.length > 2000) S.opn = S.opn.slice(-2000);
   },
   exp(e) { if (!AC[e.a] || !(e.amt > 0)) return; jr(e, e.d || AC[e.a], [[e.a, e.amt, 0], [payAcc(e.m || 'Tunai'), 0, e.amt]]); },
   cap(e) {

@@ -47,11 +47,31 @@ function scanFind() {
     else skuUnknown(v);
   });
 }
+const STKOUT = ['Rusak / hilang (susut)', 'Pemakaian sendiri / sampel', 'Retur ke supplier', 'Koreksi jumlah stok', 'Lainnya'];
+let STKDIR = 'in';
 function stkForm(id) {
   const p = prod(id), sups = [...new Set([...S.ap.map((a) => a.sup), ...(S.sup || []).filter((x) => !x.x).map((x) => x.n)].filter((x) => x && x != '-'))];
-  const m = modal(`<h3>Restok ${esc(p.n)}</h3><small>Stok saat ini ${p.st} · HPP rata-rata ${rp(p.co)}</small><div class="fm2"><input id="sq" type="number" min="1" placeholder="Jumlah masuk"><input id="sc" type="number" placeholder="Harga beli / unit" value="${p.co}"></div><input id="ss" list="sl" placeholder="Supplier (opsional)"><datalist id="sl">${sups.map((s) => `<option value="${esc(s)}">`).join('')}</datalist><select id="sm"><option value="Tunai">Bayar tunai (kas)</option><option value="Transfer">Bayar transfer (bank)</option><option value="Kredit">Beli kredit (utang usaha)</option></select><div id="st" style="display:none"><input id="sd" type="number" placeholder="Tempo (hari)" value="${S.set.tempo || 30}"></div><button class="pr" id="ok">Simpan</button>`);
-  $('#sm', m).onchange = (e) => { $('#st', m).style.display = e.target.value == 'Kredit' ? 'block' : 'none'; };
-  $('#ok', m).onclick = () => { const q = num($('#sq', m).value), c = num($('#sc', m).value), v = $('#sm', m).value; if (q <= 0 || c < 0) return toast('Isi jumlah dan harga beli'); emit('stk', { p: id, qty: q, cost: c, cr: v == 'Kredit', m: v == 'Kredit' ? 'Tunai' : v, sup: $('#ss', m).value.trim(), tempo: num($('#sd', m).value) || 30 }); m.close(); R(); toast('Stok masuk dicatat'); };
+  STKDIR = 'in';
+  const body = () => STKDIR == 'in'
+    ? `<div class="fm2"><input id="sq" type="number" min="1" placeholder="Jumlah masuk"><input id="sc" type="number" placeholder="Harga beli / unit" value="${p.co}"></div><input id="ss" list="sl" placeholder="Supplier (opsional)"><datalist id="sl">${sups.map((s) => `<option value="${esc(s)}">`).join('')}</datalist><select id="sm"><option value="Tunai">Bayar tunai (kas)</option><option value="Transfer">Bayar transfer (bank)</option><option value="Kredit">Beli kredit (utang usaha)</option></select><div id="st" style="display:none"><input id="sd" type="number" placeholder="Tempo (hari)" value="${S.set.tempo || 30}"></div>`
+    : `<div class="fm2"><input id="sq" type="number" min="1" max="${p.st}" placeholder="Jumlah keluar (maks ${p.st})"><select id="swy">${STKOUT.map((w) => `<option>${esc(w)}</option>`).join('')}</select></div><input id="swn" placeholder="Catatan (opsional)"><small class="mu">Nilai ${rp(p.co)}/unit otomatis dijurnal sebagai Selisih Stok — sama seperti stok opname.</small>`;
+  const m = modal(`<h3>Restok ${esc(p.n)}</h3><small>Stok saat ini ${p.st} · HPP rata-rata ${rp(p.co)}</small><div class="seg" id="sdir"><button class="${STKDIR == 'in' ? 'a' : ''}" data-d="in">📥 Stok masuk</button><button class="${STKDIR == 'out' ? 'a' : ''}" data-d="out">📤 Stok keluar</button></div><div id="sbody">${body()}</div><button class="pr" id="ok">Simpan</button>`);
+  const wire = () => {
+    if (STKDIR == 'in') { const sel = $('#sm', m); if (sel) sel.onchange = (e) => { $('#st', m).style.display = e.target.value == 'Kredit' ? 'block' : 'none'; }; }
+  };
+  wire();
+  $$('[data-d]', m).forEach((b) => (b.onclick = () => { STKDIR = b.dataset.d; $$('[data-d]', m).forEach((x) => x.classList.toggle('a', x == b)); $('#sbody', m).innerHTML = body(); wire(); }));
+  $('#ok', m).onclick = () => {
+    const q = num($('#sq', m).value);
+    if (STKDIR == 'in') {
+      const c = num($('#sc', m).value), v = $('#sm', m).value; if (q <= 0 || c < 0) return toast('Isi jumlah dan harga beli');
+      emit('stk', { p: id, qty: q, cost: c, cr: v == 'Kredit', m: v == 'Kredit' ? 'Tunai' : v, sup: $('#ss', m).value.trim(), tempo: num($('#sd', m).value) || 30 }); m.close(); R(); toast('Stok masuk dicatat');
+    } else {
+      if (q <= 0) return toast('Isi jumlah keluar'); if (q > p.st) return toast('Jumlah keluar melebihi stok saat ini (' + p.st + ')');
+      const wy = $('#swy', m).value, note = $('#swn', m).value.trim();
+      emit('opn', { p: id, delta: -q, why: note ? wy + ' · ' + note : wy }); m.close(); R(); toast('Stok keluar dicatat');
+    }
+  };
 }
 function opnameForm() {
   const L = actProds().sort((a, b) => a.n.localeCompare(b.n));
