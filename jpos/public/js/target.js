@@ -151,13 +151,32 @@ ${x ? `<small class="mu">Untuk: <b>${tWho(x.u)}</b></small>` : `<small class="mu
 }
 
 /* ---------- kalkulator target biaya (cost ratio) & bagi ke tim lapangan ---------- */
+// total gaji bulan m (dari sistem payroll: level gaji × kehadiran − potongan + lembur), untuk semua karyawan yang sudah diatur level gajinya
+function gjMonthTotal(m) {
+  if (typeof gjCalc != 'function' || !gjLock()) return 0;
+  return tgtUsers().reduce((a, u) => { const lv = gjLevel(u.n); return a + (lv.g > 0 || lv.lv ? gjCalc(u.n, m).tot : 0); }, 0);
+}
+// beban operasional LAIN (di luar Beban Gaji 6101, supaya tak dobel hitung dengan gjMonthTotal) dari Buku kas bulan m
+function opexMonthTotal(m) {
+  if (typeof kasRows != 'function') return 0;
+  const [y, mo] = m.split('-').map(Number), f = new Date(y, mo - 1, 1).getTime(), t = new Date(y, mo, 1).getTime() - 1;
+  return kasRows(f, Math.min(t, Date.now()), 'all').rows.filter((r) => r.d < 0 && r.e.l.some((x) => EXPA.includes(x[0]) && x[0] != '6101' && x[1] > x[2])).reduce((a, r) => a - r.d, 0);
+}
+// margin kotor rata-rata dari katalog (harga jual vs harga beli ke supplier/HPP), untuk toko yang belum punya riwayat penjualan bulan lalu
+function catalogMargin() {
+  const L = (S.p || []).filter((p) => !p.x && p.pr > 0); if (!L.length) return null;
+  const wsum = L.reduce((a, p) => a + Math.max(1, p.st || 0), 0), wavg = L.reduce((a, p) => a + Math.max(1, p.st || 0) * Math.max(0, (p.pr - (p.co || 0)) / p.pr), 0) / wsum;
+  return Math.max(1, Math.round(wavg * 1000) / 10);
+}
 function tCalc() {
   const m = TM, wi = workInfo(m), prevA = actuals(ymPrev(m))['*'] || { omzet: 0, margin: 0 };
-  const defMargin = prevA.omzet ? Math.max(1, Math.round(prevA.margin / prevA.omzet * 1000) / 10) : 25;
+  const cm = catalogMargin(), defMargin = prevA.omzet ? Math.max(1, Math.round(prevA.margin / prevA.omzet * 1000) / 10) : (cm || 25);
+  const gjT = gjMonthTotal(m), opT = opexMonthTotal(m), sugg = gjT + opT;
   const users = tgtUsers().filter((u) => ['sales', 'kanvas', 'spg', 'dropping'].includes(u.r));
-  const mm = modal(`<h3>🧮 Hitung &amp; bagi target biaya</h3><small class="mu">Hitung berapa margin / omzet yang harus terjual bulan ini supaya menutup biaya operasional, lalu bagikan jadi target per karyawan lapangan.</small>
-<label><small class="mu">Biaya operasional bulan ini (Rp)</small><input id="cbiaya" type="number" min="0" placeholder="mis. 15000000"></label>
-<label><small class="mu">Margin kotor rata-rata (%) <span class="mu">— bawaan dari bulan lalu, boleh diubah</span></small><input id="cmarg" type="number" min="1" max="100" value="${defMargin}"></label>
+  const mm = modal(`<h3>🧮 Hitung &amp; bagi target biaya</h3><small class="mu">Hitung berapa margin / omzet yang harus terjual bulan ini supaya menutup biaya operasional (gaji + beban lain), dihitung dari margin atas harga beli ke supplier — lalu bagikan jadi target per karyawan lapangan.</small>
+<label><small class="mu">Biaya operasional bulan ini (Rp)</small><input id="cbiaya" type="number" min="0" placeholder="mis. 15000000" value="${sugg || ''}"></label>
+${sugg ? `<small class="mu">💡 Saran dari data Anda: gaji ${rp(gjT)} (sistem payroll) + beban operasional lain ${rp(opT)} (Buku kas, di luar gaji) = <b>${rp(sugg)}</b>. Angka di atas bisa diubah.</small>` : `<small class="mu">Belum ada data gaji (atur dulu di menu Gaji) atau beban operasional (Buku kas) bulan ini untuk dijadikan saran — isi manual dulu.</small>`}
+<label><small class="mu">Margin kotor rata-rata (%) <span class="mu">— ${prevA.omzet ? 'bawaan dari penjualan bulan lalu' : cm ? 'bawaan dari margin harga jual vs harga beli supplier di katalog produk' : 'bawaan 25%'}, boleh diubah</span></small><input id="cmarg" type="number" min="1" max="100" value="${defMargin}"></label>
 <div class="cd" id="cres" style="padding:10px"><small class="mu">Isi biaya operasional untuk melihat hasil.</small></div>
 <b style="font-size:13px">Bagikan ke tim lapangan</b><div class="wrap tusr">${users.length ? users.map((u) => `<label class="chip"><input type="checkbox" value="${esc(u.n)}" style="width:auto" checked> ${esc(u.n)}</label>`).join('') : '<small class="mu">Belum ada karyawan dengan peran sales / kanvas / SPG / dropping.</small>'}</div>
 <label><small class="mu">Metode bagi</small><select id="cmet"><option value="rata">Rata rata per orang</option><option value="prop">Proporsional omzet bulan lalu</option></select></label>
