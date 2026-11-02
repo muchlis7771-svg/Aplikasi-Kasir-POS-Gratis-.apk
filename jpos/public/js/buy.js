@@ -90,7 +90,7 @@ function poDetail(id) {
   const p = (S.po || []).find((x) => x.id == id); if (!p) return; const s = supOf(p.sup), can2 = p.st == 'dipesan' || p.st == 'sebagian';
   const m = modal(`<div class="row" style="margin:0"><h3 style="margin:0">${esc(p.no)}</h3><span class="chip ${POST[p.st][1]}">${POST[p.st][0]}</span></div><small class="mu">${esc(p.sn || '-')} · ${tstr(p.t)} · ${esc(p.u)}${p.eta ? ' · tiba ' + dstr(p.eta) : ''}</small>
 <div class="ov"><table><tr><th>Barang<th class="n">Pesan<th class="n">Terima<th class="n">Harga</tr>${p.L.map((l) => `<tr><td>${esc(l.n)}<td class="n">${l.q}<td class="n ${l.rq >= l.q ? 'gr' : l.rq ? 'or' : ''}">${l.rq}<td class="n">${rp(l.c)}</tr>`).join('')}</table></div>
-${row('Total pesanan', rp(poTot(p)), 'bo')}${p.rc && p.rc.length ? '<b>Riwayat penerimaan</b>' + p.rc.map((r) => `<div class="row"><small>${tstr(r.t)} · ${esc(r.u)}${r.inv ? ' · faktur ' + esc(r.inv) : ''} · ${esc(r.pay)}${r.ship ? ' · ongkir ' + rp(r.ship) : ''}</small><b>${rp(r.tot)}</b></div>`).join('') : ''}${p.note ? `<small>Catatan: ${esc(p.note)}</small>` : ''}
+${row('Total pesanan', rp(poTot(p)), 'bo')}${p.rc && p.rc.length ? '<b>Riwayat penerimaan</b>' + p.rc.map((r) => `<div class="row"><small>${tstr(r.t)} · ${esc(r.u)}${r.inv ? ' · faktur ' + esc(r.inv) : ''} · ${esc(r.pay)}${r.ship ? ' · ongkir ' + rp(r.ship) : ''}${r.disc ? ' · diskon supplier ' + rp(r.disc) : ''}${r.bonus ? ' · ' + r.bonus + ' bonus barang' : ''}</small><b>${rp(r.tot)}</b></div>`).join('') : ''}${p.note ? `<small>Catatan: ${esc(p.note)}</small>` : ''}
 <div class="wrap">${can2 ? '<button class="pr" id="b1" style="flex:1">📥 Terima barang</button>' : ''}<button class="gh a" id="b2">Bagikan PO</button>${s && s.ph ? `<a class="gh" style="text-decoration:none;color:inherit" href="https://wa.me/${esc(waNum(s.ph))}?text=${encodeURIComponent(poText(p))}" target="_blank" rel="noopener">Kirim WA</a>` : ''}${p.st == 'dipesan' ? '<button class="gh" id="b3">Edit</button><button class="gh d" id="b4">Batalkan</button>' : ''}<button class="gh" id="bx">Tutup</button></div>`, 'w');
   const g = (i) => $('#' + i, m);
   if (g('b1')) g('b1').onclick = () => { m.close(); rcvForm(id); };
@@ -101,23 +101,43 @@ ${row('Total pesanan', rp(poTot(p)), 'bo')}${p.rc && p.rc.length ? '<b>Riwayat p
 }
 
 /* ---------- terima barang (bisa sebagian) ---------- */
+let RCB = []; // barang bonus dari supplier (gratis, boleh di luar daftar PO) untuk sesi terima barang berjalan
 function rcvForm(id) {
   const p = (S.po || []).find((x) => x.id == id); if (!p) return; const s = supOf(p.sup), open = p.L.filter((l) => l.rq < l.q);
+  RCB = [];
   const m = modal(`<h3>Terima barang · ${esc(p.no)}</h3><small class="mu">Isi jumlah yang benar-benar datang. Harga bisa disesuaikan dengan faktur supplier.</small>
-${open.map((l, i) => `<div class="cd" style="padding:10px"><b>${esc(l.n)}</b> <small class="mu">sisa ${l.q - l.rq} dari ${l.q}</small><div class="fm2"><label><small class="mu">Datang</small><input type="number" min="0" max="${l.q - l.rq}" id="rq${i}" value="${l.q - l.rq}"></label><label><small class="mu">Harga /unit</small><input type="number" id="rc${i}" value="${l.c}"></label></div></div>`).join('')}
+${open.map((l, i) => `<div class="cd" style="padding:10px"><b>${esc(l.n)}</b> <small class="mu">sisa ${l.q - l.rq} dari ${l.q} · HPP sekarang ${rp((prod(l.p) || {}).co || 0)}</small><div class="fm2"><label><small class="mu">Datang</small><input type="number" min="0" max="${l.q - l.rq}" id="rq${i}" value="${l.q - l.rq}"></label><label><small class="mu">Harga /unit</small><input type="number" id="rc${i}" value="${l.c}"></label></div></div>`).join('')}
+<div id="ravgwrap" style="display:none"></div>
+<div class="cd" style="padding:10px"><b>🎁 Diskon dari supplier (opsional)</b><div class="fm2" style="margin-top:6px"><input id="rdpct" type="number" min="0" max="100" placeholder="Diskon % dari subtotal"><input id="rdrp" type="number" min="0" placeholder="Diskon Rp tambahan"></div><small class="mu">Dibagi ke semua barang proporsional, menurunkan HPP.</small></div>
+<div class="cd" style="padding:10px"><b>🎁 Bonus barang dari supplier (opsional)</b><div id="rbonlist"></div><button class="gh" id="rbadd" style="margin-top:6px">+ Barang bonus</button></div>
 <div class="fm2"><input id="rinv" placeholder="No. faktur supplier"><input id="rship" type="number" placeholder="Ongkir / biaya lain"></div>
 <small class="mu">Ongkir/biaya lain otomatis masuk ke HPP produk — dibagi ke semua barang yang diterima, porsi lebih besar ke barang yang margin-nya (selisih harga jual − harga beli) lebih besar, supaya barang bermargin tipis tidak ikut terbebani berat.</small>
 <select id="rpay"><option value="Tunai">Bayar tunai (kas)</option><option value="Transfer">Bayar transfer (bank)</option><option value="Kredit">Kredit — masuk utang usaha</option></select>
 <div id="rkr" style="display:none" class="fm2"><input id="rdp" type="number" placeholder="DP dibayar (opsional)"><select id="rdm"><option>Tunai</option><option>Transfer</option></select><input id="rtp" type="number" placeholder="Tempo (hari)" value="${p.tempo || (s && s.tempo) || 30}" style="grid-column:1/3"></div>
 <div class="row"><span>Total diterima</span><b id="rtot">-</b></div><button class="pr" id="ok">Terima & masukkan ke stok</button>`, 'w');
-  const calcT = () => { let t = 0; open.forEach((l, i) => { t += Math.min(num($('#rq' + i, m).value), l.q - l.rq) * num($('#rc' + i, m).value); }); t += num($('#rship', m).value); $('#rtot', m).textContent = rp(t); return t; };
+  const prodOpts = () => actProds().map((x) => `<option value="${x.id}">${esc(x.n)}</option>`).join('');
+  const drawBon = () => { $('#rbonlist', m).innerHTML = RCB.map((b, i) => `<div class="fm2" style="grid-template-columns:1fr 70px 30px;margin:4px 0"><select data-bi="${i}" data-bf="p">${prodOpts()}</select><input type="number" min="1" value="${b.q}" data-bi="${i}" data-bf="q"><button class="gh d" data-bdel="${i}">✕</button></div>`).join(''); $$('#rbonlist select', m).forEach((el, i) => (el.value = RCB[i].p)); };
+  $('#rbadd', m).onclick = () => { const f = actProds()[0]; if (!f) return toast('Belum ada produk'); RCB.push({ p: f.id, q: 1 }); drawBon(); };
+  m.addEventListener('change', (e) => { const bi = e.target.dataset.bi, f = e.target.dataset.bf; if (bi == null) return; if (f == 'p') RCB[+bi].p = e.target.value; else if (f == 'q') RCB[+bi].q = Math.max(1, num(e.target.value)); });
+  m.addEventListener('click', (e) => { if (e.target.dataset.bdel != null) { RCB.splice(+e.target.dataset.bdel, 1); drawBon(); } });
+  const calcT = () => {
+    let t = 0; open.forEach((l, i) => { t += Math.min(num($('#rq' + i, m).value), l.q - l.rq) * num($('#rc' + i, m).value); });
+    const dPct = num($('#rdpct', m).value), dRp = num($('#rdrp', m).value); t = Math.max(0, t - Math.round(t * dPct / 100) - dRp);
+    t += num($('#rship', m).value); $('#rtot', m).textContent = rp(t);
+    const wrap = $('#ravgwrap', m); let hi = null;
+    open.forEach((l, i) => { const pr = prod(l.p), c = num($('#rc' + i, m).value); if (pr && c > pr.co && pr.co > 0 && !hi) hi = { n: pr.n, c, co: pr.co }; });
+    if (hi) { wrap.style.display = 'block'; wrap.innerHTML = `<small class="or">⚠ Ada harga beli naik dari HPP sekarang (mis. ${esc(hi.n)}: ${rp(hi.c)} vs ${rp(hi.co)}).</small><select id="ravg"><option value="w">Rata-rata tertimbang dengan stok lama (bawaan)</option><option value="new">Pakai harga terbaru saja sebagai HPP baru</option></select>`; }
+    else wrap.style.display = 'none';
+    return t;
+  };
   m.addEventListener('input', calcT); calcT();
   $('#rpay', m).onchange = (e) => { $('#rkr', m).style.display = e.target.value == 'Kredit' ? 'grid' : 'none'; };
   $('#ok', m).onclick = () => {
     const L = open.map((l, i) => ({ p: l.p, q: Math.min(num($('#rq' + i, m).value), l.q - l.rq), c: num($('#rc' + i, m).value) })).filter((x) => x.q > 0);
     if (!L.length) return toast('Isi jumlah yang datang'); const k = $('#rpay', m).value == 'Kredit';
     const prevCo = {}; L.forEach((x) => (prevCo[x.p] = (prod(x.p) || {}).co || 0)); // HPP sebelum diterima → dipakai mendeteksi diskon supplier (beli lebih murah dari biasanya)
-    emit('rcv', { po: id, L, ship: num($('#rship', m).value), inv: $('#rinv', m).value.trim(), pay: $('#rpay', m).value, m: k ? $('#rdm', m).value : $('#rpay', m).value, dp: k ? num($('#rdp', m).value) : 0, tempo: k ? num($('#rtp', m).value) || 30 : 0 });
+    const avgSel = $('#ravg', m);
+    emit('rcv', { po: id, L, ship: num($('#rship', m).value), inv: $('#rinv', m).value.trim(), pay: $('#rpay', m).value, m: k ? $('#rdm', m).value : $('#rpay', m).value, dp: k ? num($('#rdp', m).value) : 0, tempo: k ? num($('#rtp', m).value) || 30 : 0, avg: avgSel ? avgSel.value : 'w', discPct: num($('#rdpct', m).value), discRp: num($('#rdrp', m).value), bonus: RCB.filter((b) => b.p && b.q > 0) });
     m.close(); toast('Barang diterima — stok & jurnal diperbarui'); R();
     const promo = L.map((x) => { const p = prod(x.p); if (!p) return null; const save = prevCo[x.p] - x.c; return save > 0 ? { id: x.p, n: p.n, save, pr: p.pr, co: p.co } : null; }).filter(Boolean);
     if (promo.length) promoPass(promo);

@@ -78,6 +78,25 @@ function camSnap(v, label, maxW, budget) {
   }
   return out;
 }
+// foto biasa (tanpa stempel waktu/nama) — dipakai untuk foto produk dkk, langsung dari kamera
+function camPhoto(facing, max) {
+  facing = facing || 'environment'; max = max || 360;
+  return new Promise((res) => {
+    const m = modal(`<h3>Ambil foto</h3><video id="cpv" playsinline muted style="width:100%;border-radius:14px;background:#000;max-height:58vh;object-fit:cover"></video><div class="fm2"><button class="pr" id="cpk">📸 Ambil foto</button><button class="gh" id="cpx">Batal</button></div>`);
+    let stream = null, done = false; const end = (v) => { if (done) return; done = true; if (stream) stream.getTracks().forEach((t) => t.stop()); m.remove(); res(v); };
+    $('#cpx', m).onclick = () => end(null); m.onclose = () => end(null);
+    (async () => {
+      try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: facing }, width: { ideal: 1280 }, height: { ideal: 1280 } }, audio: false }); await camTune(stream); const v = $('#cpv', m); v.srcObject = stream; await v.play(); }
+      catch (e) { toast('Kamera tidak bisa dibuka: ' + (e.message || e), 4000); end(null); }
+    })();
+    $('#cpk', m).onclick = () => {
+      const v = $('#cpv', m); if (!v.videoWidth) return toast('Kamera belum siap');
+      const W = Math.min(max, v.videoWidth), H = Math.round(W * v.videoHeight / v.videoWidth), c = document.createElement('canvas'); c.width = W; c.height = H;
+      c.getContext('2d').drawImage(v, 0, 0, W, H);
+      end(c.toDataURL('image/jpeg', 0.8));
+    };
+  });
+}
 async function camTune(stream) { try { const t = stream.getVideoTracks()[0], cp = t.getCapabilities ? t.getCapabilities() : {}, adv = []; if (cp.focusMode && cp.focusMode.includes('continuous')) adv.push({ focusMode: 'continuous' }); if (cp.exposureMode && cp.exposureMode.includes('continuous')) adv.push({ exposureMode: 'continuous' }); if (cp.whiteBalanceMode && cp.whiteBalanceMode.includes('continuous')) adv.push({ whiteBalanceMode: 'continuous' }); if (adv.length) await t.applyConstraints({ advanced: adv }); } catch (e) { } }
 function selfie(label, facing) {
   facing = facing || 'user';
