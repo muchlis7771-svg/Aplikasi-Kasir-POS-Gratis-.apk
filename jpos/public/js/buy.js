@@ -115,9 +115,25 @@ ${open.map((l, i) => `<div class="cd" style="padding:10px"><b>${esc(l.n)}</b> <s
   $('#ok', m).onclick = () => {
     const L = open.map((l, i) => ({ p: l.p, q: Math.min(num($('#rq' + i, m).value), l.q - l.rq), c: num($('#rc' + i, m).value) })).filter((x) => x.q > 0);
     if (!L.length) return toast('Isi jumlah yang datang'); const k = $('#rpay', m).value == 'Kredit';
+    const prevCo = {}; L.forEach((x) => (prevCo[x.p] = (prod(x.p) || {}).co || 0)); // HPP sebelum diterima → dipakai mendeteksi diskon supplier (beli lebih murah dari biasanya)
     emit('rcv', { po: id, L, ship: num($('#rship', m).value), inv: $('#rinv', m).value.trim(), pay: $('#rpay', m).value, m: k ? $('#rdm', m).value : $('#rpay', m).value, dp: k ? num($('#rdp', m).value) : 0, tempo: k ? num($('#rtp', m).value) || 30 : 0 });
     m.close(); toast('Barang diterima — stok & jurnal diperbarui'); R();
+    const promo = L.map((x) => { const p = prod(x.p); if (!p) return null; const save = prevCo[x.p] - x.c; return save > 0 ? { id: x.p, n: p.n, save, pr: p.pr, co: p.co } : null; }).filter(Boolean);
+    if (promo.length) promoPass(promo);
   };
+}
+/* ---------- teruskan diskon supplier (beli lebih murah dari biasanya) ke harga jual — sebagian atau penuh ---------- */
+function promoPass(items) {
+  const mm = modal(`<h3>🎁 Diskon dari supplier terdeteksi</h3><small class="mu">Harga beli kali ini lebih murah dari HPP rata-rata sebelumnya (mis. promo "beli 1 gratis 1" dari pabrik/distributor). Teruskan sebagian atau semua hematnya ke harga jual Anda?</small>
+${items.map((it, i) => `<div class="cd" style="padding:10px"><b>${esc(it.n)}</b><br><small class="mu">Hemat ${rp(it.save)} / unit dari HPP biasanya · harga jual sekarang ${rp(it.pr)}</small>
+<div class="wrap" style="margin-top:6px">${[0, 25, 50, 75, 100].map((p) => `<button class="gh ${p == 0 ? 'on' : ''}" data-pp="${i}" data-pct="${p}">${p}%</button>`).join('')}<input type="number" min="0" max="100" placeholder="Custom %" style="width:84px" data-ppc="${i}"></div>
+<small class="mu" id="ppr${i}">Harga jual tetap ${rp(it.pr)} (hemat jadi tambahan margin Anda)</small></div>`).join('')}
+<button class="pr" id="ppok">Terapkan</button><button class="gh" onclick="this.closest('.md').close()">Lewati, jadikan margin saja</button>`, 'w');
+  const sel = items.map(() => 0);
+  const upd = (i) => { const it = items[i], pct = sel[i], np = Math.max(it.co, Math.round(it.pr - it.save * pct / 100)); $('#ppr' + i, mm).innerHTML = pct ? `Harga jual baru <b class="gr">${rp(np)}</b> — turun ${rp(it.pr - np)}` : `Harga jual tetap ${rp(it.pr)} (hemat jadi tambahan margin Anda)`; };
+  $$('[data-pp]', mm).forEach((b) => (b.onclick = () => { const i = +b.dataset.pp; sel[i] = +b.dataset.pct; $$('[data-ppc="' + i + '"]', mm).forEach((x) => (x.value = '')); $$('[data-pp="' + i + '"]', mm).forEach((x) => x.classList.toggle('on', x == b)); upd(i); }));
+  $$('[data-ppc]', mm).forEach((inp) => (inp.oninput = () => { const i = +inp.dataset.ppc; sel[i] = Math.max(0, Math.min(100, +inp.value || 0)); $$('[data-pp="' + i + '"]', mm).forEach((x) => x.classList.remove('on')); upd(i); }));
+  $('#ppok', mm).onclick = () => { let n = 0; items.forEach((it, i) => { if (!sel[i]) return; const np = Math.max(it.co, Math.round(it.pr - it.save * sel[i] / 100)); if (np != it.pr) { emit('pu', { p: { id: it.id, pr: np } }); n++; } }); mm.close(); toast(n ? 'Harga jual ' + n + ' produk diperbarui' : 'Tidak ada perubahan harga'); R(); };
 }
 function expPO() {
   if (!window.XLSX) return toast('Pustaka Excel belum termuat');
