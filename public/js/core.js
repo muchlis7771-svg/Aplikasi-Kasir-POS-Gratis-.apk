@@ -107,6 +107,8 @@ const kdOk = (v, arr, self) => /^[A-Za-z0-9-]{2,20}$/.test(String(v || '')) && !
 function kdFill() { for (const [arr, pre] of [[S.p, 'BRG'], [S.c, 'OT']]) for (const x of arr) if (!x.kd) x.kd = nextKd(pre, arr); }
 const cust = (id) => S.c.find((x) => x.id == id);
 const payAcc = (m) => (m == 'Tunai' ? '1101' : '1102');
+// pemberitahuan penting untuk dashboard semua karyawan & pemilik (berubah → langsung terlihat semua orang via sinkron)
+function notif(e, kind, msg) { (S.notif = S.notif || []).unshift({ no: e.no, t: e.t, u: e.u, r: e.r, kind, msg: String(msg).slice(0, 200) }); if (S.notif.length > 300) S.notif.length = 300; }
 function jr(e, d, l) {
   l = l.filter((x) => x[1] || x[2]);
   const dr = l.reduce((a, x) => a + x[1], 0), cr = l.reduce((a, x) => a + x[2], 0);
@@ -179,6 +181,7 @@ const Ap = {
     jr(e, 'Opname ' + p.n + ' (' + (e.delta > 0 ? '+' : '') + e.delta + ')' + (why ? ' · ' + why : ''), e.delta < 0 ? [['6105', v, 0], ['1201', 0, v]] : [['1201', v, 0], ['6105', 0, v]]);
     (S.opn = S.opn || []).push({ no: e.no, t: e.t, u: e.u, id: p.id, n: p.n, delta: e.delta, v, why });
     if (S.opn.length > 2000) S.opn = S.opn.slice(-2000);
+    if (v >= 50000 || Math.abs(e.delta) >= 10) notif(e, 'stok', (e.delta < 0 ? '📤 Stok keluar' : '📥 Stok masuk (opname)') + ' ' + p.n + ' ' + (e.delta > 0 ? '+' : '') + e.delta + ' (' + rp(v) + ')' + (why ? ' · ' + why : '') + ' oleh ' + e.u);
   },
   exp(e) { if (!AC[e.a] || !(e.amt > 0)) return; jr(e, e.d || AC[e.a], [[e.a, e.amt, 0], [payAcc(e.m || 'Tunai'), 0, e.amt]]); },
   cap(e) {
@@ -189,12 +192,15 @@ const Ap = {
   jm(e) { if (!Array.isArray(e.l) || !e.l.every((x) => AC[x[0]])) return; jr(e, e.d || 'Jurnal manual', e.l.map((x) => [String(x[0]), Math.abs(+x[1] || 0), Math.abs(+x[2] || 0)])); },
   pu(e) {
     const q = e.p || {}; if (!/^[\w-]{1,40}$/.test(String(q.id))) return; let p = prod(q.id);
+    const isNew = !p, prevPr = p ? p.pr : null;
     if (!p) {
       p = { id: q.id, n: '', c: 'Umum', pr: 0, co: 0, st: 0, sku: '', tiers: [], min: 10 }; p.kd = kdOk(q.kd, S.p, p) ? String(q.kd).toUpperCase() : nextKd('BRG', S.p); S.p.push(p);
       const s0 = Math.max(0, Math.round(+q.s0 || 0)); p.co = Math.round(+q.co) || 0;
       if (s0 > 0) { p.st = s0; jr(e, 'Saldo awal persediaan ' + q.n, [['1201', s0 * p.co, 0], ['3101', 0, s0 * p.co]]); }
     } else if ('co' in q) p.co = Math.round(+q.co) || 0;
     for (const f of ['n', 'c', 'b', 'pr', 'sku', 'img', 'tiers', 'min', 'x', 'opr', 'u', 'on']) if (f in q) p[f] = q[f];
+    if (isNew) notif(e, 'produk', '🆕 Produk baru "' + p.n + '" ditambahkan ' + e.u);
+    else if ('pr' in q && prevPr != null && prevPr != p.pr) notif(e, 'harga', '💲 Harga ' + p.n + ' diubah ' + e.u + ': ' + rp(prevPr) + ' → ' + rp(p.pr));
   },
   cu(e) {
     const q = e.c || {}; if (!/^[\w-]{1,40}$/.test(String(q.id))) return; let c = cust(q.id);
@@ -225,17 +231,26 @@ const Ap = {
   },
   tsk(e) { S.tsk = S.tsk || []; if (!/^\d{4}-\d\d-\d\d$/.test(e.d) || S.tsk.some((x) => x.u == e.u && x.d == e.d && x.id == e.id)) return; S.tsk.push({ no: e.no, u: e.u, t: e.t, d: e.d, id: String(e.id || ''), n: String(e.n || '').slice(0, 80), ph: e.ph }); },
   // paket bundling / bonus barang antar produk (diatur pemilik, dipakai cepat saat jual)
+  // promo / paket bundling / bonus barang / trade promo: admin mengajukan (pending, butuh persetujuan pemilik), pemilik langsung aktif.
+  // POS mendeteksi & menerapkan otomatis dari isi keranjang — tidak ada tombol manual lagi.
   bdl(e) {
     if (e.r != 'owner' && e.r != 'admin') return;
-    const list = Array.isArray(e.list) ? e.list : [];
-    S.bundle = list.filter((b) => b && String(b.n || '').trim() && Array.isArray(b.items) && b.items.length).slice(0, 60).map((b) => ({
-      id: /^[\w-]{1,20}$/.test(b.id) ? b.id : 'bd' + uid().slice(0, 8),
-      n: String(b.n).slice(0, 60),
-      items: b.items.filter((i) => i && prod(i.id)).slice(0, 10).map((i) => ({ id: i.id, q: Math.max(1, Math.round(+i.q) || 1) })),
-      mode: b.mode == 'pct' ? 'pct' : 'rp',
-      val: Math.max(0, Math.round(+b.val) || 0),
-      on: b.on !== false,
-    }));
+    S.bundle = S.bundle || [];
+    if (e.op == 'del') { const b = S.bundle.find((x) => x.id == e.id); if (!b) return; if (e.r != 'owner' && !(e.r == 'admin' && b.st == 'pending' && b.by == e.u)) return; S.bundle = S.bundle.filter((x) => x.id != e.id); return; }
+    if (e.op == 'approve' || e.op == 'reject') {
+      if (e.r != 'owner') return; const b = S.bundle.find((x) => x.id == e.id); if (!b || b.st != 'pending') return;
+      if (e.op == 'reject') { S.bundle = S.bundle.filter((x) => x.id != e.id); notif(e, 'promo', '❌ Promo "' + b.n + '" diajukan ' + b.by + ' ditolak pemilik'); return; }
+      b.st = 'ok'; notif(e, 'promo', '✅ Promo "' + b.n + '" disetujui pemilik, sekarang aktif'); return;
+    }
+    const d = e.bundle || {}; if (!String(d.n || '').trim() || !Array.isArray(d.items) || !d.items.length) return;
+    const items = d.items.filter((i) => i && prod(i.id)).slice(0, 10).map((i) => ({ id: i.id, q: Math.max(1, Math.round(+i.q) || 1) })); if (!items.length) return;
+    const bonus = (Array.isArray(d.bonus) ? d.bonus : []).filter((i) => i && prod(i.id)).slice(0, 5).map((i) => ({ id: i.id, q: Math.max(1, Math.round(+i.q) || 1) }));
+    const id = /^[\w-]{1,20}$/.test(d.id) ? d.id : 'bd' + uid().slice(0, 8), existing = S.bundle.find((x) => x.id == id);
+    const b = { id, n: String(d.n).slice(0, 60), items, bonus, mode: d.mode == 'pct' ? 'pct' : 'rp', val: Math.max(0, Math.round(+d.val) || 0), on: d.on !== false, st: e.r == 'owner' ? 'ok' : 'pending', by: existing ? existing.by : e.u };
+    if (S.bundle.length >= 60 && !existing) return;
+    if (existing) Object.assign(existing, b); else S.bundle.push(b);
+    if (e.r == 'owner') notif(e, 'promo', '🎁 Promo "' + b.n + '" dibuat/diubah pemilik, langsung aktif');
+    else notif(e, 'promo', '⏳ ' + e.u + ' mengajukan promo "' + b.n + '" — menunggu persetujuan pemilik');
   },
   shf(e) {
     S.ses = S.ses || [];
@@ -316,6 +331,7 @@ const Ap = {
     po.st = po.L.every((l) => l.rq >= l.q) ? 'diterima' : 'sebagian';
     if (ar > 0) S.ap.push({ id: e.no, t: e.t, sup: po.sn || '-', d: 'PO ' + po.no + (e.inv ? ' · faktur ' + e.inv : ''), amt: ar, pa: 0, due: e.t + (+e.tempo || po.tempo || 30) * 864e5, po: po.id, inv: e.inv || '' });
     jr(e, 'Terima barang PO ' + po.no + ' · ' + (po.sn || '') + (disc ? ' (diskon supplier ' + disc.toLocaleString('id-ID') + ')' : ''), [['1201', tot, 0], [payAcc(e.m || 'Tunai'), 0, paid], ['2102', 0, ar]]);
+    if (disc || nBonus) notif(e, 'beli', '📥 Terima PO ' + po.no + (po.sn ? ' · ' + po.sn : '') + (disc ? ' · diskon supplier ' + rp(disc) : '') + (nBonus ? ' · ' + nBonus + ' bonus barang' : '') + ' oleh ' + e.u);
   },
   dlv(e) {
     const s = S.sales.find((x) => x.no == e.sale);
@@ -365,6 +381,20 @@ function emit(k, data, t, by) {
 }
 
 /* ============ penjualan ============ */
+// promo aktif (mode rp/pct) yang terpenuhi oleh isi keranjang saat ini — otomatis terdeteksi dari produk+qty, tanpa tombol manual
+function bundleAutoDisc(items) {
+  const qty = {}; items.forEach((i) => { if (!i.free) qty[i.id] = (qty[i.id] || 0) + i.q; });
+  let disc = 0; const applied = [];
+  for (const b of S.bundle || []) {
+    if (b.on === false || b.st != 'ok' || !(b.val > 0)) continue;
+    let mult = Infinity; for (const it of b.items) { const have = qty[it.id] || 0; mult = Math.min(mult, Math.floor(have / it.q)); }
+    if (!isFinite(mult) || mult <= 0) continue;
+    const normTot = b.items.reduce((a, it) => { const p = prod(it.id); return a + (p ? p.pr * it.q : 0); }, 0) * mult;
+    const d = b.mode == 'pct' ? Math.round(normTot * b.val / 100) : b.val * mult;
+    if (d > 0) { disc += d; applied.push({ n: b.n, mult, d }); }
+  }
+  return { disc, applied };
+}
 function calc(items, cd, cdRp) {
   let sub = 0, ldt = 0, net = 0;
   const lines = items.map((i) => {
@@ -375,8 +405,8 @@ function calc(items, cd, cdRp) {
     sub += gross; ldt += dd; net += gross - dd;
     return { id: p.id, n: p.n, q, p: price, dd, hc: p.co, tier: tr ? tr.d : '', ld: i.ld || '' };
   });
-  const cdPct = Math.round(net * (1 - cfac(cd))), cdFlat = Math.max(0, Math.min(Math.round(+cdRp) || 0, net - cdPct)), cdA = cdPct + cdFlat, disc = ldt + cdA, tax = Math.round((net - cdA) * (S.set.ppn || 0) / 100);
-  return { lines, sub, ldt, cdA, cdPct, cdFlat, disc, tax, tot: sub - disc + tax, hpp: lines.reduce((a, l) => a + l.hc * l.q, 0) };
+  const cdPct = Math.round(net * (1 - cfac(cd))), bd = bundleAutoDisc(items), cdFlat = Math.max(0, Math.min((Math.round(+cdRp) || 0) + bd.disc, net - cdPct)), cdA = cdPct + cdFlat, disc = ldt + cdA, tax = Math.round((net - cdA) * (S.set.ppn || 0) / 100);
+  return { lines, sub, ldt, cdA, cdPct, cdFlat, bdlApplied: bd.applied, bdlDisc: bd.disc, disc, tax, tot: sub - disc + tax, hpp: lines.reduce((a, l) => a + l.hc * l.q, 0) };
 }
 const vanKey = (u) => String(u || '').toLowerCase();
 function vanAdd(u, id, q) { S.van = S.van || {}; const m = (S.van[vanKey(u)] = S.van[vanKey(u)] || {}); m[id] = Math.max(0, (m[id] || 0) + q); if (!m[id]) delete m[id]; }

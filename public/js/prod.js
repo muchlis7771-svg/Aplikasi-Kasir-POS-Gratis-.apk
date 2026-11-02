@@ -10,7 +10,7 @@ VW.prod = () => {
   const t = prQ.toLowerCase(), L = actProds().filter((p) => !t || p.n.toLowerCase().includes(t) || String(p.sku || '').toLowerCase().includes(t) || String(p.kd || '').toLowerCase().includes(t) || p.c.toLowerCase().includes(t));
   const low = actProds().filter((p) => p.st <= (p.min ?? 10));
   return `${kpi([['Jumlah produk', actProds().length], ['Nilai stok layak jual', rp(stockValue())], ['Stok menipis', low.length], ['Bad stock', badUnits() + ' unit · ' + rp(badValue())]])}
-<div class="cd">${can('prodEdit') ? `<div class="wrap" style="margin-bottom:10px"><button class="gh pri" onclick="prodForm()">+ Produk</button><button class="gh" onclick="scanFind()">▣ Scan barcode</button><button class="gh" onclick="bcOpen()">🏷️ Cetak barcode</button><button class="gh" onclick="opnameForm()">Opname stok</button><button class="gh" onclick="bundleAtur()">🎁 Paket bundling</button>${['owner', 'admin'].includes(U.r) && can('retur') ? '<button class="gh" onclick="RTO.tab=\'bad\';go(\'retur\')">🗑️ Bad stock & pemusnahan</button>' : ''}${pkgHas('xls') && can('xls') ? '<button class="gh" onclick="xlsMenu(\'stok\')">📊 Excel</button>' : '<label class="gh">Impor Excel/CSV<input type="file" accept=".xlsx,.xls,.csv,.txt" onchange="impProd(this)"></label><button class="gh" onclick="tplProd()">Template</button>'}${pkgHas('beli') && can('beli') ? '<button class="gh" onclick="go(\'beli\')">📥 Pembelian</button>' : ''}</div>` : '<small class="mu">Mode lihat saja</small>'}
+<div class="cd">${can('prodEdit') ? `<div class="wrap" style="margin-bottom:10px"><button class="gh pri" onclick="prodForm()">+ Produk</button><button class="gh" onclick="scanFind()">▣ Scan barcode</button><button class="gh" onclick="bcOpen()">🏷️ Cetak barcode</button><button class="gh" onclick="opnameForm()">Opname stok</button><button class="gh" onclick="bundleAtur()">🎁 Promo & bundling${U.r == 'owner' && (S.bundle || []).some((b) => b.st == 'pending') ? ' <em class="hbdg" style="position:static;display:inline-grid">' + (S.bundle || []).filter((b) => b.st == 'pending').length + '</em>' : ''}</button>${['owner', 'admin'].includes(U.r) && can('retur') ? '<button class="gh" onclick="RTO.tab=\'bad\';go(\'retur\')">🗑️ Bad stock & pemusnahan</button>' : ''}${pkgHas('xls') && can('xls') ? '<button class="gh" onclick="xlsMenu(\'stok\')">📊 Excel</button>' : '<label class="gh">Impor Excel/CSV<input type="file" accept=".xlsx,.xls,.csv,.txt" onchange="impProd(this)"></label><button class="gh" onclick="tplProd()">Template</button>'}${pkgHas('beli') && can('beli') ? '<button class="gh" onclick="go(\'beli\')">📥 Pembelian</button>' : ''}</div>` : '<small class="mu">Mode lihat saja</small>'}
 <input placeholder="Cari produk / kode item / SKU / kategori" value="${esc(prQ)}" onchange="prQ=this.value;R()"><div class="plist">${L.map((p) => { const lo = p.st <= (p.min ?? 10); return `<div class="pitem"><div class="ph1"><b>${esc(p.n)}</b>${p.kd ? '<span class="kd">' + esc(p.kd) + '</span>' : ''}</div><small class="mu">${esc(p.c)}${p.b ? ' · ' + esc(p.b) : ''}${p.sku ? ' · SKU ' + esc(p.sku) : ''}</small>${p.tiers && p.tiers.length ? `<small class="ptier">Grosir: ${esc(tierTxt(p))}</small>` : ''}
 <div class="pnums"><span><small>Harga jual</small><b>${rp(p.pr)}</b></span><span><small>HPP</small><b>${rp(p.co)}</b></span><span><small>Stok</small><b class="${lo ? 'rd' : 'gr'}">${p.st.toLocaleString('id-ID')}${p.u ? ' <i>' + esc(p.u) + '</i>' : ''}</b></span><span><small>Bad stock</small><b class="${p.bad ? 'rd' : 'mu'}">${(p.bad || 0).toLocaleString('id-ID')}</b></span></div>
 ${typeof vanAll == 'function' && vanAll(p.id) ? `<small class="mu">🏬 Gudang ${(p.st - vanAll(p.id)).toLocaleString('id-ID')} · 🚚 di mobil kanvas ${vanAll(p.id).toLocaleString('id-ID')}</small>` : ''}${lo ? `<small class="rd">⚠ Stok menipis (minimal ${p.min ?? 10})</small>` : ''}${can('prodEdit') ? `<div class="pact"><button class="gh" onclick="prodForm('${p.id}')">✏️ Edit</button><button class="gh" onclick="bcOpen('${p.id}')">🏷️ Barcode</button><button class="gh pri" onclick="stkForm('${p.id}')">＋ Restok</button></div>` : ''}</div>`; }).join('') || '<div class="mu c" style="padding:20px">Belum ada produk. Tambahkan produk pertama Anda.</div>'}</div></div>`;
@@ -94,36 +94,58 @@ function opnameForm() {
   $('#osc', m).onclick = () => scanCode((v) => { const p = bySku(v); if (!p) return toast('SKU tidak dikenal: ' + v); const el = $('#o' + p.id, m); el.scrollIntoView({ block: 'center' }); el.value = (num(el.value) || 0) + 1; toast(p.n + ': ' + el.value, 1200); }, { multi: true });
   $('#ok', m).onclick = () => { let n = 0; for (const p of L) { const el = $('#o' + p.id, m); if (!el || el.value === '') continue; const d = num(el.value) - p.st; if (d) { emit('opn', { p: p.id, delta: d }); n++; } } m.close(); R(); toast(n ? n + ' produk disesuaikan' : 'Tidak ada selisih'); };
 }
-/* ---------- paket bundling: beberapa produk dijual satu paket dengan diskon Rp / % dari total harga normal ---------- */
-let BD = null;
+/* ---------- promo: bundling / bonus barang / diskon — admin ajukan (butuh persetujuan pemilik), pemilik langsung aktif; otomatis terdeteksi & diterapkan di kasir ---------- */
 function bundleAtur() {
-  if (!BD) BD = JSON.parse(JSON.stringify(S.bundle || []));
-  const L = actProds().sort((a, b) => a.n.localeCompare(b.n));
-  const normTot = (b) => b.items.reduce((a, i) => { const p = prod(i.id); return a + (p ? p.pr * i.q : 0); }, 0);
-  const m = modal(`<h3>🎁 Paket bundling & bonus</h3><small class="mu">Beberapa produk dijual satu paket dengan harga spesial, atau pakai mode "Bonus barang" di keranjang kasir untuk barang gratis.</small><div id="bdlist"></div><button class="gh" id="badd" style="margin-top:6px">+ Paket baru</button><button class="pr" style="margin-top:10px" id="ok">💾 Simpan semua paket</button>`, 'w');
+  const m = modal(`<h3>🎁 Promo: bundling, diskon & bonus barang</h3><small class="mu">${U.r == 'admin' ? 'Promo yang Anda buat perlu disetujui pemilik dulu sebelum aktif di kasir.' : 'Promo yang Anda buat langsung aktif di kasir.'} Terdeteksi & diterapkan otomatis saat isi keranjang sesuai syarat — tidak perlu tombol manual di kasir.</small><div id="bdlist"></div><button class="pr" id="badd" style="margin-top:10px">+ Promo baru</button>`, 'w');
+  const itemsTxt = (L) => L.map((i) => { const p = prod(i.id); return p ? p.n + ' ×' + i.q : ''; }).filter(Boolean).join(' + ');
   const draw = () => {
-    $('#bdlist', m).innerHTML = BD.map((b, bi) => `<div class="cd" style="padding:10px;margin-top:8px"><div class="fm2"><input placeholder="Nama paket" value="${esc(b.n)}" data-bf="n" data-bi="${bi}"><button class="gh d" data-bdel="${bi}">✕ Hapus paket</button></div>
-${b.items.map((it, ii) => `<div class="fm2" style="grid-template-columns:1fr 70px 30px;margin:4px 0"><select data-bi="${bi}" data-ii="${ii}" data-bf="pid">${L.map((p) => `<option value="${p.id}" ${it.id == p.id ? 'selected' : ''}>${esc(p.n)} (${rp(p.pr)})</option>`).join('')}</select><input type="number" min="1" value="${it.q}" data-bi="${bi}" data-ii="${ii}" data-bf="q"><button class="gh d" data-idel="${bi}:${ii}">✕</button></div>`).join('')}
-<button class="gh" style="margin-top:2px" data-iadd="${bi}">+ Produk ke paket</button>
-<div class="fm2" style="margin-top:6px"><select data-bi="${bi}" data-bf="mode"><option value="rp" ${b.mode != 'pct' ? 'selected' : ''}>Potongan Rupiah</option><option value="pct" ${b.mode == 'pct' ? 'selected' : ''}>Potongan Persen (%)</option></select><input type="number" min="0" placeholder="${b.mode == 'pct' ? 'Persen (%)' : 'Nilai potongan (Rp)'}" value="${b.val || ''}" data-bi="${bi}" data-bf="val"></div>
-<small class="mu">Harga normal paket ${rp(normTot(b))} → harga paket ${rp(Math.max(0, normTot(b) - (b.mode == 'pct' ? Math.round(normTot(b) * (b.val || 0) / 100) : (b.val || 0))))}</small>
-<label class="row" style="margin:6px 0 0"><span>Aktif</span><input type="checkbox" data-bi="${bi}" data-bf="on" ${b.on !== false ? 'checked' : ''}></label></div>`).join('') || '<small class="mu" style="display:block;margin-top:8px">Belum ada paket.</small>';
+    $('#bdlist', m).innerHTML = (S.bundle || []).map((b) => {
+      const discTxt = b.val > 0 ? (b.mode == 'pct' ? b.val + '%' : rp(b.val)) : '-', canDel = U.r == 'owner' || (b.st == 'pending' && b.by == U.n);
+      return `<div class="cd" style="padding:10px;margin-top:8px"><div class="row" style="margin:0"><b>${esc(b.n)}</b><span class="chip ${b.st == 'ok' ? 'g' : 'o'}">${b.st == 'ok' ? '✅ Aktif' : '⏳ Menunggu persetujuan'}</span></div>
+<small class="mu">Syarat: ${esc(itemsTxt(b.items)) || '-'}${b.bonus && b.bonus.length ? ' → bonus gratis: ' + esc(itemsTxt(b.bonus)) : ''}</small>
+<div class="row" style="margin:4px 0"><small class="mu">Diskon: ${discTxt}${b.on === false ? ' · dimatikan' : ''}</small><small class="mu">oleh ${esc(b.by || '-')}</small></div>
+<div class="wrap" style="margin-top:6px"><button class="gh" data-bedit="${b.id}">✏️ Edit</button>${b.st == 'pending' && U.r == 'owner' ? `<button class="gh a" data-bappr="${b.id}">✅ Setujui</button><button class="gh d" data-brej="${b.id}">❌ Tolak</button>` : ''}${canDel ? `<button class="gh d" data-bdel="${b.id}">🗑️ Hapus</button>` : ''}</div></div>`;
+    }).join('') || '<p class="mu" style="margin-top:8px">Belum ada promo.</p>';
+    $$('[data-bedit]', m).forEach((btn) => (btn.onclick = () => bundleEdit((S.bundle || []).find((x) => x.id == btn.dataset.bedit), draw)));
+    $$('[data-bappr]', m).forEach((btn) => (btn.onclick = () => { emit('bdl', { op: 'approve', id: btn.dataset.bappr }); toast('Promo disetujui, langsung aktif'); draw(); }));
+    $$('[data-brej]', m).forEach((btn) => (btn.onclick = () => { if (confirm('Tolak promo ini?')) { emit('bdl', { op: 'reject', id: btn.dataset.brej }); toast('Promo ditolak'); draw(); } }));
+    $$('[data-bdel]', m).forEach((btn) => (btn.onclick = () => { if (confirm('Hapus promo ini?')) { emit('bdl', { op: 'del', id: btn.dataset.bdel }); toast('Promo dihapus'); draw(); } }));
   };
   draw();
-  $('#badd', m).onclick = () => { BD.push({ id: '', n: '', items: [{ id: L[0] ? L[0].id : '', q: 1 }], mode: 'rp', val: 0, on: true }); draw(); };
-  m.addEventListener('change', (e) => {
-    const bi = e.target.dataset.bi, ii = e.target.dataset.ii, f = e.target.dataset.bf; if (bi == null || f == null) return;
-    const b = BD[+bi]; if (!b) return;
-    if (ii != null) { const it = b.items[+ii]; if (!it) return; if (f == 'pid') it.id = e.target.value; else if (f == 'q') it.q = Math.max(1, num(e.target.value)); }
-    else if (f == 'n') b.n = e.target.value; else if (f == 'mode') b.mode = e.target.value; else if (f == 'val') b.val = num(e.target.value); else if (f == 'on') b.on = e.target.checked;
-    draw();
+  $('#badd', m).onclick = () => bundleEdit(null, draw);
+}
+function bundleEdit(b, onDone) {
+  const L = actProds().sort((a, b2) => a.n.localeCompare(b2.n)); if (!L.length) return toast('Belum ada produk');
+  const d = b ? JSON.parse(JSON.stringify(b)) : { id: '', n: '', items: [{ id: L[0].id, q: 1 }], bonus: [], mode: 'rp', val: 0, on: true };
+  const mm = modal(`<h3>${b ? 'Edit' : 'Promo baru'}</h3><input id="bn" placeholder="Nama promo" value="${esc(d.n)}">
+<b>Syarat pembelian (produk yang harus ada di keranjang)</b><div id="bitems"></div><button class="gh" id="biadd" style="margin-top:2px">+ Produk syarat</button>
+<b style="display:block;margin-top:10px">Bonus barang gratis otomatis (opsional)</b><small class="mu">Ditambahkan otomatis ke keranjang saat syarat terpenuhi.</small><div id="bbonus"></div><button class="gh" id="bbadd" style="margin-top:2px">+ Barang bonus</button>
+<b style="display:block;margin-top:10px">Diskon tambahan (opsional)</b><div class="fm2"><select id="bmode"><option value="rp" ${d.mode != 'pct' ? 'selected' : ''}>Potongan Rupiah</option><option value="pct" ${d.mode == 'pct' ? 'selected' : ''}>Potongan Persen (%)</option></select><input id="bval" type="number" min="0" placeholder="${d.mode == 'pct' ? 'Persen (%)' : 'Nilai (Rp)'}" value="${d.val || ''}"></div>
+<label class="row" style="margin:8px 0 0"><span>Aktif</span><input type="checkbox" id="bon" ${d.on !== false ? 'checked' : ''}></label>
+<button class="pr" style="margin-top:10px" id="bok">💾 Simpan</button>`, 'w');
+  const rowH = (it, i, pfx) => `<div class="fm2" style="grid-template-columns:1fr 70px 30px;margin:4px 0"><select data-${pfx}i="${i}">${L.map((p) => `<option value="${p.id}" ${it.id == p.id ? 'selected' : ''}>${esc(p.n)} (${rp(p.pr)})</option>`).join('')}</select><input type="number" min="1" value="${it.q}" data-${pfx}q="${i}"><button class="gh d" data-${pfx}x="${i}">✕</button></div>`;
+  const drawItems = () => { $('#bitems', mm).innerHTML = d.items.map((it, i) => rowH(it, i, 'i')).join(''); };
+  const drawBonus = () => { $('#bbonus', mm).innerHTML = d.bonus.map((it, i) => rowH(it, i, 'b')).join('') || '<small class="mu">Tidak ada bonus barang.</small>'; };
+  drawItems(); drawBonus();
+  $('#biadd', mm).onclick = () => { d.items.push({ id: L[0].id, q: 1 }); drawItems(); };
+  $('#bbadd', mm).onclick = () => { d.bonus.push({ id: L[0].id, q: 1 }); drawBonus(); };
+  mm.addEventListener('change', (e) => {
+    const ds = e.target.dataset;
+    for (const [pfx, arr] of [['i', d.items], ['b', d.bonus]]) {
+      if (ds[pfx + 'i'] != null) { const it = arr[+ds[pfx + 'i']]; if (it) it.id = e.target.value; }
+      if (ds[pfx + 'q'] != null) { const it = arr[+ds[pfx + 'q']]; if (it) it.q = Math.max(1, num(e.target.value)); }
+    }
   });
-  m.addEventListener('click', (e) => {
-    if (e.target.dataset.bdel != null) { BD.splice(+e.target.dataset.bdel, 1); draw(); }
-    else if (e.target.dataset.iadd != null) { BD[+e.target.dataset.iadd].items.push({ id: L[0] ? L[0].id : '', q: 1 }); draw(); }
-    else if (e.target.dataset.idel != null) { const [bi, ii] = e.target.dataset.idel.split(':').map(Number); BD[bi].items.splice(ii, 1); if (!BD[bi].items.length) BD.splice(bi, 1); draw(); }
+  mm.addEventListener('click', (e) => {
+    const ds = e.target.dataset;
+    if (ds.ix != null) { d.items.splice(+ds.ix, 1); drawItems(); }
+    if (ds.bx != null) { d.bonus.splice(+ds.bx, 1); drawBonus(); }
   });
-  $('#ok', m).onclick = () => { emit('bdl', { list: BD.filter((b) => b.n.trim() && b.items.length) }); BD = null; m.close(); toast('Paket bundling disimpan'); R(); };
+  $('#bok', mm).onclick = () => {
+    const n = $('#bn', mm).value.trim(); if (!n) return toast('Isi nama promo'); if (!d.items.length) return toast('Isi minimal 1 produk syarat');
+    emit('bdl', { op: 'set', bundle: { id: d.id, n, items: d.items, bonus: d.bonus, mode: $('#bmode', mm).value, val: num($('#bval', mm).value), on: $('#bon', mm).checked } });
+    mm.close(); toast(U.r == 'owner' ? 'Promo disimpan & langsung aktif' : 'Promo diajukan — menunggu persetujuan pemilik'); if (onDone) onDone(); R();
+  };
 }
 /* ---- impor / template ---- */
 const PCOL = { nama: 'n', produk: 'n', 'nama produk': 'n', kategori: 'c', sku: 'sku', barcode: 'sku', 'harga jual': 'pr', harga: 'pr', hpp: 'co', 'harga beli': 'co', stok: 's0', 'stok awal': 's0', min: 'min', 'stok minimum': 'min' };

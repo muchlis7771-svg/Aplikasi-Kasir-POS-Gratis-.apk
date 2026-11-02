@@ -30,8 +30,12 @@ function cartH() {
   const items = cart.filter((i) => prod(i.id)), r = items.length ? calc(items.map((i) => ({ id: i.id, q: i.q, ld: i.ld, free: i.free })), cCd, cCdRp) : { lines: [], sub: 0, ldt: 0, cdA: 0, cdFlat: 0, disc: 0, tax: 0, tot: 0 };
   const outs = S.c.filter((c) => !c.x).sort((a, b) => ((U.r == 'sales' || U.r == 'kanvas') ? (b.sl == U.n) - (a.sl == U.n) : 0) || a.n.localeCompare(b.n));
   let h = `<div class="cthd"><h3>Keranjang</h3><button class="gh x" onclick="cartOpen(false)">Tutup ✕</button></div>`;
-  h += r.lines.length ? r.lines.map((l, idx) => { const ci = items[idx], cidx = cart.indexOf(ci); return `<div class="ci">${l.free ? '<small class="gr">🎁 Bonus (gratis)</small>' : ''}<div class="t"><b>${esc(l.n)}</b><b>${rp(l.p * l.q - l.dd)}</b></div><small>${rp(l.p)} × ${l.q}${l.dd ? ` · diskon ${rp(l.dd)}${l.tier ? ' (grosir ' + esc(l.tier) + '%)' : ''}` : ''}</small><div class="qt" style="margin-top:6px"><button onclick="pstep(${cidx},-1)">−</button><input type="number" min="1" value="${l.q}" onchange="pset(${cidx},this.value)"><button onclick="pstep(${cidx},1)">+</button>${l.free ? '' : `<input placeholder="Disk % (5+2)" value="${esc(ci.ld || '')}" onchange="pld(${cidx},this.value)" style="flex:1">`}<button onclick="pdel(${cidx})">✕</button></div></div>`; }).join('') : '<p class="mu">Belum ada item. Ketuk produk atau scan barcode.</p>';
-  h += `<div class="wrap" style="margin-top:6px"><button class="gh ${cBonus ? 'a' : ''}" onclick="cBonus=!cBonus;cartUp()">${cBonus ? '🎁 Ketuk produk untuk jadi bonus…' : '🎁 + Bonus barang'}</button>${(S.bundle || []).some((b) => b.on !== false) ? '<button class="gh" onclick="bundlePick()">📦 Terapkan paket</button>' : ''}</div>`;
+  h += r.lines.length ? r.lines.map((l, idx) => {
+    const ci = items[idx], cidx = cart.indexOf(ci), autoPromo = l.free && ci.promoId;
+    return `<div class="ci">${l.free ? `<small class="gr">🎁 Bonus (gratis)${autoPromo ? ' · otomatis dari promo' : ''}</small>` : ''}<div class="t"><b>${esc(l.n)}</b><b>${rp(l.p * l.q - l.dd)}</b></div><small>${rp(l.p)} × ${l.q}${l.dd ? ` · diskon ${rp(l.dd)}${l.tier ? ' (grosir ' + esc(l.tier) + '%)' : ''}` : ''}</small>${autoPromo ? '' : `<div class="qt" style="margin-top:6px"><button onclick="pstep(${cidx},-1)">−</button><input type="number" min="1" value="${l.q}" onchange="pset(${cidx},this.value)"><button onclick="pstep(${cidx},1)">+</button>${l.free ? '' : `<input placeholder="Disk % (5+2)" value="${esc(ci.ld || '')}" onchange="pld(${cidx},this.value)" style="flex:1">`}<button onclick="pdel(${cidx})">✕</button></div>`}</div>`;
+  }).join('') : '<p class="mu">Belum ada item. Ketuk produk atau scan barcode.</p>';
+  if (r.bdlApplied && r.bdlApplied.length) h += `<div class="cd" style="padding:8px;margin-top:6px"><small class="gr">🎁 Promo otomatis aktif: ${r.bdlApplied.map((a) => esc(a.n) + (a.mult > 1 ? ' ×' + a.mult : '') + ' (−' + rp(a.d) + ')').join(', ')}</small></div>`;
+  h += `<div class="wrap" style="margin-top:6px"><button class="gh ${cBonus ? 'a' : ''}" onclick="cBonus=!cBonus;cartUp()">${cBonus ? '🎁 Ketuk produk untuk jadi bonus…' : '🎁 + Bonus barang manual'}</button></div>`;
   h += `<div class="wrap" style="margin-top:8px"><button class="gh opick" style="flex:1" onclick="outPick()">${cCu && cust(cCu) ? '📍 <b>' + esc(cust(cCu).n) + '</b>' + (cust(cCu).kd ? ' <small class="kd">' + esc(cust(cCu).kd) + '</small>' : '') : '🔎 ' + ((U.r == 'sales' || U.r == 'kanvas') ? 'Pilih / cari outlet…' : 'Pelanggan umum — cari outlet…')}</button><button class="gh" onclick="outletForm(null,function(id){pcu(id);R()})">+ Outlet</button></div>${creditInfo()}`;
   if (U.r == 'owner' && typeof tgtUsers == 'function') { const SK = tgtUsers().filter((u) => ['sales', 'kanvas'].includes(u.r)); if (SK.length) h += `<label><small class="mu">🎯 Omzet order ini untuk (mis. membetulkan kesalahan order karyawan)</small><select onchange="cAs=this.value">${['<option value="">— atas nama sendiri (pemilik) —</option>', ...SK.map((u) => `<option value="${esc(u.n)}" ${cAs == u.n ? 'selected' : ''}>${esc(u.n)} (${esc(ROLE[u.r] || u.r)})</option>`)].join('')}</select></label>`; }
   h += `<div class="seg">${['Tunai', 'QRIS', 'Transfer', 'Piutang'].map((m) => `<button class="${cPay == m ? 'a' : ''}" onclick="ppay('${m}')">${m == 'Piutang' ? 'Kredit' : m}</button>`).join('')}</div>`;
@@ -47,12 +51,29 @@ function cartH() {
   return h;
 }
 const cbarH = () => { const n = cart.reduce((a, i) => a + i.q, 0), t = cart.filter((i) => prod(i.id)).length ? calc(cartItems(), cCd, cCdRp).tot : 0; return `<span>🛒 ${n} item${S.hold.length ? ' · ' + S.hold.length + ' ditahan' : ''}</span><span>${rp(t)} ›</span>`; };
-function cartUp() { const el = $('#ct'); if (!el) return; el.innerHTML = cartH(); const b = $('#cb'); if (b) b.innerHTML = cbarH(); }
+// bonus barang dari promo otomatis (promoId menandai asal paket) — ditambah/dikurangi sendiri sesuai isi keranjang, tanpa tombol manual
+function applyAutoPromos() {
+  const qty = {}; cart.forEach((i) => { if (!i.free) qty[i.id] = (qty[i.id] || 0) + i.q; }); let changed = false;
+  for (const b of S.bundle || []) {
+    const hasBonus = b.on !== false && b.st == 'ok' && b.bonus && b.bonus.length;
+    let mult = 0;
+    if (hasBonus) { mult = Infinity; for (const it of b.items) { mult = Math.min(mult, Math.floor((qty[it.id] || 0) / it.q)); } if (!isFinite(mult)) mult = 0; }
+    for (const bo of (b.bonus || [])) {
+      const want = mult * bo.q, existing = cart.find((c) => c.free && c.promoId == b.id && c.id == bo.id);
+      if (want <= 0) { if (existing) { cart = cart.filter((c) => c !== existing); changed = true; } }
+      else if (existing) { if (existing.q != want) { existing.q = want; changed = true; } }
+      else { cart.push({ id: bo.id, q: want, ld: '', free: 1, promoId: b.id }); changed = true; }
+    }
+  }
+  return changed;
+}
+function cartUp() { applyAutoPromos(); const el = $('#ct'); if (!el) return; el.innerHTML = cartH(); const b = $('#cb'); if (b) b.innerHTML = cbarH(); }
 const cartOpen = (o) => { const el = $('#ct'); if (el) el.classList.toggle('open', o); };
 VW.pos = () => {
   if ((U.r == 'sales' || U.r == 'kanvas') && !S.c.length && !cCu) { /* sales boleh tambah outlet langsung dari keranjang */ }
   return (typeof shBar == 'function' ? shBar() : '') + `<div class="pos"><section><div class="srch"><input id="pq" placeholder="Cari nama / SKU — Enter menambah" value="${esc(pQ)}" oninput="pQ=this.value;$('#pg').innerHTML=gridH()" onkeydown="pkey(event)"><button class="gh" onclick="scanAdd()" title="Scan barcode">▣</button></div><div id="pcats">${catsH()}</div><div class="grid" id="pg">${gridH()}</div></section><aside class="cd" id="ct">${cartH()}</aside></div><div class="cartbar" id="cb" onclick="cartOpen(true)">${cbarH()}</div>`;
 };
+VW.pos.after = () => { if (applyAutoPromos()) cartUp(); };
 function pkey(e) {
   if (e.key != 'Enter') return; const v = e.target.value.trim(); if (!v) return;
   const p = bySku(v) || (actProds().filter((x) => x.n.toLowerCase().includes(v.toLowerCase())).length == 1 ? actProds().find((x) => x.n.toLowerCase().includes(v.toLowerCase())) : null);
@@ -96,18 +117,6 @@ function outPick() {
   if (!MYPOS || Date.now() - (MYPOS.t || 0) > 12e4) getPos().then((p) => { if (p) { p.t = Date.now(); MYPOS = p; } if (document.body.contains(m)) draw(); });
 }
 const ppay = (m) => { cPay = m; cartUp(); };
-function bundlePick() {
-  const L = (S.bundle || []).filter((b) => b.on !== false);
-  const normTot = (b) => b.items.reduce((a, i) => { const p = prod(i.id); return a + (p ? p.pr * i.q : 0); }, 0);
-  const m = modal(`<h3>📦 Terapkan paket</h3>${L.map((b) => { const nt = normTot(b), disc = b.mode == 'pct' ? Math.round(nt * b.val / 100) : b.val; return `<div class="cd" style="padding:10px"><b>${esc(b.n)}</b><br><small class="mu">${b.items.map((i) => { const p = prod(i.id); return p ? p.n + ' ×' + i.q : ''; }).filter(Boolean).join(' + ')}</small><div class="row" style="margin:4px 0"><small class="mu">Harga normal ${rp(nt)}</small><b class="gr">Hemat ${rp(disc)}</b></div><button class="gh a" data-bid="${b.id}">Terapkan paket ini</button></div>`; }).join('') || '<p class="mu">Belum ada paket aktif.</p>'}`, 'w');
-  $$('[data-bid]', m).forEach((btn) => (btn.onclick = () => {
-    const b = L.find((x) => x.id == btn.dataset.bid); if (!b) return;
-    for (const it of b.items) { const p = prod(it.id); if (!p) continue; const c = cart.find((x) => x.id == it.id && !x.free); const have = c ? c.q : 0; if (have < it.q) padd(it.id, it.q - have); }
-    const nt = normTot(b), disc = b.mode == 'pct' ? Math.round(nt * b.val / 100) : b.val;
-    cCdRp = (cCdRp || 0) + disc; cNote = (cNote ? cNote + ' · ' : '') + 'Paket: ' + b.n;
-    m.close(); cartUp(); toast('Paket "' + b.n + '" diterapkan — hemat ' + rp(disc));
-  }));
-}
 function scanAdd() { scanCode((v) => { const p = bySku(v); if (p) { padd(p.id); toast('+ ' + p.n, 1200); return true; } skuUnknown(v, (id) => padd(id)); return false; }, { multi: true }); }
 function ptahan() { if (!cart.length) return toast('Keranjang kosong'); S.hold.push({ cart, cCd, cCdRp, cPay, cCu, cDp, cDpm, cNote, cKr, cAs, t: Date.now() }); resetCart(); save(); cartUp(); toast('Transaksi ditahan'); }
 function planjut() { if (!S.hold.length) return toast('Tidak ada transaksi ditahan'); if (cart.length && !confirm('Keranjang saat ini akan diganti. Lanjutkan?')) return; const h = S.hold.pop(); ({ cart, cCd, cPay, cCu, cDp, cDpm, cNote } = h); cCdRp = h.cCdRp || 0; cKr = h.cKr == null ? null : !!h.cKr; cAs = h.cAs || ''; save(); cartUp(); }
