@@ -16,19 +16,31 @@ const gjHasSh = (u) => shDefs().length > 0 && (Object.keys(((S.shs && S.shs.as) 
 const gjExpected = (u, k) => !isHol(k) && (!gjHasSh(u) || !!shiftFor(u, new Date(k + 'T12:00:00').getTime()));
 const gjReq = (u, k, st) => (GJ().req || []).filter((r) => (!u || gjKey(r.u) == gjKey(u)) && (!k || r.d == k) && (!st || r.st == st));
 
+// ---------- potongan keterlambatan: diatur pemilik (toleransi, jam kerja standar untuk proporsi, nyala/mati) ----------
+const gjTelatCfg = () => { const t = gjCfg().telat || {}; return { on: !!t.on, tol: t.tol != null ? +t.tol : 10, jam: t.jam != null ? +t.jam : 8 }; };
+function gjLateMin(u, k, t) { // menit terlambat pada hari k (t = jam absen masuk, ms) — 0 bila tidak terlambat
+  const tc = gjTelatCfg(); if (!tc.on || !t) return 0;
+  const jin = String((typeof jinOf == 'function' ? jinOf(u, new Date(k + 'T12:00:00').getTime()) : null) || S.set.jin || '08:00').split(':');
+  const batas = (+jin[0] * 60 + +jin[1]) + tc.tol, mnt = new Date(t).getHours() * 60 + new Date(t).getMinutes();
+  return Math.max(0, mnt - batas);
+}
 function gjCalc(u, m) {
   const [y, mo] = m.split('-').map(Number), today = dkey(Date.now()), ins = {};
-  for (const a of S.att) if (gjKey(a.u) == gjKey(u) && a.k == 'in') ins[dkey(a.t)] = 1;
-  const L = gjLevel(u), since = gjCfg().since || today; let hk = 0, exp = 0, hadir = 0, absen = 0, libur = 0; const absDays = [], ot = [];
+  for (const a of S.att) if (gjKey(a.u) == gjKey(u) && a.k == 'in') { const k = dkey(a.t); if (!ins[k] || a.t < ins[k]) ins[k] = a.t; }
+  const L = gjLevel(u), since = gjCfg().since || today, tc = gjTelatCfg(); let hk = 0, exp = 0, hadir = 0, absen = 0, libur = 0, telat = 0, telatMin = 0; const absDays = [], telatDays = [], ot = [];
   for (let d = new Date(y, mo - 1, 1); d.getMonth() == mo - 1; d.setDate(d.getDate() + 1)) {
     const k = dkey(d.getTime()), hol = isHol(k);
     if (hol) libur++; else hk++;
     if (k > today) continue;
     if (gjExpected(u, k)) { if (k < today || ins[k]) { exp++; if (ins[k] || k < since) hadir++; else { absen++; absDays.push(d.getDate()); } } }
+    if (ins[k]) { const lm = gjLateMin(u, k, ins[k]); if (lm > 0) { telat++; telatMin += lm; telatDays.push(d.getDate()); } }
     const r = gjReq(u, k, 'ok').find((x) => x.kind == 'lembur'); if (r && ins[k]) ot.push({ d: k, amt: r.amt != null ? +r.amt : L.ot });
   }
-  const rate = hk ? L.g / hk : 0, pot = Math.round(rate * absen), uot = ot.reduce((a, x) => a + x.amt, 0);
-  return { ...L, hk, libur, exp, hadir, absen, absDays, rate, pot, ot, uot, tot: Math.max(0, L.g - pot) + uot, paid: (S.gj.paid || {})[gjKey(u) + '|' + m] };
+  const rate = hk ? L.g / hk : 0, potAbsen = Math.round(rate * absen);
+  // potongan terlambat: proporsional dari gaji harian sesuai menit terlambat ÷ jam kerja standar, dibatasi maksimal 1 hari gaji per hari terlambat
+  const potTelatRp = tc.on && tc.jam > 0 ? Math.min(Math.round(rate * telatMin / (tc.jam * 60)), Math.round(rate * telat)) : 0;
+  const pot = potAbsen + potTelatRp, uot = ot.reduce((a, x) => a + x.amt, 0), uins = typeof userIns == 'function' ? userIns(u, m) : 0;
+  return { ...L, hk, libur, exp, hadir, absen, absDays, telat, telatMin, telatDays, potAbsen, potTelat: potTelatRp, rate, pot, ot, uot, ins: uins, tot: Math.max(0, L.g - pot) + uot + uins, paid: (S.gj.paid || {})[gjKey(u) + '|' + m] };
 }
 
 /* ---------- penjaga jam kerja (dipanggil di R) ---------- */
@@ -84,14 +96,14 @@ function gjRekap() {
   const c0 = rows[0] ? rows[0].c : gjCalc('-', GM);
   return `<div class="kp"><div class="cd k0"><small>Total gaji ${GM == ymNow() ? '(berjalan)' : ''}</small><h2>${rp(tot)}</h2><small>${rows.length} karyawan</small></div><div class="cd k1"><small>Hari kerja</small><h2>${c0.hk} hari</h2><small>libur ${c0.libur} hari (Minggu + tanggal merah)</small></div></div>
 ${rows.map(({ u, c }) => `<div class="cd gji"><div class="row" style="margin:0"><span><b style="font-size:15px">${esc(u.n)}</b><br><small class="mu">${esc(ROLE[u.r] || u.r)} · ${c.lv ? 'Level ' + esc(c.lv.n) : '<span class="or">level belum diatur</span>'}</small></span><span class="r"><small class="mu">Diterima</small><br><b class="gr" style="font-size:17px">${rp(c.tot)}</b></span></div>
-<div class="pnums"><span><small>Gaji pokok</small><b>${rp(c.g)}</b></span><span><small>Hadir / jadwal</small><b>${c.hadir} / ${c.exp}</b></span><span><small>Tidak hadir</small><b class="${c.absen ? 'rd' : ''}">${c.absen} hari</b></span><span><small>Lembur</small><b class="${c.ot.length ? 'gr' : ''}">${c.ot.length} hari</b></span></div>
-<small class="mu">Gaji harian ${rp(Math.round(c.rate))} · potongan <b class="${c.pot ? 'rd' : ''}">−${rp(c.pot)}</b>${c.absDays.length ? ' (tgl ' + c.absDays.join(', ') + ')' : ''} · uang lembur <b class="gr">+${rp(c.uot)}</b>${c.paid ? ' · <b class="gr">✓ dibayar ' + dstr(c.paid) + '</b>' : ''}</small>
+<div class="pnums"><span><small>Gaji pokok</small><b>${rp(c.g)}</b></span><span><small>Hadir / jadwal</small><b>${c.hadir} / ${c.exp}</b></span><span><small>Tidak hadir</small><b class="${c.absen ? 'rd' : ''}">${c.absen} hari</b></span><span><small>Terlambat</small><b class="${c.telat ? 'or' : ''}">${c.telat} hari</b></span><span><small>Lembur</small><b class="${c.ot.length ? 'gr' : ''}">${c.ot.length} hari</b></span></div>
+<small class="mu">Gaji harian ${rp(Math.round(c.rate))} · tidak hadir <b class="${c.potAbsen ? 'rd' : ''}">−${rp(c.potAbsen)}</b>${c.absDays.length ? ' (tgl ' + c.absDays.join(', ') + ')' : ''}${c.potTelat ? ' · terlambat <b class="rd">−' + rp(c.potTelat) + '</b> (tgl ' + c.telatDays.join(', ') + ', total ' + c.telatMin + ' mnt)' : ''} · uang lembur <b class="gr">+${rp(c.uot)}</b>${c.ins ? ' · insentif <b class="gr">+' + rp(c.ins) + '</b>' : ''}${c.paid ? ' · <b class="gr">✓ dibayar ' + dstr(c.paid) + '</b>' : ''}</small>
 <div class="wrap" style="margin-top:8px"><button class="gh" onclick="gjSlip('${esc(u.n)}')">🧾 Slip gaji</button>${U.r == 'owner' && !c.paid && GM <= ymNow() ? `<button class="gh pri" onclick="gjPay('${esc(u.n)}')">Bayar & catat</button>` : ''}</div></div>`).join('') || '<div class="cd mu c">Belum ada karyawan.</div>'}
 <small class="mu" style="display:block;margin:0 4px 12px">Tidak hadir dihitung dari hari kerja terjadwal yang sudah lewat tanpa absen masuk. Bulan berjalan: hari ini belum dihitung tidak hadir. Absen mulai dihitung sejak ${esc(dstr(new Date((gjCfg().since || dkey(Date.now())) + 'T12:00:00').getTime()))} (pertama kali pengaturan gaji disimpan).</small>`;
 }
 function gjSlipText(n) {
   const c = gjCalc(n, GM), [y, mo] = GM.split('-').map(Number), nm = new Date(y, mo - 1, 1).toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
-  return ['*SLIP GAJI ' + String(S.name || '').toUpperCase() + '*', '_' + nm + '_', '', 'Nama: *' + n + '*', 'Level: ' + (c.lv ? c.lv.n : '-'), '', 'Gaji pokok: ' + rp(c.g), 'Hari kerja bulan ini: ' + c.hk + ' hari (libur ' + c.libur + ')', 'Hadir: ' + c.hadir + ' dari ' + c.exp + ' hari terjadwal', 'Tidak hadir: ' + c.absen + ' hari × ' + rp(Math.round(c.rate)) + ' = −' + rp(c.pot), 'Lembur: ' + c.ot.length + ' hari = +' + rp(c.uot), '', '*Total diterima: ' + rp(c.tot) + '*', '', '_Dibuat oleh J-POS_'].join('\n');
+  return ['*SLIP GAJI ' + String(S.name || '').toUpperCase() + '*', '_' + nm + '_', '', 'Nama: *' + n + '*', 'Level: ' + (c.lv ? c.lv.n : '-'), '', 'Gaji pokok: ' + rp(c.g), 'Hari kerja bulan ini: ' + c.hk + ' hari (libur ' + c.libur + ')', 'Hadir: ' + c.hadir + ' dari ' + c.exp + ' hari terjadwal', 'Tidak hadir: ' + c.absen + ' hari × ' + rp(Math.round(c.rate)) + ' = −' + rp(c.potAbsen), ...(c.potTelat ? ['Terlambat: ' + c.telat + ' hari (' + c.telatMin + ' mnt) = −' + rp(c.potTelat)] : []), 'Lembur: ' + c.ot.length + ' hari = +' + rp(c.uot), ...(c.ins ? ['Insentif target: +' + rp(c.ins)] : []), '', '*Total diterima: ' + rp(c.tot) + '*', '', '_Dibuat oleh J-POS_'].join('\n');
 }
 function gjSlip(n) { const t = gjSlipText(n), m = modal(`<h3>Slip gaji · ${esc(n)}</h3><pre class="shpre">${esc(t)}</pre><div class="fm2"><a class="pr" style="text-align:center;text-decoration:none" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(t)}">Kirim via WhatsApp</a><button class="gh" id="cp">Salin</button></div>`, 'w'); $('#cp', m).onclick = () => copyTx(t); }
 function gjPay(n) {
@@ -101,7 +113,7 @@ function gjPay(n) {
   emit('gji', { op: 'paid', u: n, m: GM, amt: c.tot }); toast('Gaji dibayar & tercatat di Beban Gaji'); R();
 }
 function gjAtur() {
-  const c = gjCfg(); if (!GD) GD = JSON.parse(JSON.stringify({ lv: c.lv || [{ id: 'l1', n: '1 · Junior', g: 1500000, ot: 75000 }, { id: 'l2', n: '2 · Senior', g: 2200000, ot: 100000 }, { id: 'l3', n: '3 · Kepala', g: 3000000, ot: 150000 }], emp: c.emp || {}, lock: c.lock !== false }));
+  const c = gjCfg(); if (!GD) GD = JSON.parse(JSON.stringify({ lv: c.lv || [{ id: 'l1', n: '1 · Junior', g: 1500000, ot: 75000 }, { id: 'l2', n: '2 · Senior', g: 2200000, ot: 100000 }, { id: 'l3', n: '3 · Kepala', g: 3000000, ot: 150000 }], emp: c.emp || {}, lock: c.lock !== false, telat: gjTelatCfg() }));
   const us = gjUsers();
   return `<div class="cd"><h3>💼 Level gaji</h3><small class="mu">Gaji pokok per bulan dan uang lembur per hari (masuk di hari libur dengan persetujuan).</small>
 ${GD.lv.map((l, i) => `<div class="shrow" style="grid-template-columns:1fr 1fr 44px"><input value="${esc(l.n)}" placeholder="Nama level" onchange="GD.lv[${i}].n=this.value"><input type="number" value="${l.g}" placeholder="Gaji pokok / bulan (Rp)" onchange="GD.lv[${i}].g=num(this.value)"><input type="number" value="${l.ot}" placeholder="Uang lembur / hari (Rp)" onchange="GD.lv[${i}].ot=num(this.value)"><button class="gh d" aria-label="Hapus level" onclick="GD.lv.splice(${i},1);R()">✕</button></div>`).join('')}
@@ -109,9 +121,17 @@ ${GD.lv.map((l, i) => `<div class="shrow" style="grid-template-columns:1fr 1fr 4
 <div class="cd"><h3>👥 Level tiap karyawan</h3><small class="mu">Kosongkan "gaji khusus" bila mengikuti level.</small>
 ${us.map((u) => { const e = GD.emp[gjKey(u.n)] || {}; return `<div class="row kvrow" style="gap:6px"><span style="min-width:90px"><b>${esc(u.n)}</b><br><small class="mu">${esc(ROLE[u.r] || u.r)}</small></span><select style="width:auto;max-width:140px" onchange="(GD.emp['${gjKey(u.n)}']=GD.emp['${gjKey(u.n)}']||{}).lv=this.value"><option value="">— level —</option>${GD.lv.map((l) => `<option value="${l.id}" ${e.lv == l.id ? 'selected' : ''}>${esc(l.n)}</option>`).join('')}</select><input type="number" style="width:120px" value="${e.g || ''}" placeholder="Gaji khusus" onchange="(GD.emp['${gjKey(u.n)}']=GD.emp['${gjKey(u.n)}']||{}).g=num(this.value)"></div>`; }).join('') || '<small class="mu">Belum ada karyawan.</small>'}</div>
 <div class="cd"><label class="row" style="margin:0"><span><b>🔒 Karyawan hanya bisa membuka aplikasi di jam kerja / shift</b><br><small class="mu">Di luar jam itu, karyawan harus minta izin admin / pemilik (hari libur = izin lembur). Berlaku untuk kasir, SPG, sales, kanvas, dropping & akuntan.</small></span><input type="checkbox" style="width:24px;height:24px;flex:none" ${GD.lock ? 'checked' : ''} onchange="GD.lock=this.checked"></label></div>
+<div class="cd"><label class="row" style="margin:0"><span><b>⏰ Potong gaji bila karyawan terlambat absen</b><br><small class="mu">Jam masuk standar dibaca dari jadwal shift (bila ada) atau jam masuk bawaan di bawah. Potongan ditarik proporsional dari gaji harian (gaji pokok ÷ hari kerja), maksimal 1 hari gaji per hari terlambat.</small></span><input type="checkbox" style="width:24px;height:24px;flex:none" ${GD.telat.on ? 'checked' : ''} onchange="GD.telat.on=this.checked;R()"></label>
+${GD.telat.on ? `<div class="fm2" style="margin-top:8px"><label><small class="mu">Jam masuk bawaan (bila tanpa shift)</small><input id="gjJin" type="time" value="${esc(S.set.jin || '08:00')}"></label><label><small class="mu">Toleransi (menit)</small><input type="number" min="0" value="${GD.telat.tol}" onchange="GD.telat.tol=num(this.value)"></label></div>
+<label><small class="mu">Jam kerja standar / hari (untuk proporsi potongan)</small><input type="number" min="1" step="0.5" value="${GD.telat.jam}" onchange="GD.telat.jam=num(this.value)||8"></label>
+<small class="mu">Contoh: gaji harian Rp100.000, jam kerja 8 jam (480 mnt), terlambat 30 menit → potongan ≈ Rp6.250.</small>` : ''}</div>
 <button class="pr" style="margin-bottom:12px" onclick="gjSave()">💾 Simpan pengaturan gaji</button>`;
 }
-function gjSave(extra) { const c = gjCfg(); emit('gji', { op: 'cfg', cfg: { lv: (GD ? GD.lv : c.lv || []).filter((l) => String(l.n).trim()), emp: GD ? GD.emp : c.emp || {}, lock: GD ? GD.lock : c.lock !== false, since: c.since, hol: c.hol || [], ...(extra || {}) } }); GD = null; toast('Pengaturan gaji disimpan'); R(); }
+function gjSave(extra) {
+  const c = gjCfg(); const jin = $('#gjJin'); if (jin && jin.value) emit('set', { set: { jin: jin.value } });
+  emit('gji', { op: 'cfg', cfg: { lv: (GD ? GD.lv : c.lv || []).filter((l) => String(l.n).trim()), emp: GD ? GD.emp : c.emp || {}, lock: GD ? GD.lock : c.lock !== false, telat: GD ? GD.telat : gjTelatCfg(), since: c.since, hol: c.hol || [], ...(extra || {}) } });
+  GD = null; toast('Pengaturan gaji disimpan'); R();
+}
 function gjLibur() {
   const [y, mo] = GM.split('-').map(Number), hol = new Set(gjCfg().hol || []), first = new Date(y, mo - 1, 1).getDay(), days = [];
   for (let d = new Date(y, mo - 1, 1); d.getMonth() == mo - 1; d.setDate(d.getDate() + 1)) days.push({ k: dkey(d.getTime()), d: d.getDate(), sun: d.getDay() == 0 });
@@ -121,7 +141,11 @@ function gjLibur() {
 }
 function gjHol(k) { const h = new Set(gjCfg().hol || []); if (h.has(k)) h.delete(k); else h.add(k); GD = null; gjSave({ hol: [...h].filter((x) => x >= dkey(Date.now() - 400 * 864e5)).sort() }); }
 // slip milik karyawan sendiri (halaman Absensi)
-function gjMine() { if (!S.gj || !gjLevel(U.n).g || U.r == 'owner') return ''; const c = gjCalc(U.n, ymNow()); return `<div class="cd"><div class="row" style="margin:0"><b>💼 Perkiraan gaji bulan ini</b><b class="gr">${rp(c.tot)}</b></div><small class="mu">Pokok ${rp(c.g)} · tidak hadir ${c.absen} hari (−${rp(c.pot)}) · lembur ${c.ot.length} hari (+${rp(c.uot)})</small></div>`; }
+function gjMine() {
+  if (!S.gj || !gjLevel(U.n).g || U.r == 'owner') return ''; const c = gjCalc(U.n, ymNow());
+  const rows = [['Gaji pokok', rp(c.g), ''], ['Tidak hadir', c.potAbsen ? '−' + rp(c.potAbsen) : '—', c.absen + ' hari' + (c.absDays.length ? ' (tgl ' + c.absDays.join(', ') + ')' : '')], ...(gjTelatCfg().on ? [['Terlambat', c.potTelat ? '−' + rp(c.potTelat) : '—', c.telat + ' hari' + (c.telatDays.length ? ' (tgl ' + c.telatDays.join(', ') + ', ' + c.telatMin + ' mnt)' : '')]] : []), ['Lembur', c.uot ? '+' + rp(c.uot) : '—', c.ot.length + ' hari disetujui'], ['Insentif target', c.ins ? '+' + rp(c.ins) : '—', 'dari pencapaian target bulan ini']];
+  return `<div class="cd"><div class="row" style="margin:0 0 6px"><b>💼 Perkiraan gaji bulan ini</b><b class="gr" style="font-size:17px">${rp(c.tot)}</b></div>${rows.map((r) => `<div class="row" style="margin:3px 0"><small class="mu">${r[0]}${r[2] ? ' · ' + r[2] : ''}</small><b class="${/^−/.test(r[1]) ? 'rd' : /^\+/.test(r[1]) ? 'gr' : 'mu'}">${r[1]}</b></div>`).join('')}<small class="mu">Hadir ${c.hadir} dari ${c.exp} hari terjadwal · gaji harian ${rp(Math.round(c.rate))}</small></div>`;
+}
 // tempel kartu persetujuan (beranda & shift admin) dan perkiraan gaji (absensi karyawan)
 addEventListener('DOMContentLoaded', () => { for (const [k, f] of [['dash', gjPendCard], ['shiftSet', gjPendCard], ['abs', gjMine]]) { const o = VW[k]; if (!o || o.gj) continue; const w = () => { let h = ''; try { h = f(); } catch (e) { console.error(e); } return h + o(); }; w.after = o.after; w.gj = 1; VW[k] = w; } });
 VW.gaji.after = () => { if (S.srv && canNet() && Date.now() - (VW.gaji.ld || 0) > 6e4) { VW.gaji.ld = Date.now(); api('/api/staff').then((r) => { const ch = JSON.stringify(S.staff || []) != JSON.stringify(r.staff); S.staff = r.staff; save(); if (ch && V == 'gaji') R(); }).catch(() => { }); } };

@@ -168,7 +168,7 @@ async function checkOut(silent) {
 function ciBar() {
   if (!(pkgHas('cek') && can('cek'))) return '';
   const cur = openCI(U.n);
-  return cur ? `<div class="cd hero" style="padding:14px"><small>📍 Sedang check-in</small><h3 style="margin:2px 0">${esc(cur.cn)}</h3><small>Sejak ${hm(cur.t)} · ${cur.dist != null ? 'jarak ' + distStr(cur.dist) : 'tanpa jarak'}</small><div class="wrap" style="margin-top:8px"><button class="gh a" onclick="checkOut()">Check-out</button>${cust(cur.cid) && (U.r == 'sales' || U.r == 'kanvas') ? `<button class="gh" onclick="orderFor('${cur.cid}')">Order</button>` : ''}</div></div>`
+  return cur ? `<div class="cd hero" style="padding:14px"><small>📍 Sedang check-in</small><h3 style="margin:2px 0">${esc(cur.cn)}</h3><small>Sejak ${hm(cur.t)} · ${cur.dist != null ? 'jarak ' + distStr(cur.dist) : 'tanpa jarak'}</small><div class="wrap" style="margin-top:8px"><button class="gh a" onclick="checkOut()">Check-out</button>${cust(cur.cid) && (U.r == 'sales' || U.r == 'kanvas') ? `<button class="gh" onclick="orderFor('${cur.cid}')">Order</button>` : ''}${typeof preqForm == 'function' ? `<button class="gh" onclick="preqForm('${cur.cid}','${esc(cur.cn).replace(/'/g, '&#39;')}')">📝 Barang diminta</button>` : ''}</div></div>`
     : `<div class="cd" style="padding:12px"><small class="mu">📍 Belum check-in di outlet. ${(U.r == 'sales' || U.r == 'kanvas') ? 'Check-in dulu di outlet (radius ' + distStr(CIR()) + ') sebelum membuat order.' : 'Check-in di outlet tujuan saat tiba.'}</small></div>`;
 }
 
