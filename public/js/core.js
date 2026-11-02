@@ -163,7 +163,7 @@ const Ap = {
   stk(e) {
     const p = prod(e.p); if (!p || !(e.qty > 0)) return;
     const v = Math.round(e.qty * e.cost), base = Math.max(p.st, 0);
-    p.co = Math.round((base * p.co + v) / (base + e.qty)); p.st += e.qty;
+    p.co = e.avg == 'new' ? Math.round(e.cost) : Math.round((base * p.co + v) / (base + e.qty)); p.st += e.qty;
     if (e.cr) S.ap.push({ id: e.no, t: e.t, sup: e.sup || '-', d: 'Restok ' + p.n + ' ×' + e.qty, amt: v, pa: 0, due: e.t + (e.tempo || 30) * 864e5 });
     jr(e, 'Restok ' + p.n + ' ×' + e.qty + (e.sup ? ' · ' + e.sup : ''), [['1201', v, 0], [e.cr ? '2102' : payAcc(e.m || 'Tunai'), 0, v]]);
   },
@@ -224,6 +224,19 @@ const Ap = {
     if (e.op == 'paid' && /^\d{4}-\d\d$/.test(e.m)) G.paid[String(e.u || '').toLowerCase() + '|' + e.m] = e.t;
   },
   tsk(e) { S.tsk = S.tsk || []; if (!/^\d{4}-\d\d-\d\d$/.test(e.d) || S.tsk.some((x) => x.u == e.u && x.d == e.d && x.id == e.id)) return; S.tsk.push({ no: e.no, u: e.u, t: e.t, d: e.d, id: String(e.id || ''), n: String(e.n || '').slice(0, 80), ph: e.ph }); },
+  // paket bundling / bonus barang antar produk (diatur pemilik, dipakai cepat saat jual)
+  bdl(e) {
+    if (e.r != 'owner' && e.r != 'admin') return;
+    const list = Array.isArray(e.list) ? e.list : [];
+    S.bundle = list.filter((b) => b && String(b.n || '').trim() && Array.isArray(b.items) && b.items.length).slice(0, 60).map((b) => ({
+      id: /^[\w-]{1,20}$/.test(b.id) ? b.id : 'bd' + uid().slice(0, 8),
+      n: String(b.n).slice(0, 60),
+      items: b.items.filter((i) => i && prod(i.id)).slice(0, 10).map((i) => ({ id: i.id, q: Math.max(1, Math.round(+i.q) || 1) })),
+      mode: b.mode == 'pct' ? 'pct' : 'rp',
+      val: Math.max(0, Math.round(+b.val) || 0),
+      on: b.on !== false,
+    }));
+  },
   shf(e) {
     S.ses = S.ses || [];
     if (e.op == 'open') { if (!S.ses.some((x) => x.no == e.no)) S.ses.push({ no: e.no, u: e.u, t: e.t, sh: e.sh || '', sn: e.sn || '', c0: Math.max(0, +e.c0 || 0) }); return; }
@@ -287,16 +300,22 @@ const Ap = {
       const c = +r.c >= 0 && r.c !== '' && r.c != null ? Math.round(+r.c) : l.c; got.push({ p: r.p, q, c, l, pr: p }); sub += q * c;
     }
     if (!got.length) return;
-    const ship = Math.max(0, Math.round(+e.ship) || 0), tot = sub + ship;
-    // biaya kirim/ongkir dibebankan ke HPP, dibagi antar SKU yang diterima — bobot lebih besar ke SKU bermargin besar (selisih harga jual − harga beli),
+    // diskon dari supplier (% dan/atau Rp atas subtotal) — dibagi ke tiap barang proporsional sesuai nilai, menurunkan HPP efektif sebelum dihitung rata-rata
+    const discPct = Math.max(0, Math.min(100, +e.discPct || 0)), discRpIn = Math.max(0, Math.round(+e.discRp) || 0);
+    const disc = Math.min(sub, Math.round(sub * discPct / 100) + discRpIn);
+    got.forEach((g) => { const w = sub ? (g.q * g.c) / sub : 0; g.cEff = g.c - (disc * w) / g.q; });
+    const subEff = sub - disc, ship = Math.max(0, Math.round(+e.ship) || 0), tot = subEff + ship;
+    // biaya kirim/ongkir dibebankan ke HPP, dibagi antar SKU yang diterima — bobot lebih besar ke SKU bermargin besar (selisih harga jual − harga beli, setelah diskon supplier),
     // supaya SKU bermargin tipis tidak ikut terbebani berat dan harga jualnya tetap kompetitif; SKU tanpa margin (rugi/harga jual belum diisi) tetap kebagian porsi kecil via bobot qty.
-    const wQ = got.reduce((a, g) => a + g.q, 0), wM = got.reduce((a, g) => a + g.q * Math.max(0, (g.pr.pr || 0) - g.c), 0);
-    got.forEach((g) => { const w = wM ? (g.q * Math.max(0, (g.pr.pr || 0) - g.c)) / wM : wQ ? g.q / wQ : 0, share = ship * w, unit = (g.q * g.c + share) / g.q, base = Math.max(g.pr.st, 0); g.pr.co = Math.round((base * g.pr.co + g.q * unit) / (base + g.q)); g.pr.st += g.q; g.l.rq += g.q; });
+    const wQ = got.reduce((a, g) => a + g.q, 0), wM = got.reduce((a, g) => a + g.q * Math.max(0, (g.pr.pr || 0) - g.cEff), 0);
+    got.forEach((g) => { const w = wM ? (g.q * Math.max(0, (g.pr.pr || 0) - g.cEff)) / wM : wQ ? g.q / wQ : 0, share = ship * w, unit = g.cEff + share / g.q, base = Math.max(g.pr.st, 0); g.pr.co = e.avg == 'new' ? Math.round(unit) : Math.round((base * g.pr.co + g.q * unit) / (base + g.q)); g.pr.st += g.q; g.l.rq += g.q; });
+    // bonus barang dari supplier: unit gratis (boleh produk lain di luar PO) — HPP rata-rata turun otomatis karena dilusi, tanpa menambah biaya
+    let nBonus = 0; for (const b of e.bonus || []) { const p = prod(b.p), q = Math.max(0, Math.round(+b.q) || 0); if (!p || q <= 0) continue; const base = Math.max(p.st, 0); p.co = Math.round((base * p.co) / (base + q)); p.st += q; nBonus++; }
     const kredit = e.pay == 'Kredit', paid = kredit ? Math.min(Math.max(0, Math.round(+e.dp) || 0), tot) : tot, ar = tot - paid;
-    (po.rc = po.rc || []).push({ no: e.no, t: e.t, u: e.u, tot, inv: e.inv || '', pay: e.pay || 'Tunai', ship });
+    (po.rc = po.rc || []).push({ no: e.no, t: e.t, u: e.u, tot, inv: e.inv || '', pay: e.pay || 'Tunai', ship, disc, bonus: nBonus });
     po.st = po.L.every((l) => l.rq >= l.q) ? 'diterima' : 'sebagian';
     if (ar > 0) S.ap.push({ id: e.no, t: e.t, sup: po.sn || '-', d: 'PO ' + po.no + (e.inv ? ' · faktur ' + e.inv : ''), amt: ar, pa: 0, due: e.t + (+e.tempo || po.tempo || 30) * 864e5, po: po.id, inv: e.inv || '' });
-    jr(e, 'Terima barang PO ' + po.no + ' · ' + (po.sn || ''), [['1201', tot, 0], [payAcc(e.m || 'Tunai'), 0, paid], ['2102', 0, ar]]);
+    jr(e, 'Terima barang PO ' + po.no + ' · ' + (po.sn || '') + (disc ? ' (diskon supplier ' + disc.toLocaleString('id-ID') + ')' : ''), [['1201', tot, 0], [payAcc(e.m || 'Tunai'), 0, paid], ['2102', 0, ar]]);
   },
   dlv(e) {
     const s = S.sales.find((x) => x.no == e.sale);
@@ -346,16 +365,18 @@ function emit(k, data, t, by) {
 }
 
 /* ============ penjualan ============ */
-function calc(items, cd) {
+function calc(items, cd, cdRp) {
   let sub = 0, ldt = 0, net = 0;
   const lines = items.map((i) => {
-    const p = prod(i.id), q = i.q, price = i.pp > 0 ? i.pp : p.pr, gross = price * q, tr = i.pp > 0 ? null : tierOf(p, q);
+    const p = prod(i.id), q = i.q;
+    if (i.free) return { id: p.id, n: p.n, q, p: 0, dd: 0, hc: p.co, tier: '', ld: '', free: 1 }; // bonus barang: gratis, HPP tetap mengurangi stok/laba
+    const price = i.pp > 0 ? i.pp : p.pr, gross = price * q, tr = i.pp > 0 ? null : tierOf(p, q);
     const dd = Math.round(gross * (1 - cfac(tr && tr.d) * cfac(i.ld)));
     sub += gross; ldt += dd; net += gross - dd;
     return { id: p.id, n: p.n, q, p: price, dd, hc: p.co, tier: tr ? tr.d : '', ld: i.ld || '' };
   });
-  const cdA = Math.round(net * (1 - cfac(cd))), disc = ldt + cdA, tax = Math.round((net - cdA) * (S.set.ppn || 0) / 100);
-  return { lines, sub, ldt, cdA, disc, tax, tot: sub - disc + tax, hpp: lines.reduce((a, l) => a + l.hc * l.q, 0) };
+  const cdPct = Math.round(net * (1 - cfac(cd))), cdFlat = Math.max(0, Math.min(Math.round(+cdRp) || 0, net - cdPct)), cdA = cdPct + cdFlat, disc = ldt + cdA, tax = Math.round((net - cdA) * (S.set.ppn || 0) / 100);
+  return { lines, sub, ldt, cdA, cdPct, cdFlat, disc, tax, tot: sub - disc + tax, hpp: lines.reduce((a, l) => a + l.hc * l.q, 0) };
 }
 const vanKey = (u) => String(u || '').toLowerCase();
 function vanAdd(u, id, q) { S.van = S.van || {}; const m = (S.van[vanKey(u)] = S.van[vanKey(u)] || {}); m[id] = Math.max(0, (m[id] || 0) + q); if (!m[id]) delete m[id]; }
@@ -368,7 +389,7 @@ function mkSale(o, t, by) { // o: {items,cd,pay,cu,dpay,dpm,note,kirim}; melempa
   if (!o.items.length) throw new Error('Keranjang kosong');
   for (const i of o.items) { const p = prod(i.id); if (!p) throw new Error('Produk tidak ditemukan'); if (p.st < i.q) throw new Error('Stok ' + p.n + ' kurang (sisa ' + p.st + ')'); if (a.r == 'kanvas' && vanQ(a.n, i.id) < i.q) throw new Error('Stok ' + p.n + ' di mobil kurang (sisa ' + vanQ(a.n, i.id) + '). Muat barang dulu di menu Kanvas.'); }
   if (a.r == 'kanvas') o = { ...o, kirim: false };
-  const c = o.cu ? cust(o.cu) : null, r = calc(o.items, o.cd);
+  const c = o.cu ? cust(o.cu) : null, r = calc(o.items, o.cd, o.cdRp);
   if ((a.r == 'sales' || a.r == 'kanvas') && !c) throw new Error('Pilih outlet pelanggan dulu');
   let ci = '';
   if (!by && a.r == 'kasir' && typeof shReq == 'function' && shReq() && !mySes()) throw new Error('Buka kasir (mulai shift) dulu di halaman Kasir');
@@ -391,7 +412,7 @@ function mkSale(o, t, by) { // o: {items,cd,pay,cu,dpay,dpm,note,kirim}; melempa
   const tm = t || Date.now();
   // pemilik bisa menginput penjualan atas nama sendiri tapi memberikan omzetnya ke sales/kanvas pilihan (mis. membetulkan kesalahan order karyawan) — hanya berlaku bila pemilik yang menginput
   const asg = !by && a.r == 'owner' && o.asu && typeof tgtUsers == 'function' ? tgtUsers().find((u) => u.n == o.asu && ['sales', 'kanvas'].includes(u.r)) : null;
-  const ev = emit('sale', { tot: r.tot, sub: r.sub, disc: r.disc, cdA: r.cdA, cd: o.cd || '', tax: r.tax, hpp: r.hpp, L: r.lines, pay: o.pay, cu: c ? c.id : '', cn: c ? c.n : '', dpay: o.pay == 'Piutang' ? Math.min(o.dpay || 0, r.tot) : 0, dpm: o.dpm || 'Tunai', due: o.pay == 'Piutang' ? tm + (o.cod ? 864e5 : (c.tempo || 30) * 864e5) : 0, note: o.note || '', ppn: S.set.ppn || 0, ...(o.kirim ? { kirim: 1 } : {}), ...(o.cod ? { cod: 1, cm: o.cm } : {}), ...(ci ? { ci } : {}), ...(asg ? { asu: asg.n, asr: asg.r } : {}) }, tm, by);
+  const ev = emit('sale', { tot: r.tot, sub: r.sub, disc: r.disc, cdA: r.cdA, cd: o.cd || '', cdRp: r.cdFlat || 0, tax: r.tax, hpp: r.hpp, L: r.lines, pay: o.pay, cu: c ? c.id : '', cn: c ? c.n : '', dpay: o.pay == 'Piutang' ? Math.min(o.dpay || 0, r.tot) : 0, dpm: o.dpm || 'Tunai', due: o.pay == 'Piutang' ? tm + (o.cod ? 864e5 : (c.tempo || 30) * 864e5) : 0, note: o.note || '', ppn: S.set.ppn || 0, ...(o.kirim ? { kirim: 1 } : {}), ...(o.cod ? { cod: 1, cm: o.cm } : {}), ...(ci ? { ci } : {}), ...(asg ? { asu: asg.n, asr: asg.r } : {}) }, tm, by);
   return S.sales.find((x) => x.no == ev.no);
 }
 const netSale = (s) => s.sub - s.disc - (s.rn || 0); // penjualan bersih (tanpa PPN) setelah retur

@@ -1,8 +1,9 @@
 'use strict';
 const VW = {};
 /* ============ KASIR / ORDER ============ */
-let cart = [], cCd = '', cPay = 'Tunai', cCu = '', cDp = 0, cDpm = 'Tunai', cNote = '', cKr = null, pQ = '', pCat = '', cAs = '';
-const resetCart = () => { cart = []; cCd = ''; cPay = 'Tunai'; cCu = ''; cDp = 0; cDpm = 'Tunai'; cNote = ''; cKr = null; cAs = ''; };
+let cart = [], cCd = '', cCdRp = 0, cPay = 'Tunai', cCu = '', cDp = 0, cDpm = 'Tunai', cNote = '', cKr = null, pQ = '', pCat = '', cAs = '';
+const resetCart = () => { cart = []; cCd = ''; cCdRp = 0; cPay = 'Tunai'; cCu = ''; cDp = 0; cDpm = 'Tunai'; cNote = ''; cKr = null; cAs = ''; };
+const cartItems = () => cart.map((i) => ({ id: i.id, q: i.q, ld: i.ld, pp: i.pp, free: i.free }));
 // order sales otomatis diantar tim dropping (bisa dimatikan per order, atau oleh pemilik di Pengaturan)
 const krAuto = () => !!(U && S && U.r == 'sales' && pkgHas('kirim') && S.srv && S.set.autoKirim !== false);
 const krOn = () => U && U.r != 'kanvas' && (cKr == null ? krAuto() : cKr) && !!cCu && pkgHas('kirim') && !!S.srv;
@@ -26,10 +27,11 @@ function creditInfo() {
   return `<small>Limit ${rp(c.lim)} · terpakai ${rp(out)} · <b class="${c.lim - out < 0 ? 'rd' : 'gr'}">sisa ${rp(c.lim - out)}</b>${od ? ` · <b class="rd">jatuh tempo ${rp(od)}</b>` : ''}</small>`;
 }
 function cartH() {
-  const items = cart.filter((i) => prod(i.id)), r = items.length ? calc(items.map((i) => ({ id: i.id, q: i.q, ld: i.ld })), cCd) : { lines: [], sub: 0, ldt: 0, cdA: 0, disc: 0, tax: 0, tot: 0 };
+  const items = cart.filter((i) => prod(i.id)), r = items.length ? calc(items.map((i) => ({ id: i.id, q: i.q, ld: i.ld, free: i.free })), cCd, cCdRp) : { lines: [], sub: 0, ldt: 0, cdA: 0, cdFlat: 0, disc: 0, tax: 0, tot: 0 };
   const outs = S.c.filter((c) => !c.x).sort((a, b) => ((U.r == 'sales' || U.r == 'kanvas') ? (b.sl == U.n) - (a.sl == U.n) : 0) || a.n.localeCompare(b.n));
   let h = `<div class="cthd"><h3>Keranjang</h3><button class="gh x" onclick="cartOpen(false)">Tutup ✕</button></div>`;
-  h += r.lines.length ? r.lines.map((l) => { const ci = cart.find((x) => x.id == l.id); return `<div class="ci"><div class="t"><b>${esc(l.n)}</b><b>${rp(l.p * l.q - l.dd)}</b></div><small>${rp(l.p)} × ${l.q}${l.dd ? ` · diskon ${rp(l.dd)}${l.tier ? ' (grosir ' + esc(l.tier) + '%)' : ''}` : ''}</small><div class="qt" style="margin-top:6px"><button onclick="pstep('${l.id}',-1)">−</button><input type="number" min="1" value="${l.q}" onchange="pset('${l.id}',this.value)"><button onclick="pstep('${l.id}',1)">+</button><input placeholder="Disk % (5+2)" value="${esc(ci.ld || '')}" onchange="pld('${l.id}',this.value)" style="flex:1"><button onclick="pdel('${l.id}')">✕</button></div></div>`; }).join('') : '<p class="mu">Belum ada item. Ketuk produk atau scan barcode.</p>';
+  h += r.lines.length ? r.lines.map((l, idx) => { const ci = items[idx], cidx = cart.indexOf(ci); return `<div class="ci">${l.free ? '<small class="gr">🎁 Bonus (gratis)</small>' : ''}<div class="t"><b>${esc(l.n)}</b><b>${rp(l.p * l.q - l.dd)}</b></div><small>${rp(l.p)} × ${l.q}${l.dd ? ` · diskon ${rp(l.dd)}${l.tier ? ' (grosir ' + esc(l.tier) + '%)' : ''}` : ''}</small><div class="qt" style="margin-top:6px"><button onclick="pstep(${cidx},-1)">−</button><input type="number" min="1" value="${l.q}" onchange="pset(${cidx},this.value)"><button onclick="pstep(${cidx},1)">+</button>${l.free ? '' : `<input placeholder="Disk % (5+2)" value="${esc(ci.ld || '')}" onchange="pld(${cidx},this.value)" style="flex:1">`}<button onclick="pdel(${cidx})">✕</button></div></div>`; }).join('') : '<p class="mu">Belum ada item. Ketuk produk atau scan barcode.</p>';
+  h += `<div class="wrap" style="margin-top:6px"><button class="gh ${cBonus ? 'a' : ''}" onclick="cBonus=!cBonus;cartUp()">${cBonus ? '🎁 Ketuk produk untuk jadi bonus…' : '🎁 + Bonus barang'}</button>${(S.bundle || []).some((b) => b.on !== false) ? '<button class="gh" onclick="bundlePick()">📦 Terapkan paket</button>' : ''}</div>`;
   h += `<div class="wrap" style="margin-top:8px"><button class="gh opick" style="flex:1" onclick="outPick()">${cCu && cust(cCu) ? '📍 <b>' + esc(cust(cCu).n) + '</b>' + (cust(cCu).kd ? ' <small class="kd">' + esc(cust(cCu).kd) + '</small>' : '') : '🔎 ' + ((U.r == 'sales' || U.r == 'kanvas') ? 'Pilih / cari outlet…' : 'Pelanggan umum — cari outlet…')}</button><button class="gh" onclick="outletForm(null,function(id){pcu(id);R()})">+ Outlet</button></div>${creditInfo()}`;
   if (U.r == 'owner' && typeof tgtUsers == 'function') { const SK = tgtUsers().filter((u) => ['sales', 'kanvas'].includes(u.r)); if (SK.length) h += `<label><small class="mu">🎯 Omzet order ini untuk (mis. membetulkan kesalahan order karyawan)</small><select onchange="cAs=this.value">${['<option value="">— atas nama sendiri (pemilik) —</option>', ...SK.map((u) => `<option value="${esc(u.n)}" ${cAs == u.n ? 'selected' : ''}>${esc(u.n)} (${esc(ROLE[u.r] || u.r)})</option>`)].join('')}</select></label>`; }
   h += `<div class="seg">${['Tunai', 'QRIS', 'Transfer', 'Piutang'].map((m) => `<button class="${cPay == m ? 'a' : ''}" onclick="ppay('${m}')">${m == 'Piutang' ? 'Kredit' : m}</button>`).join('')}</div>`;
@@ -37,13 +39,14 @@ function cartH() {
   if (pkgHas('kirim') && S.srv && cCu && U.r != 'kanvas') h += `<label class="row" style="margin:6px 0"><span>🚚 Diantar tim dropping${krOn() && cPay != 'Piutang' ? '<br><small class="or">Dibayar ' + cPay + ' saat barang tiba (ditagih dropping)</small>' : ''}</span><input type="checkbox" style="width:auto" ${krOn() ? 'checked' : ''} onchange="cKr=this.checked;cartUp()"></label>`;
   if (ciNeeded() && (U.r == 'sales' || U.r == 'kanvas') && cCu) { const cur = openCI(U.n); h += cur && cur.cid == cCu ? `<small class="gr">📍 Check-in aktif di outlet ini</small>` : `<div class="row" style="margin:6px 0"><small class="rd">Belum check-in di outlet ini</small><button class="gh a" onclick="checkIn('${cCu}').then(cartUp)">Check-in</button></div>`; }
   if (cPay == 'Piutang') h += `<div class="fm2"><input type="number" placeholder="DP dibayar (opsional)" value="${cDp || ''}" onchange="cDp=num(this.value);cartUp()"><select onchange="cDpm=this.value"><option ${cDpm == 'Tunai' ? 'selected' : ''}>Tunai</option><option ${cDpm == 'Transfer' ? 'selected' : ''}>Transfer</option><option ${cDpm == 'QRIS' ? 'selected' : ''}>QRIS</option></select></div>`;
-  h += `<div class="fm2" style="margin-top:6px"><input placeholder="Diskon total % (mis. 5+2)" value="${esc(cCd)}" onchange="cCd=this.value;cartUp()"><input placeholder="Catatan" value="${esc(cNote)}" onchange="cNote=this.value"></div>`;
-  h += `<div class="tt" style="margin-top:8px">${row('Subtotal', rp(r.sub))}${row('Diskon item', rp(-r.ldt))}${r.cdA ? row('Diskon total', rp(-r.cdA)) : ''}${row('PPN ' + (S.set.ppn || 0) + '%', rp(r.tax))}<h2>${rp(r.tot)}</h2></div>`;
+  h += `<div class="fm2" style="margin-top:6px"><input placeholder="Diskon total % (mis. 5+2)" value="${esc(cCd)}" onchange="cCd=this.value;cartUp()"><input type="number" min="0" placeholder="Diskon total Rp" value="${cCdRp || ''}" onchange="cCdRp=num(this.value);cartUp()"></div>
+<input placeholder="Catatan" value="${esc(cNote)}" onchange="cNote=this.value" style="margin-top:6px">`;
+  h += `<div class="tt" style="margin-top:8px">${row('Subtotal', rp(r.sub))}${row('Diskon item', rp(-r.ldt))}${r.cdPct ? row('Diskon total %', rp(-r.cdPct)) : ''}${r.cdFlat ? row('Diskon total Rp', rp(-r.cdFlat)) : ''}${row('PPN ' + (S.set.ppn || 0) + '%', rp(r.tax))}<h2>${rp(r.tot)}</h2></div>`;
   if (cPay == 'Piutang' && r.tot) h += `<small>Piutang baru: <b>${rp(r.tot - Math.min(cDp, r.tot))}</b></small>`;
   h += `<div class="seg"><button onclick="ptahan()">Tahan</button><button onclick="planjut()">Lanjut (${S.hold.length})</button></div><button class="pr" ${items.length ? '' : 'disabled'} onclick="pbayar()">${(U.r == 'sales' || U.r == 'kanvas') || krOn() || cPay == 'Piutang' ? '📝 Simpan order' : 'Bayar'}</button>`;
   return h;
 }
-const cbarH = () => { const n = cart.reduce((a, i) => a + i.q, 0), t = cart.filter((i) => prod(i.id)).length ? calc(cart.map((i) => ({ id: i.id, q: i.q, ld: i.ld })), cCd).tot : 0; return `<span>🛒 ${n} item${S.hold.length ? ' · ' + S.hold.length + ' ditahan' : ''}</span><span>${rp(t)} ›</span>`; };
+const cbarH = () => { const n = cart.reduce((a, i) => a + i.q, 0), t = cart.filter((i) => prod(i.id)).length ? calc(cartItems(), cCd, cCdRp).tot : 0; return `<span>🛒 ${n} item${S.hold.length ? ' · ' + S.hold.length + ' ditahan' : ''}</span><span>${rp(t)} ›</span>`; };
 function cartUp() { const el = $('#ct'); if (!el) return; el.innerHTML = cartH(); const b = $('#cb'); if (b) b.innerHTML = cbarH(); }
 const cartOpen = (o) => { const el = $('#ct'); if (el) el.classList.toggle('open', o); };
 VW.pos = () => {
@@ -56,15 +59,23 @@ function pkey(e) {
   if (p) { padd(p.id); pQ = ''; e.target.value = ''; $('#pg').innerHTML = gridH(); } else toast('Produk tidak ditemukan: ' + v);
 }
 const pcat = (c) => { pCat = c; $('#pcats').innerHTML = catsH(); $('#pg').innerHTML = gridH(); };
+let cBonus = false; // mode: produk berikutnya yang diketuk ditambahkan sebagai bonus (gratis)
 function padd(id, n = 1) {
-  const p = prod(id); if (!p) return; const c = cart.find((x) => x.id == id), q = (c ? c.q : 0) + n;
+  const p = prod(id); if (!p) return;
+  if (cBonus) {
+    const mx = U.r == 'kanvas' ? vanQ(U.n, id) : p.st, fc = cart.find((x) => x.id == id && x.free), q = (fc ? fc.q : 0) + n;
+    if (q > mx) { toast('Stok ' + p.n + ' hanya ' + mx); cBonus = false; return cartUp(); }
+    if (fc) fc.q = q; else cart.push({ id, q: n, ld: '', free: 1 });
+    cBonus = false; toast('🎁 ' + p.n + ' ditambahkan sebagai bonus (gratis)'); return cartUp();
+  }
+  const c = cart.find((x) => x.id == id && !x.free), q = (c ? c.q : 0) + n;
   const mx = U.r == 'kanvas' ? vanQ(U.n, id) : p.st; if (q > mx) { toast((U.r == 'kanvas' ? 'Stok ' + p.n + ' di mobil hanya ' : 'Stok ' + p.n + ' hanya ') + mx); return cartUp(); }
   if (c) c.q = q; else cart.push({ id, q: n, ld: '' }); cartUp();
 }
-function pset(id, v) { const p = prod(id), c = cart.find((x) => x.id == id); if (!c) return; let q = Math.max(1, num(v)); if (q > p.st) { q = p.st; toast('Stok ' + p.n + ' hanya ' + p.st); } c.q = q; cartUp(); }
-const pstep = (id, d) => { const c = cart.find((x) => x.id == id); if (!c) return; if (c.q + d < 1) return pdel(id); padd(id, d); };
-const pdel = (id) => { cart = cart.filter((x) => x.id != id); cartUp(); };
-const pld = (id, v) => { const c = cart.find((x) => x.id == id); if (c) c.ld = v.replace(/[^\d.,+]/g, ''); cartUp(); };
+function pset(idx, v) { const c = cart[idx]; if (!c) return; const p = prod(c.id); let q = Math.max(1, num(v)); const mx = U.r == 'kanvas' ? vanQ(U.n, c.id) : p.st; if (q > mx) { q = mx; toast('Stok ' + p.n + ' hanya ' + mx); } c.q = q; cartUp(); }
+function pstep(idx, d) { const c = cart[idx]; if (!c) return; if (c.q + d < 1) return pdel(idx); const p = prod(c.id), mx = U.r == 'kanvas' ? vanQ(U.n, c.id) : p.st; if (c.q + d > mx) { toast('Stok ' + p.n + ' hanya ' + mx); return; } c.q += d; cartUp(); }
+const pdel = (idx) => { cart.splice(idx, 1); cartUp(); };
+const pld = (idx, v) => { const c = cart[idx]; if (c) c.ld = v.replace(/[^\d.,+]/g, ''); cartUp(); };
 const pcu = (id) => { cCu = id; if (!id && cPay == 'Piutang') cPay = 'Tunai'; cartUp(); };
 // pemilih outlet dengan pencarian + terdekat
 function outPick() {
@@ -85,15 +96,27 @@ function outPick() {
   if (!MYPOS || Date.now() - (MYPOS.t || 0) > 12e4) getPos().then((p) => { if (p) { p.t = Date.now(); MYPOS = p; } if (document.body.contains(m)) draw(); });
 }
 const ppay = (m) => { cPay = m; cartUp(); };
+function bundlePick() {
+  const L = (S.bundle || []).filter((b) => b.on !== false);
+  const normTot = (b) => b.items.reduce((a, i) => { const p = prod(i.id); return a + (p ? p.pr * i.q : 0); }, 0);
+  const m = modal(`<h3>📦 Terapkan paket</h3>${L.map((b) => { const nt = normTot(b), disc = b.mode == 'pct' ? Math.round(nt * b.val / 100) : b.val; return `<div class="cd" style="padding:10px"><b>${esc(b.n)}</b><br><small class="mu">${b.items.map((i) => { const p = prod(i.id); return p ? p.n + ' ×' + i.q : ''; }).filter(Boolean).join(' + ')}</small><div class="row" style="margin:4px 0"><small class="mu">Harga normal ${rp(nt)}</small><b class="gr">Hemat ${rp(disc)}</b></div><button class="gh a" data-bid="${b.id}">Terapkan paket ini</button></div>`; }).join('') || '<p class="mu">Belum ada paket aktif.</p>'}`, 'w');
+  $$('[data-bid]', m).forEach((btn) => (btn.onclick = () => {
+    const b = L.find((x) => x.id == btn.dataset.bid); if (!b) return;
+    for (const it of b.items) { const p = prod(it.id); if (!p) continue; const c = cart.find((x) => x.id == it.id && !x.free); const have = c ? c.q : 0; if (have < it.q) padd(it.id, it.q - have); }
+    const nt = normTot(b), disc = b.mode == 'pct' ? Math.round(nt * b.val / 100) : b.val;
+    cCdRp = (cCdRp || 0) + disc; cNote = (cNote ? cNote + ' · ' : '') + 'Paket: ' + b.n;
+    m.close(); cartUp(); toast('Paket "' + b.n + '" diterapkan — hemat ' + rp(disc));
+  }));
+}
 function scanAdd() { scanCode((v) => { const p = bySku(v); if (p) { padd(p.id); toast('+ ' + p.n, 1200); return true; } skuUnknown(v, (id) => padd(id)); return false; }, { multi: true }); }
-function ptahan() { if (!cart.length) return toast('Keranjang kosong'); S.hold.push({ cart, cCd, cPay, cCu, cDp, cDpm, cNote, cKr, cAs, t: Date.now() }); resetCart(); save(); cartUp(); toast('Transaksi ditahan'); }
-function planjut() { if (!S.hold.length) return toast('Tidak ada transaksi ditahan'); if (cart.length && !confirm('Keranjang saat ini akan diganti. Lanjutkan?')) return; const h = S.hold.pop(); ({ cart, cCd, cPay, cCu, cDp, cDpm, cNote } = h); cKr = h.cKr == null ? null : !!h.cKr; cAs = h.cAs || ''; save(); cartUp(); }
+function ptahan() { if (!cart.length) return toast('Keranjang kosong'); S.hold.push({ cart, cCd, cCdRp, cPay, cCu, cDp, cDpm, cNote, cKr, cAs, t: Date.now() }); resetCart(); save(); cartUp(); toast('Transaksi ditahan'); }
+function planjut() { if (!S.hold.length) return toast('Tidak ada transaksi ditahan'); if (cart.length && !confirm('Keranjang saat ini akan diganti. Lanjutkan?')) return; const h = S.hold.pop(); ({ cart, cCd, cPay, cCu, cDp, cDpm, cNote } = h); cCdRp = h.cCdRp || 0; cKr = h.cKr == null ? null : !!h.cKr; cAs = h.cAs || ''; save(); cartUp(); }
 async function pbayar() {
   try {
     // bayar langsung QRIS / Transfer → tampilkan QRIS / rekening toko ke pelanggan dulu
     const now = !(U.r == 'sales' || krOn() || cPay == 'Piutang');
-    if (now && (cPay == 'QRIS' || cPay == 'Transfer') && typeof payShow == 'function') { const t = calc(cart.map((i) => ({ id: i.id, q: i.q, ld: i.ld })), cCd).tot; if (!(await payShow(cPay, t, (cCu && cust(cCu) ? cust(cCu).n + ' · ' : '') + 'Pembayaran ' + cPay))) return; }
-    const s = mkSale({ items: cart.map((i) => ({ id: i.id, q: i.q, ld: i.ld })), cd: cCd, pay: cPay, cu: cCu, dpay: cDp, dpm: cDpm, note: cNote, kirim: krOn(), asu: cAs });
+    if (now && (cPay == 'QRIS' || cPay == 'Transfer') && typeof payShow == 'function') { const t = calc(cartItems(), cCd, cCdRp).tot; if (!(await payShow(cPay, t, (cCu && cust(cCu) ? cust(cCu).n + ' · ' : '') + 'Pembayaran ' + cPay))) return; }
+    const s = mkSale({ items: cartItems(), cd: cCd, cdRp: cCdRp, pay: cPay, cu: cCu, dpay: cDp, dpm: cDpm, note: cNote, kirim: krOn(), asu: cAs });
     const asTxt = s.asu ? ' · omzet untuk ' + s.asu : ''; const ord = U.r == 'sales' || s.kirim || s.pay == 'Piutang'; resetCart(); R(); if (ord) orderDone(s); else receipt(s); if (PRN.auto) printReceipt(s, null, 'faktur'); if (asTxt) toast('Transaksi tersimpan' + asTxt, 4000);
   } catch (e) { if (e.message != 'Dibatalkan') toast(e.message, 5000); }
 }
