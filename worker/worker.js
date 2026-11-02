@@ -1,7 +1,7 @@
 import { MSCHEMA, buyerRoutes, shopRoutes, shipCfg } from './market.js';
 import { SSCHEMA, SALTER, logAct, heartbeat, adminActivity } from './social.js';
 import { MSCH2, mitraRoutes } from './mitra.js';
-import { HSCHEMA, payHook, hqStore, hqAdmin, leadPost, trailStmt, trailGet, pruneTrail, tunnelPost, tunnelRedirect, apkPublic, apkPubOf, apkChunkGet, apkDlCount, siteOf, siteHit, webPublic, mediaPublic, webExport, trkIssue, trkOff, trkLoc } from './hq.js';
+import { HSCHEMA, payHook, hqStore, hqAdmin, leadPost, trailStmt, trailGet, pruneTrail, tunnelPost, tunnelRedirect, apkPublic, apkPubOf, apkChunkGet, apkDlCount, siteOf, siteHit, appHit, adminPulse, webPublic, mediaPublic, webExport, trkIssue, trkOff, trkLoc } from './hq.js';
 import { RSCHEMA, RALTER, rptCfg, cleanCfg, dayRange, buildDaily, sendOut, cronDaily } from './lapor.js';
 // J-POS API v4 — Cloudflare Worker + D1 (SQLite)
 // Multi-tenant: 1 toko = 1 tenant. Data bisnis = LOG KEJADIAN (tabel ev) yang diputar ulang tiap perangkat (offline-first).
@@ -137,6 +137,7 @@ export default {
       if (p == '/api/tunnel' && M == 'POST') return tunnelPost(env, b, ip, J, await cfgAll(env), cfgSet, limited);
       if (p == '/api/site' && M == 'GET') { const C = await cfgAll(env); return J({ ...siteOf(C), apk: apkPubOf(C) }); } // isi & pengaturan website promo
       if (p == '/api/site/hit' && M == 'POST') return siteHit(env, ip, J, limited, b);
+      if (p == '/api/app/hit' && M == 'POST') return appHit(env, ip, J, limited); // aplikasi dibuka tapi belum login — dipantau Head Admin
       if (p == '/api/apk' && M == 'GET') return apkPublic(await cfgAll(env), J);
       if (p == '/api/apk/chunk' && M == 'GET') return apkChunkGet(env, u, ip, J, await cfgAll(env), limited);
       if (p == '/api/apk/dl' && M == 'POST') return apkDlCount(env, ip, J, limited);
@@ -199,6 +200,7 @@ export default {
         const a = await verify(env, bearer);
         if (!a || a.role != 'super') return J({ e: 'Unauthorized' }, 401);
         if (p == '/api/admin/activity' && M == 'GET') return J(await adminActivity(env, u));
+        if (p == '/api/admin/pulse' && M == 'GET') return adminPulse(env, J);
         if (p == '/api/admin/stores' && M == 'GET') {
           const r = await env.DB.prepare(`SELECT s.id,s.name,s.owner,s.email,s.phone,s.status,s.created,s.exp,s.plan,s.tier,s.note,
               (SELECT COUNT(*) FROM staff WHERE store_id=s.id) users, COALESCE(e.n,0) tx, COALESCE(e.o,0) omzet, COALESCE(e.n30,0) tx30, COALESCE(e.o30,0) om30, e.last,

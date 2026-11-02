@@ -230,6 +230,21 @@ export async function apkDlCount(env, ip, J, limited) {
   if (await limited(env, 'apkdl:' + ip, 20, 36e5)) return J({ ok: 1 });
   await env.DB.prepare("INSERT INTO sitehits(k,n) VALUES(?,1) ON CONFLICT(k) DO UPDATE SET n=n+1").bind('d:' + new Date(Date.now() + 288e5).toISOString().slice(0, 10)).run(); return J({ ok: 1 });
 }
+// aplikasi dibuka tapi belum login (layar Masuk/Daftar) — dipantau Head Admin di tab Aktivitas
+export async function appHit(env, ip, J, limited) {
+  if (await limited(env, 'apphit:' + ip, 20, 36e5)) return J({ ok: 1 });
+  await env.DB.prepare("INSERT INTO sitehits(k,n) VALUES(?,1) ON CONFLICT(k) DO UPDATE SET n=n+1").bind('a:' + new Date(Date.now() + 288e5).toISOString().slice(0, 10)).run(); return J({ ok: 1 });
+}
+// ringkasan cepat hari ini untuk lencana (badge) tab Aktivitas Head Admin: kunjungan website, buka app tanpa login, & login (karyawan/pemilik/admin)
+export async function adminPulse(env, J) {
+  const day = new Date(Date.now() + 288e5).toISOString().slice(0, 10), since = new Date(day + 'T00:00:00+08:00').getTime();
+  const [hits, login] = await Promise.all([
+    env.DB.prepare("SELECT k,n FROM sitehits WHERE k=? OR k=?").bind('v:' + day, 'a:' + day).all(),
+    env.DB.prepare("SELECT COUNT(*) n FROM act WHERE t>? AND act LIKE 'login%'").bind(since).first(),
+  ]);
+  const mp = {}; for (const x of hits.results) mp[x.k] = x.n;
+  return J({ visit: mp['v:' + day] || 0, app: mp['a:' + day] || 0, login: (login && login.n) || 0 });
+}
 // ----- Head Admin -----
 async function apkAdmin(x) {
   const { env, p, M, b, J, C, cfgSet, req, u } = x, now = Date.now();
@@ -291,10 +306,10 @@ async function siteAdmin(x) {
   }
   if (p == '/api/admin/site/stats') {
     const days = []; for (let i = 13; i >= 0; i--) days.push(new Date(Date.now() + 288e5 - i * DAY).toISOString().slice(0, 10));
-    const r = (await env.DB.prepare("SELECT k,n FROM sitehits WHERE k>=? ").bind('d:' + days[0]).all()).results, r2 = (await env.DB.prepare("SELECT k,n FROM sitehits WHERE k>=? AND k<'w'").bind('v:' + days[0]).all()).results, mp = {}; for (const x2 of [...r, ...r2]) mp[x2.k] = x2.n;
+    const r = (await env.DB.prepare("SELECT k,n FROM sitehits WHERE k>=? ").bind('d:' + days[0]).all()).results, r2 = (await env.DB.prepare("SELECT k,n FROM sitehits WHERE k>=? AND k<'w'").bind('v:' + days[0]).all()).results, r3 = (await env.DB.prepare("SELECT k,n FROM sitehits WHERE k>=? AND k<'b'").bind('a:' + days[0]).all()).results, mp = {}; for (const x2 of [...r, ...r2, ...r3]) mp[x2.k] = x2.n;
     const L = (await env.DB.prepare("SELECT strftime('%Y-%m-%d',(t/1000)+28800,'unixepoch') d,COUNT(*) n FROM leads WHERE t>? GROUP BY d").bind(Date.now() - 15 * DAY).all()).results, lm = {}; for (const y of L) lm[y.d] = y.n;
     const srcs = {}; for (const x2 of r) if (x2.k.startsWith('s:') && x2.k.slice(-10) >= days[0]) { const n2 = x2.k.slice(2, -11); srcs[n2] = (srcs[n2] || 0) + x2.n; }
-    return J({ src: srcs, days: days.map((d) => ({ d, v: mp['v:' + d] || 0, dl: mp['d:' + d] || 0, o: lm[d] || 0 })) });
+    return J({ src: srcs, days: days.map((d) => ({ d, v: mp['v:' + d] || 0, a: mp['a:' + d] || 0, dl: mp['d:' + d] || 0, o: lm[d] || 0 })) });
   }
   return null;
 }

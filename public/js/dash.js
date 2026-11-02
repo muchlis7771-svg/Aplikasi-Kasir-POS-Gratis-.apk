@@ -184,7 +184,11 @@ async function haLoad() {
     const [st, ss, cf] = await Promise.all([haApi('/api/admin/stats?tz=' + -new Date().getTimezoneOffset() / 60), haApi('/api/admin/stores'), haApi('/api/admin/cfg')]);
     HA.d = st; HA.stores = ss.stores; HA.cfg = cf; HA.err = ''; HT && R();
   } catch (e) { if (e.status == 401) { haOut(); toast('Sesi berakhir, login ulang'); } else { HA.err = e.message; R(); } }
+  haPulse();
 }
+// ringkasan cepat hari ini (kunjungan website, buka app tanpa login, login karyawan/pemilik) — lencana di tab Aktivitas
+let HPULSE = null;
+async function haPulse() { try { HPULSE = await haApi('/api/admin/pulse'); const b = $('#habdg'); if (b) { const n = HPULSE.visit + HPULSE.app + HPULSE.login; b.textContent = n || ''; b.style.display = n ? '' : 'none'; } if (HA.tab == 'act') R(); } catch (e) { } }
 function haOut() { HT = ''; sessionStorage.removeItem('jpos:ht'); HA.d = null; R(); }
 const fill14 = (rows) => days(14).map((d) => ({ l: d.l, v: (rows.find((r) => r.d == d.k) || {}).v || 0 }));
 function haView() {
@@ -251,6 +255,7 @@ function haActView() {
   const fl = HAA.f.toLowerCase(), L = d.stores.filter((s) => !fl || (s.name + s.id).toLowerCase().includes(fl));
   const row = (id, nm, sub, n24, u24, on_n, last) => `<button class="halr hact" onclick="haActStore('${esc(id)}')"><em class="${on_n ? 'live' : n24 ? 'near' : ''}"></em><span><b>${esc(nm)}</b><small>${esc(sub)}</small></span><span class="r"><b>${n24}</b><small>aktivitas 24 jam</small><small>${u24} pengguna${on_n ? ' · <b class="gr">' + on_n + ' online</b>' : ''} · ${last ? agoTxt(last) : 'belum ada'}</small></span></button>`;
   return `<div class="cd hero"><small>Sedang online (5 menit terakhir)</small><h2>${on.length} orang</h2><small>${['pembeli', 'owner', 'admin', 'kasir', 'sales', 'akuntan'].map((r) => ROLEI[r] + ' ' + by(r)).join(' · ')}</small></div>
+${HPULSE ? `<div class="cd"><h3>📈 Hari ini</h3>${kpi([['🌐 Kunjungan website', HPULSE.visit], ['📱 Buka app (belum login)', HPULSE.app], ['🔑 Login (karyawan + pemilik)', HPULSE.login]])}</div>` : ''}
 ${kpi([['Toko aktif 24 jam', act + ' / ' + d.stores.length], ['Total aktivitas 24 jam', tot24.toLocaleString('id-ID')], ...Object.entries(tod).slice(0, 4).map(([r, n]) => [(ROLEI[r] || '') + ' ' + r + ' aktif', n])])}
 <div class="cd"><h3>Aktivitas per jam (24 jam)</h3>${vbars(hours, (v) => v)}</div>
 <div class="cd"><div class="row" style="margin:0"><h3 style="margin:0">🏪 Aktivitas per toko</h3><small class="mu">ketuk toko → pengguna → log</small></div>

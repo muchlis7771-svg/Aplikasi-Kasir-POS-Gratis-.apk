@@ -157,7 +157,10 @@ ${vs.length ? `<b>Kunjungan terakhir</b><div class="row" style="margin:2px 0"><s
   $('#e1', m).onclick = () => { m.close(); orderFor(id); };
   $('#e4', m).onclick = () => { m.close(); preqForm(id, c.n); };
   const e2 = $('#e2', m); if (e2) e2.onclick = () => { m.close(); outletForm(id); };
-  const e3 = $('#e3', m); if (e3) e3.onclick = () => shareText('Tagihan ' + c.n, 'Yth. ' + c.n + ',\nRincian tagihan ' + (S.name || '') + ':\n' + inv.map((s) => s.no + ' (' + dstr(s.t) + ') ' + rp(sOut(s)) + ' — tempo ' + dstr(s.due)).join('\n') + '\nTotal: ' + rp(out) + '\nMohon konfirmasi pembayaran. Terima kasih 🙏');
+  const e3 = $('#e3', m); if (e3) e3.onclick = () => {
+    const txt = 'Yth. ' + c.n + ',\nRincian tagihan ' + (S.name || '') + ':\n' + inv.map((s) => s.no + ' (' + dstr(s.t) + ') ' + rp(sOut(s)) + ' — tempo ' + dstr(s.due)).join('\n') + '\nTotal: ' + rp(out) + '\nMohon konfirmasi pembayaran. Terima kasih 🙏';
+    if (c.ph) window.open(waLink(c.ph, txt), '_blank'); else shareText('Tagihan ' + c.n, txt);
+  };
 }
 
 /* ============ CARI OUTLET OTOMATIS dari peta (OpenStreetMap) di sekitar titik GPS, radius s/d 10 km ============ */
