@@ -48,11 +48,18 @@ const gpsDaysSel = () => `<select class="gdays" aria-label="Rentang riwayat" onc
 
 // ---- Riwayat KUNJUNGAN (check-in / check-out outlet): garis di peta, urutan, lama kunjungan, perjalanan antar outlet ----
 function gpsVisits(user) { const f = new Date(); f.setHours(0, 0, 0, 0); return visitsIn(f.getTime() - (GPSD - 1) * 864e5, Date.now() + 36e5, user).slice().reverse(); } // urut waktu naik
-function gpsVp(v) { if (v.lat != null && v.lng != null && Math.abs(v.lat) > 0.01) return [v.lat, v.lng]; const c = (S.c || []).find((x) => x.id == v.cid); return c && c.lat != null ? [c.lat, c.lng] : null; }
+function gpsVp(v) {
+  if (v.lat != null && v.lng != null && Math.abs(v.lat) > 0.01) return [v.lat, v.lng, 0];
+  const c = (S.c || []).find((x) => x.id == v.cid); if (c && c.lat != null) return [c.lat, c.lng, 0];
+  // kunjungan tanpa koordinat sendiri/outlet → pakai titik jejak GPS latar terdekat waktu check-in (maks ±30 mnt), agar garis tetap tersambung
+  const pts = (GTR && GTR.pts) || []; let best = null, bd = 18e5;
+  for (const p of pts) { const d = Math.abs(p[0] - v.t); if (d < bd) { bd = d; best = p; } }
+  return best ? [best[1], best[2], 1] : null;
+}
 const gvDay = (k) => new Date(k + 'T12:00:00').toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'short' });
 function gpsVisPop(x, n, k) {
   const v = x.v, p = gpsVp(v), out = x.co ? hm(x.co.t) : null;
-  return `<b>${n}. ${esc(v.cn || 'Outlet')}</b><br>${esc(gvDay(k))}<br>🕐 Masuk ${hm(v.t)}${out ? ' · keluar ' + out : ' · <i>belum check-out</i>'}<br>⏱️ ${x.dur != null ? 'Lama ' + gdur(x.dur) : 'Lama belum tercatat'}${v.dist != null ? '<br>📏 ' + Math.round(v.dist) + ' m dari titik outlet' : ''}${x.ord.length ? '<br>🧾 ' + x.ord.length + ' transaksi · ' + rp(x.tot) : '<br>🧾 Tidak ada transaksi'}${v.why ? '<br>⚠️ ' + esc(v.why) : ''}${v.note ? '<br>📝 ' + esc(v.note) : ''}${p ? `<br><a href="https://www.google.com/maps?q=${p[0]},${p[1]}" target="_blank" rel="noopener">Buka di Maps</a>` : ''}`;
+  return `<b>${n}. ${esc(v.cn || 'Outlet')}</b><br>${esc(gvDay(k))}<br>🕐 Masuk ${hm(v.t)}${out ? ' · keluar ' + out : ' · <i>belum check-out</i>'}<br>⏱️ ${x.dur != null ? 'Lama ' + gdur(x.dur) : 'Lama belum tercatat'}${v.dist != null ? '<br>📏 ' + Math.round(v.dist) + ' m dari titik outlet' : ''}${x.ord.length ? '<br>🧾 ' + x.ord.length + ' transaksi · ' + rp(x.tot) : '<br>🧾 Tidak ada transaksi'}${v.why ? '<br>⚠️ ' + esc(v.why) : ''}${v.note ? '<br>📝 ' + esc(v.note) : ''}${p ? `<br><a href="https://www.google.com/maps?q=${p[0]},${p[1]}" target="_blank" rel="noopener">Buka di Maps</a>${p[2] ? ' <small class="mu">(perkiraan dari jejak GPS)</small>' : ''}` : '<br><small class="mu">Posisi tidak tersedia</small>'}`;
 }
 function gpsVisDraw(pts) {
   const by = {}; for (const x of gpsVisits(GPSU)) (by[dkey(x.v.t)] = by[dkey(x.v.t)] || []).push(x);
