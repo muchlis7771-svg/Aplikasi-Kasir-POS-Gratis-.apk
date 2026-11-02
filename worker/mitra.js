@@ -35,7 +35,7 @@ export async function mitraRoutes(x) {
   }
   // ---- sisi DISTRIBUTOR ----
   if (!p.startsWith('/api/dnet')) return null;
-  if (!feats.includes('dnet')) return J({ e: 'Jaringan mitra butuh paket High · Distributor dan hak akses Jaringan Mitra' }, 403);
+  if (!feats.includes('dnet')) return J({ e: 'Jaringan mitra butuh hak akses Jaringan Mitra' }, 403);
   if (p == '/api/dnet/req' && M == 'POST') { // ajak toko jadi mitra (toko harus menyetujui)
     if (await limited(env, 'dreq:' + sid, 60, 864e5)) return J({ e: 'Terlalu banyak ajakan hari ini' }, 429);
     const st = String(b.store || '').trim().toLowerCase(); if (!/^[a-z0-9]{6,20}$/.test(st) || st == sid) return J({ e: 'Kode toko tidak valid' }, 400);

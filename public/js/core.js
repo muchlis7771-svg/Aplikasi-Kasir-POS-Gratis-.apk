@@ -94,7 +94,7 @@ function slimStore() {
 }
 function flushSave() { clearTimeout(saveT); saveT = null; if (S && !LS.set('jpos:s:' + SID, S) && !(slimStore() && LS.set('jpos:s:' + SID, S)) && !flushSave.w) { flushSave.w = 1; toast('Penyimpanan perangkat penuh! Ekspor backup lalu kosongkan data lama.', 7000); } }
 addEventListener('pagehide', flushSave); document.addEventListener('visibilitychange', () => { if (document.hidden) flushSave(); });
-function loadStore(id) { const s = LS.get('jpos:s:' + id, null); if (!s) return false; SID = id; S = s; for (const k of ['p', 'c', 'sales', 'j', 'ap', 'att', 'users', 'eq', 'cq', 'hold', 'staff', 'sup', 'po', 'kn', 'rtr', 'bst', 'tgt', 'ses', 'tsk', 'kv', 'kvq']) S[k] = S[k] || []; S.done = S.done || {}; S.pend = S.pend || {}; S.cs = S.cs || {}; S.set = Object.assign({ ppn: 11, tempo: 30, jin: '08:00' }, S.set || {});
+function loadStore(id) { const s = LS.get('jpos:s:' + id, null); if (!s) return false; SID = id; S = s; for (const k of ['p', 'c', 'sales', 'j', 'ap', 'att', 'users', 'eq', 'cq', 'hold', 'staff', 'sup', 'po', 'kn', 'rtr', 'bst', 'tgt', 'ses', 'tsk', 'kv', 'kvq', 'creq']) S[k] = S[k] || []; S.done = S.done || {}; S.pend = S.pend || {}; S.cs = S.cs || {}; S.set = Object.assign({ ppn: 11, tempo: 30, jin: '08:00' }, S.set || {});
   { const old = Date.now() - 14 * 864e5; S.att.forEach((a) => { if (a.ph && a.t < old) delete a.ph; }); S.sales.forEach((x) => { if (x.dl) x.dl.log.forEach((l) => { if (l.ph && l.t < old) delete l.ph; }); }); } // foto bukti lama dibuang agar penyimpanan HP tidak penuh
   if (!S.v4) { const o = S.users.find((u) => u.r == 'admin'); if (o && !S.users.some((u) => u.r == 'owner')) o.r = 'owner'; S.v4 = 1; }
   S.c.forEach((c) => { if (c.lat == null || c.lng == null || (Math.abs(c.lat) < 0.01 && Math.abs(c.lng) < 0.01)) { c.lat = null; c.lng = null; } }); kdFill(); return true; }
@@ -251,6 +251,27 @@ const Ap = {
     if (existing) Object.assign(existing, b); else S.bundle.push(b);
     if (e.r == 'owner') notif(e, 'promo', '🎁 Promo "' + b.n + '" dibuat/diubah pemilik, langsung aktif');
     else notif(e, 'promo', '⏳ ' + e.u + ' mengajukan promo "' + b.n + '" — menunggu persetujuan pemilik');
+  },
+  // pengajuan fasilitas kredit outlet oleh sales/kanvas ke pemilik (owner tetap bisa memberi kredit langsung lewat form outlet)
+  cred(e) {
+    if (!['owner', 'sales', 'kanvas'].includes(e.r)) return;
+    S.creq = S.creq || [];
+    if (e.op == 'approve' || e.op == 'reject') {
+      if (e.r != 'owner') return; const q = S.creq.find((x) => x.id == e.id); if (!q || q.st != 'pending') return; const c = cust(q.cid);
+      if (e.op == 'reject') { q.st = 'no'; q.oleh = e.u; q.tt = e.t; notif(e, 'kredit', '❌ Pengajuan kredit ' + (c ? c.n : q.cid) + ' dari ' + q.by + ' ditolak pemilik'); return; }
+      q.st = 'ok'; q.oleh = e.u; q.tt = e.t; q.lim = Math.max(0, Math.round(+e.lim) || q.sugg || 0);
+      if (c) { c.term = 'kredit'; c.lim = q.lim; c.tempo = Math.max(1, Math.round(+e.tempo) || c.tempo || S.set.tempo || 30); }
+      notif(e, 'kredit', '✅ Kredit ' + (c ? c.n : q.cid) + ' disetujui pemilik, limit ' + rp(q.lim));
+      return;
+    }
+    if (e.r != 'sales' && e.r != 'kanvas') return;
+    const cid = e.cid, c = cid ? cust(cid) : null; if (!c) return;
+    if (c.term == 'kredit') return; // sudah kredit, tidak perlu diajukan lagi
+    if (S.creq.some((x) => x.cid == cid && x.st == 'pending')) return; // sudah ada pengajuan menunggu
+    const id = 'cr' + uid().slice(0, 8);
+    S.creq.push({ id, cid, by: e.u, t: e.t, sugg: Math.max(0, Math.round(+e.sugg) || 0), note: String(e.note || '').slice(0, 200), st: 'pending' });
+    if (S.creq.length > 500) S.creq = S.creq.slice(-500);
+    notif(e, 'kredit', '⏳ ' + e.u + ' mengajukan kredit outlet "' + c.n + '" — menunggu persetujuan pemilik');
   },
   shf(e) {
     S.ses = S.ses || [];

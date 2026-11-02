@@ -142,7 +142,7 @@ function saveSet() {
   emit('set', { set, name: $('#sn').value.trim() || S.name }); toast('Pengaturan disimpan'); R();
 }
 async function setLogo(el) { const f = el.files[0]; if (!f) return; emit('set', { set: {}, logo: await imgData(f, 96) }); R(); }
-async function setGeo() { toast('Mengambil lokasi…', 1500); const p = await getPos(); if (!p) return toast('Lokasi tidak tersedia'); emit('set', { set: { glat: p.lat, glng: p.lng, grad: 200 } }); toast('Lokasi toko tersimpan (radius 200 m untuk kasir/akuntan)'); R(); }
+async function setGeo() { toast('Mengambil lokasi…', 1500); const p = await getPos(); if (!p) return toast('Lokasi tidak tersedia'); emit('set', { set: { glat: p.lat, glng: p.lng, grad: 200 } }); if (S.srv && canNet()) try { await api('/api/shop/loc', { method: 'POST', body: JSON.stringify({ lat: p.lat, lng: p.lng, addr: S.set.addr || '' }) }); } catch (e) { } toast('Lokasi toko tersimpan (radius 200 m untuk kasir/akuntan, tampil di Peta Kios)'); R(); }
 async function saveApi() {
   if (!SRVOK && !(U && S && U.r == 'owner')) return toast('Alamat server hanya bisa diubah pemilik toko');
   const v = $('#sv').value.trim().replace(/\/$/, ''); LS.set('jpos:api', v); AP = v || AP;
