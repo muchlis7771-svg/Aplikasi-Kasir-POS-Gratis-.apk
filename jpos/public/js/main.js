@@ -79,11 +79,11 @@ function R() {
   try { body = VW[V](); } catch (e) { console.error(e); body = `<div class="cd"><h3>Terjadi kesalahan</h3><p class="rd">${esc(e.message)}</p></div>`; }
   const banner = S.locked ? `<div class="cd warn"><b>⛔ ${esc(S.locked)}</b><br><small>Hubungi pemilik aplikasi. Data di perangkat ini tetap aman.</small></div>` : S.reauth ? `<div class="cd info"><b>Sesi sinkron berakhir.</b> <button class="gh a" onclick="reauth()">Masuk ulang</button></div>` : '';
   const tabs = TABS[U.r].filter((k) => can(k));
-  app.innerHTML = `<header><button class="av" onclick="acctMenu()">${S.logo ? `<img src="${esc(S.logo)}" alt="">` : esc((S.name || '?')[0].toUpperCase())}</button><div class="hn"><b>${esc(S.name)}</b><small>${esc(U.n)} · ${esc(ROLE[U.r])}</small></div><span class="sp"></span><span id="sy" class="bd" onclick="sync().then(R)"></span></header>
+  app.innerHTML = `<header><button class="av" onclick="acctMenu()">${S.logo ? `<img src="${esc(S.logo)}" alt="">` : esc((S.name || '?')[0].toUpperCase())}</button><div class="hn"><b>${esc(S.name)}</b><small>${esc(U.n)} · ${esc(ROLE[U.r])}</small></div><span class="sp"></span>${typeof notifBellH == 'function' ? notifBellH() : ''}<span id="sy" class="bd" onclick="sync().then(R)"></span></header>
 <aside class="sb"><div class="sbh"><b>J-POS</b><small>${esc(S.name)}</small></div>${pages().map((k) => `<button class="${V == k ? 'a' : ''}" onclick="go('${k}')"><i>${pIco(k)}</i><span>${esc(pgName(k))}</span>${k == 'chat' ? '<em id="nb-chat2"></em>' : ''}</button>`).join('')}<span class="sp"></span><button onclick="logout()"><i>${ico('out')}</i><span>Keluar</span></button></aside>
 <main><div class="pt"><span style="--c:${pCol(V)}">${pIco(V)}</span><h2>${esc(pgName(V))}</h2></div>${banner}${expBanner()}${body}</main>
 <nav class="bn">${tabs.map((k) => `<button class="${V == k ? 'a' : ''}" onclick="go('${k}')"><i style="--c:${pCol(k)}">${pIco(k)}</i><span>${esc(pgName(k))}</span>${k == 'chat' ? '<em id="nb-chat"></em>' : k == 'onl' ? '<em id="nb-onl"></em>' : ''}</button>`).join('')}<button class="${tabs.includes(V) ? '' : 'a'}" onclick="menuSheet()"><i>${ico('menu')}</i><span>Menu</span><em id="nb-menu"></em></button></nav>`;
-  updBadge(); if (typeof almSync == 'function') almSync();
+  updBadge(); if (typeof almSync == 'function') almSync(); if (typeof notifCheck == 'function') notifCheck();
   const f = VW[V].after; if (f) try { f(); } catch (e) { console.error(e); }
   if (S.srv && can('onl')) onlBadge();
   if (typeof CH != 'undefined' && CH.unread && V != 'chat') { const nb = $('#nb-chat') || $('#nb-menu'); if (nb) { nb.textContent = CH.unread; nb.style.display = 'grid'; } }

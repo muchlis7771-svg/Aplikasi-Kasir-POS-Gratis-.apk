@@ -40,6 +40,22 @@ async function dsnapPost(force) {
   } catch (e) { }
 }
 setInterval(() => dsnapPost(), 9e4);
+// notifikasi mitra (pengajuan masuk & disetujui) — dipantau berkala agar muncul di lonceng dashboard tanpa harus membuka halaman mitra
+function pushMitNotif(no, t, u, msg) {
+  S.notif = S.notif || []; if (S.notif.some((n) => n.no == no)) return;
+  S.notif.unshift({ no, t, u, r: 'owner', kind: 'mitra', msg }); if (S.notif.length > 300) S.notif.length = 300;
+  if (typeof notifCheck == 'function') notifCheck();
+}
+async function mitPollNotif() {
+  if (!S || !U || U.r != 'owner' || !S.srv || !canNet()) return;
+  const k = 'jpos:mitp:' + SID; if (Date.now() - LS.get(k, 0) < 6e4) return; LS.set(k, Date.now());
+  try { const r = await api('/api/mitra'); for (const x of r.links || []) if (x.status == 'req') pushMitNotif('mit-req-' + x.dist_id + '-' + x.t, x.t, x.name, '🤝 ' + x.name + ' mengajukan jadi mitra — menunggu persetujuan Anda'); } catch (e) { }
+}
+async function dnPollNotif() {
+  if (!S || !U || U.r != 'owner' || !S.srv || !canNet() || !can('dnet')) return;
+  const k = 'jpos:dnp:' + SID; if (Date.now() - LS.get(k, 0) < 6e4) return; LS.set(k, Date.now());
+  try { const r = await api('/api/dnet'); for (const x of r.stores || []) if (x.status == 'ok') pushMitNotif('mit-ok-' + x.store_id + '-' + x.t, x.t, x.name, '✅ ' + x.name + ' menyetujui jadi mitra'); } catch (e) { }
+}
 
 /* ---------- halaman distributor ---------- */
 const DN = { list: null, sel: '', data: {}, q: '', sort: 'q30', busy: false };

@@ -59,7 +59,7 @@ async function sync() {
   } finally { syncing = false; updBadge(); if (n) afterPull(); if (S && S.locked) R(); }
 }
 const LIVE = new Set(['dash', 'his', 'keu', 'abs', 'outlet', 'prod', 'kirim', 'kas', 'beli', 'aud']);
-function afterPull() { if (U && LIVE.has(V) && !$('.md') && !$('.scan') && !/INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName || '')) R(); }
+function afterPull() { if (U && typeof notifCheck == 'function') notifCheck(); if (U && typeof mitPollNotif == 'function') mitPollNotif(); if (U && typeof dnPollNotif == 'function') dnPollNotif(); if (U && LIVE.has(V) && !$('.md') && !$('.scan') && !/INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName || '')) R(); }
 function updBadge() {
   const b = $('#sy'); if (!b || !S) return;
   const q = S.eq.length;

@@ -36,17 +36,17 @@ const DEFPERM = {
 };
 const PKG0 = {
   // STANDAR · KIOS: toko kecil / kios — kasir, stok, outlet, absen, retur, buku kas, laporan dasar
-  biasa: { n: 'Standar · Kios', max: 3, pr: 25000, f: 'dash pos his prod prodEdit outlet abs chat set usr retur kas lap xls backup shiftSet gaji' },
+  biasa: { n: 'Standar · Kios', max: 3, pr: 25000, f: 'dash pos his prod prodEdit outlet abs chat set usr retur kas lap xls backup shiftSet gaji kiosMap dnet' },
   // MEDIUM · GROSIR: toko grosir yang sudah punya sales — + keuangan, pembelian, toko online, hak akses, sales lapangan (check-in, analisa, dropping), target, peta kios
-  standar: { n: 'Medium · Grosir', max: 15, pr: 50000, f: 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana cek kirim terima tgt tgtAll tgtSet shiftSet kiosMap kanvas gaji gps' },
+  standar: { n: 'Medium · Grosir', max: 15, pr: 50000, f: 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana cek kirim terima tgt tgtAll tgtSet shiftSet kiosMap dnet kanvas gaji gps' },
   // HIGH · DISTRIBUTOR / TRADER: semua fitur — + jurnal akuntansi, absen anti-curang (selfie & wajah), audit lapangan
   high: { n: 'High · Distributor', max: 100, pr: 100000, f: 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana jur kirim cek terima anti aud tgt tgtAll tgtSet shiftSet kiosMap dnet kanvas gaji gps' },
 };
 const ALLF = [...new Set(Object.values(PKG0).flatMap((x) => x.f.split(' ')).concat('terima'))];
-const KNEED = { sale: ['pos'], pay: ['pos', 'keu', 'terima'], retur: ['retur'], stk: ['prodEdit', 'beli'], apay: ['keu', 'beli'], opn: ['prodEdit', 'keu'], exp: ['jur', 'keu'], jm: ['jur'], pu: ['prodEdit'], cu: ['outlet'], visit: ['outlet', 'cek'], vout: ['cek'], sup: ['beli'], po: ['beli'], rcv: ['beli'], dlv: ['kirim'], kas: ['kas'], sec: null, face: null, bst: ['prodEdit'], tgt: ['tgtSet'], shf: ['pos'], shs: ['shiftSet'], tsk: null, kvl: ['kanvas'], kvb: ['kanvas'], kvr: ['kanvas'], gji: null, in: null, out: null, loc: null, cap: 'owner', set: 'owner', preq: ['outlet', 'cek'], bdl: ['prodEdit'] };
-const pkgAll = () => { let o = null; try { o = CFG && CFG.pkg_feat ? JSON.parse(CFG.pkg_feat) : null; } catch (e) { } const r = {}; for (const t of Object.keys(PKG0)) { const ov = o && o[t] && o[t].v >= 31 ? o[t] : null; r[t] = { ...PKG0[t], ...(ov || {}) }; if (ov && !(ov.v >= 37) && t != 'biasa') r[t].f += ' kanvas'; if (ov && !(ov.v >= 38)) r[t].f += ' gaji'; if (ov && !(ov.v >= 39) && t != 'biasa') r[t].f += ' gps'; } return r; }; // paket disusun ulang di v31 (Standar·Kios / Medium·Grosir / High·Distributor): setelan lama diganti default baru
+const KNEED = { sale: ['pos'], pay: ['pos', 'keu', 'terima'], retur: ['retur'], stk: ['prodEdit', 'beli'], apay: ['keu', 'beli'], opn: ['prodEdit', 'keu'], exp: ['jur', 'keu'], jm: ['jur'], pu: ['prodEdit'], cu: ['outlet'], visit: ['outlet', 'cek'], vout: ['cek'], sup: ['beli'], po: ['beli'], rcv: ['beli'], dlv: ['kirim'], kas: ['kas'], sec: null, face: null, bst: ['prodEdit'], tgt: ['tgtSet'], shf: ['pos'], shs: ['shiftSet'], tsk: null, kvl: ['kanvas'], kvb: ['kanvas'], kvr: ['kanvas'], gji: null, in: null, out: null, loc: null, cap: 'owner', set: 'owner', preq: ['outlet', 'cek'], bdl: ['prodEdit'], cred: ['outlet'] };
+const pkgAll = () => { let o = null; try { o = CFG && CFG.pkg_feat ? JSON.parse(CFG.pkg_feat) : null; } catch (e) { } const r = {}; for (const t of Object.keys(PKG0)) { const ov = o && o[t] && o[t].v >= 31 ? o[t] : null; r[t] = { ...PKG0[t], ...(ov || {}) }; if (ov && !(ov.v >= 37) && t != 'biasa') r[t].f += ' kanvas'; if (ov && !(ov.v >= 38)) r[t].f += ' gaji'; if (ov && !(ov.v >= 39) && t != 'biasa') r[t].f += ' gps'; if (ov && !(ov.v >= 40) && t == 'biasa') r[t].f += ' kiosMap dnet'; if (ov && !(ov.v >= 40) && t == 'standar') r[t].f += ' dnet'; } return r; }; // paket disusun ulang di v31 (Standar·Kios / Medium·Grosir / High·Distributor): setelan lama diganti default baru
 // fitur baru per versi: ikut aktif di paket & peran yang sudah disesuaikan sebelumnya
-const NEWF = [[25, 'tgt tgtAll tgtSet'], [30, 'shiftSet']], NEWR = [[25, { admin: 'tgt tgtAll tgtSet', akuntan: 'tgt tgtAll', kasir: 'tgt', sales: 'tgt' }], [30, { admin: 'shiftSet' }], [31, { admin: 'kiosMap', sales: 'kiosMap' }], [32, { admin: 'dnet' }], [37, { admin: 'kanvas' }], [39, { admin: 'gps' }]];
+const NEWF = [[25, 'tgt tgtAll tgtSet'], [30, 'shiftSet']], NEWR = [[25, { admin: 'tgt tgtAll tgtSet', akuntan: 'tgt tgtAll', kasir: 'tgt', sales: 'tgt' }], [30, { admin: 'shiftSet' }], [31, { admin: 'kiosMap', sales: 'kiosMap' }], [32, { admin: 'dnet' }], [37, { admin: 'kanvas' }], [39, { admin: 'gps' }], [40, { admin: 'dnet' }]];
 const newRole = (ov, role) => NEWR.filter(([vv]) => !(ov._v >= vv)).map(([, m]) => m[role] || '').join(' ');
 const pkgOf = (tier) => { const a = pkgAll(); return a[tier] || a.high; };
 const permObj = (s) => { try { const o = s.perm ? JSON.parse(s.perm) : null; return o && typeof o == 'object' ? o : {}; } catch (e) { return {}; } };
@@ -326,7 +326,9 @@ export default {
         const R0 = Math.PI / 180, hv = (a, b, c, e) => { const x = (c - a) * R0, y = (e - b) * R0, h = Math.sin(x / 2) ** 2 + Math.cos(a * R0) * Math.cos(c * R0) * Math.sin(y / 2) ** 2; return 12742000 * Math.asin(Math.sqrt(h)); };
         const mine = new Set((await env.DB.prepare('SELECT DISTINCT buyer_id b FROM orders WHERE store_id=?').bind(sid).all()).results.map((x) => x.b));
         const out = rows.map((x) => ({ ...x, dist: Math.round(hv(la, ln, x.lat, x.lng)), ord: mine.has(x.id) ? 1 : 0 })).filter((x) => x.dist <= rk * 1000).sort((a, b) => a.dist - b.dist).slice(0, 500);
-        const sh = (await env.DB.prepare("SELECT s.id,s.name,s.tier,sh.lat,sh.lng,sh.addr FROM stores s JOIN shop sh ON sh.store_id=s.id WHERE s.status='active' AND s.id<>? AND sh.lat BETWEEN ? AND ? AND sh.lng BETWEEN ? AND ? LIMIT 1000").bind(sid, la - d, la + d, ln - d / Math.max(0.2, Math.cos(la * Math.PI / 180)), ln + d / Math.max(0.2, Math.cos(la * Math.PI / 180))).all()).results.map((x) => ({ ...x, dist: Math.round(hv(la, ln, x.lat, x.lng)) })).filter((x) => x.lat != null && x.dist <= rk * 1000).sort((a, b) => a.dist - b.dist).slice(0, 300);
+        // visibilitas bertingkat jaringan mitra: distributor(high) lihat grosir+kios; grosir(standar) lihat distributor+kios; kios(biasa) hanya lihat grosir
+        const SEEMAP = { high: ['standar', 'biasa'], standar: ['high', 'biasa'], biasa: ['standar'] }, canSee = SEEMAP[me.tier] || [];
+        const sh = (await env.DB.prepare("SELECT s.id,s.name,s.tier,sh.lat,sh.lng,sh.addr,sh.wa phone FROM stores s JOIN shop sh ON sh.store_id=s.id WHERE s.status='active' AND s.id<>? AND sh.lat BETWEEN ? AND ? AND sh.lng BETWEEN ? AND ? LIMIT 1000").bind(sid, la - d, la + d, ln - d / Math.max(0.2, Math.cos(la * Math.PI / 180)), ln + d / Math.max(0.2, Math.cos(la * Math.PI / 180))).all()).results.map((x) => ({ ...x, dist: Math.round(hv(la, ln, x.lat, x.lng)) })).filter((x) => x.lat != null && x.dist <= rk * 1000 && canSee.includes(x.tier)).sort((a, b) => a.dist - b.dist).slice(0, 300);
         return J({ kios: out, total: out.length, shops: sh });
       }
 
@@ -442,6 +444,14 @@ export default {
         }
       }
 
+      // titik GPS toko untuk Peta Kios & jaringan mitra — tersedia semua paket (tidak butuh fitur Toko Online), beda dari /api/shop/profile yang mengatur toko online lengkap
+      if (p == '/api/shop/loc' && M == 'POST') {
+        if (role != 'owner' && role != 'admin') return J({ e: 'Khusus owner/admin' }, 403);
+        const ll = Number.isFinite(+b.lat) && Number.isFinite(+b.lng) && Math.abs(+b.lat) <= 90 && Math.abs(+b.lng) <= 180 && !(Math.abs(+b.lat) < 0.01 && Math.abs(+b.lng) < 0.01);
+        if (!ll) return J({ e: 'Titik lokasi tidak valid' }, 400);
+        await env.DB.prepare(`INSERT INTO shop(store_id,lat,lng,addr,upd) VALUES(?,?,?,?,?) ON CONFLICT(store_id) DO UPDATE SET lat=excluded.lat,lng=excluded.lng,addr=COALESCE(excluded.addr,shop.addr),upd=excluded.upd`).bind(sid, +b.lat, +b.lng, String(b.addr || '').slice(0, 200) || null, Date.now()).run();
+        return J({ ok: 1 });
+      }
       if (p.startsWith('/api/shop/')) { if (!stInfo(me).pf.split(' ').includes('onl')) return J({ e: 'Fitur Toko Online tidak termasuk paket ' + pkgOf(me.tier).n }, 403); const r = await shopRoutes({ env, p, M, b, u, J, sid, role, uname, EXP }); if (r) return r; }
 
       if (p == '/api/chat/rooms' && M == 'GET') {

@@ -40,20 +40,46 @@ function uiOrgCard() {
 let UTH = null;
 function uiOrgSave() { const md = {}; $$('[data-um]').forEach((s) => (md[s.dataset.um] = s.value)); emit('set', { set: { uiTheme: UTH || S.set.uiTheme || 'modern', uiModel: md, uiOwn: $('#uown').checked } }); toast('Tampilan semua karyawan disimpan — berlaku setelah sinkron'); LS.set(thKey(), ''); R(); }
 document.addEventListener('click', (e) => { const b = e.target.closest('[data-ut]'); if (!b) return; UTH = b.dataset.ut; $$('[data-ut]').forEach((x) => x.classList.toggle('a', x == b)); document.body.dataset.th = document.documentElement.dataset.th = UTH; });
-/* ---- pemberitahuan penting untuk semua karyawan & pemilik — muncul otomatis tiap ada perubahan (promo, harga, stok, pembelian dll) ---- */
-const NOTIF_ICO = { promo: '🎁', harga: '💲', stok: '📦', beli: '📥', produk: '🆕' };
+/* ---- pemberitahuan penting untuk semua karyawan & pemilik — lonceng pojok kanan atas, muncul otomatis tiap ada perubahan (promo, harga, stok, pembelian dll) ---- */
+const NOTIF_ICO = { promo: '🎁', harga: '💲', stok: '📦', beli: '📥', produk: '🆕', kredit: '💳', mitra: '🤝' };
 const notifSeenKey = () => 'jpos:notifSeen:' + (U ? U.n.toLowerCase() : '');
+const notifUnseen = () => { const L = S.notif || []; if (!L.length) return 0; const seen = LS.get(notifSeenKey(), 0); return L.filter((x) => x.t > seen).length; };
+function notifBellH() { const n = S && U ? notifUnseen() : 0; return `<button class="bellbtn" id="notifbell" onclick="notifPanel()" aria-label="Pemberitahuan">🔔${n ? '<em class="hbdg">' + (n > 99 ? '99+' : n) + '</em>' : ''}</button>`; }
+function notifBellUpd() { const b = $('#notifbell'); if (b) b.outerHTML = notifBellH(); }
 let NOTIFOPEN = 0;
-function notifCard() {
-  const L = S.notif || []; if (!L.length) return '';
-  const seen = LS.get(notifSeenKey(), 0), unseen = L.filter((x) => x.t > seen).length, show = L.slice(0, NOTIFOPEN ? 20 : 5);
-  return `<div class="cd fbar" id="notifcd"><div class="row" style="margin:0"><b>🔔 Pemberitahuan${unseen ? ' <span class="chip r">' + unseen + ' baru</span>' : ''}</b>${unseen ? '<button class="gh" style="padding:4px 8px" onclick="notifSeenAll()">Tandai dibaca</button>' : ''}</div>
-${show.map((x) => `<div class="row" style="margin:4px 0;align-items:flex-start"><small>${NOTIF_ICO[x.kind] || '🔔'} ${esc(x.msg)}</small><small class="mu" style="white-space:nowrap;flex:none;margin-left:6px">${agoTxt(x.t)}</small></div>`).join('')}
-${L.length > 5 ? `<button class="gh" style="margin-top:4px" onclick="NOTIFOPEN=${NOTIFOPEN ? 0 : 1};R()">${NOTIFOPEN ? 'Sembunyikan' : 'Lihat semua (' + L.length + ')'}</button>` : ''}</div>`;
+function notifPanel() {
+  const L = S.notif || [];
+  const m = modal(`<div class="row" style="margin:0"><h3 style="margin:0">🔔 Pemberitahuan</h3><button class="gh" style="padding:4px 8px" onclick="notifSeenAll()">Tandai semua dibaca</button></div>
+<div id="notiflist" class="notiflist"></div>${L.length > 8 ? `<button class="gh" style="margin-top:8px" id="notifmore"></button>` : ''}`, 'w');
+  const seen = LS.get(notifSeenKey(), 0);
+  const draw = () => {
+    const show = L.slice(0, NOTIFOPEN ? L.length : 8);
+    $('#notiflist', m).innerHTML = show.map((x) => `<button class="notifrow ${x.t > seen ? 'new' : ''}" data-nno="${esc(x.no)}"><span class="ni">${NOTIF_ICO[x.kind] || '🔔'}</span><span class="nt"><b>${esc(x.msg)}</b><small>${esc(x.u || '')} · ${agoTxt(x.t)}</small></span></button>`).join('') || '<p class="mu">Belum ada pemberitahuan.</p>';
+    const more = $('#notifmore', m); if (more) { more.textContent = NOTIFOPEN ? 'Sembunyikan' : 'Lihat semua (' + L.length + ')'; more.onclick = () => { NOTIFOPEN = NOTIFOPEN ? 0 : 1; draw(); }; }
+    $$('.notifrow', m).forEach((b) => (b.onclick = () => { const x = L.find((y) => y.no == b.dataset.nno); m.close(); if (x) notifGo(x); }));
+  };
+  draw(); notifSeenAll(true);
 }
-function notifSeenAll() { LS.set(notifSeenKey(), Date.now()); R(); }
+// klik notifikasi → langsung ke halaman terkait; promo yang masih menunggu persetujuan langsung buka dialog persetujuan pemilik
+function notifGo(x) {
+  if (x.kind == 'promo') { go('prod'); if (U.r == 'owner' && /menunggu persetujuan/.test(x.msg) && typeof bundleAtur == 'function') setTimeout(bundleAtur, 150); return; }
+  if (x.kind == 'harga' || x.kind == 'produk' || x.kind == 'stok') return go('prod');
+  if (x.kind == 'beli') return pkgHas('beli') && can('beli') ? go('beli') : go('prod');
+  if (x.kind == 'kredit') { go('outlet'); if (U.r == 'owner' && /menunggu persetujuan/.test(x.msg) && typeof creditApproveGo == 'function') setTimeout(() => creditApproveGo(x), 150); return; }
+  if (x.kind == 'mitra') return go(/menyetujui jadi mitra/.test(x.msg) ? 'dnet' : 'set');
+}
+function notifSeenAll(silent) { LS.set(notifSeenKey(), Date.now()); notifBellUpd(); if (!silent) R(); }
+// bunyi notifikasi singkat saat ada pemberitahuan baru masuk (bukan saat pertama kali buka app)
+let NOTIFLASTNO;
+function notifBeep() { try { const AC = window.AudioContext || window.webkitAudioContext, ctx = new AC(), o = ctx.createOscillator(), g = ctx.createGain(); o.type = 'sine'; o.frequency.value = 880; g.gain.value = 0.18; o.connect(g); g.connect(ctx.destination); o.start(); o.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.12); g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.35); o.stop(ctx.currentTime + 0.36); setTimeout(() => ctx.close(), 500); } catch (e) { } }
+function notifCheck() {
+  const L = S.notif || []; if (!L.length) { NOTIFLASTNO = NOTIFLASTNO === undefined ? null : NOTIFLASTNO; notifBellUpd(); return; }
+  if (NOTIFLASTNO === undefined) { NOTIFLASTNO = L[0].no; notifBellUpd(); return; } // muat pertama kali — tidak bunyi
+  if (L[0].no != NOTIFLASTNO) { NOTIFLASTNO = L[0].no; notifBeep(); }
+  notifBellUpd();
+}
 const dashWrap = (h) => { const l = dlayNow(), t = (THEMES.find((x) => x[0] == themeNow()) || THEMES[0]); return `<div class="dlay dl-${l}">${typeof tgtMini == 'function' && U.r != 'dropping' ? tgtMini() : ''}${['owner', 'admin'].includes(U.r) && typeof kvPend == 'function' && kvPend().length ? '<button class="cd fbar" style="width:100%;text-align:left;cursor:pointer" onclick="go(\'kanvas\')"><b>⏳ ' + kvPend().length + ' permintaan muat / balik barang kanvas</b><small class="mu">Ketuk untuk menyiapkan & menyetujui</small></button>' : ''}${S.srv && ['owner', 'admin'].includes(U.r) && S.tier != 'high' ? '<button class="cd kioshead" style="width:100%;text-align:left;cursor:pointer" onclick="startBuyerAsStore()"><b>🛒 Order stok ke ' + (S.tier == 'biasa' ? 'grosir / distributor' : 'distributor') + ' terdekat</b><br><small class="mu">Lihat stok ready, harga & diskon grosir, lalu pesan langsung atas nama toko Anda.</small></button>' : ''}<div class="dlbar"><button class="gh" onclick="dlayPick()">🎨 ${esc(t[2])} · ${esc((DLAY.find((x) => x[0] == l) || DLAY[1])[2])}${ownOk() ? '' : ' 🔒'}</button></div>${l == 'grafik' ? h.replace('<details class="more"', '<details class="more" open') : h}</div>`; };
-VW.dash = () => notifCard() + (U.r == 'dropping' ? VW.kirim() : dashWrap(U.r == 'kasir' || U.r == 'spg' ? dashKasir() : U.r == 'sales' || U.r == 'kanvas' ? (typeof kvMini == 'function' ? kvMini() : '') + dashSales() : dashAdmin()));
+VW.dash = () => (U.r == 'dropping' ? VW.kirim() : dashWrap(U.r == 'kasir' || U.r == 'spg' ? dashKasir() : U.r == 'sales' || U.r == 'kanvas' ? (typeof kvMini == 'function' ? kvMini() : '') + dashSales() : dashAdmin()));
 VW.dash.after = () => { if (U.r == 'dropping') return VW.kirim.after(); if (teamMapPending) { teamMapPending = 0; drawTeamMap(); } };
 
 /* ---- pantau lokasi & kehadiran tim lapangan (untuk owner/admin) ---- */

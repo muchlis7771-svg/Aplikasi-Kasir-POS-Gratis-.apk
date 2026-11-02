@@ -146,8 +146,10 @@ function outletDetail(id) {
   const c = cust(id); if (!c) return; const inv = S.sales.filter((s) => s.cu == id && sOut(s) > 0), out = outOf(id);
   const ss = S.sales.filter((s) => s.cu == id).slice(-8).reverse(), vs = S.att.filter((a) => a.k == 'visit' && a.cid == id).slice(-5).reverse();
   const pq = (S.preq || []).filter((x) => x.cid == id).slice(-8).reverse();
+  const pendCr = (S.creq || []).find((x) => x.cid == id && x.st == 'pending');
   const m = modal(`${c.img ? `<img src="${c.img}" style="width:100%;max-height:220px;object-fit:cover;border-radius:14px" alt="">` : ''}<h3>${esc(c.n)}</h3>${c.kd ? '<small class="kd">Kode outlet: ' + esc(c.kd) + '</small>' : ''}<small>${esc(c.ad || '')}${c.ph ? ' · ' + esc(c.ph) : ''}${c.sl ? ' · Sales: ' + esc(c.sl) : ''}</small>${c.note ? `<small>Catatan: ${esc(c.note)}</small>` : ''}
 ${c.term == 'kredit' ? row('Limit kredit', rp(c.lim)) + row('Piutang berjalan', rp(out)) + row('Sisa limit', rp(c.lim - out), c.lim - out < 0 ? 'rd bo' : 'gr bo') + row('Tempo', (c.tempo || 30) + ' hari') : '<small>Outlet tunai (tanpa kredit)</small>'}
+${pendCr ? `<div class="cd" style="margin:8px 0;border-color:#c9a24a88"><b>💳 Pengajuan kredit menunggu persetujuan</b><br><small>Diajukan ${esc(pendCr.by)} · usulan limit ${rp(pendCr.sugg)}${pendCr.note ? ' · ' + esc(pendCr.note) : ''}</small>${U.r == 'owner' ? `<div class="wrap" style="margin-top:8px"><button class="gh a" onclick="creditDecide('${pendCr.id}',1)">✅ Setujui</button><button class="gh" onclick="creditDecide('${pendCr.id}',0)">❌ Tolak</button></div>` : ''}</div>` : (U.r == 'sales' || U.r == 'kanvas') && c.term != 'kredit' ? `<button class="gh" style="width:100%;margin:8px 0" onclick="creditReqForm('${id}')">💳 Ajukan kredit outlet ini</button>` : ''}
 <b>Faktur belum lunas</b>${inv.map((s) => `<div class="row"><span>${esc(s.no)}<br><small>${dstr(s.t)} · jatuh tempo ${dstr(s.due)}${s.due < Date.now() ? ' <b class="rd">lewat</b>' : ''}</small></span><span><b>${rp(sOut(s))}</b> <button class="gh" onclick="this.closest('.md').close();payModal('${esc(s.no)}')">Terima</button></span></div>`).join('') || '<small class="mu">Tidak ada</small>'}
 <b>Transaksi terakhir</b>${ss.map((s) => `<div class="row"><small>${dstr(s.t)} · ${esc(s.no)}</small><span>${rp(s.tot)}</span></div>`).join('') || '<small class="mu">Belum ada</small>'}
 ${vs.length ? `<b>Kunjungan terakhir</b><div class="row" style="margin:2px 0"><span class="gr">✅ Terakhir dikunjungi oleh <b>${esc(vs[0].u)}</b></span></div><div class="row" style="margin:0 0 6px"><small class="mu">${esc(new Date(vs[0].t).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }))} · pukul ${hm(vs[0].t)}</small></div>` + vs.map((v) => `<div class="row"><small>${tstr(v.t)} · ${esc(v.u)}${v.note ? ' · ' + esc(v.note) : ''}</small></div>`).join('') : '<b>Kunjungan terakhir</b><small class="mu" style="display:block">⚠️ Outlet ini belum pernah dikunjungi / check-in.</small>'}
@@ -161,6 +163,48 @@ ${vs.length ? `<b>Kunjungan terakhir</b><div class="row" style="margin:2px 0"><s
     const txt = 'Yth. ' + c.n + ',\nRincian tagihan ' + (S.name || '') + ':\n' + inv.map((s) => s.no + ' (' + dstr(s.t) + ') ' + rp(sOut(s)) + ' — tempo ' + dstr(s.due)).join('\n') + '\nTotal: ' + rp(out) + '\nMohon konfirmasi pembayaran. Terima kasih 🙏';
     if (c.ph) window.open(waLink(c.ph, txt), '_blank'); else shareText('Tagihan ' + c.n, txt);
   };
+}
+
+/* ============ pengajuan fasilitas kredit outlet (sales/kanvas → owner) dengan analisa limit otomatis ============ */
+// syarat: rutin transaksi ≥1 bulan, frekuensi cukup 90 hari terakhir, tidak pernah retur/menolak barang pesanan
+function creditAnalyze(cid) {
+  const c = cust(cid); if (!c) return { eligible: false, reason: 'Outlet tidak ditemukan' };
+  const sl = S.sales.filter((s) => s.cu == cid);
+  if (!sl.length) return { eligible: false, reason: 'Outlet belum pernah bertransaksi' };
+  const first = Math.min(...sl.map((s) => s.t)), days = (Date.now() - first) / 864e5;
+  if (days < 30) return { eligible: false, reason: 'Transaksi belum rutin 1 bulan (baru ' + Math.floor(days) + ' hari sejak transaksi pertama)' };
+  const w = sl.filter((s) => s.t > Date.now() - 90 * 864e5);
+  if (w.length < 3) return { eligible: false, reason: 'Frekuensi transaksi masih rendah (' + w.length + 'x dalam 90 hari terakhir)' };
+  const returN = (S.rtr || []).filter((r) => r.cu == cid).length;
+  if (returN > 0) return { eligible: false, reason: 'Outlet pernah menolak/retur barang pesanan (' + returN + 'x) — belum layak kredit' };
+  const lateN = sl.filter((s) => s.due && s.due < Date.now() && sOut(s) > 0).length;
+  const monthsSpan = Math.max(1, Math.min(3, days / 30));
+  const avgMonth = w.reduce((a, s) => a + (s.tot || 0), 0) / monthsSpan;
+  const sugg = Math.max(100000, Math.round(avgMonth * (lateN > 0 ? 0.5 : 1) / 50000) * 50000);
+  return { eligible: true, avgMonth, lateN, txCount: w.length, days: Math.floor(days), sugg };
+}
+function creditReqForm(id) {
+  const c = cust(id); if (!c) return;
+  if (c.term == 'kredit') return toast('Outlet ini sudah punya fasilitas kredit');
+  if ((S.creq || []).some((x) => x.cid == id && x.st == 'pending')) return toast('Sudah ada pengajuan kredit menunggu persetujuan untuk outlet ini');
+  const a = creditAnalyze(id);
+  if (!a.eligible) return toast('Belum layak diajukan: ' + a.reason, 5000);
+  if (!confirm('Analisa kredit ' + c.n + ':\nRata-rata transaksi/bulan ' + rp(a.avgMonth) + '\nTransaksi 90 hari terakhir: ' + a.txCount + 'x' + (a.lateN ? '\n⚠️ ' + a.lateN + ' nota pernah telat bayar (limit usulan dikurangi)' : '') + '\n\nUsulan limit kredit: ' + rp(a.sugg) + '\n\nAjukan ke pemilik untuk persetujuan?')) return;
+  emit('cred', { cid: id, sugg: a.sugg, note: a.lateN ? 'Riwayat: ' + a.lateN + 'x telat bayar' : '' });
+  toast('Pengajuan kredit dikirim, menunggu persetujuan pemilik'); R();
+}
+function creditDecide(id, approve) {
+  const q = (S.creq || []).find((x) => x.id == id); if (!q || q.st != 'pending') return;
+  if (!approve) { emit('cred', { op: 'reject', id }); toast('Pengajuan kredit ditolak'); R(); return; }
+  const lim = num(prompt('Limit kredit yang disetujui (Rp):', q.sugg || 0)); if (!lim) return;
+  const tempo = num(prompt('Tempo pembayaran (hari):', S.set.tempo || 30)) || 30;
+  emit('cred', { op: 'approve', id, lim, tempo });
+  toast('Fasilitas kredit disetujui'); R();
+}
+// dipanggil dari notifGo() saat owner menekan notifikasi pengajuan kredit — tampilkan semua yang menunggu
+function creditApproveGo() {
+  const pend = (S.creq || []).filter((x) => x.st == 'pending'); if (!pend.length) return;
+  modal('<h3>💳 Pengajuan kredit menunggu persetujuan</h3>' + pend.map((q) => { const c = cust(q.cid) || { n: q.cid }; return `<div class="cd" style="margin:6px 0"><b>${esc(c.n)}</b><br><small>Diajukan ${esc(q.by)} · usulan limit ${rp(q.sugg)}${q.note ? ' · ' + esc(q.note) : ''}</small><div class="wrap" style="margin-top:6px"><button class="gh a" onclick="creditDecide('${q.id}',1);this.closest('.md').close()">✅ Setujui</button><button class="gh" onclick="creditDecide('${q.id}',0);this.closest('.md').close()">❌ Tolak</button></div></div>`; }).join(''));
 }
 
 /* ============ CARI OUTLET OTOMATIS dari peta (OpenStreetMap) di sekitar titik GPS, radius s/d 10 km ============ */
