@@ -40,16 +40,16 @@ const MGR = (r) => r == 'owner' || r == 'admin' || r == 'akuntan';
 const ALWAYS = 'dash set';
 const DEFPERM = {
   admin: 'dash pos his hisAll prod prodEdit outlet onl ana lap keu abs absAll chat retur set beli tgt tgtAll tgtSet shiftSet kiosMap dnet kanvas gps',
-  akuntan: 'dash his hisAll prod ana lap keu jur abs absAll chat set kas tgt tgtAll',
-  kasir: 'dash pos his abs chat set tgt',
-  sales: 'dash pos his outlet ana abs chat set cek retur tgt kiosMap',
-  dropping: 'dash kirim cek terima abs chat set retur',
-  spg: 'dash pos his prod abs chat set tgt',
-  kanvas: 'dash pos his outlet ana abs chat set cek retur terima tgt kiosMap kanvas',
+  akuntan: 'dash his hisAll ana lap keu jur abs absAll chat set kas tgt tgtAll kiosMap',
+  kasir: 'dash pos his prod abs chat set tgt kiosMap',
+  sales: 'dash pos his prod outlet ana abs chat set cek retur tgt kiosMap',
+  dropping: 'dash kirim cek terima abs chat set retur kiosMap',
+  spg: 'dash pos his prod abs chat set tgt kiosMap',
+  kanvas: 'dash pos his prod outlet ana abs chat set cek retur terima tgt kiosMap kanvas',
 };
 const PKGHI = 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana jur kirim cek terima anti aud tgt tgtAll tgtSet shiftSet kiosMap dnet kanvas gaji gps';
 // fitur baru per versi ikut aktif pada hak akses yang sudah disesuaikan sebelumnya (server memakai aturan yang sama)
-const NEWR = [[25, { admin: 'tgt tgtAll tgtSet', akuntan: 'tgt tgtAll', kasir: 'tgt', sales: 'tgt' }], [30, { admin: 'shiftSet' }], [31, { admin: 'kiosMap', sales: 'kiosMap' }], [32, { admin: 'dnet' }], [37, { admin: 'kanvas' }], [39, { admin: 'gps' }]];
+const NEWR = [[25, { admin: 'tgt tgtAll tgtSet', akuntan: 'tgt tgtAll', kasir: 'tgt', sales: 'tgt' }], [30, { admin: 'shiftSet' }], [31, { admin: 'kiosMap', sales: 'kiosMap' }], [32, { admin: 'dnet' }], [37, { admin: 'kanvas' }], [39, { admin: 'gps' }], [40, { admin: 'dnet' }], [41, { akuntan: 'kiosMap', kasir: 'prod kiosMap', sales: 'prod', dropping: 'kiosMap', spg: 'kiosMap', kanvas: 'prod' }]];
 const pmRole = (ov, r) => (typeof ov[r] == 'string' ? ov[r] + ' ' + NEWR.filter(([v]) => !(ov._v >= v)).map(([, m]) => m[r] || '').join(' ') : DEFPERM[r] || '');
 const FEAT = {
   dash: 'Beranda', pos: 'Kasir / Order', his: 'Riwayat transaksi', hisAll: 'Lihat transaksi semua orang', prod: 'Lihat produk & stok', prodEdit: 'Ubah produk & stok', outlet: 'Outlet / pelanggan',
@@ -362,7 +362,7 @@ const Ap = {
     const d = (s.dl = s.dl || { st: 'baru', log: [] });
     if (d.st == 'selesai' && e.st != 'selesai') return;
     d.st = e.st; d.t = e.t; if (e.as) d.by = e.as; else if (e.st != 'baru' && !d.by) d.by = e.u;
-    d.log.push({ t: e.t, st: e.st, u: e.u, lat: e.lat, lng: e.lng, dist: e.dist, lok: e.lok, acc: e.acc, note: e.note, cash: e.cash, fl: e.fl, fx: e.fx, ph: e.ph });
+    d.log.push({ t: e.t, st: e.st, u: e.u, lat: e.lat, lng: e.lng, dist: e.dist, lok: e.lok, acc: e.acc, note: e.note, cash: e.cash, fl: e.fl, fx: e.fx, ph: e.ph, sig: e.sig, sn: e.sn });
     if (e.st == 'selesai' || e.st == 'gagal') d.end = e.t;
   },
   kas(e) {

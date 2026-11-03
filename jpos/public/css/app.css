@@ -58,7 +58,7 @@ label.gh{display:inline-block;text-align:center;cursor:pointer}label.gh input{di
 #ct{position:fixed;left:0;right:0;bottom:0;max-height:88vh;overflow:auto;z-index:8;border-radius:20px 20px 0 0;transform:translateY(105%);transition:transform .22s;padding-bottom:calc(14px + env(safe-area-inset-bottom,0))}
 #ct.open{transform:none;box-shadow:0 -10px 40px #0006}
 @media(min-width:900px){#ct{position:sticky;top:110px;transform:none;max-height:calc(100vh - 130px);border-radius:18px;align-self:start}.cartbar{display:none}.cthd .x{display:none}}
-.cthd{display:flex;justify-content:space-between;align-items:center}
+.cthd{display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:2;background:var(--cd);margin:-16px -16px 0;padding:16px 16px 10px;box-shadow:0 10px 16px -14px #0006}
 /* modal / toast */
 .md{position:fixed;inset:0;background:#000a;display:grid;place-items:center;z-index:20;padding:14px;overflow:auto}
 .dg{background:var(--cd);border-radius:18px;padding:16px;width:100%;max-width:440px;max-height:92vh;overflow:auto;display:grid;gap:8px;margin:auto}
