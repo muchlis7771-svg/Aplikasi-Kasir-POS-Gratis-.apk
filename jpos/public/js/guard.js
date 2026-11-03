@@ -149,7 +149,8 @@ async function checkIn(cid, why) {
   const cur = openCI(U.n);
   if (cur && cur.cid == cid) return toast('Sudah check-in di ' + c.n);
   toast('Memverifikasi jam & lokasi…', 2000);
-  const enforce = pkgHas('cek') && can('cek'), pr = await proof({ needPos: enforce });
+  const enforce = pkgHas('cek') && can('cek'), needGps = enforce || c.lat != null; // radius dikunci kapan pun outlet sudah punya titik GPS, tidak tergantung paket/hak akses 'cek'
+  const pr = await proof({ needPos: needGps });
   if (pr.err) return alertBox(pr.err);
   let dist = null; const fx = pr.fx.slice();
   if (c.lat == null) {
@@ -159,9 +160,10 @@ async function checkIn(cid, why) {
       if (!confirm(c.n + ' belum punya titik lokasi.\nJadikan lokasi Anda sekarang sebagai titik outlet? (dicatat & dilaporkan ke pemilik)')) return;
       emit('cu', { c: { id: c.id, lat: pr.lat, lng: pr.lng } }); fx.push('titik'); dist = 0;
     }
-  } else if (pr.lat != null) {
+  } else {
+    if (pr.lat == null) return alertBox('Lokasi GPS tidak terbaca. Aktifkan GPS & izin lokasi, lalu coba lagi.');
     dist = Math.round(haversine(pr.lat, pr.lng, c.lat, c.lng));
-    if (enforce && dist > CIR() && U.r != 'owner') return alertBox('Anda ' + distStr(dist) + ' dari titik ' + c.n + '. Check-in hanya bisa dalam radius ' + distStr(CIR()) + ' dari titik outlet.'); // pemilik (owner distributor) boleh check-in dari jarak berapa pun
+    if (dist > CIR() && U.r != 'owner') return alertBox('Anda ' + distStr(dist) + ' dari titik ' + c.n + '. Check-in hanya bisa dalam radius ' + distStr(CIR()) + ' dari titik outlet.'); // radius selalu dikunci — pemilik (owner distributor) boleh check-in dari jarak berapa pun
   }
   if (cur) autoOut(cur, pr, c.n);
   emit('visit', { cid, cn: c.n, lat: pr.lat, lng: pr.lng, acc: pr.acc, dist, why: why || '', on: pr.on, sk: pr.sk, fx: fxs(fx), note: '' }, pr.t);
