@@ -48,7 +48,7 @@ label.gh{display:inline-block;text-align:center;cursor:pointer}label.gh input{di
 .pos{display:grid;gap:12px}@media(min-width:900px){.pos{grid-template-columns:1fr 360px}}
 .srch{display:flex;gap:8px}.srch .gh{padding:0 14px;font-size:18px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-top:10px}
-.pc{background:var(--cd);border:1px solid var(--bd);border-radius:16px;padding:12px;text-align:left;display:grid;gap:2px;transition:.12s;min-width:0}.pc:active{transform:scale(.97)}.pc:disabled{opacity:.4}
+.pc{position:relative;background:var(--cd);border:1px solid var(--bd);border-radius:16px;padding:12px;text-align:left;display:grid;gap:2px;transition:.12s;min-width:0}.pc:active{transform:scale(.97)}.pc:disabled{opacity:.4}
 .pc em{width:36px;height:36px;border-radius:11px;color:#fff;font-style:normal;font-weight:700;display:grid;place-items:center;margin-bottom:4px;overflow:hidden}.pc em img{width:100%;height:100%;object-fit:cover}
 .pc b{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pc small{font-size:11px}.pc span{color:var(--ac);font-weight:700}
 .ci{padding:8px 0;border-bottom:1px dashed var(--bd)}.ci .t{display:flex;justify-content:space-between;gap:8px}.ci small{display:block}

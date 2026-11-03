@@ -75,6 +75,7 @@ function ready(env) {
     await env.DB.batch([...SCHEMA, ...MSCHEMA, ...SSCHEMA, ...RSCHEMA, ...MSCH2, ...HSCHEMA].map((q) => env.DB.prepare(q)));
     for (const c of [...SALTER, ...RALTER]) { try { await env.DB.prepare('ALTER TABLE ' + c).run(); } catch (e) { } }
     for (const c of ['phone TEXT', 'exp INTEGER', "plan TEXT DEFAULT 'trial'", 'note TEXT', "tier TEXT DEFAULT 'high'", 'perm TEXT']) { try { await env.DB.prepare('ALTER TABLE stores ADD COLUMN ' + c).run(); } catch (e) { } }
+    for (const c of ['sess TEXT']) { try { await env.DB.prepare('ALTER TABLE staff ADD COLUMN ' + c).run(); } catch (e) { } }
   })().catch((e) => { READY = null; throw e; });
   return READY;
 }
@@ -93,6 +94,15 @@ async function secret(env) {
   return (await cfgAll(env)).secret;
 }
 async function sign(env, payload) { const b = b64(E.encode(JSON.stringify(payload))); return b + '.' + (await hmac(await secret(env), b)); }
+// peran yang lokasinya dilacak GPS (sales/kanvas/dropping): login baru di perangkat lain otomatis mencabut sesi lama,
+// supaya 1 akun tidak pernah terpantau dari 2 titik GPS berbeda sekaligus (merusak jejak/riwayat perjalanan)
+const SINGLESESS = ['sales', 'kanvas', 'dropping'];
+async function issueSess(env, sid, name, role) {
+  if (!SINGLESESS.includes(role)) return null;
+  const ssn = b64(crypto.getRandomValues(new Uint8Array(12)));
+  await env.DB.prepare('UPDATE staff SET sess=? WHERE store_id=? AND name=?').bind(ssn, sid, name).run();
+  return ssn;
+}
 async function verify(env, token) {
   const [b, s] = String(token || '').split('.');
   if (!b || !s || s !== (await hmac(await secret(env), b))) return null;
@@ -171,7 +181,8 @@ export default {
         if (!r || !(await same(r.pin_hash, await hp(b.pin || '', id, r.name)))) return J({ e: 'Kode toko, nama, atau PIN salah' }, 401);
         if (r.status != 'active') return J({ e: 'Toko disuspend oleh pemilik aplikasi' }, 403);
         await logAct(env, 'staff', r.name, r.name, id, 'login ' + r.role, null);
-        return J({ token: await sign(env, { sid: id, name: r.name, exp: Date.now() + 30 * DAY }), role: r.role, name: r.name, ...stInfo(r) });
+        const ssn = await issueSess(env, id, r.name, r.role);
+        return J({ token: await sign(env, { sid: id, name: r.name, exp: Date.now() + 30 * DAY, ...(ssn ? { ssn } : {}) }), role: r.role, name: r.name, ...stInfo(r) });
       }
 
       // ---------- kehadiran (siapa sedang online) ----------
@@ -293,9 +304,11 @@ export default {
       // ---------- terautentikasi (staf toko) ----------
       const t = await verify(env, bearer);
       if (!t || !t.sid) return J({ e: 'Unauthorized' }, 401);
-      const me = await env.DB.prepare('SELECT s.status,s.name sn,s.exp,s.plan,s.tier,s.perm,st.role FROM stores s JOIN staff st ON st.store_id=s.id AND st.name=? WHERE s.id=?').bind(t.name, t.sid).first();
+      const me = await env.DB.prepare('SELECT s.status,s.name sn,s.exp,s.plan,s.tier,s.perm,st.role,st.sess FROM stores s JOIN staff st ON st.store_id=s.id AND st.name=? WHERE s.id=?').bind(t.name, t.sid).first();
       if (!me) return J({ e: 'Akun tidak ditemukan' }, 401);
       if (me.status != 'active') return J({ e: 'Toko disuspend oleh pemilik aplikasi' }, 403);
+      // 1 akun = 1 perangkat untuk peran yang GPS-nya dilacak (sales/kanvas/dropping) — login baru di HP lain mencabut sesi ini
+      if (SINGLESESS.includes(me.role) && me.sess && t.ssn !== me.sess) return J({ e: 'Akun ini baru saja login di perangkat lain. Keluar lalu masuk ulang.', dupSess: 1 }, 401);
       const sid = t.sid, uname = t.name, role = me.role, EXP = expired(me);
       const RO = () => J({ e: 'Masa aktif toko habis. Hubungi pemilik aplikasi untuk perpanjangan.', expired: 1, ...stInfo(me) }, 402);
 

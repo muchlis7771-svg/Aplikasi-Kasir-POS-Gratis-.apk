@@ -30,7 +30,7 @@ VW.beli0 = () => {
   } else {
     body = `<div class="cd"><h3>Utang ke supplier</h3>${apl.map((a) => `<div class="row"><span><b>${esc(a.sup)}</b><br><small>${esc(a.d)} · tempo ${dstr(a.due)}${a.due < now ? ' <b class="rd">lewat ' + Math.floor((now - a.due) / 864e5) + ' hr</b>' : ''}</small></span><span><b>${rp(apOut(a))}</b> <button class="gh" onclick="apayModal('${esc(a.id)}')">Bayar</button></span></div>`).join('') || '<small class="mu">Tidak ada utang 🎉</small>'}</div>`;
   }
-  return `${kpi([['PO aktif', act.length, 'menunggu barang'], ['Nilai menunggu', rp(wait)], ['Utang supplier', rp(ut), od ? 'lewat tempo ' + rp(od) : ''], ['Stok menipis', lowStock().length, 'perlu restok']])}
+  return `${kpi([['PO aktif', act.length, 'menunggu barang', "bTab='po';bFil='dipesan';R()", bTab == 'po' && bFil == 'dipesan'], ['Nilai menunggu', rp(wait), 'lihat PO aktif', "bTab='po';bFil='dipesan';R()"], ['Utang supplier', rp(ut), od ? 'lewat tempo ' + rp(od) : 'lihat rincian', "bTab='ut';R()", bTab == 'ut'], ['Stok menipis', lowStock().length, 'perlu restok', "bTab='low';R()", bTab == 'low']])}
 <div class="cd"><div class="wrap"><button class="pr" style="flex:1" onclick="poForm()">+ Buat PO</button><button class="gh" onclick="supForm()">+ Supplier</button>${pkgHas('xls') && can('xls') ? '<button class="gh" onclick="expPO()">⬇ Excel</button>' : ''}</div><div class="seg">${[['po', 'Pesanan'], ['sup', 'Supplier'], ['low', '🧠 Analisa order'], ['ut', 'Utang']].map((x) => `<button class="${bTab == x[0] ? 'a' : ''}" onclick="bTab='${x[0]}';R()">${x[1]}</button>`).join('')}</div></div>${body}`;
 };
 const waNum = (p) => { let n = String(p || '').replace(/\D/g, ''); if (n.startsWith('0')) n = '62' + n.slice(1); return n; };
