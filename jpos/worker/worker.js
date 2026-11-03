@@ -316,7 +316,7 @@ export default {
       if (p == '/api/trail' && M == 'GET') { if ((role != 'owner' && role != 'admin') || !featsOf(me, role).includes('gps')) return J({ e: 'Riwayat perjalanan hanya untuk pemilik / admin (paket Medium ke atas)' }, 403); return trailGet(env, sid, u, J); }
       if (p == '/api/trk/issue' && M == 'POST') return trkIssue({ env, sid, uname, role, J, sign: (o) => sign(env, o) });
       if (p == '/api/trk/off') return trkOff({ env, p, M, b, sid, role, J });
-      { const hr = await hqStore({ env, p, M, b, J, sid, uname, role, C: await cfgAll(env), pkgAll, sname: me.sn, limited }); if (hr) return hr; } // perpanjangan & komplain (tetap jalan walau masa aktif habis)
+      { const hr = await hqStore({ env, p, M, b, J, sid, uname, role, C: await cfgAll(env), pkgAll, sname: me.sn, limited, stInfo }); if (hr) return hr; } // perpanjangan, aktivasi lisensi & komplain (tetap jalan walau masa aktif habis)
 
       // ---------- toko belanja ke grosir / distributor lain (akun pembeli milik toko) ----------
       if (p == '/api/beli-online' && M == 'POST') {

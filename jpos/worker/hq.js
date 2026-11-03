@@ -16,6 +16,9 @@ export const HSCHEMA = [
   'CREATE TABLE IF NOT EXISTS apkc(up TEXT NOT NULL,i INTEGER NOT NULL,d TEXT NOT NULL,t INTEGER,PRIMARY KEY(up,i))',
   'CREATE TABLE IF NOT EXISTS sitehits(k TEXT PRIMARY KEY,n INTEGER NOT NULL DEFAULT 0)',
   "CREATE TABLE IF NOT EXISTS leads(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT,store TEXT,phone TEXT,city TEXT,tier TEXT,months INTEGER,note TEXT,src TEXT,st TEXT DEFAULT 'baru',hnote TEXT,t INTEGER,upd INTEGER)", 'CREATE INDEX IF NOT EXISTS leads_t ON leads(st,t)',
+  // lisensi "sekali beli": satu kode (dibuat Head Admin) boleh dipakai sejumlah `acts` aktivasi (toko/perangkat); harga bebas ditentukan Head Admin per kode
+  "CREATE TABLE IF NOT EXISTS serials(sn TEXT PRIMARY KEY,tier TEXT DEFAULT 'high',acts INTEGER DEFAULT 1,used INTEGER DEFAULT 0,price INTEGER DEFAULT 0,note TEXT,active INTEGER DEFAULT 1,created INTEGER,by TEXT)",
+  'CREATE TABLE IF NOT EXISTS activations(id INTEGER PRIMARY KEY AUTOINCREMENT,sn TEXT NOT NULL,store_id TEXT NOT NULL,t INTEGER)', 'CREATE UNIQUE INDEX IF NOT EXISTS act_u ON activations(sn,store_id)', 'CREATE INDEX IF NOT EXISTS act_sn ON activations(sn)',
 ];
 const VIS_DAYS = 31, DAY = 864e5, INV_TTL = 3 * DAY, MONTHS = [1, 3, 6, 12];
 const pj = (s, d) => { try { return JSON.parse(s); } catch (e) { return d; } };
@@ -36,6 +39,9 @@ export async function invPay(env, id, via, ref) {
   ]);
   return { ...v, exp };
 }
+const LIFETIME_YRS = 100; // "sekali bayar": masa aktif diset jauh ke depan agar kode lama (expired()/isExp()) tetap berfungsi tanpa perlu diubah
+const SNCHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // tanpa 0/O/1/I agar tidak tertukar saat dibacakan/diketik ulang
+const genSN = () => { const r = crypto.getRandomValues(new Uint8Array(12)); let s = 'JPOS'; for (let g = 0; g < 3; g++) { s += '-'; for (let i = 0; i < 4; i++) s += SNCHARS[r[g * 4 + i] % SNCHARS.length]; } return s; };
 const hex = (buf) => [...new Uint8Array(buf)].map((x) => x.toString(16).padStart(2, '0')).join('');
 async function hmac(key, txt) { const k = await crypto.subtle.importKey('raw', new TextEncoder().encode(key), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']); return hex(await crypto.subtle.sign('HMAC', k, new TextEncoder().encode(txt))); }
 const safeEq = (a, b) => { a = String(a || ''); b = String(b || ''); if (!a || a.length != b.length) return false; let r = 0; for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i); return r == 0; };
@@ -75,7 +81,23 @@ export async function payHook(env, req, u, J, C) {
 
 // rute toko (sudah login). Berjalan walau masa aktif habis, agar bisa perpanjang & komplain.
 export async function hqStore(x) {
-  const { env, p, M, b, J, sid, uname, role, C, pkgAll, sname, limited } = x, now = Date.now();
+  const { env, p, M, b, J, sid, uname, role, C, pkgAll, sname, limited, stInfo } = x, now = Date.now();
+  if (p == '/api/activate' && M == 'POST') {
+    if (role != 'owner') return J({ e: 'Hanya pemilik toko yang bisa mengaktifkan kode lisensi' }, 403);
+    if (await limited(env, 'act:' + sid, 10, DAY)) return J({ e: 'Terlalu banyak percobaan aktivasi hari ini, coba lagi besok' }, 429);
+    const sn = String(b.code || '').trim().toUpperCase().replace(/\s+/g, '');
+    if (!sn) return J({ e: 'Masukkan kode lisensi' }, 400);
+    const v = await env.DB.prepare('SELECT * FROM serials WHERE sn=?').bind(sn).first();
+    if (!v || !v.active) return J({ e: 'Kode lisensi tidak ditemukan atau sudah tidak aktif' }, 404);
+    const already = await env.DB.prepare('SELECT 1 FROM activations WHERE sn=? AND store_id=?').bind(sn, sid).first();
+    if (!already && v.used >= v.acts) return J({ e: `Kode ini sudah mencapai batas ${v.acts} aktivasi` }, 400);
+    const st = [];
+    if (!already) { st.push(env.DB.prepare('INSERT INTO activations(sn,store_id,t) VALUES(?,?,?)').bind(sn, sid, now)); st.push(env.DB.prepare('UPDATE serials SET used=used+1 WHERE sn=?').bind(sn)); }
+    st.push(env.DB.prepare("UPDATE stores SET plan='lifetime',tier=?,exp=?,status='active' WHERE id=?").bind(v.tier || 'high', now + LIFETIME_YRS * 365 * DAY, sid));
+    await env.DB.batch(st);
+    const s2 = await env.DB.prepare('SELECT exp,plan,status,name,tier,perm FROM stores WHERE id=?').bind(sid).first();
+    return J({ ok: 1, ...stInfo(s2) });
+  }
   if (p == '/api/renew') {
     await expireOld(env); const pk = pkgAll(), pr = {}; for (const t of Object.keys(pk)) pr[t] = { n: pk[t].n, pr: pk[t].pr || 0, max: pk[t].max };
     if (M == 'POST') {
@@ -140,6 +162,26 @@ export async function hqAdmin(x) {
   if (m && M == 'POST') {
     if (b.op == 'lunas') { const r = await invPay(env, +m[1], 'manual', 'manual:' + m[1] + ':' + now); if (!r) return J({ e: 'Tagihan tidak ditemukan / sudah diproses' }, 400); return J({ ok: 1, exp: r.exp }); }
     if (b.op == 'batal') { await env.DB.prepare("UPDATE inv SET status='batal' WHERE id=? AND status='tunggu'").bind(+m[1]).run(); return J({ ok: 1 }); }
+  }
+  // kode lisensi "sekali beli": Head Admin menentukan paket, jumlah aktivasi (toko/perangkat) & harga bebas per kode
+  if (p == '/api/admin/serial' && M == 'GET') return J({ list: (await env.DB.prepare('SELECT * FROM serials ORDER BY created DESC LIMIT 500').all()).results });
+  if (p == '/api/admin/serial' && M == 'POST') {
+    const tier = ['biasa', 'standar', 'high'].includes(b.tier) ? b.tier : 'high', acts = Math.max(1, Math.min(9999, Math.round(+b.acts) || 1)), price = Math.max(0, Math.round(+b.price) || 0), note = clip(b.note, 200).trim();
+    let sn = null; for (let i = 0; i < 8 && !sn; i++) { const c = genSN(); if (!(await env.DB.prepare('SELECT 1 FROM serials WHERE sn=?').bind(c).first())) sn = c; }
+    if (!sn) return J({ e: 'Gagal membuat kode, coba lagi' }, 503);
+    await env.DB.prepare('INSERT INTO serials(sn,tier,acts,used,price,note,active,created,by) VALUES(?,?,?,0,?,?,1,?,?)').bind(sn, tier, acts, price, note, now, 'headadmin').run();
+    return J({ ok: 1, sn });
+  }
+  m = p.match(/^\/api\/admin\/serial\/([A-Z0-9-]+)$/);
+  if (m && M == 'PATCH') {
+    const sn = m[1]; if (!(await env.DB.prepare('SELECT 1 FROM serials WHERE sn=?').bind(sn).first())) return J({ e: 'Kode tidak ditemukan' }, 404);
+    const st = [];
+    if (b.active != null) st.push(env.DB.prepare('UPDATE serials SET active=? WHERE sn=?').bind(b.active ? 1 : 0, sn));
+    if (b.acts != null) st.push(env.DB.prepare('UPDATE serials SET acts=? WHERE sn=?').bind(Math.max(1, Math.min(9999, Math.round(+b.acts) || 1)), sn));
+    if (b.price != null) st.push(env.DB.prepare('UPDATE serials SET price=? WHERE sn=?').bind(Math.max(0, Math.round(+b.price) || 0), sn));
+    if (b.note != null) st.push(env.DB.prepare('UPDATE serials SET note=? WHERE sn=?').bind(clip(b.note, 200).trim(), sn));
+    if (st.length) await env.DB.batch(st);
+    return J({ ok: 1 });
   }
   if (p == '/api/admin/tunnel') {
     if (M == 'POST' && b.renew || !C.tunnel_key) { const k = hex(crypto.getRandomValues(new Uint8Array(16))); await cfgSet(env, 'tunnel_key', k); C.tunnel_key = k; }
