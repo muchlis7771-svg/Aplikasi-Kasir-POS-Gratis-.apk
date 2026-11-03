@@ -1,0 +1,41 @@
+name: Publish APK ke Website
+# Setiap apk-dist/J-POS-latest.apk diperbarui (rilis baru ditandatangani & di-commit), unggah otomatis
+# ke sistem "Aplikasi di website" Head Admin — supaya tombol unduh di halaman promo (link yang sama,
+# sudah dibagikan ke TikTok/FB/Instagram/LinkedIn) langsung mengarah ke APK terbaru tanpa aksi manual.
+# Potongan APK lama otomatis dihapus server saat commit baru berhasil (lihat worker/hq.js apkAdmin).
+on:
+  workflow_dispatch:
+    inputs:
+      note:
+        description: Catatan rilis (opsional)
+        required: false
+  push:
+    branches: [jpos, main]
+    paths: ['apk-dist/J-POS-latest.apk']
+permissions:
+  contents: read
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Cari path APK (repo ini atau jpos/apk-dist/ di repo cermin)
+        id: find
+        run: |
+          if [ -f "apk-dist/J-POS-latest.apk" ]; then echo "path=apk-dist/J-POS-latest.apk" >> "$GITHUB_OUTPUT";
+          elif [ -f "jpos/apk-dist/J-POS-latest.apk" ]; then echo "path=jpos/apk-dist/J-POS-latest.apk" >> "$GITHUB_OUTPUT";
+          else echo "APK tidak ditemukan" && exit 1; fi
+      - name: Nama versi dari sw.js
+        id: ver
+        run: |
+          SW=public/sw.js; [ -f "$SW" ] || SW=jpos/public/sw.js
+          V=$(grep -o "jpos-v[0-9]*" "$SW" | head -1 | sed 's/jpos-v/v1./')
+          echo "name=J-POS $V" >> "$GITHUB_OUTPUT"
+      - name: Unggah ke website
+        env:
+          JPOS_API: ${{ secrets.JPOS_API_URL || 'https://sistem-penjualan--apk.muchlis7771.workers.dev' }}
+          JPOS_ADMIN_USER: ${{ secrets.JPOS_ADMIN_USER || 'headadmin' }}
+          JPOS_ADMIN_PASS: ${{ secrets.JPOS_ADMIN_PASS }}
+        run: node scripts/publish-apk-web.js "${{ steps.find.outputs.path }}" "${{ steps.ver.outputs.name }}" "${{ github.event.inputs.note }}"
