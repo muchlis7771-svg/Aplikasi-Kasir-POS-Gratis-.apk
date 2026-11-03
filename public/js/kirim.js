@@ -45,20 +45,37 @@ const lokTxt = (l) => !l ? '' : l.lok == 'ok' ? `<b class="gr">✓ Sesuai titik 
 function dlvDone(no) {
   const s = S.sales.find((x) => x.no == no), c = cust(s.cu), cur = openCI(U.n);
   if (pkgHas('cek') && can('cek') && (!cur || cur.cid != s.cu)) { toast('Check-in di outlet dulu (radius ' + distStr(CIR()) + ')'); return dlvStep(no, 'tiba'); }
-  const out = sOut(s), old = c ? S.sales.filter((x) => x.cu == c.id && x.no != s.no && sOut(x) > 0) : [], needPh = antiOn() && S.set.pod !== false;
+  const out = sOut(s), old = c ? S.sales.filter((x) => x.cu == c.id && x.no != s.no && sOut(x) > 0) : [];
   const m = modal(`<h3>Selesai kirim · ${esc(s.cn || '')}</h3><small class="mu">${esc(s.no)} · ${s.L.reduce((a, i) => a + i.q, 0)} item · ${rp(s.tot)}</small>
 ${s.cod && out > 0 ? `<div class="warnbox" style="background:#00b8941f;color:inherit"><b>💵 Tagih tunai ${rp(out)}</b><br><small>Orderan ini dibayar saat barang tiba.</small></div><div class="fm2"><input id="da" type="number" value="${out}" placeholder="Uang diterima"><select id="dm"><option>Tunai</option><option>Transfer</option><option>QRIS</option></select></div><small class="mu">Kurang dari ${rp(out)} → sisanya jadi piutang outlet.</small>` : s.pay == 'Piutang' && !s.cod ? `<div class="warnbox" style="background:#27407e1f;color:inherit"><b>🧾 KREDIT</b> — tidak ada penagihan untuk order ini. Jatuh tempo ${dstr(s.due)}.</div>` : '<small class="gr">Sudah lunas.</small>'}
 ${old.length ? `<b>Piutang lama outlet ini (boleh ditagih sekalian)</b>${old.map((x) => `<div class="row"><span>${esc(x.no)}<br><small class="${x.due < Date.now() ? 'rd' : 'mu'}">tempo ${dstr(x.due)}</small></span><span><b>${rp(sOut(x))}</b> <button class="gh" data-pay="${esc(x.no)}">Tagih</button></span></div>`).join('')}` : ''}
 <div class="row" id="dloc"><span>📍 Lokasi serah terima</span><small class="mu">memeriksa GPS…</small></div>
 <input id="dn" placeholder="Catatan penerima (nama yang menerima, kondisi barang)">
-${needPh ? '<button class="gh" id="dph">📸 Foto bukti serah terima</button><img id="dpi" alt="" style="display:none;width:90px;border-radius:10px">' : ''}
-<button class="pr" id="ok">✓ Konfirmasi selesai</button>`, 'w');
-  let ph = null, LOC = null;
+<div class="cd" style="margin:8px 0 0;padding:10px;background:var(--bg)"><b>✍️ Tanda tangan outlet <span class="rd">*</span></b><small class="mu" style="display:block">Pemilik / penjaga outlet menandatangani sebagai bukti barang sudah diterima. Foto bukti diambil otomatis, cepat, saat tanda tangan selesai — tidak perlu foto berpose.</small>
+<input id="dsn" placeholder="Nama penanda tangan di outlet" style="margin:6px 0">
+<canvas id="dsigc" class="sigc" width="600" height="220"></canvas><div class="row" style="margin:4px 0 0"><small class="mu" id="dsigh">Tanda tangan dengan jari di kotak</small><button class="gh" id="dsigx">Hapus</button></div>
+<img id="dpi" alt="" style="display:none;width:72px;border-radius:10px;margin-top:6px"></div>
+<button class="pr" style="margin-top:8px" id="ok">✓ Konfirmasi selesai</button>`, 'w');
+  let ph = null, sig = null, LOC = null, snapping = false;
   dlvLoc(s).then((l) => { LOC = l; const e = $('#dloc', m); if (e) e.innerHTML = '<span>📍 Lokasi serah terima</span><span>' + (l.err ? '<b class="rd">' + esc(l.err) + '</b>' : lokTxt(l)) + '</span>'; });
   $$('[data-pay]', m).forEach((b) => (b.onclick = () => { m.close(); payModal(b.dataset.pay); }));
-  const bp = $('#dph', m); if (bp) bp.onclick = async () => { ph = await selfie(U.n + ' · ' + s.no + ' · ' + tstr(trustNow() || Date.now()), 'environment'); if (ph) { const i = $('#dpi', m); i.src = ph; i.style.display = 'block'; } };
+  // pad tanda tangan: begitu goresan selesai, foto bukti diambil otomatis di latar (kamera belakang, tanpa tombol/pose)
+  const cnv = $('#dsigc', m); const dx = cnv.getContext('2d'); dx.lineWidth = 4; dx.lineCap = 'round'; dx.lineJoin = 'round'; dx.strokeStyle = '#111';
+  dx.fillStyle = '#fff'; dx.fillRect(0, 0, cnv.width, cnv.height); dx.fillStyle = '#c7c9d1'; dx.font = '22px sans-serif'; dx.fillText('tanda tangan di sini', 190, 120); cnv.dataset.blank = '1';
+  const dpt = (e) => { const r = cnv.getBoundingClientRect(); return [(e.clientX - r.left) * cnv.width / r.width, (e.clientY - r.top) * cnv.height / r.height]; };
+  let dn = false, last = null;
+  cnv.onpointerdown = (e) => { e.preventDefault(); cnv.setPointerCapture && cnv.setPointerCapture(e.pointerId); if (cnv.dataset.blank == '1') { dx.fillStyle = '#fff'; dx.fillRect(0, 0, cnv.width, cnv.height); cnv.dataset.blank = '0'; } dn = true; last = dpt(e); dx.beginPath(); dx.arc(last[0], last[1], 2, 0, 7); dx.fillStyle = '#111'; dx.fill(); };
+  cnv.onpointermove = (e) => { if (!dn) return; e.preventDefault(); const p = dpt(e); dx.beginPath(); dx.moveTo(last[0], last[1]); dx.lineTo(p[0], p[1]); dx.stroke(); last = p; };
+  cnv.onpointerup = cnv.onpointercancel = async () => {
+    if (!dn) return; dn = false; sig = cnv.toDataURL('image/jpeg', 0.6); const h = $('#dsigh', m); if (h) h.textContent = '✓ Sudah ditandatangani';
+    if (!ph && !snapping) { snapping = true; const shot = await autoShot('SERAH TERIMA · ' + (s.cn || '') + ' · ' + U.n + ' · ' + tstr(trustNow() || Date.now())); snapping = false; if (shot && !ph) { ph = shot; const i = $('#dpi', m); if (i) { i.src = ph; i.style.display = 'block'; } } }
+  };
+  $('#dsigx', m).onclick = () => { sig = null; ph = null; dx.fillStyle = '#fff'; dx.fillRect(0, 0, cnv.width, cnv.height); dx.fillStyle = '#c7c9d1'; dx.font = '22px sans-serif'; dx.fillText('tanda tangan di sini', 190, 120); cnv.dataset.blank = '1'; const h = $('#dsigh', m); if (h) h.textContent = 'Tanda tangan dengan jari di kotak'; const i = $('#dpi', m); if (i) i.style.display = 'none'; };
   $('#ok', m).onclick = async () => {
-    if (needPh && !ph) return toast('Foto bukti serah terima diperlukan');
+    if (!sig) return toast('Minta outlet menandatangani dulu di kotak tanda tangan');
+    if (!($('#dsn', m).value || '').trim()) return toast('Isi nama penanda tangan di outlet');
+    if (snapping) return toast('Menunggu foto bukti selesai diambil…');
+    if (!ph) return toast('Foto bukti belum terambil — coba tanda tangan ulang');
     const amt = s.cod && out > 0 ? Math.min(out, num(($('#da', m) || {}).value)) : 0, dmv = ($('#dm', m) || {}).value;
     if (amt > 0 && (dmv == 'QRIS' || dmv == 'Transfer') && !m._paid) { if (!(await payShow(dmv, amt, (s.cn || '') + ' · ' + s.no))) return; m._paid = 1; }
     const L2 = await dlvLoc(s); LOC = L2; if (L2.err) return alertBox(L2.err, 'Lokasi belum terverifikasi');
@@ -66,7 +83,7 @@ ${needPh ? '<button class="gh" id="dph">📸 Foto bukti serah terima</button><im
     const pr = await proof({ needPos: false });
     if (pr.err) return alertBox(pr.err);
     if (amt > 0) emit('pay', { sale: no, amt, m: $('#dm', m).value }, pr.t);
-    dlvEmit(no, 'selesai', { lat: +L2.p.lat.toFixed(6), lng: +L2.p.lng.toFixed(6), acc: L2.p.acc ? Math.round(L2.p.acc) : null, dist: L2.d, lok: L2.lok, cash: amt, note: $('#dn', m).value.trim(), ph: ph || undefined, on: pr.on, sk: pr.sk, fx: fxs(pr.fx) });
+    dlvEmit(no, 'selesai', { lat: +L2.p.lat.toFixed(6), lng: +L2.p.lng.toFixed(6), acc: L2.p.acc ? Math.round(L2.p.acc) : null, dist: L2.d, lok: L2.lok, cash: amt, note: $('#dn', m).value.trim(), ph: ph || undefined, sig: sig || undefined, sn: ($('#dsn', m).value || '').trim() || undefined, on: pr.on, sk: pr.sk, fx: fxs(pr.fx) });
     m.close(); toast('Pengantaran selesai' + (amt ? ' · uang ' + rp(amt) + ' tercatat' : '')); await checkOut(true); R();
   };
 }

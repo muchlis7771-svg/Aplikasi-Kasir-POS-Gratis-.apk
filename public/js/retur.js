@@ -58,7 +58,9 @@ ${st}${A.H.length ? `<details style="margin-top:6px"><summary><small>📜 Riwaya
   }
   return h;
 }
-const sigNeed = () => ['sales', 'kanvas', 'dropping'].includes(U.r) || S.set.rsig === true;
+// tanda tangan & foto TIDAK wajib untuk retur (pengambilan barang kembali dari outlet oleh karyawan) — hanya bukti serah-terima
+// saat PENGANTARAN (lihat kirim.js dlvDone) yang wajib. Pemilik masih bisa mewajibkan tanda tangan retur lewat pengaturan.
+const sigNeed = () => S.set.rsig === true;
 /* ---------- tanda tangan digital ---------- */
 function sigInit(clear) {
   const c = $('#sigc'); if (!c) return; const x = c.getContext('2d'); x.lineWidth = 4; x.lineCap = 'round'; x.lineJoin = 'round'; x.strokeStyle = '#111';

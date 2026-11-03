@@ -27,12 +27,12 @@ const KINDS = new Set(['sale', 'pay', 'retur', 'stk', 'apay', 'opn', 'exp', 'cap
 const ALWAYS = 'dash set';
 const DEFPERM = {
   admin: 'dash pos his hisAll prod prodEdit outlet onl ana lap keu abs absAll chat retur set beli tgt tgtAll tgtSet shiftSet kiosMap dnet kanvas gps',
-  akuntan: 'dash his hisAll prod ana lap keu jur abs absAll chat set kas tgt tgtAll',
-  kasir: 'dash pos his abs chat set tgt',
-  sales: 'dash pos his outlet ana abs chat set cek retur tgt kiosMap',
-  dropping: 'dash kirim cek terima abs chat set retur',
-  spg: 'dash pos his prod abs chat set tgt',
-  kanvas: 'dash pos his outlet ana abs chat set cek retur terima tgt kiosMap kanvas',
+  akuntan: 'dash his hisAll ana lap keu jur abs absAll chat set kas tgt tgtAll kiosMap',
+  kasir: 'dash pos his prod abs chat set tgt kiosMap',
+  sales: 'dash pos his prod outlet ana abs chat set cek retur tgt kiosMap',
+  dropping: 'dash kirim cek terima abs chat set retur kiosMap',
+  spg: 'dash pos his prod abs chat set tgt kiosMap',
+  kanvas: 'dash pos his prod outlet ana abs chat set cek retur terima tgt kiosMap kanvas',
 };
 const PKG0 = {
   // STANDAR · KIOS: toko kecil / kios — kasir, stok, outlet, absen, retur, buku kas, laporan dasar
@@ -46,7 +46,7 @@ const ALLF = [...new Set(Object.values(PKG0).flatMap((x) => x.f.split(' ')).conc
 const KNEED = { sale: ['pos'], pay: ['pos', 'keu', 'terima'], retur: ['retur'], stk: ['prodEdit', 'beli'], apay: ['keu', 'beli'], opn: ['prodEdit', 'keu'], exp: ['jur', 'keu'], jm: ['jur'], pu: ['prodEdit'], cu: ['outlet'], visit: ['outlet', 'cek'], vout: ['cek'], sup: ['beli'], po: ['beli'], rcv: ['beli'], dlv: ['kirim'], kas: ['kas'], sec: null, face: null, bst: ['prodEdit'], tgt: ['tgtSet'], shf: ['pos'], shs: ['shiftSet'], tsk: null, kvl: ['kanvas'], kvb: ['kanvas'], kvr: ['kanvas'], gji: null, in: null, out: null, loc: null, cap: 'owner', set: 'owner', preq: ['outlet', 'cek'], bdl: ['prodEdit'], cred: ['outlet'] };
 const pkgAll = () => { let o = null; try { o = CFG && CFG.pkg_feat ? JSON.parse(CFG.pkg_feat) : null; } catch (e) { } const r = {}; for (const t of Object.keys(PKG0)) { const ov = o && o[t] && o[t].v >= 31 ? o[t] : null; r[t] = { ...PKG0[t], ...(ov || {}) }; if (ov && !(ov.v >= 37) && t != 'biasa') r[t].f += ' kanvas'; if (ov && !(ov.v >= 38)) r[t].f += ' gaji'; if (ov && !(ov.v >= 39) && t != 'biasa') r[t].f += ' gps'; if (ov && !(ov.v >= 40) && t == 'biasa') r[t].f += ' kiosMap dnet'; if (ov && !(ov.v >= 40) && t == 'standar') r[t].f += ' dnet'; } return r; }; // paket disusun ulang di v31 (Standar·Kios / Medium·Grosir / High·Distributor): setelan lama diganti default baru
 // fitur baru per versi: ikut aktif di paket & peran yang sudah disesuaikan sebelumnya
-const NEWF = [[25, 'tgt tgtAll tgtSet'], [30, 'shiftSet']], NEWR = [[25, { admin: 'tgt tgtAll tgtSet', akuntan: 'tgt tgtAll', kasir: 'tgt', sales: 'tgt' }], [30, { admin: 'shiftSet' }], [31, { admin: 'kiosMap', sales: 'kiosMap' }], [32, { admin: 'dnet' }], [37, { admin: 'kanvas' }], [39, { admin: 'gps' }], [40, { admin: 'dnet' }]];
+const NEWF = [[25, 'tgt tgtAll tgtSet'], [30, 'shiftSet']], NEWR = [[25, { admin: 'tgt tgtAll tgtSet', akuntan: 'tgt tgtAll', kasir: 'tgt', sales: 'tgt' }], [30, { admin: 'shiftSet' }], [31, { admin: 'kiosMap', sales: 'kiosMap' }], [32, { admin: 'dnet' }], [37, { admin: 'kanvas' }], [39, { admin: 'gps' }], [40, { admin: 'dnet' }], [41, { akuntan: 'kiosMap', kasir: 'prod kiosMap', sales: 'prod', dropping: 'kiosMap', spg: 'kiosMap', kanvas: 'prod' }]];
 const newRole = (ov, role) => NEWR.filter(([vv]) => !(ov._v >= vv)).map(([, m]) => m[role] || '').join(' ');
 const pkgOf = (tier) => { const a = pkgAll(); return a[tier] || a.high; };
 const permObj = (s) => { try { const o = s.perm ? JSON.parse(s.perm) : null; return o && typeof o == 'object' ? o : {}; } catch (e) { return {}; } };
@@ -332,7 +332,7 @@ export default {
       { const mr = await mitraRoutes({ env, p, M, b, J, sid, uname, role, feats: featsOf(me, role), limited }); if (mr) return mr; }
       // ---------- peta kios terdaftar (kios yang mengizinkan tampil) untuk ditawari produk ----------
       if (p == '/api/kios' && M == 'GET') {
-        if (!featsOf(me, role).includes('kiosMap')) return J({ e: 'Peta kios tersedia di paket Medium / High dan butuh hak akses Peta Kios' }, 403);
+        if (!featsOf(me, role).includes('kiosMap')) return J({ e: 'Butuh hak akses Peta Kios (atur di menu Hak Akses)' }, 403);
         const la = +u.searchParams.get('lat'), ln = +u.searchParams.get('lng'), rk = Math.max(1, Math.min(100, +u.searchParams.get('r') || 25));
         if (!(Math.abs(la) <= 90 && Math.abs(ln) <= 180) || (Math.abs(la) < 0.01 && Math.abs(ln) < 0.01)) return J({ e: 'Titik lokasi tidak valid' }, 400);
         const d = rk / 111, rows = (await env.DB.prepare("SELECT id,name,kname,phone,addr,lat,lng,created FROM buyers WHERE kind='kios' AND kvis=1 AND status='active' AND lat BETWEEN ? AND ? AND lng BETWEEN ? AND ? LIMIT 2000").bind(la - d, la + d, ln - d / Math.max(0.2, Math.cos(la * Math.PI / 180)), ln + d / Math.max(0.2, Math.cos(la * Math.PI / 180))).all()).results;
