@@ -67,6 +67,28 @@ function haPayView() {
 async function haPaySave(nk) { try { await haApi('/api/admin/pay', { method: 'PUT', body: JSON.stringify({ bank: $('#pb').value, moota: $('#pm').value, newkey: nk ? 1 : 0 }) }); toast('Tersimpan'); HAP = null; R(); } catch (e) { toast(e.message); } }
 async function haInv(id, op) { if (op == 'lunas' && !confirm('Tandai tagihan ini lunas dan perpanjang paket toko?')) return; try { await haApi('/api/admin/inv/' + id, { method: 'POST', body: JSON.stringify({ op }) }); toast(op == 'lunas' ? 'Lunas — paket toko diperpanjang' : 'Dibatalkan'); HAP = null; R(); haLoad(); } catch (e) { toast(e.message); } }
 
+/* ---------- Head Admin: lisensi sekali beli (kode serial) ---------- */
+let HAS = null;
+async function haLicLoad() { try { HAS = await haApi('/api/admin/serial'); } catch (e) { HAS = { err: e.message, list: [] }; } if (MODE == 'ha' && HA.tab == 'lic') R(); }
+function haLicView() {
+  if (!HAS) { haLicLoad(); return '<div class="cd mu">Memuat…</div>'; } if (HAS.err) return `<div class="cd rd">${esc(HAS.err)}</div>`;
+  const L = HAS.list || [], aktif = L.filter((x) => x.active);
+  return kpi([['🔑 Kode aktif', aktif.length, L.length + ' total dibuat'], ['Aktivasi terpakai', L.reduce((a, x) => a + x.used, 0), 'dari ' + L.reduce((a, x) => a + x.acts, 0) + ' kuota'], ['Nilai kode aktif', rp(aktif.reduce((a, x) => a + x.price, 0)), 'belum termasuk yang nonaktif']])
+    + `<div class="cd"><h3>🔑 Buat kode lisensi sekali bayar</h3><small class="mu">Satu kode berlaku untuk <b>jumlah aktivasi</b> (toko/perangkat) yang Anda tentukan. Harga paket bebas Anda tentukan sendiri per kode — biasanya makin banyak aktivasi, makin tinggi harganya.</small>
+<div class="fm2" style="margin-top:8px">
+<label><small class="mu">Paket</small><select id="lt"><option value="biasa">Standar · Kios</option><option value="standar">Medium · Grosir</option><option value="high" selected>High · Distributor</option></select></label>
+<label><small class="mu">Jumlah aktivasi</small><input id="la" type="number" min="1" value="1"></label>
+<label><small class="mu">Harga paket (Rp)</small><input id="lp" type="number" min="0" placeholder="mis. 1500000"></label>
+<label><small class="mu">Catatan (opsional)</small><input id="ln" placeholder="mis. nama pembeli/reseller" maxlength="200"></label>
+</div><button class="pr" style="margin-top:8px" onclick="haLicGen()">＋ Buat kode</button></div>
+<div class="cd"><h3>📋 Kode yang sudah dibuat</h3>${L.length ? L.map((v) => `<div class="row kvrow"><span><b class="sel">${esc(v.sn)}</b> <span class="chip ${v.active ? 'g' : ''}">${v.active ? 'Aktif' : 'Nonaktif'}</span><br><small class="mu">${esc(TIERNM(v.tier))} · ${v.used}/${v.acts} aktivasi · ${rp(v.price)}${v.note ? ' · ' + esc(v.note) : ''} · dibuat ${dstr(v.created)}</small></span><span class="r"><span class="wrap" style="flex-wrap:nowrap;justify-content:flex-end"><button class="gh" onclick="haLicShare('${esc(v.sn)}')">💬 Bagikan</button><button class="gh ${v.active ? 'd' : ''}" onclick="haLicTog('${esc(v.sn)}',${v.active ? 0 : 1})">${v.active ? 'Nonaktifkan' : 'Aktifkan'}</button></span></span></div>`).join('') : '<small class="mu">Belum ada kode dibuat.</small>'}</div>`;
+}
+async function haLicGen() {
+  try { const r = await haApi('/api/admin/serial', { method: 'POST', body: JSON.stringify({ tier: $('#lt').value, acts: $('#la').value, price: $('#lp').value, note: $('#ln').value }) }); toast('Kode dibuat: ' + r.sn); HAS = null; R(); } catch (e) { toast(e.message); }
+}
+async function haLicTog(sn, active) { try { await haApi('/api/admin/serial/' + sn, { method: 'PATCH', body: JSON.stringify({ active }) }); HAS = null; R(); } catch (e) { toast(e.message); } }
+function haLicShare(sn) { const v = (HAS.list || []).find((x) => x.sn == sn); if (!v) return; shareText('Lisensi J-POS', `Kode lisensi sekali bayar J-POS\nPaket: ${TIERNM(v.tier)}\nKode: ${v.sn}\nBerlaku untuk ${v.acts} aktivasi\nHarga: ${rp(v.price)}\n\nMasukkan kode ini di aplikasi J-POS lewat menu Akun > Aktivasi Lisensi.`); }
+
 /* ---------- Head Admin: komplain ---------- */
 let HAK = null, HAKF = '';
 async function haTkLoad() { try { HAK = await haApi('/api/admin/tiket' + (HAKF ? '?st=' + HAKF : '')); } catch (e) { HAK = { err: e.message, list: [] }; } if (MODE == 'ha' && HA.tab == 'tiket') R(); haTkBadge(); }
@@ -118,6 +140,18 @@ ${RNW.tier != S.tier ? `<small class="or">Paket berubah dari ${esc(S.tn || S.tie
     clearTimeout(m.tm); if (pend && document.body.contains(m)) m.tm = setTimeout(() => { if (document.body.contains(m)) load(); }, 20000);
   };
   load();
+}
+
+/* ---------- Pemilik toko: aktivasi lisensi sekali bayar (kode serial dari Head Admin) ---------- */
+async function activateOpen() {
+  if (!S || !S.srv) return toast('Aktivasi lisensi butuh mode online');
+  const m = modal(`<div class="row" style="margin:0"><h3 style="margin:0">🔑 Aktivasi lisensi</h3><button class="gh" id="x">✕</button></div><small class="mu">Punya kode lisensi sekali bayar dari Head Admin? Masukkan di sini — paket langsung aktif <b>selamanya</b>, tanpa perlu perpanjang bulanan lagi.</small>
+<input id="ac" placeholder="Contoh: JPOS-XXXX-XXXX-XXXX" style="margin-top:8px;text-transform:uppercase"><button class="pr" id="ag" style="margin-top:8px">Aktifkan</button><small class="mu" id="am"></small>`, 'w');
+  $('#x', m).onclick = () => m.close();
+  $('#ag', m).onclick = async () => {
+    const code = $('#ac', m).value.trim(); if (!code) return toast('Masukkan kode lisensi');
+    try { const r = await api('/api/activate', { method: 'POST', body: JSON.stringify({ code }) }); stApply(r); toast('✅ Lisensi aktif — paket ' + esc(r.tn) + ' selamanya'); m.close(); R(); sync(); } catch (e) { $('#am', m).textContent = e.message; }
+  };
 }
 
 /* ---------- Pemilik / admin toko: komplain ke pengembang ---------- */

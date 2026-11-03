@@ -211,11 +211,11 @@ function tutupKasir() {
 
 /* ============ HEAD ADMIN (pemilik aplikasi) ============ */
 const HA = { d: null, stores: [], q: '', f: 'all', cfg: null, err: '' };
-const PLANS = [['trial', 'Trial'], ['bulanan', 'Bulanan'], ['3bulan', '3 Bulan'], ['tahunan', 'Tahunan'], ['premium', 'Premium']];
+const PLANS = [['trial', 'Trial'], ['bulanan', 'Bulanan'], ['3bulan', '3 Bulan'], ['tahunan', 'Tahunan'], ['premium', 'Premium'], ['lifetime', '🔑 Lisensi Lifetime']];
 const planName = (p) => (PLANS.find((x) => x[0] == p) || [p, p || '-'])[1];
 const sDays = (s) => (s.exp ? calDays(s.exp) : null);
-const sState = (s) => (s.status != 'active' ? 'sus' : sDays(s) == null ? 'ok' : sDays(s) < 0 ? 'exp' : sDays(s) <= 7 ? 'soon' : 'ok');
-const expChip = (s) => { const d = sDays(s), st = sState(s); return st == 'sus' ? '<span class="chip r">Suspend</span>' : d == null ? '<span class="chip">-</span>' : d < 0 ? `<span class="chip r">Habis ${-d} hr lalu</span>` : d <= 7 ? `<span class="chip o">${d == 0 ? 'berakhir hari ini' : d + ' hari lagi'}</span>` : `<span class="chip g">${d} hari lagi</span>`; };
+const sState = (s) => (s.status != 'active' ? 'sus' : s.plan == 'lifetime' ? 'ok' : sDays(s) == null ? 'ok' : sDays(s) < 0 ? 'exp' : sDays(s) <= 7 ? 'soon' : 'ok');
+const expChip = (s) => { if (s.status == 'active' && s.plan == 'lifetime') return '<span class="chip g">🔑 Lifetime</span>'; const d = sDays(s), st = sState(s); return st == 'sus' ? '<span class="chip r">Suspend</span>' : d == null ? '<span class="chip">-</span>' : d < 0 ? `<span class="chip r">Habis ${-d} hr lalu</span>` : d <= 7 ? `<span class="chip o">${d == 0 ? 'berakhir hari ini' : d + ' hari lagi'}</span>` : `<span class="chip g">${d} hari lagi</span>`; };
 const waLink = (no, txt) => 'https://wa.me/' + String(no || '').replace(/^0/, '62').replace(/\D/g, '') + '?text=' + encodeURIComponent(txt);
 async function haLoad() {
   try {
