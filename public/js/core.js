@@ -198,7 +198,7 @@ const Ap = {
       const s0 = Math.max(0, Math.round(+q.s0 || 0)); p.co = Math.round(+q.co) || 0;
       if (s0 > 0) { p.st = s0; jr(e, 'Saldo awal persediaan ' + q.n, [['1201', s0 * p.co, 0], ['3101', 0, s0 * p.co]]); }
     } else if ('co' in q) p.co = Math.round(+q.co) || 0;
-    for (const f of ['n', 'c', 'b', 'pr', 'sku', 'img', 'tiers', 'min', 'x', 'opr', 'u', 'on']) if (f in q) p[f] = q[f];
+    for (const f of ['n', 'c', 'b', 'pr', 'sku', 'img', 'tiers', 'min', 'x', 'opr', 'u', 'on', 'sup']) if (f in q) p[f] = q[f];
     if (isNew) notif(e, 'produk', '🆕 Produk baru "' + p.n + '" ditambahkan ' + e.u);
     else if ('pr' in q && prevPr != null && prevPr != p.pr) notif(e, 'harga', '💲 Harga ' + p.n + ' diubah ' + e.u + ': ' + rp(prevPr) + ' → ' + rp(p.pr));
   },
@@ -442,10 +442,10 @@ function mkSale(o, t, by) { // o: {items,cd,pay,cu,dpay,dpm,note,kirim}; melempa
   for (const i of o.items) { const p = prod(i.id); if (!p) throw new Error('Produk tidak ditemukan'); if (p.st < i.q) throw new Error('Stok ' + p.n + ' kurang (sisa ' + p.st + ')'); if (a.r == 'kanvas' && vanQ(a.n, i.id) < i.q) throw new Error('Stok ' + p.n + ' di mobil kurang (sisa ' + vanQ(a.n, i.id) + '). Muat barang dulu di menu Kanvas.'); }
   if (a.r == 'kanvas') o = { ...o, kirim: false };
   const c = o.cu ? cust(o.cu) : null, r = calc(o.items, o.cd, o.cdRp);
-  if ((a.r == 'sales' || a.r == 'kanvas') && !c) throw new Error('Pilih outlet pelanggan dulu');
+  if ((a.r == 'sales' || a.r == 'kanvas' || a.r == 'dropping') && !c) throw new Error('Pilih outlet pelanggan dulu');
   let ci = '';
   if (!by && a.r == 'kasir' && typeof shReq == 'function' && shReq() && !mySes()) throw new Error('Buka kasir (mulai shift) dulu di halaman Kasir');
-  if (!by && typeof ciNeeded == 'function' && c && (a.r == 'sales' || a.r == 'kanvas')) { const cur = openCI(a.n); if (ciNeeded() && (!cur || cur.cid != c.id)) throw new Error('Check-in dulu di outlet ' + c.n + ' (radius ' + distStr(CIR()) + ') sebelum membuat order'); if (cur && cur.cid == c.id) ci = cur.no; }
+  if (!by && typeof ciNeeded == 'function' && c && (a.r == 'sales' || a.r == 'kanvas' || a.r == 'dropping')) { const cur = openCI(a.n); if (ciNeeded() && (!cur || cur.cid != c.id)) throw new Error('Check-in dulu di outlet ' + c.n + ' (radius ' + distStr(CIR()) + ') sebelum membuat order'); if (cur && cur.cid == c.id) ci = cur.no; }
   if (o.pay == 'Piutang' && !o.cod) {
     if (!c) throw new Error('Pilih outlet untuk penjualan kredit');
     if (c.term != 'kredit') throw new Error('Outlet ini hanya boleh bayar tunai (belum diberi fasilitas kredit oleh pemilik)');
