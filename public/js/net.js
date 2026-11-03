@@ -53,7 +53,7 @@ async function sync() {
     if (typeof publishCatalog == 'function') publishCatalog();
   } catch (e) {
     SY.state = e.net ? 'off' : 'err'; SY.err = e.message;
-    if (e.status == 401) { S.reauth = true; }
+    if (e.status == 401) { S.reauth = true; S.reauthDup = !!(e.body && e.body.dupSess); }
     else if (e.status == 402) { stApply(e.body); SY.state = 'exp'; }
     else if (e.status == 403 && /suspend/i.test(e.message)) { S.locked = e.message; save(); }
   } finally { syncing = false; updBadge(); if (n) afterPull(); if (S && S.locked) R(); }
@@ -133,8 +133,9 @@ async function registerStore(name, owner, email, pin, code, phone) {
 }
 function logout() { flushSave(); stopChat(); U = null; S = null; SID = null; V = 'dash'; R(); }
 async function reauth() {
-  const m = modal(`<h3>Masuk ulang</h3><small class="mu">Sesi berakhir. Masukkan PIN untuk melanjutkan sinkron.</small><input id="rp" type="password" inputmode="numeric" placeholder="PIN" autocomplete="off"><button class="pr" id="rg">Masuk</button>`);
-  $('#rg', m).onclick = async () => { try { const r = await post('/api/login', { id: SID, name: U.n, pin: $('#rp', m).value }, ''); LS.set('jpos:tk:' + SID, r.token); U.r = r.role; S.reauth = false; m.close(); kick(); toast('Tersambung'); } catch (e) { toast(e.message); } };
+  const dup = !!S.reauthDup;
+  const m = modal(`<h3>Masuk ulang</h3><small class="mu">${dup ? 'Akun ini baru saja login di perangkat lain, sesi di sini otomatis dicabut (1 akun = 1 perangkat untuk sales/kanvas/dropping, agar jejak GPS tidak kacau). Masukkan PIN untuk masuk kembali — ini akan mencabut sesi di perangkat lain.' : 'Sesi berakhir. Masukkan PIN untuk melanjutkan sinkron.'}</small><input id="rp" type="password" inputmode="numeric" placeholder="PIN" autocomplete="off"><button class="pr" id="rg">Masuk</button>`);
+  $('#rg', m).onclick = async () => { try { const r = await post('/api/login', { id: SID, name: U.n, pin: $('#rp', m).value }, ''); LS.set('jpos:tk:' + SID, r.token); U.r = r.role; S.reauth = false; S.reauthDup = false; m.close(); kick(); toast('Tersambung'); } catch (e) { toast(e.message); } };
 }
 const defView = (r) => 'dash';
 

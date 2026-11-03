@@ -52,6 +52,9 @@ async function precisePos(target = 15, maxMs = 20000, onUpd) {
 
 /* ============ scan barcode ============ */
 // Urutan: ML Kit native (APK) -> BarcodeDetector -> ZXing JS. Input manual & scanner Bluetooth (mode keyboard) selalu bisa.
+// anti scan dobel: kode yang sama dalam jeda singkat (mis. kamera belum sempat digeser) tidak dihitung dua kali, qty tidak bertambah ganda.
+let SCANLAST = '', SCANLASTT = 0;
+const scanDup = (v) => { const n = Date.now(); if (v == SCANLAST && n - SCANLASTT < 2000) return true; SCANLAST = v; SCANLASTT = n; return false; };
 async function scanCode(onCode, opt = {}) {
   // onCode mengembalikan false bila kode tidak dikenal → scan beruntun berhenti agar pengguna bisa menambah produk
   const N = plug('BarcodeScanner');
@@ -60,7 +63,12 @@ async function scanCode(onCode, opt = {}) {
       if (N.isGoogleBarcodeScannerModuleAvailable) { const a = await N.isGoogleBarcodeScannerModuleAvailable().catch(() => ({ available: true })); if (a && a.available === false) { toast('Menyiapkan pemindai Google… (sekali saja, butuh internet)', 4000); try { await N.installGoogleBarcodeScannerModule(); } catch (e) { } throw new Error('modul belum siap'); } }
       const r = await N.scan();
       const v = r && r.barcodes && r.barcodes[0] && (r.barcodes[0].rawValue || r.barcodes[0].displayValue);
-      if (v) { const ok = onCode(String(v).trim()); if (opt.multi && ok !== false) setTimeout(() => scanCode(onCode, opt), 350); }
+      if (v) {
+        const vv = String(v).trim();
+        if (scanDup(vv)) { if (opt.multi) setTimeout(() => scanCode(onCode, opt), 350); return; } // kode sama dalam 2 detik — abaikan, jangan tambah qty lagi
+        if (navigator.vibrate) navigator.vibrate(60);
+        const ok = onCode(vv); if (opt.multi && ok !== false) setTimeout(() => scanCode(onCode, opt), 350);
+      }
       return;
     } catch (e) { if (/cancel/i.test(String(e && (e.message || e.code)))) return; console.warn('ML Kit gagal, pakai kamera aplikasi', e); }
   }
@@ -70,9 +78,9 @@ function openWebScanner(onCode, opt = {}) {
   const el = document.createElement('div'); el.className = 'scan';
   el.innerHTML = `<video playsinline muted></video><div class="bx"></div><div class="bar"><input placeholder="…atau ketik kode lalu Enter" inputmode="numeric"><button class="gh" id="sx">Tutup</button></div>`;
   document.body.appendChild(el);
-  const video = $('video', el), inp = $('input', el); let stream = null, stop = false, reader = null, last = '', lastT = 0;
+  const video = $('video', el), inp = $('input', el); let stream = null, stop = false, reader = null;
   const done = () => { stop = true; try { reader && reader.reset(); } catch (e) { } if (stream) stream.getTracks().forEach((t) => t.stop()); el.remove(); };
-  const hit = (v) => { v = String(v || '').trim(); if (!v) return; const n = Date.now(); if (v == last && n - lastT < 1800) return; last = v; lastT = n; if (navigator.vibrate) navigator.vibrate(60); const ok = onCode(v); if (!opt.multi || ok === false) done(); };
+  const hit = (v) => { v = String(v || '').trim(); if (!v) return; if (scanDup(v)) return; if (navigator.vibrate) navigator.vibrate(60); const ok = onCode(v); if (!opt.multi || ok === false) done(); };
   $('#sx', el).onclick = done;
   inp.addEventListener('keydown', (e) => { if (e.key == 'Enter') { hit(inp.value); inp.value = ''; } });
   (async () => {
