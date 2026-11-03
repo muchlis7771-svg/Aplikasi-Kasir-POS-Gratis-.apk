@@ -5,7 +5,7 @@
    melompat, foto selfie berstempel, dan semua anomali dilaporkan ke pemilik (menu Audit). */
 const FXN = { auto: 'Check-out otomatis (lupa check-out, sudah pindah ke outlet berikutnya)', 'wajah-baru': 'Wajah acuan baru didaftarkan', ofl: 'Dikirim offline (jam belum terverifikasi)', mundur: 'Jam HP diputar mundur', jam: 'Jam HP beda dengan server', lompat: 'Lokasi melompat tak wajar', akur: 'GPS kurang akurat', luar: 'Check-out di luar radius', titik: 'Titik outlet dibuat saat check-in', tw: 'Jam diubah saat aplikasi dibuka', lokasi: 'Absen jauh dari lokasi toko' };
 const fxTxt = (a) => [...new Set([...String(a.fx || '').split(','), ...String(a.fl || '').split(',')].filter(Boolean))].map((k) => FXN[k] || k);
-const CIR = () => +S.set.cir || 100;
+const CIR = () => Math.max(10, Math.min(100, +S.set.cir || 100)); // radius check-in dikunci maksimal 100 m — tidak bisa diperlonggar lewat pengaturan
 const antiOn = () => pkgHas('anti') && !!S.srv; // anti-curang butuh server (jam tepercaya)
 
 /* ---------- waktu server ---------- */
@@ -143,7 +143,8 @@ function openCI(u) {
   return l && l.k == 'visit' && Date.now() - l.t < CIMAX() ? l : null; // check-in yang terlupa ditutup otomatis setelah batas jam
 }
 const CIMAX = () => (+(S && S.set.ciMax) || 4) * 36e5;
-const ciNeeded = () => pkgHas('cek') && can('cek') && S.set.cireq !== false && ((U.r == 'sales' || U.r == 'kanvas') || U.r == 'dropping');
+// wajib check-in berlaku untuk semua tim lapangan (sales/kanvas/dropping), tidak tergantung paket/hak akses 'cek' — kasir (stay di toko) & owner selalu dikecualikan
+const ciNeeded = () => S.set.cireq !== false && (U.r == 'sales' || U.r == 'kanvas' || U.r == 'dropping');
 async function checkIn(cid, why) {
   const c = cust(cid); if (!c) return;
   const cur = openCI(U.n);
