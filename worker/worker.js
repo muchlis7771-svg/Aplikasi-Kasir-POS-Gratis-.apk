@@ -318,6 +318,35 @@ export default {
       if (p == '/api/trk/off') return trkOff({ env, p, M, b, sid, role, J });
       { const hr = await hqStore({ env, p, M, b, J, sid, uname, role, C: await cfgAll(env), pkgAll, sname: me.sn, limited, stInfo }); if (hr) return hr; } // perpanjangan, aktivasi lisensi & komplain (tetap jalan walau masa aktif habis)
 
+      // ---------- baca foto produk pakai AI → isi nama/kategori/merek/satuan otomatis (perlu ANTHROPIC_API_KEY) ----------
+      if (p == '/api/prod/scan' && M == 'POST') {
+        if (EXP) return RO();
+        if (!featsOf(me, role).includes('prodEdit')) return J({ e: 'Tidak punya hak mengubah produk' }, 403);
+        if (!env.ANTHROPIC_API_KEY) return J({ e: 'Fitur baca foto belum diaktifkan pemilik aplikasi (API key belum diatur di Cloudflare)' }, 501);
+        if (await limited(env, 'scan:' + sid, 20, 36e5)) return J({ e: 'Terlalu banyak foto discan, coba lagi beberapa menit lagi' }, 429);
+        const mm = /^data:([^;]+);base64,(.+)$/.exec(String(b.image || ''));
+        if (!mm) return J({ e: 'Foto tidak valid' }, 400);
+        const mediaType = mm[1], data = mm[2];
+        if (!/^image\/(jpeg|png|webp)$/.test(mediaType) || data.length > 2000000) return J({ e: 'Foto tidak didukung atau terlalu besar' }, 400);
+        try {
+          const ar = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: { 'x-api-key': env.ANTHROPIC_API_KEY, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+            body: JSON.stringify({
+              model: env.ANTHROPIC_VISION_MODEL || 'claude-haiku-5-5',
+              max_tokens: 400,
+              system: 'Kamu membantu kasir Indonesia mengisi data produk dari foto kemasan/produk. Balas HANYA satu baris JSON valid, tanpa penjelasan, markdown, atau teks lain apa pun. Format persis: {"n":"nama produk lengkap termasuk ukuran/varian jika terlihat di kemasan, mis. Indomie Goreng 85g","c":"kategori singkat seperti Minuman, Makanan, Kebersihan, Rokok, dll","b":"merek/brand jika terlihat, kosongkan jika tidak yakin","u":"satuan jika terlihat seperti pcs/dus/renteng/botol/sachet, kosongkan jika tidak yakin"}. Jika foto bukan produk atau tulisan tidak terbaca, balas {"n":"","c":"","b":"","u":""}.',
+              messages: [{ role: 'user', content: [{ type: 'image', source: { type: 'base64', media_type: mediaType, data } }, { type: 'text', text: 'Baca foto produk ini dan isi JSON sesuai instruksi.' }] }],
+            }),
+          });
+          if (!ar.ok) { console.error('prod/scan api', ar.status, (await ar.text().catch(() => '')).slice(0, 300)); return J({ e: 'Gagal membaca foto (server AI bermasalah), coba lagi' }, 502); }
+          const aj = await ar.json();
+          const txt = String((aj.content && aj.content[0] && aj.content[0].text) || '').trim().replace(/^```(json)?\s*|```$/g, '');
+          let out; try { out = JSON.parse(txt); } catch (e) { return J({ e: 'Hasil baca foto tidak terbaca, coba foto ulang lebih jelas & dekat' }, 502); }
+          return J({ n: String(out.n || '').slice(0, 80), c: String(out.c || '').slice(0, 40), b: String(out.b || '').slice(0, 40), u: String(out.u || '').slice(0, 20) });
+        } catch (e) { console.error('prod/scan', e && e.message); return J({ e: 'Gagal menghubungi layanan baca foto' }, 502); }
+      }
+
       // ---------- toko belanja ke grosir / distributor lain (akun pembeli milik toko) ----------
       if (p == '/api/beli-online' && M == 'POST') {
         if (role != 'owner' && role != 'admin') return J({ e: 'Hanya pemilik / admin yang bisa order atas nama toko' }, 403);
