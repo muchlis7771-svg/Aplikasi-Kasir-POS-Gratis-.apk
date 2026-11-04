@@ -36,7 +36,7 @@ function prodForm(id, sku, then) {
 <div class="fm2"><input id="fp" type="number" placeholder="Harga jual (Rp) *" value="${p ? p.pr : ''}"><input id="fh" type="number" placeholder="HPP / harga beli (Rp)" value="${p ? p.co : ''}"></div>
 <div class="fm2">${p ? '' : '<input id="fs" type="number" placeholder="Stok awal">'}<input id="fm" type="number" placeholder="Stok minimum" value="${p ? p.min ?? 10 : 10}"></div>
 <div class="cd info" style="padding:10px"><b>🛍️ Toko online</b><div class="fm2" style="margin-top:6px"><input id="fo" type="number" placeholder="Harga online (kosong = sama)" value="${p && p.opr ? p.opr : ''}"><input id="fu" placeholder="Satuan (pcs/dus/kg)" value="${esc(p ? p.u || '' : '')}"></div><label class="row" style="margin:6px 0 0"><span>Tampilkan di pasar online</span><input type="checkbox" id="fon" ${!p || p.on !== false ? 'checked' : ''}></label></div>
-<div><b>Foto produk</b><div class="row" style="margin:4px 0"><img id="fpi" src="${p && p.img ? p.img : ''}" style="width:56px;height:56px;object-fit:cover;border-radius:10px;${p && p.img ? '' : 'display:none'}" alt=""><div class="wrap" style="flex:1"><button type="button" class="gh" id="fcam">📷 Kamera</button><label class="gh">🖼️ Galeri<input id="fi" type="file" accept="image/*" style="display:none"></label>${p && p.img ? '<button type="button" class="gh d" id="fimx">Hapus foto</button>' : ''}</div></div></div>
+<div><b>Foto produk</b><div class="row" style="margin:4px 0"><img id="fpi" src="${p && p.img ? p.img : ''}" style="width:56px;height:56px;object-fit:cover;border-radius:10px;${p && p.img ? '' : 'display:none'}" alt=""><div class="wrap" style="flex:1"><button type="button" class="gh" id="fcam">📷 Kamera</button><label class="gh">🖼️ Galeri<input id="fi" type="file" accept="image/*" style="display:none"></label>${p && p.img ? '<button type="button" class="gh d" id="fimx">Hapus foto</button>' : ''}</div></div>${S.srv ? '<button type="button" class="gh a" id="fai" style="width:100%;margin-top:4px">✨ Foto kemasan → isi nama/kategori otomatis</button>' : ''}</div>
 <div><b>Diskon grosir bertingkat</b><br><small class="mu">Minimal qty → diskon %. Boleh berlapis, mis. 10+5 = 10% lalu 5%.</small><div id="tr"></div><button class="gh" id="ta">+ Tingkat</button></div>
 <button class="pr" id="ok">Simpan</button>${p && U.r == 'owner' ? '<button class="gh d" id="ar">Arsipkan produk</button>' : ''}`);
   const tr = (p && p.tiers ? p.tiers : []).map((t) => ({ ...t })); const draw = () => { $('#tr', m).innerHTML = tr.map((t, i) => `<div class="fm2" style="grid-template-columns:90px 1fr 36px;margin:6px 0"><input type="number" min="2" placeholder="Min qty" value="${t.min || ''}" data-i="${i}" data-f="min"><input placeholder="Diskon % (mis. 5 atau 10+5)" value="${esc(t.d || '')}" data-i="${i}" data-f="d"><button class="gh d" data-del="${i}">✕</button></div>`).join(''); };
@@ -50,6 +50,19 @@ function prodForm(id, sku, then) {
   $('#fcam', m).onclick = async () => { const ph = await camPhoto('environment', 480); if (ph) { imgD = ph; imgRm = false; showImg(); } };
   $('#fi', m).onchange = async () => { const f = $('#fi', m).files[0]; if (!f) return; imgD = await imgData(f, 360); imgRm = false; showImg(); };
   const fimx = $('#fimx', m); if (fimx) fimx.onclick = () => { imgD = ''; imgRm = true; showImg(); };
+  const fai = $('#fai', m);
+  if (fai) fai.onclick = async () => {
+    const ph = await camPhoto('environment', 900); if (!ph) return;
+    fai.disabled = true; fai.textContent = '✨ Membaca foto…';
+    try {
+      const r = await post('/api/prod/scan', { image: ph });
+      if (r.n) { $('#fn', m).value = r.n; } if (r.c) $('#fc', m).value = r.c; if (r.b) $('#fb', m).value = r.b; if (r.u) $('#fu', m).value = r.u;
+      if (!r.n && !r.c && !r.b) toast('Tidak terbaca jelas — coba foto lebih dekat & terang, atau isi manual');
+      else toast('Terisi otomatis — cek & perbaiki dulu sebelum simpan');
+      if (!imgD) { imgD = ph; showImg(); }
+    } catch (e) { toast(e.message || 'Gagal membaca foto'); }
+    fai.disabled = false; fai.textContent = '✨ Foto kemasan → isi nama/kategori otomatis';
+  };
   $('#ok', m).onclick = async () => {
     const n = $('#fn', m).value.trim(), pr = num($('#fp', m).value); if (!n || pr <= 0) return toast('Nama dan harga jual wajib diisi');
     const sk = $('#fk', m).value.trim(); if (sk && S.p.some((x) => !x.x && x.sku == sk && x.id != (p && p.id))) return toast('SKU sudah dipakai produk lain');
