@@ -136,8 +136,8 @@ function gpsTeam() {
 VW.gps = () => {
   const T = gpsTeam(), live = T.filter((u) => u.st[0] == 'live').length;
   return `<div class="kp"><div class="cd k0"><small>Live sekarang</small><h2>${live} / ${T.length}</h2><small>sales · kanvas · dropping</small></div><div class="cd k1"><small>Jarak tempuh hari ini</small><h2>${T.reduce((a, u) => a + u.km, 0).toFixed(1)} km</h2><small>${T.reduce((a, u) => a + u.vis, 0)} kunjungan outlet</small></div></div>
-<div class="cd gpsc"><div class="row" style="margin:0 0 8px"><b>${GPSU ? '🧭 Jejak ' + esc(GPSU) + ' · ' + (GDAYS.find((d) => d[0] == GPSD) || [0, GPSD + ' hari'])[1].replace(' (maks)', '') : '🛰️ Posisi tim'}</b><span class="wrap">${GPSU ? '<button class="gh" onclick="GPSU=\'\';R()">Semua</button>' : ''}<button class="gh" onclick="gpsRefresh(1)">⟳</button></span></div><div class="map gmap" id="gmap"></div>
-<small class="mu" id="gupd">Diperbarui otomatis tiap ±20 detik</small></div>
+<div class="cd gpsc"><div class="row" style="margin:0 0 8px"><b>${GPSU ? '🧭 Jejak ' + esc(GPSU) + ' · ' + (GDAYS.find((d) => d[0] == GPSD) || [0, GPSD + ' hari'])[1].replace(' (maks)', '') : '🛰️ Posisi tim'}</b><span class="wrap">${GPSU ? '<button class="gh" onclick="GPSU=\'\';R()">Semua</button>' : ''}<button class="gh" onclick="gpsExportOpen()" title="Simpan riwayat perjalanan sebagai file peta">💾 Ekspor</button><button class="gh" onclick="gpsRefresh(1)">⟳</button></span></div><div class="map gmap" id="gmap"></div>
+<small class="mu" id="gupd">Diperbarui otomatis tiap ±20 detik</small>${GPSU && !(T.find((x) => x.n == GPSU) || {}).loc ? `<small class="or" style="display:block;margin-top:4px">⚠️ Belum ada posisi GPS langsung dari ${esc(GPSU)} — titik bernomor di peta ini adalah kunjungan/check-in outlet terakhir, <b>bukan</b> lokasi HP saat ini.</small>` : ''}</div>
 ${GPSU ? '' : trkSetCard()}${GPSU ? gpsVisCard(T.find((x) => x.n == GPSU)) + gpsHistCard(T.find((x) => x.n == GPSU)) : ''}
 <div class="cd">${T.map((u) => `<div class="trow gpr ${GPSU == u.n ? 'on' : ''}" onclick="GPSU=GPSU=='${esc(u.n)}'?'':'${esc(u.n)}';R()"><em class="tav" style="background:${u.st[2]}">${esc(u.n[0].toUpperCase())}</em><span class="ti"><b>${esc(u.n)} <small class="mu">· ${esc(ROLE[u.r] || u.r)}</small></b><small><b style="color:${u.st[2]}">● ${u.st[1]}</b> · ${u.loc ? agoTxt(u.loc.t) : 'belum ada posisi'}${u.loc && u.loc.acc ? ' · ±' + u.loc.acc + ' m' : ''}</small>${u.work && u.st[0] == 'off' ? '<small class="or">⚠ Tidak terdeteksi' + (u.loc ? ' sejak ' + agoTxt(u.loc.t) : ' (belum pernah mengirim lokasi)') + ' pada jam kerja. Kemungkinan: HP mati / tanpa sinyal, lokasi atau izin “Sepanjang waktu” dimatikan, atau aplikasi dihentikan sistem (hemat baterai). Hubungi karyawan.</small>' : ''}<small class="mu">${u.ci ? '🏬 di ' + esc(u.ci.cn) + ' sejak ' + hm(u.ci.t) : 'tidak sedang check-in'} · ${u.km.toFixed(1)} km · ${u.vis} kunjungan${u.omz ? ' · ' + rp(u.omz) : ''}</small></span>${u.loc ? `<a class="gh" onclick="event.stopPropagation()" target="_blank" rel="noopener" href="https://www.google.com/maps?q=${u.loc.lat},${u.loc.lng}">Maps</a>` : ''}</div>`).join('') || '<p class="mu">Belum ada sales, kanvas, atau tim dropping.</p>'}</div>
 <small class="mu" style="display:block;margin:0 4px 14px">Lokasi dikirim HP karyawan ±1 menit sekali selama jam kerja (setelah absen masuk). Di aplikasi Android, posisi tetap terkirim <b>walau aplikasi ditutup</b> selama karyawan mengizinkan lokasi "sepanjang waktu" (ada notifikasi tetap di HP karyawan). Bila HP dimatikan, di-restart, kehabisan baterai, tanpa sinyal, atau karyawan mematikan berbagi lokasi / mencabut izin, posisi terakhir yang tetap ditampilkan.</small>`;
@@ -177,6 +177,58 @@ function gpsDraw(fit) {
   if (fit && pts.length) { try { GMAP.fitBounds(L.latLngBounds(pts).pad(.25), { maxZoom: 16 }); } catch (e) { } }
   setTimeout(() => { try { GMAP && GMAP.invalidateSize(); } catch (e) { } }, 150);
   const g = $('#gupd'); if (g) g.textContent = 'Diperbarui ' + hm(Date.now()) + ' · otomatis tiap ±20 detik';
+}
+// ---- Ekspor riwayat perjalanan ke file HTML (peta) yang bisa disimpan di HP — sebelum dihapus otomatis (30 hari) ----
+async function gpsFetchTrail(name, days) {
+  if (S.srv && canNet()) { try { const r = await api('/api/trail?user=' + encodeURIComponent(name) + '&days=' + days); return r.pts || []; } catch (e) { } }
+  return ((S.trail || {})[name] || []).slice();
+}
+function gpsVisitsRange(user, days) { const f = new Date(); f.setHours(0, 0, 0, 0); return visitsIn(f.getTime() - (days - 1) * 864e5, Date.now() + 36e5, user).slice().reverse(); }
+function gpsVpIn(v, pts) {
+  if (v.lat != null && v.lng != null && Math.abs(v.lat) > 0.01) return [v.lat, v.lng];
+  const c = (S.c || []).find((x) => x.id == v.cid); if (c && c.lat != null) return [c.lat, c.lng];
+  let best = null, bd = 18e5; for (const p of pts || []) { const d = Math.abs(p[0] - v.t); if (d < bd) { bd = d; best = p; } }
+  return best ? [best[1], best[2]] : null;
+}
+function gpsExportOpen() {
+  const T = gpsTeam(); if (!T.length) return toast('Belum ada sales, kanvas, atau tim dropping');
+  const m = modal(`<h3>💾 Ekspor riwayat perjalanan</h3><small class="mu">Hasilnya file peta (.html) yang bisa dibuka/dibagikan di HP mana saja — simpan sebagai arsip sebelum riwayat terhapus otomatis (maks. 30 hari).</small>
+<label style="display:block;margin-top:10px"><small class="mu">Karyawan</small><select id="gxu" style="width:100%"><option value="">Semua (${T.length} karyawan)</option>${T.map((u) => `<option value="${esc(u.n)}" ${GPSU == u.n ? 'selected' : ''}>${esc(u.n)}</option>`).join('')}</select></label>
+<label style="display:block;margin-top:8px"><small class="mu">Rentang</small><select id="gxd" style="width:100%">${GDAYS.map((d) => `<option value="${d[0]}" ${GPSD == d[0] ? 'selected' : ''}>${d[1]}</option>`).join('')}</select></label>
+<button class="pr" id="gxok" style="margin-top:12px;width:100%">Buat & simpan file</button>`);
+  $('#gxok', m).onclick = async () => { const name = $('#gxu', m).value, days = +$('#gxd', m).value; m.close(); await gpsExport(name, days); };
+}
+async function gpsExport(name, days) {
+  const names = name ? [name] : gpsTeam().map((u) => u.n); if (!names.length) return toast('Tidak ada karyawan lapangan');
+  toast('Menyiapkan ekspor…', 3000);
+  const data = [];
+  for (let i = 0; i < names.length; i++) {
+    const n = names[i], pts = await gpsFetchTrail(n, days), vis = gpsVisitsRange(n, days).map((x) => { const p = gpsVpIn(x.v, pts); return p ? { t: x.v.t, cn: x.v.cn || 'Outlet', lat: p[0], lng: p[1] } : null; }).filter(Boolean);
+    if (pts.length || vis.length) data.push({ n, col: GPCOL[i % GPCOL.length], pts, vis });
+  }
+  if (!data.length) return toast('Tidak ada data perjalanan pada rentang ini');
+  saveFile('riwayat-perjalanan-' + dkey(Date.now()) + '.html', gpsExportHtml(data, days), 'text/html');
+}
+function gpsExportHtml(data, days) {
+  const j = JSON.stringify(data).replace(/<\//g, '<\\/');
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Riwayat perjalanan · ${esc(S.name || 'J-POS')}</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>html,body{margin:0;height:100%;font-family:system-ui,-apple-system,sans-serif}#map{height:100%}
+.leg{position:absolute;z-index:1000;top:8px;left:8px;background:#fff;padding:8px 10px;border-radius:10px;box-shadow:0 2px 10px #0004;font-size:12.5px;max-width:72vw;max-height:66vh;overflow:auto}
+.leg b{display:block;margin-bottom:4px;font-size:13px}.leg span{display:flex;align-items:center;gap:6px;margin:3px 0}.leg i{width:14px;height:3px;display:inline-block;border-radius:2px;flex:none}</style></head>
+<body><div id="map"></div><div class="leg"><b>🧭 Riwayat perjalanan · ${days} hari<br><small style="font-weight:400">${esc(S.name || 'J-POS')} · diekspor ${dstr(Date.now())} ${hm(Date.now())}</small></b>${data.map((d) => `<span><i style="background:${d.col}"></i>${esc(d.n)}</span>`).join('')}</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const DATA = ${j};
+const map = L.map('map'); L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+const pts = [];
+DATA.forEach((d) => {
+  const byDay = {}; (d.pts || []).slice().sort((a, b) => a[0] - b[0]).forEach((p) => { const k = new Date(p[0]).toISOString().slice(0, 10); (byDay[k] = byDay[k] || []).push(p); pts.push([p[1], p[2]]); });
+  Object.values(byDay).forEach((arr) => { const ln = arr.map((p) => [p[1], p[2]]); if (ln.length > 1) L.polyline(ln, { color: d.col, weight: 3, opacity: .75, dashArray: '4 6' }).addTo(map); });
+  (d.vis || []).forEach((v) => { pts.push([v.lat, v.lng]); L.circleMarker([v.lat, v.lng], { radius: 7, color: '#fff', weight: 2, fillColor: d.col, fillOpacity: 1 }).bindPopup('<b>' + d.n + '</b><br>' + v.cn + '<br>' + new Date(v.t).toLocaleString('id-ID')).addTo(map); });
+});
+if (pts.length) map.fitBounds(pts, { padding: [30, 30] }); else map.setView([-2.5, 118], 5);
+<\/script></body></html>`;
 }
 async function gpsRefresh(btn) { try { await sync(); } catch (e) { } if (V != 'gps') return; if (GPSU && !btn) gpsTrailLoad(); if (btn) return R(); const sig = JSON.stringify(S.locs || {}); if (sig != GSIG) { GSIG = sig; gpsDraw(false); } }
 setInterval(() => { if (U && S && V == 'gps' && document.visibilityState != 'hidden' && !document.querySelector('.md')) gpsRefresh(); }, 20000);

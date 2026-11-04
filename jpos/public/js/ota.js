@@ -4,13 +4,16 @@
    disalin dari versi yang sedang berjalan, semua disimpan di memori aplikasi, lalu WebView Capacitor diarahkan ke folder
    itu (origin tetap https://localhost → data, login & antrian offline tidak hilang). Diterapkan saat aplikasi dibuka
    berikutnya, atau langsung lewat tombol "Perbarui sekarang". Bila versi baru gagal terbuka 2×, otomatis kembali. */
-const APPV = 74;
+const APPV = 75;
 const OTAK = 'jpos:ota', OTAT = 'jpos:otaTry';
 const otaFS = () => plug('Filesystem'), otaWV = () => plug('WebView');
 const otaOk = () => isNative() && otaFS() && otaWV() && otaFS().downloadFile && otaWV().setServerBasePath;
 // hanya dari server resmi J-POS (bukan alamat server khusus) agar kode aplikasi tidak bisa disisipi pihak lain
 const otaSrc = () => { const H = [window.JPOS_API, ...(window.JPOS_API_ALT || [])].filter(Boolean).map((u) => { try { return new URL(u).origin; } catch (e) { return ''; } }); let a = ''; try { a = new URL(AP).origin; } catch (e) { } return H.includes(a) ? a : H[0]; };
 let OTAW = false;
+// tautan unduh APK penuh di GitHub — jalan pintas kalau pembaruan tanpa-instal-ulang (OTA) tidak bisa dipakai
+const OTAGH = 'https://raw.githubusercontent.com/muchlis7771-svg/Aplikasi-Kasir-POS-Gratis-.apk/main/jpos/apk-dist/J-POS-latest.apk';
+async function otaGhOpen() { const AL = typeof plug == 'function' && plug('AppLauncher'); try { if (AL) { await AL.openUrl({ url: OTAGH }); return; } } catch (e) { } window.open(OTAGH, '_blank'); }
 async function otaB64Write(path, blob, first) {
   const FS = otaFS(), CH = 3 * 262144; // potongan kelipatan 3 byte agar base64 bisa disambung
   for (let i = 0; i < blob.size || (i == 0 && first); i += CH) {
@@ -20,13 +23,15 @@ async function otaB64Write(path, blob, first) {
   }
 }
 async function otaCheck(force) {
+  // tombol "Cek pembaruan" ditekan manual tapi OTA tidak bisa jalan di HP ini (plugin tidak ada) — arahkan ke unduhan APK penuh di GitHub
+  if (force && (!otaOk() || !canNet())) { if (confirm((canNet() ? 'Pembaruan otomatis tidak tersedia di perangkat ini.' : 'Tidak ada koneksi internet.') + ' Buka halaman unduh APK terbaru di GitHub?')) otaGhOpen(); return; }
   if (OTAW || !otaOk() || !canNet()) return; if (!force && Date.now() - LS.get('jpos:otaT', 0) < 30 * 6e4) return;
   LS.set('jpos:otaT', Date.now()); OTAW = true;
   try {
     const src = otaSrc(), man = await (await fetch(src + '/ota.json?t=' + Date.now(), { cache: 'no-store' })).json();
-    if (!(man && man.v > APPV && Array.isArray(man.files))) return;
+    if (!(man && man.v > APPV && Array.isArray(man.files))) { if (force) toast('✓ Sudah versi terbaru (v' + APPV + ')', 3500); return; }
     const st = LS.get(OTAK, {}) || {}, bad = LS.get(OTAT, {}) || {};
-    if (st.ready == man.v || (bad.v == man.v && bad.n >= 2)) return otaBar();
+    if (st.ready == man.v || (bad.v == man.v && bad.n >= 2)) { if (force) toast('✨ Pembaruan v' + man.v + ' sudah siap — ketuk "Perbarui sekarang" di bawah', 4000); return otaBar(); }
     if (navigator.connection && navigator.connection.saveData && !force) return;
     const cur = await (await fetch('ota.json?t=' + Date.now(), { cache: 'no-store' })).json().catch(() => ({ files: [] })), ch = {};
     for (const f of cur.files || []) ch[f.p] = f.h;
@@ -51,7 +56,11 @@ async function otaCheck(force) {
     // hapus folder versi lama yang tidak dipakai
     try { const L = await FS.readdir({ path: 'ota', directory: 'DATA' }); for (const e of L.files || []) { const n = e.name || e; if (n != 'v' + man.v && !(keep && keep.dir == 'ota/' + n)) await FS.rmdir({ path: 'ota/' + n, directory: 'DATA', recursive: true }).catch(() => { }); } } catch (e) { }
     otaBar();
-  } catch (e) { console.warn('OTA gagal', e && e.message); } finally { OTAW = false; }
+    if (force) toast('✨ Berhasil unduh pembaruan v' + man.v + ' — ketuk "Perbarui sekarang" di bawah untuk menerapkan', 4500);
+  } catch (e) {
+    console.warn('OTA gagal', e && e.message);
+    if (force && confirm('Pembaruan otomatis gagal (' + (e && e.message || 'kesalahan jaringan') + '). Buka halaman unduh APK terbaru di GitHub sebagai gantinya?')) otaGhOpen();
+  } finally { OTAW = false; }
 }
 function otaBar() {
   const st = LS.get(OTAK, {}) || {}; if (!(st.ready > APPV) || $('#otab')) return;
