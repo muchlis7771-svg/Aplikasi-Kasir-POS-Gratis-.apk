@@ -103,6 +103,11 @@ async function loginLocal(id, name, pin) {
   const ok = u && (u.pin ? u.pin == pin : u.h == (await sha(id + ':' + u.n.toLowerCase() + ':' + pin)));
   if (!ok) throw new Error('Nama atau PIN salah');
   U = { n: u.n, r: u.r }; V = defView(U.r); LS.set('jpos:last', { id, name: u.n }); R(); chatPoll(true);
+  // Toko lokal + pemilik baru saja login (PIN sudah terverifikasi) + HP ternyata ada internet
+  // → langsung sambungkan ke server otomatis di latar belakang, tanpa perlu buka Pengaturan atau isi PIN lagi.
+  // PIN disimpan sebentar di memori (bukan disk) agar bisa dicoba otomatis lagi saat sinyal baru muncul
+  // belakangan dalam sesi yang sama, tanpa perlu minta PIN berkali-kali.
+  if (!S.srv && U.r == 'owner') { ownerPinMem = pin; if (canNet()) autoConnect(pin); }
 }
 async function doLogin(id, name, pin) {
   id = String(id || '').trim().toLowerCase(); name = String(name || '').trim();
@@ -138,14 +143,12 @@ async function registerStore(name, owner, email, pin, code, phone) {
 // Jalan keluar untuk toko yang terlanjur tercipta dalam mode "Lokal" (mis. gara-gara navigator.onLine salah
 // deteksi) — daftarkan kode toko yang SAMA ke server lalu nyalakan sinkron. Data/transaksi yang sudah
 // tercatat SEBELUM terhubung tetap hanya ada di HP ini (tidak otomatis ikut terunggah); transaksi baru
-// setelah ini akan tersinkron seperti biasa.
-async function connectToServer() {
-  if (!S || S.srv) return;
-  if (!canNet()) return toast('Tidak ada koneksi internet. Coba lagi saat HP tersambung internet.', 5000);
-  const pin = prompt('Masukkan PIN Anda (' + U.n + ') untuk menghubungkan toko "' + S.name + '" ke server:');
-  if (!pin) return;
-  const me = S.users.find((x) => x.n.toLowerCase() == U.n.toLowerCase());
-  if (me && me.h && me.h != (await sha(SID + ':' + U.n.toLowerCase() + ':' + pin))) return toast('PIN salah');
+// setelah ini akan tersinkron seperti biasa. doConnect() adalah intinya (dipakai manual & otomatis);
+// silent=1 dipakai jalur otomatis supaya tidak mengganggu dengan toast kegagalan tiap kali dicoba ulang.
+let connecting = false, connFail = 0;
+async function doConnect(pin, silent) {
+  if (!S || S.srv || connecting) return false;
+  connecting = true;
   try {
     const r = await post('/api/register', { id: SID, store: S.name, owner: U.n, email: S.email || '', pin, phone: '' }, '');
     S.srv = true; S.name = r.sn || S.name; S.reauth = false; S.locked = '';
@@ -153,14 +156,36 @@ async function connectToServer() {
     const h = await sha(SID + ':' + U.n.toLowerCase() + ':' + pin);
     S.users = S.users.filter((u) => u.n.toLowerCase() != U.n.toLowerCase()); S.users.push({ n: U.n, r: 'owner', h });
     stApply(r); save();
-    toast('✅ Toko terhubung ke server. Mulai sekarang transaksi otomatis tersinkron. (Catatan: data sebelum ini tetap tersimpan di HP ini saja, tidak otomatis ikut terunggah)', 9000);
-    R(); sync();
+    toast('☁️ Toko "' + S.name + '" terhubung ke server. Mulai sekarang transaksi otomatis tersinkron.' + (silent ? '' : ' (Catatan: data sebelum ini tetap tersimpan di HP ini saja, tidak otomatis ikut terunggah)'), 9000);
+    ownerPinMem = ''; R(); sync();
+    return true;
   } catch (e) {
-    if (e.status == 409) toast('Kode toko "' + SID + '" sudah dipakai toko lain di server — hubungi pengembang untuk bantuan.', 8000);
-    else toast(e.message || 'Gagal menghubungkan ke server');
-  }
+    connFail = Date.now();
+    if (!silent) { if (e.status == 409) toast('Kode toko "' + SID + '" sudah dipakai toko lain di server — hubungi pengembang untuk bantuan.', 8000); else toast(e.message || 'Gagal menghubungkan ke server'); }
+    return false;
+  } finally { connecting = false; }
 }
-function logout() { flushSave(); stopChat(); U = null; S = null; SID = null; V = 'dash'; R(); }
+async function connectToServer() {
+  if (!S || S.srv) return;
+  if (!canNet()) return toast('Tidak ada koneksi internet. Coba lagi saat HP tersambung internet.', 5000);
+  const pin = prompt('Masukkan PIN Anda (' + U.n + ') untuk menghubungkan toko "' + S.name + '" ke server:');
+  if (!pin) return;
+  const me = S.users.find((x) => x.n.toLowerCase() == U.n.toLowerCase());
+  if (me && me.h && me.h != (await sha(SID + ':' + U.n.toLowerCase() + ':' + pin))) return toast('PIN salah');
+  await doConnect(pin, false);
+}
+// Dipanggil otomatis (tanpa minta PIN lagi) tepat setelah pemilik berhasil login lokal dengan PIN yang
+// sudah terverifikasi, dan saat koneksi internet kembali ketika pemilik sedang membuka aplikasi.
+function autoConnect(pin) {
+  if (!S || S.srv || !U || U.r != 'owner' || !canNet()) return;
+  if (Date.now() - connFail < 2 * 6e4) return; // jangan ulang-ulang tiap beberapa detik kalau baru saja gagal
+  doConnect(pin, true);
+}
+// Simpan PIN pemilik di memori (BUKAN disimpan ke disk) khusus untuk re-attempt otomatis saat status online
+// berubah dalam sesi yang sama — supaya tidak perlu minta PIN berulang kali tiap kali sinyal naik-turun.
+let ownerPinMem = '';
+addEventListener('online', () => { if (S && !S.srv && U && U.r == 'owner' && ownerPinMem) autoConnect(ownerPinMem); });
+function logout() { flushSave(); stopChat(); U = null; S = null; SID = null; V = 'dash'; ownerPinMem = ''; R(); }
 async function reauth() {
   const dup = !!S.reauthDup;
   const m = modal(`<h3>Masuk ulang</h3><small class="mu">${dup ? 'Akun ini baru saja login di perangkat lain, sesi di sini otomatis dicabut (1 akun = 1 perangkat untuk sales/kanvas/dropping, agar jejak GPS tidak kacau). Masukkan PIN untuk masuk kembali — ini akan mencabut sesi di perangkat lain.' : 'Sesi berakhir. Masukkan PIN untuk melanjutkan sinkron.'}</small><input id="rp" type="password" inputmode="numeric" placeholder="PIN" autocomplete="off"><button class="pr" id="rg">Masuk</button>`);
