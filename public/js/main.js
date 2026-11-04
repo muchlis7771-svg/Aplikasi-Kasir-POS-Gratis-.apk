@@ -164,6 +164,8 @@ async function startDemo() {
 function haShell() {
   const t = HA.tab || 'dash';
   if (t == 'act') { clearInterval(HAA.t); HAA.t = setInterval(() => { if (MODE == 'ha' && HA.tab == 'act') haAct(); else clearInterval(HAA.t); }, 20000); if (!HAA.d) haAct(); }
+  // tab Toko: refresh berkala biar toko baru yang baru daftar langsung terlihat tanpa perlu tekan ⟳ manual
+  if (t == 'dash') { clearInterval(HA.dT); HA.dT = setInterval(() => { if (MODE == 'ha' && HA.tab == 'dash' && !$('.md')) haLoad(); else clearInterval(HA.dT); }, 30000); }
   return `<div class="ha"><div class="hahead"><div class="row"><h2 class="lg1"><span class="hacrown">${ico('crown')}</span> Head Admin</h2><span class="wrap"><button class="gh" onclick="${t == 'act' ? 'haAct()' : t == 'chat' ? 'HAC.list=null;R()' : t == 'web' ? 'HAW.site=null;R()' : 'haLoad()'}">⟳</button><button class="gh d" onclick="haOut();MODE='home';R()">Keluar</button></span></div><div class="seg" style="margin:0">${[['dash', '📊 Toko'], ['lead', '🛒 Pesanan'], ['bayar', '💳 Bayar'], ['lic', '🔑 Lisensi'], ['tiket', '🛟 Komplain <em id="hatkb" class="hbdg" style="display:none"></em>'], ['act', '👁️ Aktivitas <em id="habdg" class="hbdg" style="display:none"></em>'], ['chat', '💬 Chat <em id="hacb" class="hbdg" style="display:none"></em>'], ['web', '🌐 Web']].map((x) => `<button class="${t == x[0] ? 'a' : ''}" onclick="HA.tab='${x[0]}';R()">${x[1]}</button>`).join('')}</div></div>${t == 'chat' ? haChatView() : t == 'web' ? haWebView() : t == 'act' ? haActView() : t == 'bayar' ? haPayView() : t == 'lic' ? haLicView() : t == 'lead' ? haLeadView() : t == 'tiket' ? haTkView() : haView()}</div>`;
 }
 

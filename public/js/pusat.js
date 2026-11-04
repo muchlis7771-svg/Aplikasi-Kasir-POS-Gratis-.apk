@@ -14,11 +14,23 @@ const HAL = {
   users: ['👥 Pengguna per toko', (s) => +s.users || 0, () => 1, (s) => `<b>${s.users} orang</b><small>maks ${(HA.cfg && HA.cfg.pkg && HA.cfg.pkg[s.tier || 'high'] || {}).max || '-'}</small>`],
   all: ['🏪 Semua toko terdaftar', (s) => s.created || 0, () => 1, (s) => `<b>${esc(TIERNM(s.tier))}</b><small>daftar ${dstr(s.created)}</small>`],
 };
-function haList(k) {
+function haListRender(k, m) {
   const H = HAL[k], L = (HA.stores || []).filter(H[2]).sort((a, b) => H[1](b) - H[1](a)), tot = L.reduce((a, s) => a + H[1](s), 0);
-  const m = modal(`<div class="row" style="margin:0"><h3 style="margin:0">${H[0]}</h3><button class="gh" id="x">✕</button></div><small class="mu">${L.length} toko${k == 'omzet' ? ' · total ' + rp(tot) : k == 'tx' ? ' · total ' + tot.toLocaleString('id-ID') + ' nota' : ''} · ketuk toko untuk melihat ringkasan</small>
-<div class="hal">${L.map((s, i) => `<button class="halr" data-s="${esc(s.id)}"><em>${i + 1}</em><span><b>${esc(s.name)}</b><small>${esc(s.owner || '')} · ${esc(TIERNM(s.tier))} · ${esc(s.id)}</small>${k == 'omzet' || k == 'tx' ? `<i class="halb"><i style="width:${tot ? (H[1](s) / H[1](L[0]) * 100).toFixed(1) : 0}%"></i></i>` : ''}</span><span class="r">${H[3](s)}</span></button>`).join('') || '<p class="mu">Belum ada.</p>'}</div>`, 'w');
-  $('#x', m).onclick = () => m.close(); $$('[data-s]', m).forEach((b) => (b.onclick = () => { m.close(); haSum(b.dataset.s); }));
+  const body = m.querySelector('.halwrap');
+  body.innerHTML = `<small class="mu">${L.length} toko${k == 'omzet' ? ' · total ' + rp(tot) : k == 'tx' ? ' · total ' + tot.toLocaleString('id-ID') + ' nota' : ''} · ketuk toko untuk melihat ringkasan</small>
+<div class="hal">${L.map((s, i) => `<button class="halr" data-s="${esc(s.id)}"><em>${i + 1}</em><span><b>${esc(s.name)}</b><small>${esc(s.owner || '')} · ${esc(TIERNM(s.tier))} · ${esc(s.id)}</small>${k == 'omzet' || k == 'tx' ? `<i class="halb"><i style="width:${tot ? (H[1](s) / H[1](L[0]) * 100).toFixed(1) : 0}%"></i></i>` : ''}</span><span class="r">${H[3](s)}</span></button>`).join('') || '<p class="mu">Belum ada.</p>'}</div>`;
+  $$('[data-s]', body).forEach((b) => (b.onclick = () => { m.close(); haSum(b.dataset.s); }));
+}
+// Menarik data toko terbaru dari server sebelum menampilkan daftar, supaya toko yang baru saja daftar
+// tidak "hilang"/tidak terdeteksi hanya karena data di layar masih dari saat pertama buka dashboard.
+async function haList(k) {
+  const H = HAL[k];
+  const m = modal(`<div class="row" style="margin:0"><h3 style="margin:0">${H[0]}</h3><span class="wrap"><button class="gh" id="rf" title="Muat ulang">⟳</button><button class="gh" id="x">✕</button></span></div><div class="halwrap"><small class="mu">Memuat…</small></div>`, 'w');
+  $('#x', m).onclick = () => m.close();
+  const refresh = async () => { try { await haLoad(); } catch (e) { } if (m.isConnected !== false) haListRender(k, m); };
+  $('#rf', m).onclick = refresh;
+  haListRender(k, m); // tampilkan cache dulu biar instan
+  refresh(); // lalu segarkan dari server
 }
 async function haSum(id) {
   const s = (HA.stores || []).find((x) => x.id == id); if (!s) return;
