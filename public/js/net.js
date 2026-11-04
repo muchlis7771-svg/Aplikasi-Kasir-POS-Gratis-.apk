@@ -117,7 +117,11 @@ async function registerStore(name, owner, email, pin, code, phone) {
   let id = String(code || '').trim().toLowerCase();
   if (id && !/^[a-z0-9]{6,20}$/.test(id)) throw new Error('Kode toko: 6–20 huruf kecil/angka');
   if (!/^\d{4,8}$/.test(pin)) throw new Error('PIN harus 4–8 angka');
-  if (AP && navigator.onLine) {
+  // Coba daftar ke server kalau alamat server tersedia — JANGAN hanya mengandalkan navigator.onLine:
+  // indikator itu sering salah (false) walau HP sebenarnya tersambung internet, yang bikin toko baru
+  // diam-diam dibuat "lokal" dan tidak pernah tercatat di database pusat / tidak terlihat Head Admin.
+  // Request sesungguhnya yang menentukan — baru fallback ke lokal kalau request itu betul-betul gagal.
+  if (AP) {
     let down = false;
     for (let i = 0; i < 4; i++) {
       const cid = id || Math.random().toString(36).slice(2, 8).padEnd(6, 'x');
@@ -130,6 +134,31 @@ async function registerStore(name, owner, email, pin, code, phone) {
   SID = id; S = newStore(id, name, email, false);
   S.users.push({ n: owner, r: 'owner', h: await sha(id + ':' + owner.toLowerCase() + ':' + pin) }); S.exp = Date.now() + 30 * 864e5; S.plan = 'trial';
   setReg(id, name); U = { n: owner, r: 'owner' }; V = 'dash'; save(); flushSave(); R(); toast('Toko lokal dibuat (belum terhubung server). Kode: ' + id, 7000);
+}
+// Jalan keluar untuk toko yang terlanjur tercipta dalam mode "Lokal" (mis. gara-gara navigator.onLine salah
+// deteksi) — daftarkan kode toko yang SAMA ke server lalu nyalakan sinkron. Data/transaksi yang sudah
+// tercatat SEBELUM terhubung tetap hanya ada di HP ini (tidak otomatis ikut terunggah); transaksi baru
+// setelah ini akan tersinkron seperti biasa.
+async function connectToServer() {
+  if (!S || S.srv) return;
+  if (!canNet()) return toast('Tidak ada koneksi internet. Coba lagi saat HP tersambung internet.', 5000);
+  const pin = prompt('Masukkan PIN Anda (' + U.n + ') untuk menghubungkan toko "' + S.name + '" ke server:');
+  if (!pin) return;
+  const me = S.users.find((x) => x.n.toLowerCase() == U.n.toLowerCase());
+  if (me && me.h && me.h != (await sha(SID + ':' + U.n.toLowerCase() + ':' + pin))) return toast('PIN salah');
+  try {
+    const r = await post('/api/register', { id: SID, store: S.name, owner: U.n, email: S.email || '', pin, phone: '' }, '');
+    S.srv = true; S.name = r.sn || S.name; S.reauth = false; S.locked = '';
+    LS.set('jpos:tk:' + SID, r.token); setReg(SID, S.name);
+    const h = await sha(SID + ':' + U.n.toLowerCase() + ':' + pin);
+    S.users = S.users.filter((u) => u.n.toLowerCase() != U.n.toLowerCase()); S.users.push({ n: U.n, r: 'owner', h });
+    stApply(r); save();
+    toast('✅ Toko terhubung ke server. Mulai sekarang transaksi otomatis tersinkron. (Catatan: data sebelum ini tetap tersimpan di HP ini saja, tidak otomatis ikut terunggah)', 9000);
+    R(); sync();
+  } catch (e) {
+    if (e.status == 409) toast('Kode toko "' + SID + '" sudah dipakai toko lain di server — hubungi pengembang untuk bantuan.', 8000);
+    else toast(e.message || 'Gagal menghubungkan ke server');
+  }
 }
 function logout() { flushSave(); stopChat(); U = null; S = null; SID = null; V = 'dash'; R(); }
 async function reauth() {
