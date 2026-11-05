@@ -68,6 +68,10 @@ async function scanCode(onCode, opt = {}) {
         if (scanDup(vv)) { if (opt.multi) setTimeout(() => scanCode(onCode, opt), 350); return; } // kode sama dalam 2 detik — abaikan, jangan tambah qty lagi
         if (navigator.vibrate) navigator.vibrate(60);
         const ok = onCode(vv); if (opt.multi && ok !== false) setTimeout(() => scanCode(onCode, opt), 350);
+      } else {
+        // sesi scan selesai tapi tidak ada kode terbaca (bukan dibatalkan user — itu masuk ke catch di bawah sebagai "cancel").
+        // sebelumnya ini diam saja tanpa kabar apa pun ke kasir, terasa seperti "barcode tidak terbaca" tanpa penjelasan.
+        toast('Barcode tidak terbaca. Pastikan kode tidak buram/terlalu dekat & cahaya cukup, lalu coba lagi — atau ketik kodenya di kolom "Cari nama / SKU".', 5000);
       }
       return;
     } catch (e) { if (/cancel/i.test(String(e && (e.message || e.code)))) return; console.warn('ML Kit gagal, pakai kamera aplikasi', e); }
