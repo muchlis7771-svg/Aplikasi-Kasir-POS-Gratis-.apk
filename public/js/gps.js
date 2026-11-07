@@ -220,7 +220,7 @@ function gpsExportHtml(data, days) {
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 const DATA = ${j};
-const map = L.map('map'); L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 20, subdomains: 'abcd', attribution: '© OpenStreetMap contributors © CARTO' }).addTo(map);
+const map = L.map('map'); L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Tiles © Esri — Source: Esri, HERE, Garmin, FAO, NOAA, USGS, © OpenStreetMap contributors, GIS User Community' }).addTo(map);
 const pts = [];
 DATA.forEach((d) => {
   const byDay = {}; (d.pts || []).slice().sort((a, b) => a[0] - b[0]).forEach((p) => { const k = new Date(p[0]).toISOString().slice(0, 10); (byDay[k] = byDay[k] || []).push(p); pts.push([p[1], p[2]]); });

@@ -41,7 +41,11 @@ const mapPin = () => L.divIcon({ className: '', html: '<div style="width:22px;he
 // tile.openstreetmap.org (server resmi OSM) sering menolak/blokir trafik dari aplikasi (muncul abu-abu/putih kosong,
 // bukan error) karena kebijakan mereka melarang penggunaan bulk dari aplikasi tanpa pengaturan khusus. Pakai CARTO
 // (basemaps.cartocdn.com) sebagai gantinya — gratis, boleh dipakai aplikasi, dan datanya tetap dari OpenStreetMap.
-function tiles(m) { if (!navigator.onLine && !tiles.w) { tiles.w = 1; toast('Offline: gambar peta dasar butuh internet. Titik outlet, jarak & check-in tetap berfungsi.', 4500); } try { window.L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 20, subdomains: 'abcd', attribution: '© OpenStreetMap contributors © CARTO' }).addTo(m); } catch (e) { } mapFix(m); }
+// Catatan riwayat: tile.openstreetmap.org (server resmi OSM) memblokir trafik aplikasi (peta kosong/putih,
+// v1.86), lalu diganti ke CARTO (basemaps.cartocdn.com) — tapi CARTO sekarang mewajibkan API key untuk
+// tile basemap mereka juga (muncul watermark "API KEY REQUIRED" di peta, v1.87). Pakai Esri World Street Map
+// sebagai gantinya — gratis, tanpa API key, dan jadi standar fallback umum untuk aplikasi yang kena blokir OSM.
+function tiles(m) { if (!navigator.onLine && !tiles.w) { tiles.w = 1; toast('Offline: gambar peta dasar butuh internet. Titik outlet, jarak & check-in tetap berfungsi.', 4500); } try { window.L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19, attribution: 'Tiles © Esri — Source: Esri, HERE, Garmin, FAO, NOAA, USGS, © OpenStreetMap contributors, GIS User Community' }).addTo(m); } catch (e) { } mapFix(m); }
 // Peta Leaflet kadang tampil kosong/putih kalau ukuran kontainernya belum pasti saat peta dibuat (baru disisipkan ke layar),
 // atau ubin lambat termuat di sinyal lemah. Dipanggil sesudah SETIAP peta dibuat di seluruh aplikasi, mencoba beberapa kali.
 function mapFix(map) { if (!map) return; [150, 450, 1200].forEach((ms) => setTimeout(() => { try { if (map && document.body.contains(map._container)) map.invalidateSize(); } catch (e) { } }, ms)); }
