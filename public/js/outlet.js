@@ -280,3 +280,33 @@ ${MGR(U.r) ? `<label><small class="mu">Sales penanggung jawab (opsional)</small>
     SCAN.list.slice(0, 400).forEach((x) => window.L.circleMarker([x.lat, x.lng], { radius: 5, color: x.dup ? '#999' : '#ff5d73', fillOpacity: 0.8, weight: 1 }).addTo(mp).bindPopup(esc(x.n)));
   }, 80);
 }
+
+/* ============ MEJA & QR PESAN SENDIRI (coffee shop) ============
+   Meja disimpan sebagai entri S.c (sama seperti outlet) dengan tbl:true, lewat event 'cu' yang sudah ada —
+   bukan entitas/endpoint baru. QR berisi link ke toko online yang sudah ada (bOpenStore + metode "Ambil sendiri"),
+   jadi pelanggan tinggal pindai dengan kamera HP tanpa instal aplikasi. */
+function tables() { return S.c.filter((c) => c.tbl && !c.x).sort((a, b) => a.n.localeCompare(b.n, 'id', { numeric: true })); }
+function mejaUrl(c) { const u = new URL(location.href); u.search = ''; u.hash = ''; u.searchParams.set('s', S.id); u.searchParams.set('meja', c.n); return u.toString(); }
+VW.meja = () => {
+  const L = tables(), boss = U.r == 'owner' || U.r == 'admin';
+  return `<div class="cd">${boss ? `<div class="wrap" style="margin-bottom:10px"><button class="gh pri" onclick="mejaForm()">+ Meja</button></div>` : '<small class="mu">Mode lihat saja</small>'}
+<small class="mu">Pelanggan memindai kode QR di meja memakai kamera HP (tidak perlu instal aplikasi) lalu masuk ke tampilan pesan-sendiri toko ini, dengan catatan nomor meja otomatis terisi. ${!S.srv ? '⚠️ Toko belum terhubung ke server — hubungkan ke server & aktifkan Toko Online dulu agar QR ini berfungsi saat dipindai pelanggan.' : 'Pastikan Toko Online sudah diaktifkan (menu Toko Online) agar QR berfungsi.'}</small>
+<div class="plist" style="margin-top:10px">${L.map((c) => `<div class="pitem"><div class="ph1"><b>🪑 ${esc(c.n)}</b></div>${c.note ? `<small class="mu">${esc(c.note)}</small>` : ''}
+<div class="pact"><button class="gh pri" onclick="mejaQR('${c.id}')">▣ Lihat QR</button>${boss ? `<button class="gh" onclick="mejaForm('${c.id}')">✏️ Ubah</button><button class="gh d" onclick="mejaDel('${c.id}')">🗑️</button>` : ''}</div></div>`).join('') || '<div class="mu c" style="padding:20px">Belum ada meja. Tambahkan meja pertama (mis. Meja 1).</div>'}</div></div>`;
+};
+function mejaForm(id) {
+  const c = id ? cust(id) : null;
+  const m = modal(`<h3>${c ? 'Ubah' : 'Tambah'} meja</h3><input id="mn" placeholder="Nomor / nama meja * (mis. Meja 5, VIP 2)" value="${esc(c ? c.n : '')}"><input id="mc" placeholder="Catatan (opsional)" value="${esc(c ? c.note || '' : '')}"><button class="pr" id="ok">Simpan</button>`);
+  $('#ok', m).onclick = () => {
+    const n = $('#mn', m).value.trim(); if (!n) return toast('Nomor / nama meja wajib diisi');
+    if (S.c.some((x) => !x.x && x.tbl && x.n.toLowerCase() == n.toLowerCase() && x.id != (c && c.id))) return toast('Nama meja ini sudah dipakai');
+    emit('cu', { c: { id: c ? c.id : 'c' + uid(), n, note: $('#mc', m).value.trim(), tbl: true } }); m.close(); R(); toast('Meja disimpan');
+  };
+}
+function mejaDel(id) { const c = cust(id); if (confirm('Hapus meja ' + c.n + '?')) { emit('cu', { c: { id, x: 1 } }); R(); } }
+function mejaQR(id) {
+  const c = cust(id), url = mejaUrl(c);
+  const m = modal(`<h3>🪑 ${esc(c.n)}</h3><div class="c" style="margin:10px 0">${qrSvg(url, 220)}</div><small class="mu" style="overflow-wrap:anywhere;display:block;text-align:center">${esc(url)}</small><div class="fm2" style="margin-top:10px"><button class="gh" id="mprint">🖨️ Cetak kartu meja</button><button class="gh" id="mshare">↗️ Bagikan tautan</button></div>`);
+  $('#mprint', m).onclick = () => printHtml(`<!doctype html><html><head><meta charset="utf-8"><title>QR ${esc(c.n)}</title><style>@page{size:80mm 110mm;margin:6mm}body{font-family:sans-serif;text-align:center}h1{font-size:20px;margin:4px 0}p{font-size:11px;color:#555}svg{width:60mm;height:60mm}</style></head><body><h1>${esc(S.name || 'Scan untuk pesan')}</h1><h2>${esc(c.n)}</h2>${qrSvg(url, 300)}<p>Pindai dengan kamera HP untuk pesan langsung dari meja ini</p></body></html>`);
+  $('#mshare', m).onclick = () => shareText('Pesan di ' + c.n, url);
+}
