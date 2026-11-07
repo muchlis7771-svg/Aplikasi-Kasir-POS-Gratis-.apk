@@ -55,7 +55,7 @@ async function trkFlush() {
   } catch (e) { } TRKbusy = false;
 }
 async function trackStart() {
-  const B = BGEO(); if (!B || TRKon) return; TRKon = true;
+  const B = BGEO(); if (!B || TRKon) return; TRKon = true; TRKstarted = Date.now();
   try {
     TRKID = await B.addWatcher({
       backgroundTitle: 'J-POS • berbagi lokasi kerja',
@@ -64,7 +64,7 @@ async function trackStart() {
     }, (loc, err) => {
       if (err) { if (err.code === 'NOT_AUTHORIZED') LS.set('jpos:bgdenied', 1); return; }
       if (!loc) return; const now = Date.now();
-      if (now - TRKlast < 45000) return; TRKlast = now; // kirim maks ~tiap 45 detik
+      if (now - TRKlast < 20000) return; TRKlast = now; // kirim maks ~tiap 20 detik (selaras dgn tampilan di layar pantau GPS)
       if (!trkInHours()) { trackSync(); return; }
       try {
         const rec = trkRec(), la = +loc.latitude.toFixed(6), ln = +loc.longitude.toFixed(6), ac = loc.accuracy ? Math.round(loc.accuracy) : null;
@@ -72,6 +72,10 @@ async function trackStart() {
         else if (rec && !rec.stop) { trkQueue({ t: now, lat: la, lng: ln, acc: ac }); trkFlush(); }
       } catch (e) { }
     });
+    // beberapa OEM (Xiaomi/Oppo/Vivo/dll) mematikan service lokasi latar kalau optimasi baterai masih aktif,
+    // meski izin lokasi "sepanjang waktu" sudah diberikan — plugin ini tidak punya API untuk cek/minta bebas
+    // optimasi baterai secara langsung, jadi kita ingatkan karyawan sekali saja via pengaturan lokasi aplikasi.
+    if (!LS.get('jpos:battnudge', 0)) { LS.set('jpos:battnudge', 1); setTimeout(() => { if (TRKon) toast('Agar lokasi tidak terputus saat aplikasi ditutup, aktifkan izin lokasi "Sepanjang waktu" & matikan optimasi baterai untuk J-POS di pengaturan HP.', 7000); }, 5000); }
   } catch (e) { TRKon = false; console.warn('track start', e && e.message); }
 }
 async function trackStop() { const B = BGEO(); if (!B || !TRKID) { TRKon = false; return; } try { await B.removeWatcher({ id: TRKID }); } catch (e) { } TRKID = null; TRKon = false; }
@@ -81,7 +85,15 @@ function trackAsk() {
   if (B.openSettings && LS.get('jpos:bgdenied', 0)) { if (confirm('Agar lokasi tetap terkirim saat aplikasi ditutup, izinkan lokasi "Sepanjang waktu" di pengaturan aplikasi. Buka pengaturan sekarang?')) B.openSettings(); return; }
   if (U && !trkConsent()) return; trackStart();
 }
+// watchdog: beberapa HP (terutama Android hemat baterai) diam-diam mematikan watcher lokasi latar tanpa error.
+// kalau sedang aktif & jam kerja tapi sudah lama tak ada titik masuk, paksa restart watcher.
+let TRKstarted = 0;
+function trkWatchdog() {
+  if (!TRKon || !trkInHours()) return;
+  const since = Date.now() - (TRKlast || TRKstarted);
+  if (since > 4 * 60000) { trackStop().then(() => trackStart()).catch(() => { }); }
+}
 // cek berkala & saat aplikasi kembali dibuka (juga saat belum login)
-setInterval(() => { try { trackSync(); trkFlush(); } catch (e) { } }, 60000);
-document.addEventListener('visibilitychange', () => { if (document.visibilityState == 'visible') { try { trackSync(); trkFlush(); } catch (e) { } } });
+setInterval(() => { try { trackSync(); trkFlush(); trkWatchdog(); } catch (e) { } }, 60000);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState == 'visible') { try { trackSync(); trkFlush(); trkWatchdog(); } catch (e) { } } });
 setTimeout(() => { try { trackSync(); trkFlush(); } catch (e) { } }, 4000);
