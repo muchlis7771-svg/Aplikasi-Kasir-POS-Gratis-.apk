@@ -41,11 +41,24 @@ function kvLoad() {
   const u = kvWho(); if (!u) return toast('Belum ada sales kanvas');
   kvItems('🚚 Muat barang ke mobil · ' + esc(u), actProds().map((p) => ({ p, max: whFree(p.id) })).filter((x) => x.max > 0), (x) => `gudang ${x.max}${x.p.u ? ' ' + esc(x.p.u) : ''} · di mobil ${vanQ(u, x.p.id)}`, U.r == 'kanvas' ? 'Kirim permintaan muat ke admin' : 'Muat ke mobil', (L) => { if (U.r == 'kanvas') { emit('kvr', { op: 'muat', L }); toast('Permintaan muat terkirim — tunggu admin menyiapkan & menyetujui', 4000); } else { emit('kvl', { to: u, L }); toast('Barang dimuat ke mobil ' + u); } R(); });
 }
+// sku yang dimuat sejak pengembalian terakhir (gabungan semua "pemuatan" berturut-turut sebelum pengembalian berikutnya) —
+// dipakai supaya layar "Balikin barang" bawaan hanya menampilkan sku dari muatan terbaru, bukan semua sisa lama yang menumpuk
+function kvOpenBatch(u) {
+  const mv = (S.kv || []).filter((x) => x.u == u).sort((a, b) => a.t - b.t), ids = new Set();
+  for (let i = mv.length - 1; i >= 0; i--) { const x = mv[i]; if (x.k == 'balik') break; for (const it of x.L) ids.add(it.id); }
+  return ids;
+}
 function kvBack(all) {
-  const u = kvWho(), rows = vanList(u).map((x) => ({ p: x.p, max: x.q })); if (!rows.length) return toast('Mobil kosong');
-  if (all) { if (!confirm('Kembalikan SEMUA sisa barang di mobil (' + rows.reduce((a, x) => a + x.max, 0) + ' unit) ke gudang?')) return; const L = rows.map((x) => ({ id: x.p.id, q: x.max })); if (U.r == 'kanvas') { emit('kvr', { op: 'balik', L, note: 'balik semua' }); toast('Permintaan balik barang terkirim — admin memeriksa barang di gudang', 4000); } else { emit('kvb', { to: u, L, note: 'balik semua' }); toast('Semua sisa barang kembali ke gudang'); } return R(); }
+  const u = kvWho(), vl = vanList(u).map((x) => ({ p: x.p, max: x.q })); if (!vl.length) return toast('Mobil kosong');
+  if (all) { if (!confirm('Kembalikan SEMUA sisa barang di mobil (' + vl.reduce((a, x) => a + x.max, 0) + ' unit) ke gudang?')) return; const L = vl.map((x) => ({ id: x.p.id, q: x.max })); if (U.r == 'kanvas') { emit('kvr', { op: 'balik', L, note: 'balik semua' }); toast('Permintaan balik barang terkirim — admin memeriksa barang di gudang', 4000); } else { emit('kvb', { to: u, L, note: 'balik semua' }); toast('Semua sisa barang kembali ke gudang'); } return R(); }
+  const openIds = kvOpenBatch(u), recent = vl.filter((x) => openIds.has(x.p.id)), rows = (recent.length ? recent : vl).slice();
   const k = kvItems('↩️ Balikin barang ke gudang', rows, (x) => `di mobil ${x.max}`, U.r == 'kanvas' ? 'Kirim permintaan balik ke admin' : 'Kembalikan ke gudang', (L) => { if (U.r == 'kanvas') { emit('kvr', { op: 'balik', L }); toast('Permintaan balik barang terkirim — admin memeriksa barang di gudang', 4000); } else { emit('kvb', { to: u, L }); toast('Barang kembali ke gudang'); } R(); });
   const b = document.createElement('button'); b.className = 'gh'; b.textContent = 'Isi semua sisa'; b.onclick = () => { rows.forEach((x) => (k.Q[x.p.id] = x.max)); k.draw(); }; $('#ok', k.m).before(b);
+  if (recent.length && recent.length < vl.length) {
+    const more = document.createElement('button'); more.className = 'gh'; more.textContent = 'Tampilkan stok lama juga (+' + (vl.length - recent.length) + ')';
+    more.onclick = () => { rows.length = 0; rows.push(...vl); more.remove(); k.draw(); };
+    $('#ok', k.m).before(more);
+  }
 }
 async function kvSetor() {
   const u = kvWho(), d0 = kvSod(Date.now() + KVD * 864e5), R0 = kvRekap(u, d0), text = kvText(u, d0, R0);
