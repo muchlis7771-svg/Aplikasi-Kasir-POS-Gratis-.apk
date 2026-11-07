@@ -145,12 +145,23 @@ let regTier = 'standar';
 // jenis usaha saat daftar: menentukan apakah fitur bahan baku/resep & meja (coffee shop/resto) ditampilkan — disimpan ke S.set.biz
 let regBiz = 'retail';
 const BIZUI = { retail: ['🏪', 'Retail / Toko & Distribusi', 'Kasir, stok barang jadi, outlet pelanggan, dropping'], cafe: ['☕', 'Coffee Shop & Resto', 'Tambahan: bahan baku + resep (stok otomatis terpotong saat menu laku), meja & pesan via QR, peran Barista/Pelayan'] };
-const bizCards = () => Object.entries(BIZUI).map(([k, u]) => `<button type="button" class="tier ${regBiz == k ? 'on' : ''}" onclick="regBiz='${k}';$('#bizc').innerHTML=bizCards()"><span class="ti">${u[0]}</span><b>${esc(u[1])}</b><small>${esc(u[2])}</small><i class="rd2">${regBiz == k ? '● Dipilih' : '○ Pilih'}</i></button>`).join('');
+const bizCards = () => Object.entries(BIZUI).map(([k, u]) => `<button type="button" class="tier ${regBiz == k ? 'on' : ''}" onclick="regBiz='${k}';$('#bizc').innerHTML=bizCards();if($('#tiers'))$('#tiers').innerHTML=tierCards()"><span class="ti">${u[0]}</span><b>${esc(u[1])}</b><small>${esc(u[2])}</small><i class="rd2">${regBiz == k ? '● Dipilih' : '○ Pilih'}</i></button>`).join('');
 const TIERUI = { biasa: ['🏪', 'Kios & toko kecil', '#10b981'], standar: ['🚀', 'Toko grosir yang punya sales', '#33508f'], high: ['👑', 'Distributor & trader — fitur paling lengkap', '#f59e0b'] };
+// label paket khusus saat Jenis usaha = Coffee Shop & Resto, supaya tidak menjanjikan istilah retail (Kios/Grosir/Distributor)
+// yang membingungkan pemilik cafe — fitur & harga di baliknya tetap sama persis dengan PKGDEF, cuma nama & deskripsinya beda
+const TIERUI_CAFE = { biasa: ['☕', 'Kedai / warung kopi kecil', '#10b981'], standar: ['🚀', 'Coffee shop & resto dengan tim', '#33508f'], high: ['👑', 'Resto & cafe berjejaring — fitur paling lengkap', '#f59e0b'] };
+const PKGNAME_CAFE = { biasa: 'Standar · Kedai', standar: 'Medium · Coffee Shop/Resto', high: 'High · Resto Berjejaring' };
 function tierCards() {
-  const pk = (LS.get('jpos:info', {}) || {}).pkg || PKGDEF, T = ['biasa', 'standar', 'high'];
-  return T.map((t, i) => { const x = pk[t] || PKGDEF[t], fs = x.f.split(' ').filter((f) => FEAT[f] && f != 'dash' && f != 'set'), prev = i ? new Set((pk[T[i - 1]] || PKGDEF[T[i - 1]]).f.split(' ')) : null, hi = prev ? fs.filter((f) => !prev.has(f)) : fs, u = TIERUI[t];
-    return `<button type="button" class="tier ${regTier == t ? 'on' : ''}" style="--tc:${u[2]}" onclick="regTier='${t}';$('#tiers').innerHTML=tierCards()">${t == 'standar' ? '<em>Populer</em>' : ''}<span class="ti">${u[0]}</span><b>${esc(x.n)}</b><small>${u[1]}</small>${(() => { const pr = x.pr ?? PKGDEF[t].pr; return pr ? `<span class="tpr"><b>Rp${(pr / 1000).toLocaleString('id-ID')}rb</b><small>/bulan</small></span>` : ''; })()}<span class="tu">👥 maks ${x.max} pengguna · ${fs.length} fitur</span><ul>${prev ? '<li class="pl">Semua fitur ' + esc((pk[T[i - 1]] || PKGDEF[T[i - 1]]).n) + ', plus:</li>' : ''}${hi.slice(0, 7).map((f) => '<li>✓ ' + esc(FEAT[f]) + '</li>').join('')}${hi.length > 7 ? '<li class="pl">+' + (hi.length - 7) + ' lainnya</li>' : ''}</ul><i class="rd2">${regTier == t ? '● Dipilih' : '○ Pilih'}</i></button>`; }).join('');
+  const pk = (LS.get('jpos:info', {}) || {}).pkg || PKGDEF, T = ['biasa', 'standar', 'high'], cafe = regBiz == 'cafe';
+  // sembunyikan dari daftar fitur paket fitur yang toh akan disembunyikan BIZHIDE setelah daftar (meja untuk retail, fitur retail untuk cafe)
+  // supaya paket yang ditampilkan tidak menjanjikan fitur yang tidak akan pernah muncul di jenis usaha yang dipilih
+  const bh = BIZHIDE[cafe ? 'cafe' : 'retail'] || new Set();
+  return T.map((t, i) => {
+    const x = pk[t] || PKGDEF[t], fs = x.f.split(' ').filter((f) => FEAT[f] && f != 'dash' && f != 'set' && !bh.has(f));
+    const prevSet = i ? new Set((pk[T[i - 1]] || PKGDEF[T[i - 1]]).f.split(' ').filter((f) => !bh.has(f))) : null, hi = prevSet ? fs.filter((f) => !prevSet.has(f)) : fs;
+    const u = (cafe ? TIERUI_CAFE : TIERUI)[t], nm = cafe ? PKGNAME_CAFE[t] : x.n;
+    return `<button type="button" class="tier ${regTier == t ? 'on' : ''}" style="--tc:${u[2]}" onclick="regTier='${t}';$('#tiers').innerHTML=tierCards()">${t == 'standar' ? '<em>Populer</em>' : ''}<span class="ti">${u[0]}</span><b>${esc(nm)}</b><small>${u[1]}</small>${(() => { const pr = x.pr ?? PKGDEF[t].pr; return pr ? `<span class="tpr"><b>Rp${(pr / 1000).toLocaleString('id-ID')}rb</b><small>/bulan</small></span>` : ''; })()}<span class="tu">👥 maks ${x.max} pengguna · ${fs.length} fitur</span><ul>${prevSet ? '<li class="pl">Semua fitur ' + esc(cafe ? PKGNAME_CAFE[T[i - 1]] : (pk[T[i - 1]] || PKGDEF[T[i - 1]]).n) + ', plus:</li>' : ''}${hi.slice(0, 7).map((f) => '<li>✓ ' + esc(FEAT[f]) + '</li>').join('')}${hi.length > 7 ? '<li class="pl">+' + (hi.length - 7) + ' lainnya</li>' : ''}</ul><i class="rd2">${regTier == t ? '● Dipilih' : '○ Pilih'}</i></button>`;
+  }).join('');
 }
 function quickLogin(id) { const l = LS.get('jpos:last', {}) || {}; LS.set('jpos:last', { id, name: l.id == id ? l.name : '' }); MODE = 'login'; R(); setTimeout(() => { const n = $('#lnm'); if (!n) return; const e = n.value ? $('#lpn') : n; if (e) e.focus(); }, 50); }
 async function busy(btn, fn) { const t = btn.textContent; btn.disabled = true; btn.textContent = 'Memproses…'; try { await fn(); } catch (e) { toast(e.message || 'Gagal', 5000); } finally { btn.disabled = false; btn.textContent = t; } }
