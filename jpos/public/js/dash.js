@@ -130,6 +130,22 @@ const heroCard = (title, val, sub, chg, extra, vals, cafe) => `<div class="cd he
 const tiles2 = (L) => `<div class="qt2">${L.filter((q) => can(q[0])).map((q) => `<button onclick="${q[3] || `go('${q[0]}')`}"><i style="--c:${q[4] || '#22366e'}">${tIco(q)}</i><span>${q[2]}</span>${q[5] ? `<em>${q[5]}</em>` : ''}</button>`).join('')}</div>`;
 const lineItem = (ic, col, l, sub, v, cls, on) => `<button class="li2" ${on ? `onclick="${on}"` : ''}><i style="--c:${col}">${ic}</i><span><b>${l}</b>${sub ? `<small>${sub}</small>` : ''}</span><b class="${cls || ''}">${v}</b>${on ? '<u>›</u>' : ''}</button>`;
 const pctCh = (a, b) => (b ? Math.round(((a - b) / b) * 100) : null);
+// pergerakan neraca n hari terakhir, dipecah jadi 5 pos utama (dipakai di grafik "Pergerakan Neraca" beranda)
+function neracaTrend(n) {
+  const L = [], pts = [];
+  for (let i = n - 1; i >= 0; i--) { const d = new Date(); d.setHours(0, 0, 0, 0); d.setDate(d.getDate() - i); L.push(d.getDate() + '/' + (d.getMonth() + 1)); pts.push(neraca(d.getTime() + 864e5 - 1)); }
+  return {
+    labels: L,
+    series: [
+      { name: 'Kas & Bank', color: '#00c2a8', vals: pts.map((p) => p.as[0][2] + p.as[1][2]) },
+      { name: 'Piutang', color: '#54a0ff', vals: pts.map((p) => p.as[2][2]) },
+      { name: 'Persediaan', color: '#ff9f43', vals: pts.map((p) => p.as[3][2] + p.as[4][2]) },
+      { name: 'Utang', color: '#ff5d73', vals: pts.map((p) => p.tl) },
+      { name: 'Modal / Ekuitas', color: '#27407e', vals: pts.map((p) => p.te) },
+    ],
+  };
+}
+const neracaChartCard = () => { const NT = neracaTrend(14); return `<div class="cd"><div class="row" style="margin:0"><h3 style="margin:0">📐 Pergerakan Neraca</h3><small class="mu">14 hari terakhir</small></div><small class="mu">Kas &amp; Bank, Piutang, Persediaan (aset) vs Utang &amp; Modal (kewajiban+ekuitas) — saldo per hari dari jurnal.</small><div style="margin-top:8px">${multiLine(NT.labels, NT.series)}</div></div>`; };
 function dashAdmin() {
   const [t0, t1] = todayR(), [m0, m1] = monthR(), A = salesAgg(t0, t1), M = salesAgg(m0, m1), L = lr(m0, m1), Y = salesAgg(t0 - 864e5, t0 - 1);
   const low = S.p.filter((p) => !p.x && p.st <= (p.min ?? 10)), od = S.c.filter((c) => !c.x && overdue(c.id) > 0).sort((a, b) => overdue(b.id) - overdue(a.id));
@@ -161,6 +177,7 @@ function dashAdmin() {
     + `<details class="more" ${innerWidth >= 760 ? 'open' : ''}><summary>Lihat analisis lengkap</summary>`
     + `<div class="cd"><h3>💼 Posisi keuangan</h3>${lineItem('💵', '#00b894', 'Kas + Bank', 'uang tersedia', rp(bal('1101') + bal('1102')), 'gr')}${lineItem('📈', '#22366e', 'Laba bersih bulan ini', 'setelah semua beban', rp(L.laba), L.laba < 0 ? 'rd' : '')}${lineItem('🧾', '#ff9f43', 'Piutang outlet', od.length + ' jatuh tempo', rp(arTotal()), '', can('lap') ? "go('lap')" : '')}${lineItem('🏦', '#ff5d73', 'Utang usaha', 'ke supplier', rp(apTotal()))}${lineItem('📦', '#54a0ff', 'Stok layak jual', S.p.filter((p) => !p.x).length + ' produk', rp(stockValue()))}${badUnits() ? lineItem('🗑️', '#ef4444', 'Bad stock', badUnits() + ' unit menunggu pemusnahan / sortir', rp(badValue()), 'rd', "RTO.tab='bad';go('retur')") : ''}</div>`
     + `<div class="cd"><div class="row" style="margin:0"><h3 style="margin:0">Omzet 14 hari terakhir</h3><small class="mu">${M.n} transaksi bulan ini</small></div>${area(dayAgg(14))}</div>`
+    + neracaChartCard()
     + `<div class="two"><div class="cd"><h3>🏆 Produk terlaris bulan ini</h3>${bars(prods, rp)}</div><div class="cd"><h3>Penjualan per kategori</h3>${donut(cats)}</div></div>`
     + teamCard()
     + `<div class="cd"><h3>👥 Kinerja tim bulan ini</h3>${bars(users, rp)}<small class="mu">Kehadiran hari ini: ${hadir} orang</small></div></details>`;
@@ -193,6 +210,7 @@ function dashCafe() {
     + `<details class="more" ${innerWidth >= 760 ? 'open' : ''}><summary>Lihat analisis lengkap</summary>`
     + `<div class="cd"><h3>💼 Posisi keuangan</h3>${lineItem('💵', '#00b894', 'Kas + Bank', 'uang tersedia', rp(bal('1101') + bal('1102')), 'gr')}${lineItem('📈', '#22366e', 'Laba bersih bulan ini', 'setelah semua beban', rp(L.laba), L.laba < 0 ? 'rd' : '')}${lineItem('🏦', '#ff5d73', 'Utang usaha', 'ke supplier', rp(apTotal()))}${lineItem('🧂', '#54a0ff', 'Nilai bahan baku', ingProds().length + ' jenis', rp(bahanValue))}${badUnits() ? lineItem('🗑️', '#ef4444', 'Bad stock', badUnits() + ' unit menunggu pemusnahan / sortir', rp(badValue()), 'rd', "RTO.tab='bad';go('retur')") : ''}</div>`
     + `<div class="cd"><div class="row" style="margin:0"><h3 style="margin:0">Omzet 14 hari terakhir</h3><small class="mu">${M.n} transaksi bulan ini</small></div>${area(dayAgg(14))}</div>`
+    + neracaChartCard()
     + `<div class="two"><div class="cd"><h3>🏆 Menu terlaris bulan ini</h3>${bars(prods, rp)}</div><div class="cd"><h3>Penjualan per kategori</h3>${donut(cats)}</div></div>`
     + teamCard()
     + `<div class="cd"><h3>👥 Kinerja tim bulan ini</h3>${bars(users, rp)}<small class="mu">Kehadiran hari ini: ${hadir} orang</small></div></details>`;
