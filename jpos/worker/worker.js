@@ -162,7 +162,7 @@ export default {
       if (p == '/api/time') return J({ t: Date.now() });
       if (p == '/api/info') { const c = await cfgAll(env); const pk = pkgAll(), pkg = {}; for (const t of Object.keys(pk)) pkg[t] = { n: pk[t].n, max: pk[t].max, f: pk[t].f, pr: pk[t].pr }; return J({ wa: c.wa || '', price: c.price || '', trial: +(c.trial_days || 30), app: c.app_name || 'J-POS', pkg }); }
       if (p == '/api/register' && M == 'POST') {
-        if (await limited(env, 'reg:' + ip, 5, 36e5)) return J({ e: 'Terlalu banyak pendaftaran, coba lagi nanti' }, 429);
+        if (await limited(env, 'reg:' + ip, 20, 36e5)) return J({ e: 'Terlalu banyak pendaftaran, coba lagi nanti' }, 429);
         const id = String(b.id || ''), store = String(b.store || '').trim().slice(0, 60), owner = String(b.owner || '').trim();
         const email = String(b.email || '').trim().toLowerCase(), pin = String(b.pin || ''), phone = String(b.phone || '').replace(/[^\d+]/g, '').slice(0, 20);
         if (!SID.test(id) || !store || !NAME.test(owner) || (email && !/^\S+@\S+\.\S+$/.test(email)) || !PIN.test(pin)) return J({ e: 'Data tidak valid (nama pemilik, email, atau PIN 4-8 angka)' }, 400);
