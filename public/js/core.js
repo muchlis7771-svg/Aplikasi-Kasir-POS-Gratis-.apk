@@ -190,6 +190,19 @@ const Ap = {
     else jr(e, e.d || 'Setoran modal', [[payAcc(e.m || 'Tunai'), e.amt, 0], ['3101', 0, e.amt]]);
   },
   jm(e) { if (!Array.isArray(e.l) || !e.l.every((x) => AC[x[0]])) return; jr(e, e.d || 'Jurnal manual', e.l.map((x) => [String(x[0]), Math.abs(+x[1] || 0), Math.abs(+x[2] || 0)])); },
+  // reset buku akuntansi & kas (tutup buku): jurnal, buku kas, laba rugi, neraca, piutang & utang usaha dinolkan ulang.
+  // produk, stok fisik, pelanggan/outlet, dan histori NOTA PENJUALAN tidak dihapus — hanya status pelunasannya ditandai lunas (bukan nilainya diubah),
+  // supaya nota lama tetap bisa dilihat/dicetak apa adanya. Nilai persediaan fisik yang masih ada diposting ulang sebagai saldo awal modal
+  // supaya neraca tetap mencerminkan kenyataan (stok tidak ikut hilang, cuma pembukuannya yang dimulai ulang).
+  rst(e) {
+    for (const s of S.sales) { const out = sOut(s); if (out > 0) { s.pa = (s.pa || 0) + out; (s.pays = s.pays || []).push({ t: e.t, amt: out, m: 'Reset buku', u: e.u }); } }
+    S.j = []; S.ap = [];
+    const invVal = stockValue(), badVal = badValue(), open = [];
+    if (invVal > 0) open.push(['1201', invVal, 0]); if (badVal > 0) open.push(['1202', badVal, 0]);
+    if (open.length) { const eq = open.reduce((a, x) => a + x[1], 0); S.j.push({ id: S.j.length + 1, t: e.t, d: 'Saldo awal persediaan (reset buku)', l: [...open, ['3101', 0, eq]], k: e.k, sr: e.no, u: e.u }); }
+    notif(e, 'reset', '🔄 Reset buku akuntansi & kas oleh ' + e.u + ' — jurnal, kas/bank, piutang & utang usaha dinolkan ulang. Produk, stok & histori nota tetap ada.');
+    S.lastRst = e.t;
+  },
   pu(e) {
     const q = e.p || {}; if (!/^[\w-]{1,40}$/.test(String(q.id))) return; let p = prod(q.id);
     const isNew = !p, prevPr = p ? p.pr : null;
@@ -384,7 +397,7 @@ function trailAdd(e) {
 function apply(e) {
   if (!e || S.done[e.no]) return false;
   S.done[e.no] = 1;
-  if ((e.k == 'cap' || e.k == 'set') && e.r && e.r != 'owner') return false;
+  if ((e.k == 'cap' || e.k == 'set' || e.k == 'rst') && e.r && e.r != 'owner') return false; // reset buku (rst) hanya boleh oleh pemilik
   if (e.k == 'gji' && e.r && ((['cfg', 'paid'].includes(e.op) && e.r != 'owner') || (['ok', 'tolak'].includes(e.op) && e.r != 'owner' && e.r != 'admin'))) return false;
   if ((e.k == 'kvl' || e.k == 'kvb') && e.r && e.r != 'owner' && e.r != 'admin') return false; // muat / balik kanvas wajib lewat persetujuan admin // kejadian lain sudah divalidasi server saat diterima
   try { (Ap[e.k] || (() => { }))(e); } catch (x) { console.error('apply gagal', e && e.no, x); }
