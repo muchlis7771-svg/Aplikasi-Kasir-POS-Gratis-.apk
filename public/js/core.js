@@ -68,9 +68,11 @@ function featSet(r) {
   return (FEATMEMO[k] = new Set(rf));
 }
 // fitur yang disembunyikan total sesuai jenis usaha toko (S.set.biz) — berlaku untuk semua peran termasuk owner,
-// supaya toko retail tidak melihat menu coffee shop dan sebaliknya, apa pun hak akses yang diberikan
+// supaya toko retail tidak melihat menu coffee shop dan sebaliknya, apa pun hak akses yang diberikan.
+// Toko lama (dibuat sebelum fitur jenis usaha ada) tidak punya S.set.biz tersimpan — dianggap 'retail' (bawaan),
+// bukan dibiarkan tanpa filter, supaya menu coffee shop/meja tetap tersembunyi di toko retail lama.
 const BIZHIDE = { cafe: new Set('outlet cek terima kirim kiosMap dnet kanvas gps ana'.split(' ')), retail: new Set(['meja']) };
-const can = (f, r) => { const bh = S && S.set && BIZHIDE[S.set.biz]; if (bh && bh.has(f)) return false; return featSet(r || (U && U.r)).has(f); };
+const can = (f, r) => { const bh = S && S.set && BIZHIDE[S.set.biz || 'retail']; if (bh && bh.has(f)) return false; return featSet(r || (U && U.r)).has(f); };
 const pkgHas = (f) => new Set(((S && S.pf) || PKGHI).split(' ')).has(f);
 // Masa aktif toko (trial / langganan) — dicek juga saat offline dari data terakhir server.
 const isExp = () => !!(S && S.exp && Date.now() > S.exp);
