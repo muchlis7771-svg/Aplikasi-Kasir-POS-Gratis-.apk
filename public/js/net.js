@@ -74,7 +74,7 @@ function updBadge() {
   }
   b.className = 'bd ' + c; b.textContent = t;
 }
-setInterval(() => { if (U) sync(); }, 25000);
+setInterval(() => { if (U) sync(); if (ownerPinMem) autoConnect(ownerPinMem); }, 25000);
 addEventListener('online', () => { updBadge(); kick(); if (typeof R == 'function' && U) toast('Kembali online — menyinkron'); });
 addEventListener('offline', () => { updBadge(); if (U) toast('Mode offline: transaksi tetap tersimpan'); });
 document.addEventListener('visibilitychange', () => { if (!document.hidden && U) kick(); });
@@ -138,7 +138,12 @@ async function registerStore(name, owner, email, pin, code, phone) {
   id = id || 'lokal' + Math.random().toString(36).slice(2, 6); // tanpa server: toko lokal
   SID = id; S = newStore(id, name, email, false);
   S.users.push({ n: owner, r: 'owner', h: await sha(id + ':' + owner.toLowerCase() + ':' + pin) }); S.exp = Date.now() + 30 * 864e5; S.plan = 'trial';
-  setReg(id, name); U = { n: owner, r: 'owner' }; V = 'dash'; save(); flushSave(); R(); toast('Toko lokal dibuat (belum terhubung server). Kode: ' + id, 7000);
+  setReg(id, name); U = { n: owner, r: 'owner' }; V = 'dash'; save(); flushSave(); R();
+  toast('Toko lokal dibuat (server belum aktif). Kode: ' + id + ' — nanti otomatis terhubung & terkirim ke server begitu internet/server aktif lagi', 8000);
+  // Ingat PIN pemilik di memori (bukan disk) khusus sesi ini, supaya begitu internet/server kembali aktif
+  // (lewat event 'online' atau percobaan berkala di bawah) toko ini otomatis didaftarkan ke server tanpa
+  // perlu pemilik membuka menu "Hubungkan ke server" atau login ulang secara manual.
+  ownerPinMem = pin; if (canNet()) autoConnect(pin);
 }
 // Jalan keluar untuk toko yang terlanjur tercipta dalam mode "Lokal" (mis. gara-gara navigator.onLine salah
 // deteksi) — daftarkan kode toko yang SAMA ke server lalu nyalakan sinkron. Data/transaksi yang sudah
