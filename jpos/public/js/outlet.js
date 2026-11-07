@@ -38,7 +38,10 @@ async function nearMe() { toast('Mencari lokasi…', 1500); MYPOS = await getPos
 function orderFor(id) { cCu = id; V = 'pos'; R(); }
 function leafletOk() { return typeof L !== 'undefined' && L.map; }
 const mapPin = () => L.divIcon({ className: '', html: '<div style="width:22px;height:22px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:#27407e;border:3px solid #fff;box-shadow:0 2px 6px #0006"></div>', iconSize: [22, 22], iconAnchor: [11, 22] });
-function tiles(m) { if (!navigator.onLine && !tiles.w) { tiles.w = 1; toast('Offline: gambar peta dasar butuh internet. Titik outlet, jarak & check-in tetap berfungsi.', 4500); } try { window.L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(m); } catch (e) { } mapFix(m); }
+// tile.openstreetmap.org (server resmi OSM) sering menolak/blokir trafik dari aplikasi (muncul abu-abu/putih kosong,
+// bukan error) karena kebijakan mereka melarang penggunaan bulk dari aplikasi tanpa pengaturan khusus. Pakai CARTO
+// (basemaps.cartocdn.com) sebagai gantinya — gratis, boleh dipakai aplikasi, dan datanya tetap dari OpenStreetMap.
+function tiles(m) { if (!navigator.onLine && !tiles.w) { tiles.w = 1; toast('Offline: gambar peta dasar butuh internet. Titik outlet, jarak & check-in tetap berfungsi.', 4500); } try { window.L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', { maxZoom: 20, subdomains: 'abcd', attribution: '© OpenStreetMap contributors © CARTO' }).addTo(m); } catch (e) { } mapFix(m); }
 // Peta Leaflet kadang tampil kosong/putih kalau ukuran kontainernya belum pasti saat peta dibuat (baru disisipkan ke layar),
 // atau ubin lambat termuat di sinyal lemah. Dipanggil sesudah SETIAP peta dibuat di seluruh aplikasi, mencoba beberapa kali.
 function mapFix(map) { if (!map) return; [150, 450, 1200].forEach((ms) => setTimeout(() => { try { if (map && document.body.contains(map._container)) map.invalidateSize(); } catch (e) { } }, ms)); }
