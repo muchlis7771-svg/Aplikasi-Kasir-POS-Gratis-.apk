@@ -41,7 +41,7 @@ let UTH = null;
 function uiOrgSave() { const md = {}; $$('[data-um]').forEach((s) => (md[s.dataset.um] = s.value)); emit('set', { set: { uiTheme: UTH || S.set.uiTheme || 'modern', uiModel: md, uiOwn: $('#uown').checked } }); toast('Tampilan semua karyawan disimpan — berlaku setelah sinkron'); LS.set(thKey(), ''); R(); }
 document.addEventListener('click', (e) => { const b = e.target.closest('[data-ut]'); if (!b) return; UTH = b.dataset.ut; $$('[data-ut]').forEach((x) => x.classList.toggle('a', x == b)); document.body.dataset.th = document.documentElement.dataset.th = UTH; });
 /* ---- pemberitahuan penting untuk semua karyawan & pemilik — lonceng pojok kanan atas, muncul otomatis tiap ada perubahan (promo, harga, stok, pembelian dll) ---- */
-const NOTIF_ICO = { promo: '🎁', harga: '💲', stok: '📦', beli: '📥', produk: '🆕', kredit: '💳', mitra: '🤝' };
+const NOTIF_ICO = { promo: '🎁', harga: '💲', stok: '📦', beli: '📥', produk: '🆕', kredit: '💳', mitra: '🤝', reset: '🔄' };
 const notifSeenKey = () => 'jpos:notifSeen:' + (U ? U.n.toLowerCase() : '');
 const notifUnseen = () => { const L = S.notif || []; if (!L.length) return 0; const seen = LS.get(notifSeenKey(), 0); return L.filter((x) => x.t > seen).length; };
 function notifBellH() { const n = S && U ? notifUnseen() : 0; return `<button class="bellbtn" id="notifbell" onclick="notifPanel()" aria-label="Pemberitahuan">🔔${n ? '<em class="hbdg">' + (n > 99 ? '99+' : n) + '</em>' : ''}</button>`; }
@@ -67,6 +67,7 @@ function notifGo(x) {
   if (x.kind == 'beli') return pkgHas('beli') && can('beli') ? go('beli') : go('prod');
   if (x.kind == 'kredit') { go('outlet'); if (U.r == 'owner' && /menunggu persetujuan/.test(x.msg) && typeof creditApproveGo == 'function') setTimeout(() => creditApproveGo(x), 150); return; }
   if (x.kind == 'mitra') return go(/menyetujui jadi mitra/.test(x.msg) ? 'dnet' : 'set');
+  if (x.kind == 'reset') return pkgHas('jur') && can('jur') ? go('jur') : go('lap');
 }
 function notifSeenAll(silent) { LS.set(notifSeenKey(), Date.now()); notifBellUpd(); if (!silent) R(); }
 // bunyi notifikasi singkat saat ada pemberitahuan baru masuk (bukan saat pertama kali buka app)
