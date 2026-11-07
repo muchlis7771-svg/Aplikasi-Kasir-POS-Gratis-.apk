@@ -8,6 +8,7 @@ const ICP = {
   his: '<path class="a" d="M6 3.5h12v17l-2-1.3-2 1.3-2-1.3-2 1.3-2-1.3-2 1.3z"/><path d="M6 3.5h12v17l-2-1.3-2 1.3-2-1.3-2 1.3-2-1.3-2 1.3zM9 8h6M9 11.5h6M9 15h3.5"/>',
   prod: '<path class="a" d="m12 3 8 4.3v9.4L12 21l-8-4.3V7.3z"/><path d="m12 3 8 4.3v9.4L12 21l-8-4.3V7.3zM4 7.3l8 4.3 8-4.3M12 11.6V21M8 5.2l8 4.3"/>',
   outlet: '<path class="a" d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.4"/>',
+  meja: '<rect class="a" x="3" y="5" width="7" height="7" rx="1"/><rect x="3" y="5" width="7" height="7" rx="1"/><path d="M5 7h3M5 8.5h3M5 10h1.5M4 20l3-4h10l3 4M12 16v-3.5"/>',
   lap: '<path class="a" d="M5 4h14v16H5z"/><path d="M5 4h14v16H5zM9 16v-3M12 16V9M15 16v-5"/>',
   keu: '<path class="a" d="M3.5 7.5h15a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-15z"/><path d="M3.5 7.5v10a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-15zm0 0 11-3.3a1.5 1.5 0 0 1 1.9 1.4v1.9M16 13.5h2"/>',
   jur: '<path class="a" d="M6 3.5h11.5v17H6a1.5 1.5 0 0 1-1.5-1.5V5A1.5 1.5 0 0 1 6 3.5z"/><path d="M4.5 18.5V5A1.5 1.5 0 0 1 6 3.5h11.5v14H6a1.5 1.5 0 0 0 0 3h11.5M9 8h5M9 11h5"/>',
@@ -48,5 +49,5 @@ const pIco = (k) => (ICP[k] ? ico(k) : (PAGES[k] || ['•'])[0]);
 const TICO = { '➕': 'plus', '📝': 'edit' };
 const tIco = (q) => (TICO[q[1]] ? ico(TICO[q[1]]) : ICP[q[0]] ? ico(q[0]) : q[1]);
 // warna permata tiap menu untuk ikon timbul (3D)
-const PJCOL = { dash: '#2a4890', pos: '#0f9d76', his: '#475a7a', prod: '#d08a1e', outlet: '#d0435a', lap: '#0e8a96', keu: '#b8892f', jur: '#8a5a2b', abs: '#4a56c8', chat: '#2b8fd6', onl: '#d64d86', ana: '#6a4bc4', usr: '#178ca8', set: '#5d6678', beli: '#e0732a', kas: '#2f9a4f', kirim: '#2f6fd0', perm: '#8a2e4a', aud: '#1f7a6d', retur: '#c9443a', tgt: '#c49a2c', shiftSet: '#3e4fb8', kiosMap: '#14968a', dnet: '#7446c2', kanvas: '#24427e', gaji: '#1e8a5e', gps: '#d23b4e' };
+const PJCOL = { dash: '#2a4890', pos: '#0f9d76', his: '#475a7a', prod: '#d08a1e', outlet: '#d0435a', meja: '#6c5ce7', lap: '#0e8a96', keu: '#b8892f', jur: '#8a5a2b', abs: '#4a56c8', chat: '#2b8fd6', onl: '#d64d86', ana: '#6a4bc4', usr: '#178ca8', set: '#5d6678', beli: '#e0732a', kas: '#2f9a4f', kirim: '#2f6fd0', perm: '#8a2e4a', aud: '#1f7a6d', retur: '#c9443a', tgt: '#c49a2c', shiftSet: '#3e4fb8', kiosMap: '#14968a', dnet: '#7446c2', kanvas: '#24427e', gaji: '#1e8a5e', gps: '#d23b4e' };
 const pCol = (k) => PJCOL[k] || '#2a4890';

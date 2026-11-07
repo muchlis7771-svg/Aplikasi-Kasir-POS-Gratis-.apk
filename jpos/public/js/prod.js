@@ -1,6 +1,6 @@
 'use strict';
 /* ============ PRODUK & STOK ============ */
-let prQ = '', prF = '', prView = LS.get('jpos:prView', 'v');
+let prQ = '', prF = '', prView = LS.get('jpos:prView', 'v'), prTab = 'menu'; // prTab: 'menu' (produk/menu dijual) atau 'bhn' (bahan baku, khusus coffee shop)
 // produk yang sedang jadi bagian promo/bundling aktif — dipakai untuk penanda 🎁 di daftar stok & saat order, supaya sales/kasir gampang info promo ke pelanggan
 function promoSkuSet() {
   const set = new Set();
@@ -14,14 +14,26 @@ const imgData = (f, max = 160) => new Promise((ok) => {
   r.onload = () => { const i = new Image(); i.onload = () => { const c = document.createElement('canvas'), k = Math.min(1, max / Math.max(i.width, i.height)); c.width = Math.round(i.width * k); c.height = Math.round(i.height * k); c.getContext('2d').drawImage(i, 0, 0, c.width, c.height); ok(c.toDataURL('image/jpeg', 0.72)); }; i.onerror = () => ok(''); i.src = r.result; };
   r.onerror = () => ok(''); r.readAsDataURL(f);
 });
+const bizTabs = () => S.set.biz == 'cafe' ? `<div class="seg" style="margin:0 0 10px"><button class="${prTab == 'menu' ? 'a' : ''}" onclick="prTab='menu';R()">🍽️ Menu</button><button class="${prTab == 'bhn' ? 'a' : ''}" onclick="prTab='bhn';R()">🧂 Bahan Baku</button></div>` : '';
+function bhnView() {
+  const t = prQ.toLowerCase(); let L = ingProds().filter((p) => !t || p.n.toLowerCase().includes(t));
+  const low = ingProds().filter((p) => p.st <= (p.min ?? 10));
+  return `${bizTabs()}${kpi([['Jenis bahan baku', ingProds().length], ['Nilai stok bahan baku', rp(ingProds().reduce((a, p) => a + p.st * p.co, 0))], ['Stok menipis', low.length, 'ketuk untuk lihat', "prF=prF=='low'?'':'low';R()", prF == 'low']])}
+<div class="cd">${can('prodEdit') ? `<div class="wrap" style="margin-bottom:10px"><button class="gh pri" onclick="prodForm(null,null,null,true)">+ Bahan baku</button><button class="gh" onclick="opnameForm(1)">Opname stok bahan baku</button></div>` : '<small class="mu">Mode lihat saja</small>'}
+<input placeholder="Cari bahan baku" value="${esc(prQ)}" onchange="prQ=this.value;R()" style="margin-bottom:8px">
+<div class="plist">${(prF == 'low' ? L.filter((p) => p.st <= (p.min ?? 10)) : L).map((p) => { const lo = p.st <= (p.min ?? 10); return `<div class="pitem"><div class="ph1"><b>${esc(p.n)}</b></div><small class="mu">${esc(p.c)}</small>
+<div class="pnums"><span><small>HPP / satuan</small><b>${rp(p.co)}</b></span><span><small>Stok</small><b class="${lo ? 'rd' : 'gr'}">${p.st.toLocaleString('id-ID')}${p.unit ? ' <i>' + esc(p.unit) + '</i>' : ''}</b></span></div>
+${lo ? `<small class="rd">⚠ Stok menipis (minimal ${p.min ?? 10})</small>` : ''}${can('prodEdit') ? `<div class="pact"><button class="gh" onclick="prodForm('${p.id}',null,null,true)">✏️ Edit</button><button class="gh pri" onclick="stkForm('${p.id}')">＋ Restok</button></div>` : ''}</div>`; }).join('') || '<div class="mu c" style="padding:20px">Belum ada bahan baku. Tambahkan bahan baku pertama (mis. kopi, susu, gula).</div>'}</div></div>`;
+}
 VW.prod = () => {
+  if (S.set.biz == 'cafe' && prTab == 'bhn') return bhnView();
   const t = prQ.toLowerCase(), promoSet = promoSkuSet(), focus = focusSet(), sups = [...new Set(actProds().map((p) => p.sup).filter(Boolean))].sort();
   let L = actProds().filter((p) => !t || p.n.toLowerCase().includes(t) || String(p.sku || '').toLowerCase().includes(t) || String(p.kd || '').toLowerCase().includes(t) || p.c.toLowerCase().includes(t));
   if (prF == 'low') L = L.filter((p) => p.st <= (p.min ?? 10)); else if (prF == 'bad') L = L.filter((p) => p.bad); else if (prF == 'promo') L = L.filter((p) => promoSet.has(p.id));
   if (pSup) L = L.filter((p) => (p.sup || '') == pSup);
   if (pFocus) L = L.filter((p) => focus.has(p.id));
   const low = actProds().filter((p) => p.st <= (p.min ?? 10));
-  return `${kpi([['Jumlah produk', actProds().length, prF ? 'ketuk: tampilkan semua' : '', "prF='';R()", !prF], ['Nilai stok layak jual', rp(stockValue())], ['Stok menipis', low.length, 'ketuk untuk lihat', "prF=prF=='low'?'':'low';R()", prF == 'low'], ['Bad stock', badUnits() + ' unit · ' + rp(badValue()), 'ketuk untuk lihat', "prF=prF=='bad'?'':'bad';R()", prF == 'bad'], ['Sedang promo', promoSet.size + ' produk', 'ketuk untuk lihat', "prF=prF=='promo'?'':'promo';R()", prF == 'promo']])}
+  return `${bizTabs()}${kpi([['Jumlah produk', actProds().length, prF ? 'ketuk: tampilkan semua' : '', "prF='';R()", !prF], ['Nilai stok layak jual', rp(stockValue())], ['Stok menipis', low.length, 'ketuk untuk lihat', "prF=prF=='low'?'':'low';R()", prF == 'low'], ['Bad stock', badUnits() + ' unit · ' + rp(badValue()), 'ketuk untuk lihat', "prF=prF=='bad'?'':'bad';R()", prF == 'bad'], ['Sedang promo', promoSet.size + ' produk', 'ketuk untuk lihat', "prF=prF=='promo'?'':'promo';R()", prF == 'promo']])}
 <div class="cd">${can('prodEdit') ? `<div class="wrap" style="margin-bottom:10px"><button class="gh pri" onclick="prodForm()">+ Produk</button><button class="gh" onclick="scanFind()">▣ Scan barcode</button><button class="gh" onclick="bcOpen()">🏷️ Cetak barcode</button><button class="gh" onclick="opnameForm()">Opname stok</button><button class="gh" onclick="bundleAtur()">🎁 Promo & bundling${U.r == 'owner' && (S.bundle || []).some((b) => b.st == 'pending') ? ' <em class="hbdg" style="position:static;display:inline-grid">' + (S.bundle || []).filter((b) => b.st == 'pending').length + '</em>' : ''}</button>${['owner', 'admin'].includes(U.r) && can('retur') ? '<button class="gh" onclick="RTO.tab=\'bad\';go(\'retur\')">🗑️ Bad stock & pemusnahan</button>' : ''}${pkgHas('xls') && can('xls') ? '<button class="gh" onclick="xlsMenu(\'stok\')">📊 Excel</button>' : '<label class="gh">Impor Excel/CSV<input type="file" accept=".xlsx,.xls,.csv,.txt" onchange="impProd(this)"></label><button class="gh" onclick="tplProd()">Template</button>'}${pkgHas('beli') && can('beli') ? '<button class="gh" onclick="go(\'beli\')">📥 Pembelian</button>' : ''}</div>` : '<small class="mu">Mode lihat saja</small>'}
 <div class="row" style="margin:0 0 8px;gap:8px"><input placeholder="Cari produk / kode item / SKU / kategori" value="${esc(prQ)}" onchange="prQ=this.value;R()" style="flex:1"><div class="seg" style="margin:0"><button class="${prView == 'v' ? 'a' : ''}" onclick="setView('v')" title="Tampilan vertikal">☰ Vertikal</button><button class="${prView == 'h' ? 'a' : ''}" onclick="setView('h')" title="Tampilan horizontal">▦ Horizontal</button></div></div>
 ${sups.length || focus.size ? `<div class="row" style="margin:0 0 8px;gap:8px;flex-wrap:wrap">${sups.length ? `<select onchange="pSup=this.value;R()" style="flex:1;min-width:140px"><option value="">🏭 Semua supplier</option>${sups.map((s) => `<option value="${esc(s)}" ${pSup == s ? 'selected' : ''}>${esc(s)}</option>`).join('')}</select>` : ''}${focus.size ? `<button class="gh ${pFocus ? 'a' : ''}" onclick="pFocus=!pFocus;R()">⭐ Item fokus (${focus.size})</button>` : ''}</div>` : ''}
@@ -29,38 +41,50 @@ ${prView == 'h' ? `<div class="ov"><table><tr><th>Produk<th>Kategori<th class="n
 <div class="pnums"><span><small>Harga jual</small><b>${rp(p.pr)}</b></span><span><small>HPP</small><b>${rp(p.co)}</b></span><span><small>Stok</small><b class="${lo ? 'rd' : 'gr'}">${p.st.toLocaleString('id-ID')}${p.u ? ' <i>' + esc(p.u) + '</i>' : ''}</b></span><span><small>Bad stock</small><b class="${p.bad ? 'rd' : 'mu'}">${(p.bad || 0).toLocaleString('id-ID')}</b></span></div>
 ${typeof vanAll == 'function' && vanAll(p.id) ? `<small class="mu">🏬 Gudang ${(p.st - vanAll(p.id)).toLocaleString('id-ID')} · 🚚 di mobil kanvas ${vanAll(p.id).toLocaleString('id-ID')}</small>` : ''}${lo ? `<small class="rd">⚠ Stok menipis (minimal ${p.min ?? 10})</small>` : ''}${promo ? `<small class="gr">🎁 ${esc(promoOf(p.id).map((b) => b.n).join(', '))}</small>` : ''}${can('prodEdit') ? `<div class="pact"><button class="gh" onclick="prodForm('${p.id}')">✏️ Edit</button><button class="gh" onclick="bcOpen('${p.id}')">🏷️ Barcode</button><button class="gh pri" onclick="stkForm('${p.id}')">＋ Restok</button></div>` : ''}</div>`; }).join('') || '<div class="mu c" style="padding:20px">Belum ada produk. Tambahkan produk pertama Anda.</div>'}</div>`}</div>`;
 };
-function prodForm(id, sku, then) {
-  const p = id ? prod(id) : null, cats = [...new Set(actProds().map((x) => x.c))];
-  const m = modal(`<h3>${p ? 'Edit' : 'Tambah'} produk</h3>
-<input id="fn" placeholder="Nama produk *" value="${esc(p ? p.n : '')}"><div class="fm2"><input id="fc" list="cl" placeholder="Kategori" value="${esc(p ? p.c : '')}"><datalist id="cl">${cats.map((c) => `<option value="${esc(c)}">`).join('')}</datalist><input id="fb" list="bl" placeholder="Merek / brand" value="${esc(p ? p.b || '' : '')}"><datalist id="bl">${[...new Set(S.p.map((x) => x.b).filter(Boolean))].map((c) => `<option value="${esc(c)}">`).join('')}</datalist></div>
-<div><small class="mu">SKU / barcode</small><div class="srch" style="margin-top:2px"><input id="fk" placeholder="SKU / barcode" value="${esc(p ? p.sku || '' : sku || '')}"><button class="gh" id="fsc" title="Scan barcode yang sudah ada">▣ Scan</button><button class="gh" id="fgen" title="Belum ada barcode? Buat otomatis">＋ Buat</button></div></div>
-<input id="fsup" list="supl" placeholder="Supplier (untuk filter saat order)" value="${esc(p ? p.sup || '' : '')}"><datalist id="supl">${[...new Set([...(S.sup || []).filter((x) => !x.x).map((x) => x.n), ...S.p.map((x) => x.sup).filter(Boolean)])].map((c) => `<option value="${esc(c)}">`).join('')}</datalist>
-<div class="fm2"><input id="fp" type="number" placeholder="Harga jual (Rp) *" value="${p ? p.pr : ''}"><input id="fh" type="number" placeholder="HPP / harga beli (Rp)" value="${p ? p.co : ''}"></div>
+function rcpRowH(r, i) { const opts = ingProds(); return `<div class="fm2" style="grid-template-columns:1fr 90px 36px;margin:4px 0"><select data-rci="${i}">${opts.map((o) => `<option value="${o.id}" ${r.id == o.id ? 'selected' : ''}>${esc(o.n)}${o.unit ? ' (' + esc(o.unit) + ')' : ''}</option>`).join('')}</select><input type="number" min="0" step="any" placeholder="Takaran" value="${r.q || ''}" data-rcq="${i}"><button class="gh d" data-rcx="${i}">✕</button></div>`; }
+function prodForm(id, sku, then, isIng) {
+  const p = id ? prod(id) : null; isIng = p ? !!p.ing : !!isIng;
+  const cats = [...new Set(actProds().map((x) => x.c))];
+  const m = modal(`<h3>${p ? 'Edit' : 'Tambah'} ${isIng ? 'bahan baku' : 'produk'}</h3>
+<input id="fn" placeholder="${isIng ? 'Nama bahan baku *' : 'Nama produk *'}" value="${esc(p ? p.n : '')}"><div class="fm2"><input id="fc" list="cl" placeholder="Kategori" value="${esc(p ? p.c : '')}"><datalist id="cl">${cats.map((c) => `<option value="${esc(c)}">`).join('')}</datalist>${isIng ? `<input id="funit" placeholder="Satuan (gram/ml/pcs)" value="${esc(p ? p.unit || '' : '')}">` : `<input id="fb" list="bl" placeholder="Merek / brand" value="${esc(p ? p.b || '' : '')}"><datalist id="bl">${[...new Set(S.p.map((x) => x.b).filter(Boolean))].map((c) => `<option value="${esc(c)}">`).join('')}</datalist>`}</div>
+${isIng ? '' : `<div><small class="mu">SKU / barcode</small><div class="srch" style="margin-top:2px"><input id="fk" placeholder="SKU / barcode" value="${esc(p ? p.sku || '' : sku || '')}"><button class="gh" id="fsc" title="Scan barcode yang sudah ada">▣ Scan</button><button class="gh" id="fgen" title="Belum ada barcode? Buat otomatis">＋ Buat</button></div></div>
+<input id="fsup" list="supl" placeholder="Supplier (untuk filter saat order)" value="${esc(p ? p.sup || '' : '')}"><datalist id="supl">${[...new Set([...(S.sup || []).filter((x) => !x.x).map((x) => x.n), ...S.p.map((x) => x.sup).filter(Boolean)])].map((c) => `<option value="${esc(c)}">`).join('')}</datalist>`}
+<div class="fm2">${isIng ? '<input id="fp" type="hidden" value="0">' : '<input id="fp" type="number" placeholder="Harga jual (Rp) *" value="' + (p ? p.pr : '') + '">'}<input id="fh" type="number" placeholder="${isIng ? 'Harga beli / satuan (Rp)' : 'HPP / harga beli (Rp)'}" value="${p ? p.co : ''}"></div>
 <div class="fm2">${p ? '' : '<input id="fs" type="number" placeholder="Stok awal">'}<input id="fm" type="number" placeholder="Stok minimum" value="${p ? p.min ?? 10 : 10}"></div>
-<div class="cd info" style="padding:10px"><b>🛍️ Toko online</b><div class="fm2" style="margin-top:6px"><input id="fo" type="number" placeholder="Harga online (kosong = sama)" value="${p && p.opr ? p.opr : ''}"><input id="fu" placeholder="Satuan (pcs/dus/kg)" value="${esc(p ? p.u || '' : '')}"></div><label class="row" style="margin:6px 0 0"><span>Tampilkan di pasar online</span><input type="checkbox" id="fon" ${!p || p.on !== false ? 'checked' : ''}></label></div>
+${isIng ? '' : `<div class="cd info" style="padding:10px"><b>🛍️ Toko online</b><div class="fm2" style="margin-top:6px"><input id="fo" type="number" placeholder="Harga online (kosong = sama)" value="${p && p.opr ? p.opr : ''}"><input id="fu" placeholder="Satuan (pcs/dus/kg)" value="${esc(p ? p.u || '' : '')}"></div><label class="row" style="margin:6px 0 0"><span>Tampilkan di pasar online</span><input type="checkbox" id="fon" ${!p || p.on !== false ? 'checked' : ''}></label></div>
 <div><b>Foto produk</b><div class="row" style="margin:4px 0"><img id="fpi" src="${p && p.img ? p.img : ''}" style="width:56px;height:56px;object-fit:cover;border-radius:10px;${p && p.img ? '' : 'display:none'}" alt=""><div class="wrap" style="flex:1"><button type="button" class="gh" id="fcam">📷 Kamera</button><label class="gh">🖼️ Galeri<input id="fi" type="file" accept="image/*" style="display:none"></label>${p && p.img ? '<button type="button" class="gh d" id="fimx">Hapus foto</button>' : ''}</div></div></div>
 <div><b>Diskon grosir bertingkat</b><br><small class="mu">Minimal qty → diskon %. Boleh berlapis, mis. 10+5 = 10% lalu 5%.</small><div id="tr"></div><button class="gh" id="ta">+ Tingkat</button></div>
-<button class="pr" id="ok">Simpan</button>${p && U.r == 'owner' ? '<button class="gh d" id="ar">Arsipkan produk</button>' : ''}`);
-  const tr = (p && p.tiers ? p.tiers : []).map((t) => ({ ...t })); const draw = () => { $('#tr', m).innerHTML = tr.map((t, i) => `<div class="fm2" style="grid-template-columns:90px 1fr 36px;margin:6px 0"><input type="number" min="2" placeholder="Min qty" value="${t.min || ''}" data-i="${i}" data-f="min"><input placeholder="Diskon % (mis. 5 atau 10+5)" value="${esc(t.d || '')}" data-i="${i}" data-f="d"><button class="gh d" data-del="${i}">✕</button></div>`).join(''); };
-  draw(); m.addEventListener('input', (e) => { const i = e.target.dataset.i; if (i != null) tr[i][e.target.dataset.f] = e.target.dataset.f == 'min' ? num(e.target.value) : e.target.value.replace(/[^\d.,+]/g, ''); });
-  m.addEventListener('click', (e) => { if (e.target.dataset.del != null) { tr.splice(+e.target.dataset.del, 1); draw(); } });
+${S.set.biz == 'cafe' ? `<div><b>🧂 Resep (bahan baku per 1 ${p && p.u ? esc(p.u) : 'porsi'} terjual)</b><br><small class="mu">Stok bahan baku otomatis terpotong tiap menu ini laku. Kosongkan jika tidak perlu.</small><div id="rcp"></div><button class="gh" id="rcadd">+ Bahan</button></div>` : ''}`}
+<button class="pr" id="ok">Simpan</button>${p && U.r == 'owner' ? `<button class="gh d" id="ar">Arsipkan ${isIng ? 'bahan baku' : 'produk'}</button>` : ''}`);
+  const tr = (p && p.tiers ? p.tiers : []).map((t) => ({ ...t })); const draw = () => { const el = $('#tr', m); if (el) el.innerHTML = tr.map((t, i) => `<div class="fm2" style="grid-template-columns:90px 1fr 36px;margin:6px 0"><input type="number" min="2" placeholder="Min qty" value="${t.min || ''}" data-i="${i}" data-f="min"><input placeholder="Diskon % (mis. 5 atau 10+5)" value="${esc(t.d || '')}" data-i="${i}" data-f="d"><button class="gh d" data-del="${i}">✕</button></div>`).join(''); };
+  const rcp = (p && Array.isArray(p.rcp) ? p.rcp : []).map((r) => ({ ...r })), drawR = () => { const el = $('#rcp', m); if (el) el.innerHTML = rcp.map((r, i) => rcpRowH(r, i)).join('') || '<small class="mu">Belum ada bahan baku di resep ini.</small>'; };
+  draw(); drawR();
+  m.addEventListener('input', (e) => {
+    const i = e.target.dataset.i; if (i != null) tr[i][e.target.dataset.f] = e.target.dataset.f == 'min' ? num(e.target.value) : e.target.value.replace(/[^\d.,+]/g, '');
+    const qi = e.target.dataset.rcq; if (qi != null) rcp[qi].q = Math.max(0, +e.target.value || 0);
+  });
+  m.addEventListener('change', (e) => { const si = e.target.dataset.rci; if (si != null) rcp[si].id = e.target.value; });
+  m.addEventListener('click', (e) => { if (e.target.dataset.del != null) { tr.splice(+e.target.dataset.del, 1); draw(); } if (e.target.dataset.rcx != null) { rcp.splice(+e.target.dataset.rcx, 1); drawR(); } });
   $('#ta', m).onclick = () => { tr.push({ min: 0, d: '' }); draw(); };
-  $('#fsc', m).onclick = () => scanCode((v) => { $('#fk', m).value = v; });
-  $('#fgen', m).onclick = () => { const k = $('#fk', m); if (k.value.trim() && !confirm('SKU/barcode sudah terisi (' + k.value.trim() + '). Ganti dengan kode baru?')) return; k.value = genSku(); toast('Barcode dibuat: ' + k.value); };
+  const rcadd = $('#rcadd', m); if (rcadd) rcadd.onclick = () => { if (!ingProds().length) return toast('Tambahkan bahan baku dulu di tab 🧂 Bahan Baku'); rcp.push({ id: ingProds()[0].id, q: 0 }); drawR(); };
+  const fsc = $('#fsc', m); if (fsc) fsc.onclick = () => scanCode((v) => { $('#fk', m).value = v; });
+  const fgen = $('#fgen', m); if (fgen) fgen.onclick = () => { const k = $('#fk', m); if (k.value.trim() && !confirm('SKU/barcode sudah terisi (' + k.value.trim() + '). Ganti dengan kode baru?')) return; k.value = genSku(); toast('Barcode dibuat: ' + k.value); };
   let imgD = p && p.img ? p.img : '', imgRm = false;
   const showImg = () => { const i = $('#fpi', m); if (!i) return; if (imgD) { i.src = imgD; i.style.display = ''; } else i.style.display = 'none'; };
-  $('#fcam', m).onclick = async () => { const ph = await camPhoto('environment', 480); if (ph) { imgD = ph; imgRm = false; showImg(); } };
-  $('#fi', m).onchange = async () => { const f = $('#fi', m).files[0]; if (!f) return; imgD = await imgData(f, 360); imgRm = false; showImg(); };
+  const fcam = $('#fcam', m); if (fcam) fcam.onclick = async () => { const ph = await camPhoto('environment', 480); if (ph) { imgD = ph; imgRm = false; showImg(); } };
+  const fi = $('#fi', m); if (fi) fi.onchange = async () => { const f = fi.files[0]; if (!f) return; imgD = await imgData(f, 360); imgRm = false; showImg(); };
   const fimx = $('#fimx', m); if (fimx) fimx.onclick = () => { imgD = ''; imgRm = true; showImg(); };
   $('#ok', m).onclick = async () => {
-    const n = $('#fn', m).value.trim(), pr = num($('#fp', m).value); if (!n || pr <= 0) return toast('Nama dan harga jual wajib diisi');
-    const sk = $('#fk', m).value.trim(); if (sk && S.p.some((x) => !x.x && x.sku == sk && x.id != (p && p.id))) return toast('SKU sudah dipakai produk lain');
-    const d = { id: p ? p.id : 'p' + uid(), n, c: $('#fc', m).value.trim() || 'Umum', b: $('#fb', m).value.trim(), pr, sku: sk, min: num($('#fm', m).value), opr: num($('#fo', m).value) || 0, u: $('#fu', m).value.trim(), on: $('#fon', m).checked, sup: $('#fsup', m).value.trim(), tiers: tr.filter((t) => t.min > 1 && cfac(t.d) < 1).map((t) => ({ min: t.min, d: t.d })) };
+    const n = $('#fn', m).value.trim(), pr = isIng ? 0 : num($('#fp', m).value); if (!n || (!isIng && pr <= 0)) return toast('Nama' + (isIng ? '' : ' dan harga jual') + ' wajib diisi');
+    const sk = isIng ? '' : $('#fk', m).value.trim(); if (sk && S.p.some((x) => !x.x && x.sku == sk && x.id != (p && p.id))) return toast('SKU sudah dipakai produk lain');
+    const d = { id: p ? p.id : 'p' + uid(), n, c: $('#fc', m).value.trim() || 'Umum', pr, sku: sk, min: num($('#fm', m).value) };
+    if (isIng) { d.unit = $('#funit', m).value.trim(); if (!p) d.ing = true; }
+    else { d.b = $('#fb', m).value.trim(); d.opr = num($('#fo', m).value) || 0; d.u = $('#fu', m).value.trim(); d.on = $('#fon', m).checked; d.sup = $('#fsup', m).value.trim(); d.tiers = tr.filter((t) => t.min > 1 && cfac(t.d) < 1).map((t) => ({ min: t.min, d: t.d })); if (S.set.biz == 'cafe') d.rcp = rcp.filter((r) => r.id && r.q > 0); }
     const co = num($('#fh', m).value); if (!p) { d.co = co; d.s0 = num(($('#fs', m) || {}).value); } else if (co != p.co) d.co = co;
     if (imgD && imgD != (p && p.img)) d.img = imgD; else if (imgRm) d.img = '';
-    emit('pu', { p: d }); m.close(); R(); toast('Produk disimpan'); if (typeof then == 'function') try { then(d.id); } catch (e) { }
+    emit('pu', { p: d }); m.close(); R(); toast((isIng ? 'Bahan baku' : 'Produk') + ' disimpan'); if (typeof then == 'function') try { then(d.id); } catch (e) { }
   };
-  const ar = $('#ar', m); if (ar) ar.onclick = () => { if (confirm('Arsipkan ' + p.n + '? Produk disembunyikan dari kasir (riwayat tetap ada).')) { emit('pu', { p: { id: p.id, x: 1 } }); m.close(); R(); } };
+  const ar = $('#ar', m); if (ar) ar.onclick = () => { if (confirm('Arsipkan ' + p.n + '? ' + (isIng ? 'Bahan baku' : 'Produk') + ' disembunyikan (riwayat tetap ada).')) { emit('pu', { p: { id: p.id, x: 1 } }); m.close(); R(); } };
 }
 function scanFind() {
   scanCode((v) => {
@@ -105,9 +129,9 @@ function stkForm(id) {
     }
   };
 }
-function opnameForm() {
-  const L = actProds().sort((a, b) => a.n.localeCompare(b.n));
-  const m = modal(`<h3>Opname stok</h3><small class="mu">Isi jumlah fisik hasil hitung. Kosongkan jika tidak dihitung. Selisih otomatis dijurnal (Selisih Stok).</small><button class="gh" id="osc">▣ Scan untuk mengisi</button><div class="ov" style="max-height:48vh"><table>${L.map((p) => `<tr data-id="${p.id}"><td>${esc(p.n)}<br><small>${esc(p.sku || '')}</small><td class="n">${p.st}<td><input type="number" id="o${p.id}" style="width:80px" placeholder="fisik"></tr>`).join('')}</table></div><button class="pr" id="ok">Simpan selisih</button>`, 'w');
+function opnameForm(isIng) {
+  const L = (isIng ? ingProds() : actProds()).sort((a, b) => a.n.localeCompare(b.n));
+  const m = modal(`<h3>Opname stok${isIng ? ' bahan baku' : ''}</h3><small class="mu">Isi jumlah fisik hasil hitung. Kosongkan jika tidak dihitung. Selisih otomatis dijurnal (Selisih Stok).</small><button class="gh" id="osc">▣ Scan untuk mengisi</button><div class="ov" style="max-height:48vh"><table>${L.map((p) => `<tr data-id="${p.id}"><td>${esc(p.n)}<br><small>${esc(p.sku || '')}</small><td class="n">${p.st}<td><input type="number" id="o${p.id}" style="width:80px" placeholder="fisik"></tr>`).join('')}</table></div><button class="pr" id="ok">Simpan selisih</button>`, 'w');
   $('#osc', m).onclick = () => scanCode((v) => { const p = bySku(v); if (!p) return toast('SKU tidak dikenal: ' + v); const el = $('#o' + p.id, m); el.scrollIntoView({ block: 'center' }); el.value = (num(el.value) || 0) + 1; toast(p.n + ': ' + el.value, 1200); }, { multi: true });
   $('#ok', m).onclick = () => { let n = 0; for (const p of L) { const el = $('#o' + p.id, m); if (!el || el.value === '') continue; const d = num(el.value) - p.st; if (d) { emit('opn', { p: p.id, delta: d }); n++; } } m.close(); R(); toast(n ? n + ' produk disesuaikan' : 'Tidak ada selisih'); };
 }

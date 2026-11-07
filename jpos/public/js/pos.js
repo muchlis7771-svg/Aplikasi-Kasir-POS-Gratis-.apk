@@ -13,7 +13,8 @@ const cartItems = () => cart.map((i) => ({ id: i.id, q: i.q, ld: i.ld, pp: i.pp,
 // order sales otomatis diantar tim dropping (bisa dimatikan per order, atau oleh pemilik di Pengaturan)
 const krAuto = () => !!(U && S && U.r == 'sales' && pkgHas('kirim') && S.srv && S.set.autoKirim !== false);
 const krOn = () => U && U.r != 'kanvas' && (cKr == null ? krAuto() : cKr) && !!cCu && pkgHas('kirim') && !!S.srv;
-const actProds = () => S.p.filter((p) => !p.x);
+const actProds = () => S.p.filter((p) => !p.x && !p.ing); // bahan baku (coffee shop) dikecualikan dari katalog jual — lihat ingProds()
+const ingProds = () => S.p.filter((p) => !p.x && p.ing); // daftar bahan baku saja
 // cocokkan kode hasil scan: persis, lalu tanpa spasi / nol di depan (UPC-A 12 digit = EAN-13 berawalan 0), lalu kode item
 const skuNorm = (v) => { const s = String(v ?? '').trim().toLowerCase().replace(/\s+/g, ''); return /^\d+$/.test(s) ? s.replace(/^0+/, '') : s; };
 const bySku = (v) => { const k = String(v).trim().toLowerCase(), n = skuNorm(v); if (!k) return null; return S.p.find((p) => !p.x && p.sku && String(p.sku).trim().toLowerCase() == k) || S.p.find((p) => !p.x && p.sku && skuNorm(p.sku) == n) || S.p.find((p) => !p.x && p.kd && p.kd.toLowerCase() == k); };

@@ -2,13 +2,13 @@
 /* ============ shell, navigasi, layar awal, boot ============ */
 const PAGES = {
   dash: ['🏠', 'Beranda', 'Ringkasan hari ini'], pos: ['🛒', 'Kasir', 'Jual & cetak struk'], his: ['🧾', 'Riwayat', 'Transaksi & pelunasan'],
-  prod: ['📦', 'Produk', 'Stok, harga, barcode'], outlet: ['📍', 'Outlet', 'Pelanggan, peta, kredit'], lap: ['📊', 'Laporan', 'Penjualan & keuangan'],
+  prod: ['📦', 'Produk', 'Stok, harga, barcode'], outlet: ['📍', 'Outlet', 'Pelanggan, peta, kredit'], meja: ['🪑', 'Meja', 'Nomor meja & QR pesan sendiri'], lap: ['📊', 'Laporan', 'Penjualan & keuangan'],
   keu: ['💰', 'Keuangan', 'Kas, piutang, utang'], jur: ['📒', 'Jurnal', 'Biaya & jurnal manual'], abs: ['🕒', 'Absensi', 'Masuk / pulang'],
   chat: ['💬', 'Chat', 'Tim & antar toko'], onl: ['🛍️', 'Toko Online', 'Pesanan pembeli online'], ana: ['🎯', 'Analisa', 'Saran order & kredit'], usr: ['👥', 'Pengguna', 'Karyawan & PIN'], set: ['⚙️', 'Pengaturan', 'Toko, akun, data'],
   beli: ['📥', 'Pembelian', 'PO ke supplier & pabrik'], kas: ['📘', 'Buku Kas', 'Uang masuk & keluar'], kirim: ['🚚', 'Pengantaran', 'Antar order & tagih'], perm: ['🔐', 'Hak Akses', 'Peran, paket, keamanan'], aud: ['🛡️', 'Audit', 'Check-in, jam & lokasi'], retur: ['↩️', 'Retur Outlet', 'Expired, rusak, kelebihan order'], tgt: ['🏆', 'Target & Insentif', 'Pencapaian bulanan'], gps: ['🛰️', 'Pantau GPS', 'Posisi tim lapangan langsung'], gaji: ['💼', 'Gaji & Lembur', 'Gaji, potongan absen, lembur'], kiosMap: ['🗺️', 'Peta Kios', 'Kios terdaftar di sekitar'], dnet: ['🤝', 'Jaringan Mitra', 'Stok & SKU toko mitra'], kanvas: ['🚚', 'Kanvas', 'Muat, jual & balik barang'], shiftSet: ['🔐', 'Shift & Jadwal', 'Jadwal per minggu, tugas SPG, closing kasir'],
 };
-const ORDER = ['dash', 'kanvas', 'kirim', 'pos', 'onl', 'his', 'retur', 'prod', 'beli', 'outlet', 'gps', 'kiosMap', 'dnet', 'ana', 'tgt', 'lap', 'keu', 'kas', 'jur', 'aud', 'abs', 'shiftSet', 'gaji', 'chat', 'usr', 'perm', 'set'];
-const TABS = { owner: ['dash', 'pos', 'onl', 'prod'], admin: ['dash', 'pos', 'onl', 'prod'], akuntan: ['dash', 'keu', 'lap', 'jur'], kasir: ['pos', 'dash', 'his', 'abs'], spg: ['dash', 'pos', 'tgt', 'abs'], kanvas: ['dash', 'kanvas', 'pos', 'outlet'], sales: ['dash', 'outlet', 'ana', 'pos'], dropping: ['dash', 'abs', 'chat'] };
+const ORDER = ['dash', 'kanvas', 'kirim', 'pos', 'onl', 'his', 'retur', 'prod', 'beli', 'outlet', 'meja', 'gps', 'kiosMap', 'dnet', 'ana', 'tgt', 'lap', 'keu', 'kas', 'jur', 'aud', 'abs', 'shiftSet', 'gaji', 'chat', 'usr', 'perm', 'set'];
+const TABS = { owner: ['dash', 'pos', 'onl', 'prod'], admin: ['dash', 'pos', 'onl', 'prod'], akuntan: ['dash', 'keu', 'lap', 'jur'], kasir: ['pos', 'dash', 'his', 'abs'], spg: ['dash', 'pos', 'tgt', 'abs'], kanvas: ['dash', 'kanvas', 'pos', 'outlet'], sales: ['dash', 'outlet', 'ana', 'pos'], dropping: ['dash', 'abs', 'chat'], barista: ['dash', 'pos', 'onl', 'prod'], pelayan: ['dash', 'pos', 'onl', 'meja'] };
 const pages = () => ORDER.filter((k) => can(k));
 const pgName = (k) => (k == 'pos' && U && U.r == 'sales' ? 'Order' : k == 'pos' && U && U.r == 'kanvas' ? 'Jual' : PAGES[k][1]);
 let MODE = 'home', SRV = '', SRVOK = false;
@@ -128,7 +128,7 @@ function homeView() {
   const head = `<div class="lo">${splash}`;
   const back = `<button class="gh big" onclick="mode('home')">← Kembali</button>`;
   if (MODE == 'login') return head + `<div class="cd fm" style="text-align:left"><h3>Masuk ke toko</h3><label><small class="mu">Kode toko (dari pemilik toko)</small><input id="lid" placeholder="mis. tokomaju" autocapitalize="none" autocomplete="off" value="${esc(last ? last.id : '')}"></label><label><small class="mu">Nama pengguna</small><input id="lnm" placeholder="Nama Anda" autocomplete="off" value="${esc(last ? last.name : '')}"></label><label><small class="mu">PIN</small><input id="lpn" type="password" inputmode="numeric" placeholder="••••" onkeydown="if(event.key=='Enter')doLoginUi()"></label><button class="pr" onclick="doLoginUi()">Masuk</button>${last && typeof bioBtn == 'function' ? bioBtn(last.id, last.name) : ''}${back}<small class="mu">Login pertama di HP baru butuh internet. Setelah itu bisa dipakai offline.</small></div></div>`;
-  if (MODE == 'reg') return head + `<div class="cd fm" style="text-align:left"><h3>Daftarkan toko baru</h3><div class="info cd" style="padding:10px"><b>🎁 Gratis ${info.trial || 30} hari</b><br><small>Setelah masa coba, perpanjang langganan lewat pemilik aplikasi.</small></div><input id="rn" placeholder="Nama toko / distributor *"><input id="ro" placeholder="Nama Anda (pemilik) *"><input id="rh" type="tel" inputmode="tel" placeholder="No. WhatsApp (untuk info perpanjangan)"><input id="re" type="email" placeholder="Email (opsional)"><input id="rp" type="password" inputmode="numeric" maxlength="8" placeholder="Buat PIN 4–8 angka *"><input id="rc" placeholder="Kode toko (opsional, 6–20 huruf/angka)" autocapitalize="none"><h3 style="margin:8px 0 0">Pilih paket</h3><div class="tiers" id="tiers">${tierCards()}</div><button class="pr" onclick="doRegUi()">Daftar & mulai</button>${back}</div></div>`;
+  if (MODE == 'reg') return head + `<div class="cd fm" style="text-align:left"><h3>Daftarkan toko baru</h3><div class="info cd" style="padding:10px"><b>🎁 Gratis ${info.trial || 30} hari</b><br><small>Setelah masa coba, perpanjang langganan lewat pemilik aplikasi.</small></div><input id="rn" placeholder="Nama toko / distributor *"><input id="ro" placeholder="Nama Anda (pemilik) *"><input id="rh" type="tel" inputmode="tel" placeholder="No. WhatsApp (untuk info perpanjangan)"><input id="re" type="email" placeholder="Email (opsional)"><input id="rp" type="password" inputmode="numeric" maxlength="8" placeholder="Buat PIN 4–8 angka *"><input id="rc" placeholder="Kode toko (opsional, 6–20 huruf/angka)" autocapitalize="none"><h3 style="margin:8px 0 0">Jenis usaha</h3><div class="tiers" id="bizc">${bizCards()}</div><h3 style="margin:8px 0 0">Pilih paket</h3><div class="tiers" id="tiers">${tierCards()}</div><button class="pr" onclick="doRegUi()">Daftar & mulai</button>${back}</div></div>`;
   if (MODE == 'ha') return head + `<div class="cd fm" style="text-align:left"><h3>🛠 Head Admin (pemilik aplikasi)</h3><input id="hu" placeholder="Username" autocapitalize="none" autocomplete="off"><input id="hp" type="password" placeholder="Password" onkeydown="if(event.key=='Enter')doHaUi()"><button class="pr" onclick="doHaUi()">Masuk</button>${back}<small class="mu" id="srvst">${srvTxt()}</small></div></div>`;
   if (MODE == 'srv') return head + `<div class="cd fm" style="text-align:left"><h3>🔒 Alamat server</h3><small class="mu">Server aktif:</small><b style="overflow-wrap:anywhere">${esc(AP || '(lokal)')}</b>${apiCustom() ? '<small class="or">Memakai alamat khusus yang diatur pemilik toko.</small>' : '<small class="gr">Memakai server bawaan aplikasi.</small>'}
 ${SRVOK ? `<input id="sv" placeholder="https://…workers.dev" value="${esc(AP)}" autocapitalize="none"><button class="pr" onclick="saveApi().then(()=>{checkSrv.t=0;R()})">Simpan & tes koneksi</button>` : `<small class="mu">Alamat server dikunci. Hanya <b>pemilik toko</b> yang bisa mengubahnya — masukkan data pemilik:</small><input id="ovi" placeholder="Kode toko" autocapitalize="none" autocomplete="off" value="${esc((LS.get('jpos:last', null) || {}).id || '')}"><input id="ovn" placeholder="Nama pemilik" autocomplete="off"><input id="ovp" type="password" inputmode="numeric" placeholder="PIN pemilik"><button class="pr" onclick="srvUnlock()">Buka kunci</button>`}
@@ -140,8 +140,12 @@ ${apiCustom() || LS.get('jpos:apiAuto', '') ? '<button class="gh" onclick="srvRe
 <div class="lxfoot"><span class="srvpill" id="srvst">${srvTxt()}</span><div class="lnk"><button class="gh" onclick="mode('srv')">${ico('srv')}Server</button><button class="gh" onclick="mode('ha')">${ico('crown')}Head Admin</button><a class="gh" href="privasi" target="_blank" rel="noopener">${ico('lock')}Privasi</a></div><small>© J-POS · Kasir &amp; distribusi</small></div></div>`;
 }
 /* ---------- pilihan paket saat daftar ---------- */
-const PKGDEF = { biasa: { n: 'Standar · Kios', max: 3, pr: 25000, f: 'dash pos his prod prodEdit outlet abs chat set usr retur kas lap xls backup shiftSet gaji' }, standar: { n: 'Medium · Grosir', max: 15, pr: 50000, f: 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana cek kirim terima tgt tgtAll tgtSet shiftSet kiosMap kanvas gaji gps' }, high: { n: 'High · Distributor', max: 100, pr: 100000, f: 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana jur kirim cek terima anti aud tgt tgtAll tgtSet shiftSet kiosMap dnet kanvas gaji gps' } };
+const PKGDEF = { biasa: { n: 'Standar · Kios', max: 3, pr: 25000, f: 'dash pos his prod prodEdit outlet abs chat set usr retur kas lap xls backup shiftSet gaji meja' }, standar: { n: 'Medium · Grosir', max: 15, pr: 50000, f: 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana cek kirim terima tgt tgtAll tgtSet shiftSet kiosMap kanvas gaji gps meja' }, high: { n: 'High · Distributor', max: 100, pr: 100000, f: 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana jur kirim cek terima anti aud tgt tgtAll tgtSet shiftSet kiosMap dnet kanvas gaji gps meja' } };
 let regTier = 'standar';
+// jenis usaha saat daftar: menentukan apakah fitur bahan baku/resep & meja (coffee shop/resto) ditampilkan — disimpan ke S.set.biz
+let regBiz = 'retail';
+const BIZUI = { retail: ['🏪', 'Retail / Toko & Distribusi', 'Kasir, stok barang jadi, outlet pelanggan, dropping'], cafe: ['☕', 'Coffee Shop & Resto', 'Tambahan: bahan baku + resep (stok otomatis terpotong saat menu laku), meja & pesan via QR, peran Barista/Pelayan'] };
+const bizCards = () => Object.entries(BIZUI).map(([k, u]) => `<button type="button" class="tier ${regBiz == k ? 'on' : ''}" onclick="regBiz='${k}';$('#bizc').innerHTML=bizCards()"><span class="ti">${u[0]}</span><b>${esc(u[1])}</b><small>${esc(u[2])}</small><i class="rd2">${regBiz == k ? '● Dipilih' : '○ Pilih'}</i></button>`).join('');
 const TIERUI = { biasa: ['🏪', 'Kios & toko kecil', '#10b981'], standar: ['🚀', 'Toko grosir yang punya sales', '#33508f'], high: ['👑', 'Distributor & trader — fitur paling lengkap', '#f59e0b'] };
 function tierCards() {
   const pk = (LS.get('jpos:info', {}) || {}).pkg || PKGDEF, T = ['biasa', 'standar', 'high'];
@@ -153,7 +157,7 @@ async function busy(btn, fn) { const t = btn.textContent; btn.disabled = true; b
 function doLoginUi() { busy(event.target.closest('button') || $('.pr'), async () => { const id = $('#lid').value.trim().toLowerCase(), nm = $('#lnm').value.trim(), pn = $('#lpn').value; await doLogin(id, nm, pn); MODE = 'home'; if (typeof bioOffer == 'function' && U) bioOffer(id, U.n, pn); }); }
 function doRegUi() {
   const n = $('#rn').value.trim(), o = $('#ro').value.trim(); if (n.length < 3 || !/^[\p{L}\p{N} ._-]{2,40}$/u.test(o)) return toast('Isi nama toko (min 3 huruf) dan nama pemilik');
-  busy(event.target, async () => { await registerStore(n, o, $('#re').value.trim(), $('#rp').value, $('#rc').value, $('#rh').value.trim()); MODE = 'home'; });
+  busy(event.target, async () => { await registerStore(n, o, $('#re').value.trim(), $('#rp').value, $('#rc').value, $('#rh').value.trim(), regBiz); MODE = 'home'; });
 }
 function doHaUi() { busy(event.target, async () => { await haLogin($('#hu').value.trim(), $('#hp').value); MODE = 'ha'; HA.d = null; R(); haLoad(); }); }
 async function startDemo() {
@@ -174,6 +178,17 @@ window.addEventListener('error', (e) => console.error('JS error:', e.message));
 window.addEventListener('unhandledrejection', (e) => { console.error('Promise error:', e.reason); });
 (function boot() {
   initApi(); applyTheme();
+  // Pelanggan scan QR di meja (coffee shop) → langsung ke tampilan pesan-sendiri toko ini, TANPA perlu instal app:
+  // cukup buka link di browser HP (kamera → link https://.../?s=<kode toko>&meja=<nomor meja>). Memakai jalur
+  // belanja online yang sudah ada (bOpenStore + metode "Ambil sendiri") — bukan endpoint publik baru.
+  try {
+    const qp = new URLSearchParams(location.search), qSid = qp.get('s'), qMeja = qp.get('meja');
+    if (qSid) {
+      history.replaceState(null, '', location.pathname);
+      startBuyer(); bOpenStore(qSid);
+      if (qMeja) BY.co[qSid] = { m: 'ambil', vc: '', vd: 0, q: null, note: 'Meja ' + qMeja };
+    }
+  } catch (e) { }
   if (HT) { MODE = 'ha'; R(); haLoad(); } else R();
   if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol) && !(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) navigator.serviceWorker.register('sw.js').catch(() => { });
   // tombol kembali Android: tutup dialog dulu, lalu kembali ke beranda

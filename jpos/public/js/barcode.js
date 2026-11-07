@@ -26,6 +26,15 @@ function bcBars(code) {
 }
 function bcSvg(code, h = 46) { const B = bcBars(code), q = 8; return `<svg class="bcs" viewBox="0 0 ${B.n + q * 2} ${h}" preserveAspectRatio="none">${B.bars.map(([x, w]) => `<rect x="${x + q}" y="0" width="${w}" height="${h}"/>`).join('')}</svg>`; }
 const genSku = () => { const b = '20' + String(Date.now()).slice(-7) + String(Math.floor(Math.random() * 1000)).padStart(3, '0'); const c = (10 - [...b].reduce((a, d, i) => a + +d * (i % 2 ? 3 : 1), 0) % 10) % 10; return b + c; }; // awalan 20–29 = kode internal toko
+// QR code (dipakai untuk barcode meja coffee shop) — pakai lib vendor qrcode.js (Kazuhiko Arase, MIT)
+function qrSvg(text, size = 160) {
+  try {
+    const q = window.qrcode(0, 'M'); q.addData(String(text)); q.make();
+    const n = q.getModuleCount(), cell = size / n, rows = [];
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c)) rows.push(`<rect x="${(c * cell).toFixed(2)}" y="${(r * cell).toFixed(2)}" width="${cell.toFixed(2)}" height="${cell.toFixed(2)}"/>`);
+    return `<svg class="qrs" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">${rows.join('')}</svg>`;
+  } catch (e) { return '<small class="rd">QR gagal dibuat</small>'; }
+}
 const BCSZ = { s: ['Label kecil 33×15 mm', 33, 15], m: ['Label 40×30 mm', 40, 30], l: ['Label 50×30 mm', 50, 30], a4: ['Lembar A4 · 3×10 label', 70, 29.7] };
 let BCQ = { L: {}, sz: 's', nm: 1, pr: 1, q: '' };
 const bcCode = (p) => String(p.sku || p.kd || '').trim();
