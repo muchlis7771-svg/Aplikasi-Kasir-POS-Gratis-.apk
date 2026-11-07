@@ -73,6 +73,10 @@ function featSet(r) {
 // bukan dibiarkan tanpa filter, supaya menu coffee shop/meja tetap tersembunyi di toko retail lama.
 const BIZHIDE = { cafe: new Set('outlet cek terima kirim kiosMap dnet kanvas gps ana'.split(' ')), retail: new Set(['meja']) };
 const can = (f, r) => { const bh = S && S.set && BIZHIDE[S.set.biz || 'retail']; if (bh && bh.has(f)) return false; return featSet(r || (U && U.r)).has(f); };
+// peran karyawan "lapangan" (selain admin/akuntan) yang relevan per jenis bisnis — retail/grosir/distributor pakai sales/kanvas/dropping,
+// coffee shop/resto pakai barista/pelayan (sales keliling & kanvas/dropping tidak relevan untuk resto, fiturnya juga disembunyikan oleh BIZHIDE)
+const BIZROLES = { cafe: ['kasir', 'spg', 'barista', 'pelayan'], retail: ['kasir', 'spg', 'sales', 'kanvas', 'dropping'] };
+const lowRoles = () => BIZROLES[(S && S.set && S.set.biz) || 'retail'] || BIZROLES.retail;
 const pkgHas = (f) => new Set(((S && S.pf) || PKGHI).split(' ')).has(f);
 // Masa aktif toko (trial / langganan) — dicek juga saat offline dari data terakhir server.
 const isExp = () => !!(S && S.exp && Date.now() > S.exp);

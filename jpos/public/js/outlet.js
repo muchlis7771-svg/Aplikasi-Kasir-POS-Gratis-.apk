@@ -286,7 +286,7 @@ ${MGR(U.r) ? `<label><small class="mu">Sales penanggung jawab (opsional)</small>
    bukan entitas/endpoint baru. QR berisi link ke toko online yang sudah ada (bOpenStore + metode "Ambil sendiri"),
    jadi pelanggan tinggal pindai dengan kamera HP tanpa instal aplikasi. */
 function tables() { return S.c.filter((c) => c.tbl && !c.x).sort((a, b) => a.n.localeCompare(b.n, 'id', { numeric: true })); }
-function mejaUrl(c) { const u = new URL(location.href); u.search = ''; u.hash = ''; u.searchParams.set('s', S.id); u.searchParams.set('meja', c.n); return u.toString(); }
+function mejaUrl(c) { const base = (typeof AP == 'string' && AP) || location.origin; const u = new URL(base); u.search = ''; u.hash = ''; u.searchParams.set('s', S.id); u.searchParams.set('meja', c.n); return u.toString(); }
 VW.meja = () => {
   const L = tables(), boss = U.r == 'owner' || U.r == 'admin';
   return `<div class="cd">${boss ? `<div class="wrap" style="margin-bottom:10px"><button class="gh pri" onclick="mejaForm()">+ Meja</button></div>` : '<small class="mu">Mode lihat saja</small>'}
@@ -307,6 +307,23 @@ function mejaDel(id) { const c = cust(id); if (confirm('Hapus meja ' + c.n + '?'
 function mejaQR(id) {
   const c = cust(id), url = mejaUrl(c);
   const m = modal(`<h3>🪑 ${esc(c.n)}</h3><div class="c" style="margin:10px 0">${qrSvg(url, 220)}</div><small class="mu" style="overflow-wrap:anywhere;display:block;text-align:center">${esc(url)}</small><div class="fm2" style="margin-top:10px"><button class="gh" id="mprint">🖨️ Cetak kartu meja</button><button class="gh" id="mshare">↗️ Bagikan tautan</button></div>`);
-  $('#mprint', m).onclick = () => printHtml(`<!doctype html><html><head><meta charset="utf-8"><title>QR ${esc(c.n)}</title><style>@page{size:80mm 110mm;margin:6mm}body{font-family:sans-serif;text-align:center}h1{font-size:20px;margin:4px 0}p{font-size:11px;color:#555}svg{width:60mm;height:60mm}</style></head><body><h1>${esc(S.name || 'Scan untuk pesan')}</h1><h2>${esc(c.n)}</h2>${qrSvg(url, 300)}<p>Pindai dengan kamera HP untuk pesan langsung dari meja ini</p></body></html>`);
+  // di laptop/browser: dialog cetak sistem. Di APK Android (tanpa dialog cetak) → buat PDF yang bisa dibagikan/dicetak lewat aplikasi printer
+  $('#mprint', m).onclick = () => { if (sysPrint()) printHtml(`<!doctype html><html><head><meta charset="utf-8"><title>QR ${esc(c.n)}</title><style>@page{size:80mm 110mm;margin:6mm}body{font-family:sans-serif;text-align:center}h1{font-size:20px;margin:4px 0}p{font-size:11px;color:#555}svg{width:60mm;height:60mm}</style></head><body><h1>${esc(S.name || 'Scan untuk pesan')}</h1><h2>${esc(c.n)}</h2>${qrSvg(url, 300)}<p>Pindai dengan kamera HP untuk pesan langsung dari meja ini</p></body></html>`); else mejaPdf(c, url); };
   $('#mshare', m).onclick = () => shareText('Pesan di ' + c.n, url);
+}
+function mejaPdf(c, url) {
+  const J = window.jspdf && window.jspdf.jsPDF; if (!J) return toast('Pustaka PDF belum termuat');
+  const w = 80, h = 110, doc = new J({ unit: 'mm', format: [w, h] });
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.text(pdfT(S.name || 'Scan untuk pesan'), w / 2, 13, { align: 'center', maxWidth: w - 12 });
+  doc.setFontSize(19); doc.text(pdfT(c.n), w / 2, 23, { align: 'center', maxWidth: w - 12 });
+  try {
+    const q = window.qrcode(0, 'M'); q.addData(String(url)); q.make();
+    const n = q.getModuleCount(), qs = 60, qx = (w - qs) / 2, qy = 29, cell = qs / n;
+    doc.setFillColor(255, 255, 255); doc.rect(qx, qy, qs, qs, 'F'); doc.setFillColor(0, 0, 0);
+    for (let r = 0; r < n; r++) for (let cc = 0; cc < n; cc++) if (q.isDark(r, cc)) doc.rect(qx + cc * cell, qy + r * cell, cell, cell, 'F');
+  } catch (e) { doc.setFontSize(9); doc.text('QR gagal dibuat', w / 2, 60, { align: 'center' }); }
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5); doc.setTextColor(90);
+  doc.text(pdfT('Pindai dengan kamera HP untuk pesan langsung dari meja ini'), w / 2, 96, { align: 'center', maxWidth: w - 10 });
+  saveFile(FNAME(S.name) + '-meja-' + String(c.n).replace(/[^a-z0-9]+/gi, '-') + '.pdf', doc.output('blob'));
+  toast('PDF kartu meja siap — pilih aplikasi printer atau "Cetak" di menu bagikan', 5000);
 }
