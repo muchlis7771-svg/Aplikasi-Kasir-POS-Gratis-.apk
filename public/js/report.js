@@ -55,9 +55,13 @@ const RPT = {
   piutang() {
     const now = Date.now(), g = {}; S.sales.filter((s) => sOut(s) > 0).forEach((s) => { const k = s.cn || '(Umum)', x = g[k] || (g[k] = [k, 0, 0, 0, 0, 0]); x[1 + ageBucket(s, now)] += sOut(s); x[5] += sOut(s); });
     const rows = Object.values(g).sort((a, b) => b[5] - a[5]);
+    const kredOutlets = (S.c || []).filter((c) => !c.x && c.term == 'kredit').map((c) => { const out = outOf(c.id); return [c.n, c.lim, out, c.lim - out, (c.tempo || 30) + ' hari']; }).sort((a, b) => b[2] - a[2]);
+    const skuTxt = (s) => s.L.map((i) => { const p = prod(i.id), kd = p && (p.kd || p.sku); return (kd ? kd + ' ' : '') + i.n + ' ×' + i.q; }).join(', ');
+    const dueTxt = (due) => { const d = Math.ceil((due - now) / 864e5); return d < 0 ? 'Lewat ' + (-d) + ' hari' : d == 0 ? 'Jatuh tempo hari ini' : d + ' hari lagi'; };
     return [
+      { title: 'Status Kredit per Outlet', head: ['Outlet', 'Limit kredit', 'Piutang berjalan', 'Sisa limit', 'Tempo pembayaran'], fmt: ['t', 'm', 'm', 'm', 't'], rows: kredOutlets.length ? kredOutlets : [['Belum ada outlet berstatus kredit (semua tunai)', '', '', '', '']] },
       { title: 'Umur Piutang per Outlet', head: ['Outlet', 'Belum jatuh tempo', '1–30 hari', '31–60 hari', '> 60 hari', 'Total'], fmt: ['t', 'm', 'm', 'm', 'm', 'm'], rows: [...rows, ['TOTAL', ...[1, 2, 3, 4, 5].map((i) => rows.reduce((a, r) => a + r[i], 0)), 'b']] },
-      { title: 'Faktur Belum Lunas', head: ['No', 'Outlet', 'Tanggal', 'Jatuh tempo', 'Total', 'Sisa'], fmt: ['t', 't', 'd', 'd', 'm', 'm'], rows: S.sales.filter((s) => sOut(s) > 0).map((s) => [s.no, s.cn || '', s.t, s.due, s.tot, sOut(s)]) },
+      { title: 'Faktur Belum Lunas — Barang (SKU) & Sisa Jatuh Tempo', head: ['No', 'Outlet', 'Tanggal', 'Barang (SKU) ×qty', 'Jatuh tempo', 'Sisa hari', 'Total', 'Sisa tagihan'], fmt: ['t', 't', 'd', 't', 'd', 't', 'm', 'm'], rows: S.sales.filter((s) => sOut(s) > 0).sort((a, b) => a.due - b.due).map((s) => [s.no, s.cn || '', s.t, skuTxt(s), s.due, dueTxt(s.due), s.tot, sOut(s)]) },
     ];
   },
   utang() { return [{ title: 'Utang Usaha', head: ['Supplier', 'Keterangan', 'Tanggal', 'Jatuh tempo', 'Total', 'Sisa'], fmt: ['t', 't', 'd', 'd', 'm', 'm'], rows: S.ap.filter((a) => apOut(a) > 0).map((a) => [a.sup, a.d, a.t, a.due, a.amt, apOut(a)]) }]; },
