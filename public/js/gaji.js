@@ -7,7 +7,7 @@
    Karyawan hanya bisa membuka aplikasi pada jam shift-nya, kecuali diizinkan admin / pemilik. */
 const GJ = () => (S.gj = S.gj || { cfg: {}, req: [] });
 const gjCfg = () => GJ().cfg || {};
-const GJROLES = ['kasir', 'spg', 'sales', 'kanvas', 'dropping', 'akuntan'];
+const GJROLES = () => [...lowRoles(), 'akuntan'];
 const gjLock = () => { const c = gjCfg(); return Array.isArray(c.lv) && c.lv.length > 0 && c.lock !== false; }; // aktif setelah pemilik menyimpan pengaturan gaji
 const isHol = (d) => { const k = typeof d == 'string' ? d : dkey(d.getTime ? d.getTime() : d), dt = new Date(k + 'T12:00:00'); if (dt.getDay() == 0) return true; if ((gjCfg().hol || []).includes(k)) return true; const t = (S.tcal || {})[k.slice(0, 7)]; return !!(t && (t.off || []).includes(k)); };
 const gjKey = (u) => String(u || '').toLowerCase();
@@ -56,7 +56,7 @@ function workWin(u) {
   const j = String(S.set.jin || '08:00').split(':'), a = +j[0] * 60 + +j[1] - 30;
   return mins >= a && mins <= 23 * 60 ? { ok: true } : { ok: false, kind: 'luar', why: 'Jam kerja dimulai ' + esc(S.set.jin || '08:00') + '. Aplikasi bisa dibuka mulai 30 menit sebelumnya.' };
 }
-const workGate = () => !!(U && S && GJROLES.includes(U.r) && gjLock() && !workWin(U.n).ok);
+const workGate = () => !!(U && S && GJROLES().includes(U.r) && gjLock() && !workWin(U.n).ok);
 function workGateView() {
   const w = workWin(U.n), k = dkey(Date.now()), pend = gjReq(U.n, k, 'tunggu'), no = gjReq(U.n, k, 'tolak');
   return `<main class="gate"><div class="gc"><div class="gico">${ico('lock')}</div><h2 style="margin:6px 0">Di luar jam kerja</h2><small class="gh1">${esc(U.n)} · ${esc(ROLE[U.r] || U.r)} · ${todayLong()}</small>

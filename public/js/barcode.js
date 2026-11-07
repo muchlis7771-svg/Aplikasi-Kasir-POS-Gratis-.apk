@@ -31,8 +31,9 @@ function qrSvg(text, size = 160) {
   try {
     const q = window.qrcode(0, 'M'); q.addData(String(text)); q.make();
     const n = q.getModuleCount(), cell = size / n, rows = [];
-    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c)) rows.push(`<rect x="${(c * cell).toFixed(2)}" y="${(r * cell).toFixed(2)}" width="${cell.toFixed(2)}" height="${cell.toFixed(2)}"/>`);
-    return `<svg class="qrs" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}">${rows.join('')}</svg>`;
+    for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c)) rows.push(`<rect x="${(c * cell).toFixed(2)}" y="${(r * cell).toFixed(2)}" width="${cell.toFixed(2)}" height="${cell.toFixed(2)}" fill="#000"/>`);
+    // selalu putih-hitam murni (bukan warna tema) supaya kontras cukup untuk dipindai kamera, termasuk di tema gelap
+    return `<svg class="qrs" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" style="background:#fff;border-radius:4px"><rect width="${size}" height="${size}" fill="#fff"/>${rows.join('')}</svg>`;
   } catch (e) { return '<small class="rd">QR gagal dibuat</small>'; }
 }
 const BCSZ = { s: ['Label kecil 33×15 mm', 33, 15], m: ['Label 40×30 mm', 40, 30], l: ['Label 50×30 mm', 50, 30], a4: ['Lembar A4 · 3×10 label', 70, 29.7] };

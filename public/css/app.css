@@ -472,12 +472,15 @@ button.kpi:active{transform:translateY(-1px) scale(.98)}
 :is(html,body)[data-th="ceria"]{--bg:#fff7ed;--cd:#fff;--tx:#2d2240;--mu:#8b7ca3;--ac:#ff6b6b;--a2:#ffb703;--bd:#ffe1c7;--gr:#06d6a0;--bl:#4cc9f0;--sh:0 6px 20px #ff6b6b1f;color-scheme:light}
 :is(html,body)[data-th="ceria"] .cd{border-radius:22px!important}
 :is(html,body)[data-th="alam"]{--bg:#f0fdf4;--cd:#fff;--tx:#123524;--mu:#5f7f6d;--ac:#047857;--a2:#34d399;--bd:#cfeedd;--sh:0 6px 20px #04785714;color-scheme:light}
+:is(html,body)[data-th="cafe"]{--bg:#fbf3e7;--cd:#fffaf3;--tx:#3a2317;--mu:#8a6a52;--ac:#6f4420;--a2:#d99a4e;--bd:#ecdcc2;--gr:#2f9e63;--sh:0 6px 20px #6f442014;color-scheme:light;font-family:Georgia,"Times New Roman",serif}
+:is(html,body)[data-th="cafe"] .cd{border-radius:16px!important}
 [data-th="klasik"] :is(.hero,.hero2,.k0,.gc){background:linear-gradient(150deg,#5a3413,#7c4a1e 60%,#a8743a)!important;border-radius:6px!important}
 [data-th="robot"] :is(.hero,.hero2,.k0,.gc){background:linear-gradient(150deg,#031018,#06263a 60%,#003b4f)!important;border:1px solid #00e5ff88!important;box-shadow:0 0 22px #00e5ff33!important;border-radius:8px!important}
 [data-th="minimalis"] :is(.hero,.hero2,.k0,.gc){background:#111!important;box-shadow:none!important;border-radius:10px!important}
 [data-th="mewah"] :is(.hero,.hero2,.k0,.gc){background:linear-gradient(150deg,#1a1508,#2b2210 55%,#5c4a16)!important;border:1px solid #d4af3780!important}
 [data-th="ceria"] :is(.hero,.hero2,.k0,.gc){background:linear-gradient(135deg,#ff6b6b,#ff9f43 55%,#ffd93d)!important}
 [data-th="alam"] :is(.hero,.hero2,.k0,.gc){background:linear-gradient(150deg,#064e3b,#047857 60%,#10b981)!important}
+[data-th="cafe"] :is(.hero,.hero2,.k0,.gc){background:linear-gradient(150deg,#2b150a,#5a2e12 55%,#a85c22)!important}
 
 /* ===== target & insentif ===== */
 .tbar{height:8px;border-radius:99px;background:var(--bd);overflow:hidden;margin:6px 0}.tbar i{display:block;height:100%;border-radius:99px;background:var(--ac)}.tbar i.gr{background:var(--gr)}.tbar i.or{background:var(--or)}.tbar i.rd{background:var(--rd)}

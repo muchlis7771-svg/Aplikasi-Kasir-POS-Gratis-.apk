@@ -41,7 +41,7 @@ async function haPkgSave() {
 }
 
 /* ---------- Owner: matriks hak akses ---------- */
-const PROLES = () => ['admin', 'akuntan', 'kasir', 'spg', 'sales', 'kanvas', 'dropping'].concat(S.set.biz == 'cafe' ? ['barista', 'pelayan'] : []);
+const PROLES = () => ['admin', 'akuntan', ...lowRoles()];
 let PMD = null;
 function pmInit(force) { if (PMD && !force) return; PMD = {}; for (const r of PROLES()) PMD[r] = new Set(pmRole(S.pm || {}, r).split(' ').filter(Boolean)); }
 function pmTog(r, f) {
