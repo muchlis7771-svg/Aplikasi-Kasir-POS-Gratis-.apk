@@ -34,7 +34,7 @@ VW.prod = () => {
   if (pFocus) L = L.filter((p) => focus.has(p.id));
   const low = actProds().filter((p) => p.st <= (p.min ?? 10));
   return `${bizTabs()}${kpi([['Jumlah produk', actProds().length, prF ? 'ketuk: tampilkan semua' : '', "prF='';R()", !prF], ['Nilai stok layak jual', rp(stockValue())], ['Stok menipis', low.length, 'ketuk untuk lihat', "prF=prF=='low'?'':'low';R()", prF == 'low'], ['Bad stock', badUnits() + ' unit · ' + rp(badValue()), 'ketuk untuk lihat', "prF=prF=='bad'?'':'bad';R()", prF == 'bad'], ['Sedang promo', promoSet.size + ' produk', 'ketuk untuk lihat', "prF=prF=='promo'?'':'promo';R()", prF == 'promo']])}
-<div class="cd">${can('prodEdit') ? `<div class="wrap" style="margin-bottom:10px"><button class="gh pri" onclick="prodForm()">+ Produk</button><button class="gh" onclick="scanFind()">▣ Scan barcode</button><button class="gh" onclick="bcOpen()">🏷️ Cetak barcode</button><button class="gh" onclick="opnameForm()">Opname stok</button><button class="gh" onclick="bundleAtur()">🎁 Promo & bundling${U.r == 'owner' && (S.bundle || []).some((b) => b.st == 'pending') ? ' <em class="hbdg" style="position:static;display:inline-grid">' + (S.bundle || []).filter((b) => b.st == 'pending').length + '</em>' : ''}</button>${['owner', 'admin'].includes(U.r) && can('retur') ? '<button class="gh" onclick="RTO.tab=\'bad\';go(\'retur\')">🗑️ Bad stock & pemusnahan</button>' : ''}${pkgHas('xls') && can('xls') ? '<button class="gh" onclick="xlsMenu(\'stok\')">📊 Excel</button>' : '<label class="gh">Impor Excel/CSV<input type="file" accept=".xlsx,.xls,.csv,.txt" onchange="impProd(this)"></label><button class="gh" onclick="tplProd()">Template</button>'}${pkgHas('beli') && can('beli') ? '<button class="gh" onclick="go(\'beli\')">📥 Pembelian</button>' : ''}</div>` : '<small class="mu">Mode lihat saja</small>'}
+<div class="cd">${can('prodEdit') ? `<div class="wrap" style="margin-bottom:10px"><button class="gh pri" onclick="prodForm()">+ Produk</button><button class="gh" onclick="scanFind()">▣ Scan barcode</button><button class="gh" onclick="bcOpen()">🏷️ Cetak barcode</button><button class="gh" onclick="opnameForm()">Opname stok</button><button class="gh" onclick="bundleAtur()">🎁 Promo & bundling${U.r == 'owner' && (S.bundle || []).some((b) => b.st == 'pending') ? ' <em class="hbdg" style="position:static;display:inline-grid">' + (S.bundle || []).filter((b) => b.st == 'pending').length + '</em>' : ''}</button>${U.r == 'owner' || (S.pst || []).some((x) => x.u == U.n) ? `<button class="gh" onclick="pstAtur()">⏳ Restok menunggu persetujuan${(S.pst || []).length ? ' <em class="hbdg" style="position:static;display:inline-grid">' + S.pst.length + '</em>' : ''}</button>` : ''}${['owner', 'admin'].includes(U.r) && can('retur') ? '<button class="gh" onclick="RTO.tab=\'bad\';go(\'retur\')">🗑️ Bad stock & pemusnahan</button>' : ''}${pkgHas('xls') && can('xls') ? '<button class="gh" onclick="xlsMenu(\'stok\')">📊 Excel</button>' : '<label class="gh">Impor Excel/CSV<input type="file" accept=".xlsx,.xls,.csv,.txt" onchange="impProd(this)"></label><button class="gh" onclick="tplProd()">Template</button>'}${pkgHas('beli') && can('beli') ? '<button class="gh" onclick="go(\'beli\')">📥 Pembelian</button>' : ''}</div>` : '<small class="mu">Mode lihat saja</small>'}
 <div class="row" style="margin:0 0 8px;gap:8px"><input placeholder="Cari produk / kode item / SKU / kategori" value="${esc(prQ)}" onchange="prQ=this.value;R()" style="flex:1"><div class="seg" style="margin:0"><button class="${prView == 'v' ? 'a' : ''}" onclick="setView('v')" title="Tampilan vertikal">☰ Vertikal</button><button class="${prView == 'h' ? 'a' : ''}" onclick="setView('h')" title="Tampilan horizontal">▦ Horizontal</button></div></div>
 ${sups.length || focus.size ? `<div class="row" style="margin:0 0 8px;gap:8px;flex-wrap:wrap">${sups.length ? `<select onchange="pSup=this.value;R()" style="flex:1;min-width:140px"><option value="">🏭 Semua supplier</option>${sups.map((s) => `<option value="${esc(s)}" ${pSup == s ? 'selected' : ''}>${esc(s)}</option>`).join('')}</select>` : ''}${focus.size ? `<button class="gh ${pFocus ? 'a' : ''}" onclick="pFocus=!pFocus;R()">⭐ Item fokus (${focus.size})</button>` : ''}</div>` : ''}
 ${prView == 'h' ? `<div class="ov"><table><tr><th>Produk<th>Kategori<th class="n">Harga<th class="n">HPP<th class="n">Stok<th class="n">Bad<th></tr>${L.map((p) => { const lo = p.st <= (p.min ?? 10), promo = promoSet.has(p.id); return `<tr><td><b>${esc(p.n)}</b>${promo ? ' 🎁' : ''}${p.kd ? '<br><small class="kd">' + esc(p.kd) + '</small>' : ''}<td>${esc(p.c)}<td class="n">${rp(p.pr)}<td class="n">${rp(p.co)}<td class="n ${lo ? 'rd' : 'gr'}">${p.st.toLocaleString('id-ID')}<td class="n ${p.bad ? 'rd' : 'mu'}">${(p.bad || 0).toLocaleString('id-ID')}<td>${can('prodEdit') ? `<button class="gh" style="padding:4px 8px" onclick="prodForm('${p.id}')">✏️</button><button class="gh pri" style="padding:4px 8px" onclick="stkForm('${p.id}')">＋</button>` : ''}</tr>`; }).join('') || `<tr><td colspan="7" class="mu c">Belum ada produk.</td></tr>`}</table></div>` : `<div class="plist">${L.map((p) => { const lo = p.st <= (p.min ?? 10), promo = promoSet.has(p.id); return `<div class="pitem"><div class="ph1"><b>${esc(p.n)}</b>${promo ? ' <span class="chip g" style="padding:1px 7px;font-size:11px">🎁 Promo</span>' : ''}${p.kd ? '<span class="kd">' + esc(p.kd) + '</span>' : ''}</div><small class="mu">${esc(p.c)}${p.b ? ' · ' + esc(p.b) : ''}${p.sku ? ' · SKU ' + esc(p.sku) : ''}${p.sup ? ' · 🏭 ' + esc(p.sup) : ''}</small>${p.tiers && p.tiers.length ? `<small class="ptier">Grosir: ${esc(tierTxt(p))}</small>` : ''}
@@ -99,19 +99,21 @@ function stkForm(id) {
   const p = prod(id), sups = [...new Set([...S.ap.map((a) => a.sup), ...(S.sup || []).filter((x) => !x.x).map((x) => x.n)].filter((x) => x && x != '-'))];
   STKDIR = 'in';
   const body = () => STKDIR == 'in'
-    ? `<div class="fm2"><input id="sq" type="number" min="1" placeholder="Jumlah masuk"><input id="sc" type="number" placeholder="Harga beli / unit" value="${p.co}"></div><div id="savgwrap" style="display:none"></div><input id="ss" list="sl" placeholder="Supplier (opsional)"><datalist id="sl">${sups.map((s) => `<option value="${esc(s)}">`).join('')}</datalist><select id="sm"><option value="Tunai">Bayar tunai (kas)</option><option value="Transfer">Bayar transfer (bank)</option><option value="Kredit">Beli kredit (utang usaha)</option></select><div id="st" style="display:none"><input id="sd" type="number" placeholder="Tempo (hari)" value="${S.set.tempo || 30}"></div>`
+    ? `<div class="fm2"><input id="sq" type="number" min="1" placeholder="Jumlah masuk"><input id="sc" type="number" placeholder="Harga beli / unit" value="${p.co}"></div><input id="ssh" type="number" min="0" placeholder="Ongkos kirim (opsional, total — dibagi rata ke semua unit)"><small id="shinfo" class="mu" style="display:none"></small><div id="savgwrap" style="display:none"></div><input id="ss" list="sl" placeholder="Supplier (opsional)"><datalist id="sl">${sups.map((s) => `<option value="${esc(s)}">`).join('')}</datalist><select id="sm"><option value="Tunai">Bayar tunai (kas)</option><option value="Transfer">Bayar transfer (bank)</option><option value="Kredit">Beli kredit (utang usaha)</option></select><div id="st" style="display:none"><input id="sd" type="number" placeholder="Tempo (hari)" value="${S.set.tempo || 30}"></div>`
     : `<div class="fm2"><input id="sq" type="number" min="1" max="${p.st}" placeholder="Jumlah keluar (maks ${p.st})"><select id="swy">${STKOUT.map((w) => `<option>${esc(w)}</option>`).join('')}</select></div><input id="swn" placeholder="Catatan (opsional)"><small class="mu">Nilai ${rp(p.co)}/unit otomatis dijurnal sebagai Selisih Stok — sama seperti stok opname.</small>`;
   const m = modal(`<h3>Restok ${esc(p.n)}</h3><small>Stok saat ini ${p.st} · HPP rata-rata ${rp(p.co)}</small><div class="seg" id="sdir"><button class="${STKDIR == 'in' ? 'a' : ''}" data-d="in">📥 Stok masuk</button><button class="${STKDIR == 'out' ? 'a' : ''}" data-d="out">📤 Stok keluar</button></div><div id="sbody">${body()}</div><button class="pr" id="ok">Simpan</button>`);
   const wire = () => {
     if (STKDIR == 'in') {
       const sel = $('#sm', m); if (sel) sel.onchange = (e) => { $('#st', m).style.display = e.target.value == 'Kredit' ? 'block' : 'none'; };
-      const sc = $('#sc', m), wrap = $('#savgwrap', m);
+      const sc = $('#sc', m), ssh = $('#ssh', m), sq = $('#sq', m), wrap = $('#savgwrap', m), shinfo = $('#shinfo', m);
+      const effCost = () => { const c = num(sc.value), q = num(sq.value), sh = num(ssh.value); return q > 0 && sh > 0 ? c + sh / q : c; };
       const chk = () => {
-        const c = num(sc.value);
-        if (c > p.co && p.co > 0) { wrap.style.display = 'block'; wrap.innerHTML = `<small class="or">⚠ Harga beli (${rp(c)}) naik dari HPP rata-rata sekarang (${rp(p.co)}).</small><select id="savg"><option value="w">Rata-rata tertimbang dengan stok lama (bawaan)</option><option value="new">Pakai harga terbaru saja sebagai HPP baru (${rp(c)})</option></select>`; }
+        const c = effCost(), sh = num(ssh.value), q = num(sq.value);
+        if (shinfo) { if (sh > 0 && q > 0) { shinfo.style.display = 'block'; shinfo.textContent = 'Ongkir ' + rp(sh) + ' ÷ ' + q + ' unit = +' + rp(Math.round(sh / q)) + '/unit → harga beli efektif ' + rp(Math.round(c)) + '/unit'; } else shinfo.style.display = 'none'; }
+        if (c > p.co && p.co > 0) { wrap.style.display = 'block'; wrap.innerHTML = `<small class="or">⚠ Harga beli efektif (${rp(Math.round(c))}) naik dari HPP rata-rata sekarang (${rp(p.co)}).</small><select id="savg"><option value="w">Rata-rata tertimbang dengan stok lama (bawaan)</option><option value="new">Pakai harga terbaru saja sebagai HPP baru (${rp(Math.round(c))})</option></select>`; }
         else wrap.style.display = 'none';
       };
-      sc.oninput = chk; chk();
+      sc.oninput = chk; ssh.oninput = chk; sq.oninput = chk; chk();
     }
   };
   wire();
@@ -119,9 +121,10 @@ function stkForm(id) {
   $('#ok', m).onclick = () => {
     const q = num($('#sq', m).value);
     if (STKDIR == 'in') {
-      const c = num($('#sc', m).value), v = $('#sm', m).value; if (q <= 0 || c < 0) return toast('Isi jumlah dan harga beli');
+      const c0 = num($('#sc', m).value), sh = num(($('#ssh', m) || {}).value), v = $('#sm', m).value; if (q <= 0 || c0 < 0) return toast('Isi jumlah dan harga beli');
+      const c = q > 0 && sh > 0 ? c0 + sh / q : c0;
       const avgSel = $('#savg', m);
-      emit('stk', { p: id, qty: q, cost: c, cr: v == 'Kredit', m: v == 'Kredit' ? 'Tunai' : v, sup: $('#ss', m).value.trim(), tempo: num($('#sd', m).value) || 30, avg: avgSel ? avgSel.value : 'w' }); m.close(); R(); toast('Stok masuk dicatat');
+      emit('stk', { p: id, qty: q, cost: c, ship: sh || 0, cr: v == 'Kredit', m: v == 'Kredit' ? 'Tunai' : v, sup: $('#ss', m).value.trim(), tempo: num($('#sd', m).value) || 30, avg: avgSel ? avgSel.value : 'w' }); m.close(); R(); toast('Stok masuk dicatat' + (sh > 0 ? ' (termasuk ongkir ' + rp(sh) + ')' : ''));
     } else {
       if (q <= 0) return toast('Isi jumlah keluar'); if (q > p.st) return toast('Jumlah keluar melebihi stok saat ini (' + p.st + ')');
       const wy = $('#swy', m).value, note = $('#swn', m).value.trim();
@@ -187,6 +190,22 @@ function bundleEdit(b, onDone) {
     emit('bdl', { op: 'set', bundle: { id: d.id, n, items: d.items, bonus: d.bonus, mode: $('#bmode', mm).value, val: num($('#bval', mm).value), on: $('#bon', mm).checked } });
     mm.close(); toast(U.r == 'owner' ? 'Promo disimpan & langsung aktif' : 'Promo diajukan — menunggu persetujuan pemilik'); if (onDone) onDone(); R();
   };
+}
+function pstAtur() {
+  const m = modal(`<h3>⏳ Restok menunggu persetujuan</h3><small class="mu">${U.r == 'owner' ? 'Admin mengajukan restok dengan harga beli yang naik dari HPP rata-rata saat ini. Stok & HPP BELUM berubah sampai Anda menyetujui — selama menunggu, stok sistem bisa berbeda dari stok fisik.' : 'Daftar restok yang Anda ajukan dan masih menunggu persetujuan pemilik. Stok belum bertambah sampai disetujui.'}</small><div id="pstlist" style="margin-top:8px"></div>`, 'w');
+  const draw = () => {
+    const L = (S.pst || []).filter((x) => U.r == 'owner' || x.u == U.n).sort((a, b) => b.t - a.t);
+    $('#pstlist', m).innerHTML = L.map((x) => {
+      const naik = x.oldCo > 0 ? Math.round(((x.cost - x.oldCo) / x.oldCo) * 100) : 0;
+      return `<div class="cd" style="padding:10px;margin-top:8px"><div class="row" style="margin:0"><b>${esc(x.pn)}</b><span class="chip o">⏳ Menunggu</span></div>
+<small class="mu">×${x.qty} unit · diajukan oleh ${esc(x.u)} · ${tstr(x.t)}${x.sup ? ' · 🏭 ' + esc(x.sup) : ''}</small>
+<div class="row" style="margin:4px 0"><small>HPP sekarang <b>${rp(x.oldCo)}</b> → harga beli diajukan <b class="or">${rp(Math.round(x.cost))}</b>${x.ship ? ' <small class="mu">(termasuk ongkir ' + rp(x.ship) + ')</small>' : ''}</small><small class="or">+${naik}%</small></div>
+${U.r == 'owner' ? `<div class="wrap" style="margin-top:6px"><button class="gh a" data-pappr="${x.no}">✅ Setujui</button><button class="gh d" data-prej="${x.no}">❌ Tolak</button></div>` : ''}</div>`;
+    }).join('') || '<p class="mu" style="margin-top:8px">Tidak ada restok yang menunggu persetujuan.</p>';
+    $$('[data-pappr]', m).forEach((btn) => (btn.onclick = () => { if (confirm('Setujui restok ini? Stok & HPP akan diperbarui.')) { emit('stk', { decide: 'approve', ref: btn.dataset.pappr }); toast('Restok disetujui'); draw(); R(); } }));
+    $$('[data-prej]', m).forEach((btn) => (btn.onclick = () => { if (confirm('Tolak restok ini? Stok TIDAK akan bertambah.')) { emit('stk', { decide: 'reject', ref: btn.dataset.prej }); toast('Restok ditolak'); draw(); R(); } }));
+  };
+  draw();
 }
 /* ---- impor / template ---- */
 const PCOL = { nama: 'n', produk: 'n', 'nama produk': 'n', kategori: 'c', sku: 'sku', barcode: 'sku', 'harga jual': 'pr', harga: 'pr', hpp: 'co', 'harga beli': 'co', stok: 's0', 'stok awal': 's0', min: 'min', 'stok minimum': 'min' };

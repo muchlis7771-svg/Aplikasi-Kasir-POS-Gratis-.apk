@@ -85,7 +85,7 @@ const REG = () => LS.get('jpos:reg', []);
 const setReg = (id, n, demo) => { const r = REG().filter((x) => x.id != id); r.push({ id, n, demo: !!demo }); LS.set('jpos:reg', r); };
 const TK = () => LS.get('jpos:tk:' + SID, '');
 function newStore(id, name, email, srv) {
-  return { v4: 1, exp: 0, plan: '', id, name, email: email || '', srv: !!srv, set: { ppn: 11, tempo: 30, addr: '', tel: '', jin: '08:00', od: false }, logo: '', p: [], c: [], sales: [], j: [], ap: [], att: [], users: [], done: {}, pend: {}, eq: [], cq: [], cs: {}, ec: 0, seq: 1, dv: Math.random().toString(36).slice(2, 5), hold: [], staff: [], sup: [], po: [], kn: [], tgt: [], ses: [] };
+  return { v4: 1, exp: 0, plan: '', id, name, email: email || '', srv: !!srv, set: { ppn: 11, tempo: 30, addr: '', tel: '', jin: '08:00', od: false }, logo: '', p: [], c: [], sales: [], j: [], ap: [], att: [], users: [], done: {}, pend: {}, eq: [], cq: [], cs: {}, ec: 0, seq: 1, dv: Math.random().toString(36).slice(2, 5), hold: [], staff: [], sup: [], po: [], kn: [], tgt: [], ses: [], pst: [] };
 }
 let saveT = null;
 function save() { if (!S) return; clearTimeout(saveT); saveT = setTimeout(flushSave, 400); }
@@ -100,7 +100,7 @@ function slimStore() {
 }
 function flushSave() { clearTimeout(saveT); saveT = null; if (S && !LS.set('jpos:s:' + SID, S) && !(slimStore() && LS.set('jpos:s:' + SID, S)) && !flushSave.w) { flushSave.w = 1; toast('Penyimpanan perangkat penuh! Ekspor backup lalu kosongkan data lama.', 7000); } }
 addEventListener('pagehide', flushSave); document.addEventListener('visibilitychange', () => { if (document.hidden) flushSave(); });
-function loadStore(id) { const s = LS.get('jpos:s:' + id, null); if (!s) return false; SID = id; S = s; for (const k of ['p', 'c', 'sales', 'j', 'ap', 'att', 'users', 'eq', 'cq', 'hold', 'staff', 'sup', 'po', 'kn', 'rtr', 'bst', 'tgt', 'ses', 'tsk', 'kv', 'kvq', 'creq']) S[k] = S[k] || []; S.done = S.done || {}; S.pend = S.pend || {}; S.cs = S.cs || {}; S.set = Object.assign({ ppn: 11, tempo: 30, jin: '08:00' }, S.set || {});
+function loadStore(id) { const s = LS.get('jpos:s:' + id, null); if (!s) return false; SID = id; S = s; for (const k of ['p', 'c', 'sales', 'j', 'ap', 'att', 'users', 'eq', 'cq', 'hold', 'staff', 'sup', 'po', 'kn', 'rtr', 'bst', 'tgt', 'ses', 'tsk', 'kv', 'kvq', 'creq', 'pst']) S[k] = S[k] || []; S.done = S.done || {}; S.pend = S.pend || {}; S.cs = S.cs || {}; S.set = Object.assign({ ppn: 11, tempo: 30, jin: '08:00' }, S.set || {});
   { const old = Date.now() - 14 * 864e5; S.att.forEach((a) => { if (a.ph && a.t < old) delete a.ph; }); S.sales.forEach((x) => { if (x.dl) x.dl.log.forEach((l) => { if (l.ph && l.t < old) delete l.ph; }); }); } // foto bukti lama dibuang agar penyimpanan HP tidak penuh
   if (!S.v4) { const o = S.users.find((u) => u.r == 'admin'); if (o && !S.users.some((u) => u.r == 'owner')) o.r = 'owner'; S.v4 = 1; }
   S.c.forEach((c) => { if (c.lat == null || c.lng == null || (Math.abs(c.lat) < 0.01 && Math.abs(c.lng) < 0.01)) { c.lat = null; c.lng = null; } }); kdFill(); return true; }
@@ -173,11 +173,31 @@ const Ap = {
     (S.rtr = S.rtr || []).push({ no: e.no, t: e.t, u: e.u, sale: s.no, st: s.t, su: s.u, cu: s.cu, cn: s.cn, why: e.why || '', bad: !!e.bad, L: rl, val: tot, note: e.note || '', ph: e.ph, sig: e.sig, sn: e.sn, lat: e.lat, lng: e.lng, dist: e.dist, grp: e.grp || e.no });
   },
   stk(e) {
+    // keputusan pemilik atas restok admin yang tertahan menunggu persetujuan (lihat di bawah) — kind 'stk' dipakai ulang,
+    // bukan kind baru, supaya tidak perlu ubah aturan server untuk tenant lain
+    if (e.decide) {
+      const i = (S.pst || []).findIndex((x) => x.no == e.ref); if (i < 0) return;
+      const pd = S.pst[i]; S.pst.splice(i, 1);
+      if (e.decide == 'reject') { notif(e, 'harga', '❌ Restok ' + pd.pn + ' ×' + pd.qty + ' (harga ' + rp(pd.cost) + ') ditolak pemilik — stok TIDAK bertambah.'); return; }
+      const p2 = prod(pd.p); if (!p2) return;
+      const v2 = Math.round(pd.qty * pd.cost), base2 = Math.max(p2.st, 0);
+      p2.co = pd.avg == 'new' ? Math.round(pd.cost) : Math.round((base2 * p2.co + v2) / (base2 + pd.qty)); p2.st += pd.qty;
+      if (pd.cr) S.ap.push({ id: pd.no, t: e.t, sup: pd.sup || '-', d: 'Restok ' + p2.n + ' ×' + pd.qty, amt: v2, pa: 0, due: e.t + (pd.tempo || 30) * 864e5 });
+      jr(e, 'Restok ' + p2.n + ' ×' + pd.qty + (pd.sup ? ' · ' + pd.sup : '') + (pd.ship ? ' · termasuk ongkir ' + rp(pd.ship) : '') + ' (disetujui pemilik, diajukan ' + pd.u + ')', [['1201', v2, 0], [pd.cr ? '2102' : payAcc(pd.m || 'Tunai'), 0, v2]]);
+      return;
+    }
     const p = prod(e.p); if (!p || !(e.qty > 0)) return;
+    // admin (bukan owner) menaikkan harga beli di atas HPP rata-rata sekarang → tahan dulu (stok & HPP BELUM berubah),
+    // menunggu pemilik menyetujui dari daftar "Restok menunggu persetujuan"
+    if (e.r && e.r != 'owner' && p.co > 0 && e.cost > p.co) {
+      (S.pst = S.pst || []).push({ no: e.no, t: e.t, u: e.u, p: e.p, pn: p.n, qty: e.qty, cost: e.cost, ship: e.ship || 0, cr: e.cr, m: e.m, sup: e.sup, tempo: e.tempo, avg: e.avg, oldCo: p.co });
+      notif(e, 'harga', '⏳ Restok ' + p.n + ' ×' + e.qty + ' oleh ' + e.u + ' menunggu persetujuan pemilik (harga naik dari ' + rp(p.co) + ' jadi ' + rp(e.cost) + (e.ship ? ', termasuk ongkir ' + rp(e.ship) : '') + ')');
+      return;
+    }
     const v = Math.round(e.qty * e.cost), base = Math.max(p.st, 0);
     p.co = e.avg == 'new' ? Math.round(e.cost) : Math.round((base * p.co + v) / (base + e.qty)); p.st += e.qty;
     if (e.cr) S.ap.push({ id: e.no, t: e.t, sup: e.sup || '-', d: 'Restok ' + p.n + ' ×' + e.qty, amt: v, pa: 0, due: e.t + (e.tempo || 30) * 864e5 });
-    jr(e, 'Restok ' + p.n + ' ×' + e.qty + (e.sup ? ' · ' + e.sup : ''), [['1201', v, 0], [e.cr ? '2102' : payAcc(e.m || 'Tunai'), 0, v]]);
+    jr(e, 'Restok ' + p.n + ' ×' + e.qty + (e.sup ? ' · ' + e.sup : '') + (e.ship ? ' · termasuk ongkir ' + rp(e.ship) : ''), [['1201', v, 0], [e.cr ? '2102' : payAcc(e.m || 'Tunai'), 0, v]]);
   },
   apay(e) {
     const a = S.ap.find((x) => x.id == e.ap); if (!a) return;
