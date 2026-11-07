@@ -13,6 +13,20 @@ function area(D, fmt = rp) {
     + `<path d="${d}L${X(D.length - 1)},${H - p}L${X(0)},${H - p}Z" fill="url(#${id})"/><path d="${d}" fill="none" stroke="#27407e" stroke-width="3" stroke-linecap="round"/>`
     + D.map((x, i) => (i % step ? '' : `<text x="${X(i)}" y="${H + 6}" text-anchor="middle" font-size="10" style="fill:var(--mu)">${esc(x.l)}</text>`) + `<circle cx="${X(i)}" cy="${Y(x.v)}" r="3.5" style="fill:var(--cd)" stroke="#27407e" stroke-width="2"><title>${esc(x.l)}: ${esc(fmt(x.v))}</title></circle>`).join('') + '</svg>';
 }
+// grafik garis multi-seri (dipakai untuk "Pergerakan Neraca" — beberapa pos akun sekaligus dalam satu sumbu Rp)
+function multiLine(labels, series, fmt = rp) {
+  if (!labels.length || !series.length) return '<p class="mu">Belum ada data</p>';
+  const W = 600, H = 220, p = 28, allV = series.flatMap((s) => s.vals), mx = Math.max(...allV, 1) * 1.1, mn = Math.min(0, ...allV) * 1.1;
+  const X = (i) => p + (labels.length > 1 ? i * (W - 2 * p) / (labels.length - 1) : (W - 2 * p) / 2), Y = (v) => H - p - (v - mn) / ((mx - mn) || 1) * (H - 2 * p);
+  const pathOf = (vals) => { let d = 'M' + X(0) + ',' + Y(vals[0]); for (let i = 1; i < vals.length; i++) { const m = (X(i - 1) + X(i)) / 2; d += `C${m},${Y(vals[i - 1])} ${m},${Y(vals[i])} ${X(i)},${Y(vals[i])}`; } return d; };
+  const step = Math.ceil(labels.length / 7);
+  const grid = [0, 1, 2, 3].map((i) => `<line x1="${p}" x2="${W - p}" y1="${p + i * (H - 2 * p) / 3}" y2="${p + i * (H - 2 * p) / 3}" style="stroke:var(--bd)"/>`).join('')
+    + (mn < 0 && mx > 0 ? `<line x1="${p}" x2="${W - p}" y1="${Y(0)}" y2="${Y(0)}" style="stroke:var(--mu);stroke-dasharray:3 3"/>` : '');
+  const axisLbl = labels.map((l, i) => (i % step && i != labels.length - 1 ? '' : `<text x="${X(i)}" y="${H + 14}" text-anchor="middle" font-size="10" style="fill:var(--mu)">${esc(l)}</text>`)).join('');
+  const lines = series.map((s, si) => { const col = s.color || COL[si % COL.length]; return `<path d="${pathOf(s.vals)}" fill="none" stroke="${col}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>` + s.vals.map((v, i) => `<circle cx="${X(i)}" cy="${Y(v)}" r="2.8" style="fill:${col}"><title>${esc(s.name)} · ${esc(labels[i])}: ${esc(fmt(v))}</title></circle>`).join(''); }).join('');
+  const legend = `<div class="mlg">${series.map((s, si) => `<span><i style="background:${s.color || COL[si % COL.length]}"></i>${esc(s.name)} <b>${esc(fmt(s.vals[s.vals.length - 1]))}</b></span>`).join('')}</div>`;
+  return `<svg viewBox="0 0 ${W} ${H + 20}" width="100%">${grid}${axisLbl}${lines}</svg>${legend}`;
+}
 function donut(D, label = 'kategori') {
   D = D.filter((x) => x.v > 0); if (!D.length) return '<p class="mu">Belum ada data</p>';
   const t = D.reduce((a, x) => a + x.v, 0) || 1, R = 48, C = 2 * Math.PI * R; let o = 0;
