@@ -16,10 +16,10 @@ const cName = (c) => { try { return c && c != '?' ? new Intl.DisplayNames(['id']
 function haVisitsCard() {
   const V = HAW.visits; if (!V) return '';
   const area = (r) => (r.country ? cName(r.country) + (r.city ? ' · ' + esc(r.city) : '') : 'Tidak diketahui');
-  return `<div class="cd"><h3>📍 Pengunjung website · ${VIS_DAYS_LBL} hari terakhir</h3><small class="mu">Area (negara/kota) dari jaringan Cloudflare, perangkat dari User-Agent browser — bukan pelacakan pribadi, hanya untuk statistik.</small>
-<small class="mu" style="display:block;margin-top:10px">Area pengunjung</small><div class="wrap" style="margin-top:4px">${V.byCountry.length ? V.byCountry.map((x) => `<span class="chip g">${esc(cName(x.c))} · ${x.n}</span>`).join('') : '<small class="mu">Belum ada data</small>'}</div>
+  return `<div class="cd"><h3>📍 Pengunjung website · ${VIS_DAYS_LBL} hari terakhir</h3><small class="mu">Area (negara/kota) adalah <b>perkiraan dari IP</b> via jaringan Cloudflare — bukan GPS, jadi kadang meleset ke kota lain terdekat (umum terjadi untuk pengguna data seluler). Perangkat dari User-Agent browser. Bukan pelacakan pribadi, hanya untuk statistik.</small>
+<small class="mu" style="display:block;margin-top:10px">Area pengunjung (perkiraan)</small><div class="wrap" style="margin-top:4px">${V.byCountry.length ? V.byCountry.map((x) => `<span class="chip g">${esc(cName(x.c))} · ${x.n}</span>`).join('') : '<small class="mu">Belum ada data</small>'}</div>
 <small class="mu" style="display:block;margin-top:10px">Perangkat pengunjung</small><div class="wrap" style="margin-top:4px">${V.byDev.length ? V.byDev.map((x) => `<span class="chip">${esc(x.d)} · ${x.n}</span>`).join('') : '<small class="mu">Belum ada data</small>'}</div>
-<small class="mu" style="display:block;margin-top:10px">Kunjungan terbaru</small><div class="ov" style="max-height:340px"><table><tr><th>Tanggal<th>Jam<th>Area<th>Perangkat</tr>${V.rows.length ? V.rows.map((r) => `<tr><td>${dstr(r.t)}<td>${hm(r.t)}<td>${area(r)}<td>${esc(r.dev || '-')}</tr>`).join('') : '<tr><td colspan="4" class="mu">Belum ada kunjungan tercatat</td></tr>'}</table></div></div>`;
+<small class="mu" style="display:block;margin-top:10px">Kunjungan terbaru</small><div class="ov" style="max-height:340px"><table><tr><th>Tanggal<th>Jam<th>Area (perkiraan)<th>Perangkat</tr>${V.rows.length ? V.rows.map((r) => `<tr><td>${dstr(r.t)}<td>${hm(r.t)}<td>${area(r)}<td>${esc(r.dev || '-')}</tr>`).join('') : '<tr><td colspan="4" class="mu">Belum ada kunjungan tercatat</td></tr>'}</table></div></div>`;
 }
 const VIS_DAYS_LBL = 31;
 const wTxt = (id, v, ph, ml) => `<input id="${id}" value="${esc(v || '')}" ${ph ? `placeholder="${esc(ph)}"` : ''} ${ml ? `maxlength="${ml}"` : ''}>`;
