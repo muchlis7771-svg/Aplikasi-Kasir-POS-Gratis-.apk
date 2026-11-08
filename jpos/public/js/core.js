@@ -560,7 +560,7 @@ function cashflow(f = 0, t = 1e15) {
   const rows = Object.entries(g).map(([k, v]) => [k, v]), inn = rows.filter((r) => r[1] > 0).reduce((a, r) => a + r[1], 0), out = rows.filter((r) => r[1] < 0).reduce((a, r) => a + r[1], 0);
   return { open, rows, inn, out, close: open + inn + out };
 }
-const stockValue = () => S.p.reduce((a, p) => a + Math.max(0, p.st) * p.co, 0);
+const stockValue = () => S.p.reduce((a, p) => a + Math.max(0, typeof pStock == 'function' ? pStock(p) : p.st) * p.co, 0); // pStock(p): untuk produk resep (coffee shop) stoknya dihitung dari bahan baku, bukan p.st mentah (lihat pos.js)
 const badValue = () => S.p.reduce((a, p) => a + (p.bad > 0 ? p.bv || p.bad * p.co : 0), 0);
 const badUnits = () => S.p.reduce((a, p) => a + (p.bad > 0 ? p.bad : 0), 0);
 const salesIn = (f = 0, t = 1e15) => S.sales.filter((s) => s.t >= f && s.t <= t);
