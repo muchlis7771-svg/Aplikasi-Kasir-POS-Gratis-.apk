@@ -5,7 +5,14 @@ if (typeof AbortSignal != 'undefined' && !AbortSignal.timeout) AbortSignal.timeo
 const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const rp = (n) => (n < 0 ? '−' : '') + 'Rp' + Math.abs(Math.round(n || 0)).toLocaleString('id-ID');
-const num = (v) => { const n = Math.round(parseFloat(String(v).replace(/[^\d.-]/g, ''))); return isNaN(n) ? 0 : n; };
+const num = (v) => {
+  let s = String(v).trim();
+  // dukung format ribuan ala Indonesia ("1.000", "12.500.000") kalau user mengetik titik sebagai pemisah ribuan —
+  // titik dianggap pemisah ribuan hanya kalau tiap kelompok setelahnya persis 3 digit (desimal asli, mis. "0.5", "12.34", tidak cocok pola ini jadi tetap dianggap desimal)
+  if (/^-?\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, '');
+  const n = Math.round(parseFloat(s.replace(/[^\d.-]/g, '')));
+  return isNaN(n) ? 0 : n;
+};
 const pad = (n) => String(n).padStart(2, '0');
 const dstr = (t) => { const d = new Date(t); return pad(d.getDate()) + '/' + pad(d.getMonth() + 1) + '/' + d.getFullYear(); };
 const hm = (t) => { const d = new Date(t); return pad(d.getHours()) + ':' + pad(d.getMinutes()); };
