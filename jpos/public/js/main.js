@@ -136,7 +136,7 @@ function homeView() {
   const head = `<div class="lo">${splash}`;
   const back = `<button class="gh big" onclick="mode('home')">← Kembali</button>`;
   if (MODE == 'login') return head + `<div class="cd fm" style="text-align:left"><h3>Masuk ke toko</h3><label><small class="mu">Kode toko (dari pemilik toko)</small><input id="lid" placeholder="mis. tokomaju" autocapitalize="none" autocomplete="off" value="${esc(last ? last.id : '')}"></label><label><small class="mu">Nama pengguna</small><input id="lnm" placeholder="Nama Anda" autocomplete="off" value="${esc(last ? last.name : '')}"></label><label><small class="mu">PIN</small><input id="lpn" type="password" inputmode="numeric" placeholder="••••" onkeydown="if(event.key=='Enter')doLoginUi()"></label><button class="pr" onclick="doLoginUi()">Masuk</button>${last && typeof bioBtn == 'function' ? bioBtn(last.id, last.name) : ''}${back}<small class="mu">Login pertama di HP baru butuh internet. Setelah itu bisa dipakai offline.</small></div></div>`;
-  if (MODE == 'reg') return head + `<div class="cd fm" style="text-align:left"><h3>Daftarkan toko baru</h3><div class="info cd" style="padding:10px"><b>🎁 Gratis ${info.trial || 30} hari</b><br><small>Setelah masa coba, perpanjang langganan lewat pemilik aplikasi.</small></div><input id="rn" placeholder="Nama toko / distributor *"><input id="ro" placeholder="Nama Anda (pemilik) *"><input id="rh" type="tel" inputmode="tel" placeholder="No. WhatsApp (untuk info perpanjangan)"><input id="re" type="email" placeholder="Email (opsional)"><input id="rp" type="password" inputmode="numeric" maxlength="8" placeholder="Buat PIN 4–8 angka *"><input id="rc" placeholder="Kode toko (opsional, 6–20 huruf/angka)" autocapitalize="none"><h3 style="margin:8px 0 0">Jenis usaha</h3><div class="tiers" id="bizc">${bizCards()}</div><h3 style="margin:8px 0 0">Pilih paket</h3><div class="tiers" id="tiers">${tierCards()}</div><button class="pr" onclick="doRegUi()">Daftar & mulai</button>${back}</div></div>`;
+  if (MODE == 'reg') return head + `<div class="cd fm" style="text-align:left"><h3>Daftarkan toko baru</h3><div class="info cd" style="padding:10px"><b>🎁 Gratis ${info.trial || 30} hari</b><br><small>Setelah masa coba, perpanjang langganan lewat pemilik aplikasi.</small></div><input id="rn" placeholder="Nama toko / distributor *"><input id="ro" placeholder="Nama Anda (pemilik) *"><input id="rh" type="tel" inputmode="tel" placeholder="No. WhatsApp (untuk info perpanjangan)"><input id="re" type="email" placeholder="Email (opsional)"><input id="rp" type="password" inputmode="numeric" maxlength="8" placeholder="Buat PIN 4–8 angka *"><input id="rc" placeholder="Kode toko (opsional, 6–20 huruf/angka)" autocapitalize="none"><input id="rf" placeholder="Kode referral (opsional)" autocapitalize="none" value="${esc(REFQ)}">${REFQ ? '<small class="gr">🎉 Diajak lewat link referral — kode sudah terisi otomatis.</small>' : '<small class="mu">Punya kode referral dari toko lain yang sudah pakai J-POS? Isi di sini.</small>'}<h3 style="margin:8px 0 0">Jenis usaha</h3><div class="tiers" id="bizc">${bizCards()}</div><h3 style="margin:8px 0 0">Pilih paket</h3><div class="tiers" id="tiers">${tierCards()}</div><button class="pr" onclick="doRegUi()">Daftar & mulai</button>${back}</div></div>`;
   if (MODE == 'ha') return head + `<div class="cd fm" style="text-align:left"><h3>🛠 Head Admin (pemilik aplikasi)</h3><input id="hu" placeholder="Username" autocapitalize="none" autocomplete="off"><input id="hp" type="password" placeholder="Password" onkeydown="if(event.key=='Enter')doHaUi()"><button class="pr" onclick="doHaUi()">Masuk</button>${back}<small class="mu" id="srvst">${srvTxt()}</small></div></div>`;
   if (MODE == 'srv') return head + `<div class="cd fm" style="text-align:left"><h3>🔒 Alamat server</h3><small class="mu">Server aktif:</small><b style="overflow-wrap:anywhere">${esc(AP || '(lokal)')}</b>${apiCustom() ? '<small class="or">Memakai alamat khusus yang diatur pemilik toko.</small>' : '<small class="gr">Memakai server bawaan aplikasi.</small>'}
 ${SRVOK ? `<input id="sv" placeholder="https://…workers.dev" value="${esc(AP)}" autocapitalize="none"><button class="pr" onclick="saveApi().then(()=>{checkSrv.t=0;R()})">Simpan & tes koneksi</button>` : `<small class="mu">Alamat server dikunci. Hanya <b>pemilik toko</b> yang bisa mengubahnya — masukkan data pemilik:</small><input id="ovi" placeholder="Kode toko" autocapitalize="none" autocomplete="off" value="${esc((LS.get('jpos:last', null) || {}).id || '')}"><input id="ovn" placeholder="Nama pemilik" autocomplete="off"><input id="ovp" type="password" inputmode="numeric" placeholder="PIN pemilik"><button class="pr" onclick="srvUnlock()">Buka kunci</button>`}
@@ -150,6 +150,7 @@ ${apiCustom() || LS.get('jpos:apiAuto', '') ? '<button class="gh" onclick="srvRe
 /* ---------- pilihan paket saat daftar ---------- */
 const PKGDEF = { biasa: { n: 'Standar · Kios', max: 3, pr: 25000, f: 'dash pos his prod prodEdit outlet abs chat set usr retur kas lap xls backup shiftSet gaji meja' }, standar: { n: 'Medium · Grosir', max: 15, pr: 50000, f: 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana cek kirim terima tgt tgtAll tgtSet shiftSet kiosMap kanvas gaji gps meja' }, high: { n: 'High · Distributor', max: 100, pr: 100000, f: 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana jur kirim cek terima anti aud tgt tgtAll tgtSet shiftSet kiosMap dnet kanvas gaji gps meja' } };
 let regTier = 'standar';
+let REFQ = ''; // kode referral dari link yang dibagikan (?ref=kodetoko), diisi otomatis ke form daftar
 // jenis usaha saat daftar: menentukan apakah fitur bahan baku/resep & meja (coffee shop/resto) ditampilkan — disimpan ke S.set.biz
 let regBiz = 'retail';
 const BIZUI = { retail: ['🏪', 'Retail / Toko & Distribusi', 'Kasir, stok barang jadi, outlet pelanggan, dropping'], cafe: ['☕', 'Coffee Shop & Resto', 'Tambahan: bahan baku + resep (stok otomatis terpotong saat menu laku), meja & pesan via QR, peran Barista/Pelayan'] };
@@ -176,7 +177,7 @@ async function busy(btn, fn) { const t = btn.textContent; btn.disabled = true; b
 function doLoginUi() { busy(event.target.closest('button') || $('.pr'), async () => { const id = $('#lid').value.trim().toLowerCase(), nm = $('#lnm').value.trim(), pn = $('#lpn').value; await doLogin(id, nm, pn); MODE = 'home'; if (typeof bioOffer == 'function' && U) bioOffer(id, U.n, pn); }); }
 function doRegUi() {
   const n = $('#rn').value.trim(), o = $('#ro').value.trim(); if (n.length < 3 || !/^[\p{L}\p{N} ._-]{2,40}$/u.test(o)) return toast('Isi nama toko (min 3 huruf) dan nama pemilik');
-  busy(event.target, async () => { await registerStore(n, o, $('#re').value.trim(), $('#rp').value, $('#rc').value, $('#rh').value.trim(), regBiz); MODE = 'home'; });
+  busy(event.target, async () => { await registerStore(n, o, $('#re').value.trim(), $('#rp').value, $('#rc').value, $('#rh').value.trim(), regBiz, $('#rf').value.trim()); MODE = 'home'; });
 }
 function doHaUi() { busy(event.target, async () => { await haLogin($('#hu').value.trim(), $('#hp').value); MODE = 'ha'; HA.d = null; R(); haLoad(); }); }
 async function startDemo() {
@@ -207,11 +208,15 @@ async function pwaInstall() { if (!PWAIP) return; try { PWAIP.prompt(); await PW
   // cukup buka link di browser HP (kamera → link https://.../?s=<kode toko>&meja=<nomor meja>). Memakai jalur
   // belanja online yang sudah ada (bOpenStore + metode "Ambil sendiri") — bukan endpoint publik baru.
   try {
-    const qp = new URLSearchParams(location.search), qSid = qp.get('s'), qMeja = qp.get('meja');
+    const qp = new URLSearchParams(location.search), qSid = qp.get('s'), qMeja = qp.get('meja'), qRef = qp.get('ref');
     if (qSid) {
       history.replaceState(null, '', location.pathname);
       startBuyer(); bOpenStore(qSid);
       if (qMeja) BY.co[qSid] = { m: 'ambil', vc: '', vd: 0, q: null, note: 'Meja ' + qMeja };
+    } else if (qRef && /^[a-z0-9]{6,20}$/.test(qRef) && !U) {
+      // link referral (?ref=kodetoko) dari toko lain yang mengajak → langsung buka form daftar, kode referral terisi otomatis
+      history.replaceState(null, '', location.pathname);
+      REFQ = qRef; MODE = 'reg';
     }
   } catch (e) { }
   if (HT) { MODE = 'ha'; R(); haLoad(); } else R();
