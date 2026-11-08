@@ -13,5 +13,7 @@ for (const f of feats) if (!x.includes(f.match(/name="([^"]+)"/)[1])) add += '  
 if (!x.includes('ru.a402d.rawbtprinter')) add += '    <queries>\n        <package android:name="ru.a402d.rawbtprinter" />\n        <intent><action android:name="android.intent.action.VIEW" /><data android:scheme="rawbt" /></intent>\n    </queries>\n';
 if (add) x = x.replace(/<\/manifest>\s*$/, add + '</manifest>\n');
 if (!/android:usesCleartextTraffic/.test(x)) x = x.replace('<application', '<application android:usesCleartextTraffic="false"');
+// Data toko (transaksi, sesi) sensitif — jangan ikut auto-backup Android ke Google Drive pengguna.
+x = x.replace(/android:allowBackup="true"/, 'android:allowBackup="false"');
 fs.writeFileSync(mf, x);
 console.log('Manifest dipatch:', add.trim().split('\n').length, 'baris ditambahkan');
