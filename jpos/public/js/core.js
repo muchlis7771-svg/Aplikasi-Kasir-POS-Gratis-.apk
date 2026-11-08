@@ -148,9 +148,12 @@ const Ap = {
     const ar = e.tot - paid;
     S.sales.push({ ...e, pa: paid });
     for (const i of e.L) {
-      const p = prod(i.id); if (p) p.st -= i.q; if (e.r == 'kanvas') vanAdd(e.u, i.id, -i.q);
+      const p = prod(i.id), hasRcp = p && Array.isArray(p.rcp) && p.rcp.length;
+      // menu dengan resep: stoknya sendiri tidak dilacak manual lagi (otomatis dari bahan baku — lihat pStock()), jadi p.st tidak dikurangi di sini
+      if (p && !hasRcp) p.st -= i.q;
+      if (e.r == 'kanvas') vanAdd(e.u, i.id, -i.q);
       // resep bahan baku (coffee shop): tiap menu terjual otomatis memotong stok bahan bakunya sesuai takaran
-      if (p && Array.isArray(p.rcp)) for (const r of p.rcp) { const bk = prod(r.id); if (bk) bk.st -= r.q * i.q; }
+      if (hasRcp) for (const r of p.rcp) { const bk = prod(r.id); if (bk) bk.st -= r.q * i.q; }
     }
     jr(e, 'Penjualan ' + e.no + ' (' + e.pay + ')', [[payAcc(e.pay == 'Piutang' ? e.dpm || 'Tunai' : e.pay), paid, 0], ['1103', ar, 0], ['4102', e.disc, 0], ['4101', 0, e.sub], ['2101', 0, e.tax]]);
     jr(e, 'HPP ' + e.no, [['5101', e.hpp, 0], ['1201', 0, e.hpp]]);

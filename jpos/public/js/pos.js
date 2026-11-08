@@ -15,6 +15,15 @@ const krAuto = () => !!(U && S && U.r == 'sales' && pkgHas('kirim') && S.srv && 
 const krOn = () => U && U.r != 'kanvas' && (cKr == null ? krAuto() : cKr) && !!cCu && pkgHas('kirim') && !!S.srv;
 const actProds = () => S.p.filter((p) => !p.x && !p.ing); // bahan baku (coffee shop) dikecualikan dari katalog jual — lihat ingProds()
 const ingProds = () => S.p.filter((p) => !p.x && p.ing); // daftar bahan baku saja
+// stok efektif menu: kalau menu punya resep (bahan baku + takaran), stok TIDAK dilacak manual lagi — otomatis dihitung
+// dari stok bahan baku yang paling membatasi (dibagi takaran per porsi). Menu tanpa resep tetap pakai stok manual (p.st) seperti biasa.
+function pStock(p) {
+  if (!p) return 0;
+  if (!(Array.isArray(p.rcp) && p.rcp.length)) return p.st;
+  let m = Infinity;
+  for (const r of p.rcp) { const bk = prod(r.id), v = bk ? Math.floor(bk.st / r.q) : 0; if (v < m) m = v; }
+  return isFinite(m) ? Math.max(0, m) : 0;
+}
 // cocokkan kode hasil scan: persis, lalu tanpa spasi / nol di depan (UPC-A 12 digit = EAN-13 berawalan 0), lalu kode item
 const skuNorm = (v) => { const s = String(v ?? '').trim().toLowerCase().replace(/\s+/g, ''); return /^\d+$/.test(s) ? s.replace(/^0+/, '') : s; };
 const bySku = (v) => { const k = String(v).trim().toLowerCase(), n = skuNorm(v); if (!k) return null; return S.p.find((p) => !p.x && p.sku && String(p.sku).trim().toLowerCase() == k) || S.p.find((p) => !p.x && p.sku && skuNorm(p.sku) == n) || S.p.find((p) => !p.x && p.kd && p.kd.toLowerCase() == k); };
@@ -24,7 +33,7 @@ const tierTxt = (p) => (p.tiers || []).slice().sort((a, b) => a.min - b.min).map
 function gridH() {
   const t = pQ.toLowerCase(), promoSet = typeof promoSkuSet == 'function' ? promoSkuSet() : new Set(), focus = focusSet();
   const L = actProds().filter((p) => (!pCat || p.c == pCat) && (!pSup || (p.sup || '') == pSup) && (!pPromo || promoSet.has(p.id)) && (!pFocus || focus.has(p.id)) && (!t || p.n.toLowerCase().includes(t) || String(p.sku || '').toLowerCase().includes(t) || String(p.kd || '').toLowerCase().includes(t)));
-  return L.map((p) => `<button class="pc" ${(U.r == 'kanvas' ? vanQ(U.n, p.id) : p.st) < 1 ? 'disabled' : ''} onclick="padd('${p.id}')">${promoSet.has(p.id) || focus.has(p.id) ? `<i style="position:absolute;top:4px;right:4px;font-style:normal">${focus.has(p.id) ? '⭐' : ''}${promoSet.has(p.id) ? '🎁' : ''}</i>` : ''}<em style="background:${COL[p.c.length % COL.length]}">${p.img ? `<img src="${esc(p.img)}" alt="">` : esc(p.n[0] || '?')}</em><b>${esc(p.n)}</b><small>${p.kd ? esc(p.kd) + ' · ' : ''}${U.r == 'kanvas' ? '🚚 mobil ' + vanQ(U.n, p.id) : 'stok ' + p.st}</small>${p.tiers && p.tiers.length ? `<small class="or">${esc(tierTxt(p))}</small>` : ''}<span>${rp(p.pr)}</span></button>`).join('') || '<p class="mu">Produk tidak ditemukan dengan filter ini</p>';
+  return L.map((p) => `<button class="pc" ${(U.r == 'kanvas' ? vanQ(U.n, p.id) : pStock(p)) < 1 ? 'disabled' : ''} onclick="padd('${p.id}')">${promoSet.has(p.id) || focus.has(p.id) ? `<i style="position:absolute;top:4px;right:4px;font-style:normal">${focus.has(p.id) ? '⭐' : ''}${promoSet.has(p.id) ? '🎁' : ''}</i>` : ''}<em style="background:${COL[p.c.length % COL.length]}">${p.img ? `<img src="${esc(p.img)}" alt="">` : esc(p.n[0] || '?')}</em><b>${esc(p.n)}</b><small>${p.kd ? esc(p.kd) + ' · ' : ''}${U.r == 'kanvas' ? '🚚 mobil ' + vanQ(U.n, p.id) : 'stok ' + pStock(p)}</small>${p.tiers && p.tiers.length ? `<small class="or">${esc(tierTxt(p))}</small>` : ''}<span>${rp(p.pr)}</span></button>`).join('') || '<p class="mu">Produk tidak ditemukan dengan filter ini</p>';
 }
 const catsH = () => { const cs = [...new Set(actProds().map((p) => p.c))].sort(); return cs.length > 1 ? `<div class="seg"><button class="${pCat ? '' : 'a'}" onclick="pcat('')">Semua</button>${cs.map((c) => `<button class="${pCat == c ? 'a' : ''}" onclick="pcat(this.dataset.c)" data-c="${esc(c)}">${esc(c)}</button>`).join('')}</div>` : ''; };
 // filter cepat untuk mempermudah sales/kanvas order: per supplier, produk sedang promo, dan item fokus (target bulan ini)
@@ -99,11 +108,11 @@ const pcat = (c) => { pCat = c; $('#pcats').innerHTML = catsH(); $('#pg').innerH
 function padd(id, n = 1) {
   const p = prod(id); if (!p) return;
   const c = cart.find((x) => x.id == id && !x.free), q = (c ? c.q : 0) + n;
-  const mx = U.r == 'kanvas' ? vanQ(U.n, id) : p.st; if (q > mx) { toast((U.r == 'kanvas' ? 'Stok ' + p.n + ' di mobil hanya ' : 'Stok ' + p.n + ' hanya ') + mx); return cartUp(); }
+  const mx = U.r == 'kanvas' ? vanQ(U.n, id) : pStock(p); if (q > mx) { toast((U.r == 'kanvas' ? 'Stok ' + p.n + ' di mobil hanya ' : 'Stok ' + p.n + ' hanya ') + mx); return cartUp(); }
   if (c) c.q = q; else cart.push({ id, q: n, ld: '' }); cartUp();
 }
-function pset(idx, v) { const c = cart[idx]; if (!c) return; const p = prod(c.id); let q = Math.max(1, num(v)); const mx = U.r == 'kanvas' ? vanQ(U.n, c.id) : p.st; if (q > mx) { q = mx; toast('Stok ' + p.n + ' hanya ' + mx); } c.q = q; cartUp(); }
-function pstep(idx, d) { const c = cart[idx]; if (!c) return; if (c.q + d < 1) return pdel(idx); const p = prod(c.id), mx = U.r == 'kanvas' ? vanQ(U.n, c.id) : p.st; if (c.q + d > mx) { toast('Stok ' + p.n + ' hanya ' + mx); return; } c.q += d; cartUp(); }
+function pset(idx, v) { const c = cart[idx]; if (!c) return; const p = prod(c.id); let q = Math.max(1, num(v)); const mx = U.r == 'kanvas' ? vanQ(U.n, c.id) : pStock(p); if (q > mx) { q = mx; toast('Stok ' + p.n + ' hanya ' + mx); } c.q = q; cartUp(); }
+function pstep(idx, d) { const c = cart[idx]; if (!c) return; if (c.q + d < 1) return pdel(idx); const p = prod(c.id), mx = U.r == 'kanvas' ? vanQ(U.n, c.id) : pStock(p); if (c.q + d > mx) { toast('Stok ' + p.n + ' hanya ' + mx); return; } c.q += d; cartUp(); }
 const pdel = (idx) => { cart.splice(idx, 1); cartUp(); };
 const pld = (idx, v) => { const c = cart[idx]; if (c) c.ld = v.replace(/[^\d.,+]/g, ''); cartUp(); };
 const pcu = (id) => { cCu = id; if (!id && cPay == 'Piutang') cPay = 'Tunai'; cartUp(); };
