@@ -22,6 +22,10 @@ export const HSCHEMA = [
   // rincian pengunjung website (negara/kota dari jaringan Cloudflare, jenis perangkat dari User-Agent) — disimpan 30 hari untuk tab Statistik Head Admin
   'CREATE TABLE IF NOT EXISTS visits(id INTEGER PRIMARY KEY AUTOINCREMENT,t INTEGER,country TEXT,city TEXT,dev TEXT)',
   'CREATE INDEX IF NOT EXISTS visits_t ON visits(t)',
+  // referral: toko lama ("store_id") mengajak toko baru ("new_store_id") pakai kode toko sendiri sebagai kode referral —
+  // tercatat otomatis saat pendaftaran valid (toko pengundang memang ada), tanpa perlu persetujuan manual Head Admin
+  'CREATE TABLE IF NOT EXISTS referrals(id INTEGER PRIMARY KEY AUTOINCREMENT,store_id TEXT NOT NULL,new_store_id TEXT NOT NULL,new_name TEXT,t INTEGER)',
+  'CREATE INDEX IF NOT EXISTS referrals_store ON referrals(store_id,t)', 'CREATE INDEX IF NOT EXISTS referrals_new ON referrals(new_store_id)',
 ];
 const VIS_DAYS = 31, DAY = 864e5, INV_TTL = 3 * DAY, MONTHS = [1, 3, 6, 12];
 const pj = (s, d) => { try { return JSON.parse(s); } catch (e) { return d; } };
@@ -141,6 +145,13 @@ export async function hqStore(x) {
     const L = (await env.DB.prepare('SELECT id,by,cat,sub,st,t,upd,us,msgs FROM tiket WHERE store_id=? ORDER BY upd DESC LIMIT 40').bind(sid).all()).results;
     return J({ list: L.map((r) => ({ ...r, msgs: pj(r.msgs, []) })), cats: CATS });
   }
+  // kode referral toko ini = kode toko sendiri (sudah unik) — tinggal dibagikan ke toko lain yang mau daftar
+  if (p == '/api/referral' && M == 'GET') {
+    if (role != 'owner') return J({ e: 'Hanya pemilik toko yang bisa melihat referral' }, 403);
+    const n = await env.DB.prepare('SELECT COUNT(*) c FROM referrals WHERE store_id=?').bind(sid).first();
+    const L = (await env.DB.prepare('SELECT new_store_id,new_name,t FROM referrals WHERE store_id=? ORDER BY t DESC LIMIT 50').bind(sid).all()).results;
+    return J({ code: sid, count: n.c || 0, list: L });
+  }
   return null;
 }
 
@@ -200,6 +211,12 @@ export async function hqAdmin(x) {
     const st = ['baru', 'dihubungi', 'deal', 'batal'].includes(b.st) ? b.st : null;
     await env.DB.prepare('UPDATE leads SET st=COALESCE(?,st),hnote=COALESCE(?,hnote),upd=? WHERE id=?').bind(st, b.hnote != null ? clip(b.hnote, 300) : null, now, +m[1]).run();
     return J({ ok: 1 });
+  }
+  if (p == '/api/admin/referrals') {
+    const top = (await env.DB.prepare('SELECT r.store_id,s.name sname,COUNT(*) n FROM referrals r LEFT JOIN stores s ON s.id=r.store_id GROUP BY r.store_id ORDER BY n DESC LIMIT 20').all()).results;
+    const recent = (await env.DB.prepare('SELECT r.store_id,s.name sname,r.new_store_id,r.new_name,r.t FROM referrals r LEFT JOIN stores s ON s.id=r.store_id ORDER BY r.t DESC LIMIT 50').all()).results;
+    const n = await env.DB.prepare('SELECT COUNT(*) c FROM referrals').first();
+    return J({ total: n.c || 0, top, recent });
   }
   if (p == '/api/admin/tiket') {
     const st = ['baru', 'proses', 'selesai'].includes(x.u.searchParams.get('st')) ? x.u.searchParams.get('st') : '';
@@ -359,6 +376,8 @@ export async function siteHit(env, ip, J, limited, b, req) {
   const st = [env.DB.prepare(ins).bind('v:' + day)]; if (src) st.push(env.DB.prepare(ins).bind('s:' + src + ':' + day));
   const cf = (req && req.cf) || {}, country = typeof cf.country == 'string' ? cf.country.slice(0, 4) : null, city = typeof cf.city == 'string' ? clip(cf.city, 60) : null;
   st.push(env.DB.prepare('INSERT INTO visits(t,country,city,dev) VALUES(?,?,?,?)').bind(Date.now(), country, city, uaDev(req && req.headers.get('user-agent'))));
+  // batasi tabel visits maksimal 100 baris terbaru saja, biar tidak boros storage D1
+  st.push(env.DB.prepare('DELETE FROM visits WHERE id NOT IN (SELECT id FROM visits ORDER BY t DESC LIMIT 100)'));
   await env.DB.batch(st); return J({ ok: 1 });
 }
 export async function pruneVisits(env, now) { await env.DB.prepare('DELETE FROM visits WHERE t<?').bind(now - VIS_DAYS * DAY).run(); }

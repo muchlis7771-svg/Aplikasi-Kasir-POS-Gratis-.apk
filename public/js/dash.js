@@ -273,7 +273,7 @@ function tutupKasir() {
 }
 
 /* ============ HEAD ADMIN (pemilik aplikasi) ============ */
-const HA = { d: null, stores: [], q: '', f: 'all', cfg: null, err: '' };
+const HA = { d: null, stores: [], q: '', f: 'all', cfg: null, err: '', ref: null };
 const PLANS = [['trial', 'Trial'], ['bulanan', 'Bulanan'], ['3bulan', '3 Bulan'], ['tahunan', 'Tahunan'], ['premium', 'Premium'], ['lifetime', '🔑 Lisensi Lifetime']];
 const planName = (p) => (PLANS.find((x) => x[0] == p) || [p, p || '-'])[1];
 const sDays = (s) => (s.exp ? calDays(s.exp) : null);
@@ -282,10 +282,19 @@ const expChip = (s) => { if (s.status == 'active' && s.plan == 'lifetime') retur
 const waLink = (no, txt) => 'https://wa.me/' + String(no || '').replace(/^0/, '62').replace(/\D/g, '') + '?text=' + encodeURIComponent(txt);
 async function haLoad() {
   try {
-    const [st, ss, cf] = await Promise.all([haApi('/api/admin/stats?tz=' + -new Date().getTimezoneOffset() / 60), haApi('/api/admin/stores'), haApi('/api/admin/cfg')]);
-    HA.d = st; HA.stores = ss.stores; HA.cfg = cf; HA.err = ''; HT && R();
+    const [st, ss, cf, rf] = await Promise.all([haApi('/api/admin/stats?tz=' + -new Date().getTimezoneOffset() / 60), haApi('/api/admin/stores'), haApi('/api/admin/cfg'), haApi('/api/admin/referrals').catch(() => null)]);
+    HA.d = st; HA.stores = ss.stores; HA.cfg = cf; HA.ref = rf; HA.err = ''; HT && R();
   } catch (e) { if (e.status == 401) { haOut(); toast('Sesi berakhir, login ulang'); } else { HA.err = e.message; R(); } }
   haPulse();
+}
+// kartu referral antar toko: toko teratas yang paling banyak mengajak, dan daftar pendaftaran terbaru lewat referral — tercatat otomatis, tanpa perlu persetujuan
+function haRefCard() {
+  const r = HA.ref; if (!r) return '';
+  const nm = (x) => x.sname || x.store_id;
+  return `<div class="cd"><h3>🤝 Referral antar toko</h3><small class="mu">${r.total} pendaftaran toko baru lewat kode referral toko lain</small>`
+    + (r.total ? `<div class="two" style="margin-top:8px"><div><b>Toko paling banyak mengajak</b>${bars(r.top.map((x) => ({ l: nm(x), v: x.n })), (v) => v)}</div>`
+      + `<div><b>Pendaftaran terbaru</b><ul style="margin:6px 0 0;padding-left:18px">${r.recent.slice(0, 10).map((x) => `<li><small>${esc(x.new_name || x.new_store_id)} · diajak <b>${esc(nm(x))}</b> · ${dstr(x.t)}</small></li>`).join('') || '<li><small class="mu">Belum ada</small></li>'}</ul></div></div>` : '')
+    + `</div>`;
 }
 // ringkasan cepat hari ini (kunjungan website, buka app tanpa login, login karyawan/pemilik) — lencana di tab Aktivitas
 let HPULSE = null;
@@ -303,6 +312,7 @@ function haView() {
 ${L.map((s) => `<div class="sc"><div class="row" style="margin:0"><span><b>${esc(s.name)}</b> <span class="chip">${esc(planName(s.plan))}</span> <span class="chip o">${esc(tierName(s.tier))}</span><br><small class="mu">Kode <b>${esc(s.id)}</b> · ${esc(s.owner || '')}${s.phone ? ' · ' + esc(s.phone) : ''}</small></span>${expChip(s)}</div><small class="mu">Daftar ${dstr(s.created)} · aktif s/d ${s.exp ? dstr(s.exp) : '-'} · ${s.users} user · ${s.tx} trx · ${rp(s.omzet)}${s.last ? ' · terakhir ' + dstr(s.last) : ''}</small><div class="wrap" style="margin-top:6px"><button class="gh a" onclick="haExt('${esc(s.id)}',30)">+30 hari</button><button class="gh" onclick="haSum('${esc(s.id)}')">📊 Ringkasan</button><button class="gh" onclick="haStore('${esc(s.id)}')">Kelola</button>${s.phone ? `<a class="gh" target="_blank" href="${esc(waLink(s.phone, 'Halo ' + (s.owner || '') + ', terkait aplikasi J-POS toko ' + s.name + ' (kode ' + s.id + ')'))}">WhatsApp</a>` : ''}</div></div>`).join('') || '<p class="mu">Tidak ada toko</p>'}</div>`
     + `<div class="cd"><h3>📈 Omzet seluruh toko · 14 hari</h3>${area(fill14(HA.d.daily))}</div>`
     + `<div class="two"><div class="cd"><h3>🆕 Pendaftaran toko baru</h3>${vbars(fill14(HA.d.signups), (v) => v)}</div><div class="cd"><h3>🏆 Toko teratas (30 hari)</h3>${bars(HA.d.top.map((x) => ({ l: x.name, v: x.v })), rp)}</div></div>`
+    + haRefCard()
     + `<details class="hamore"><summary>⚙️ Pengaturan lanjutan</summary>`
     + `<div class="cd"><h3>💳 Pengaturan langganan</h3><div class="fm"><label><small class="mu">No. WhatsApp Anda (tampil saat masa aktif toko habis)</small><input id="cw" inputmode="tel" placeholder="62812xxxx" value="${esc(HA.cfg ? HA.cfg.wa : '')}"></label><label><small class="mu">Info harga / cara bayar</small><textarea id="cp" rows="3" placeholder="Contoh: Rp99.000/bulan · Rp999.000/tahun. Transfer BCA 123… a.n. …">${esc(HA.cfg ? HA.cfg.price : '')}</textarea></label><label><small class="mu">Lama masa coba toko baru (hari)</small><input id="ctd" type="number" min="1" max="365" value="${HA.cfg ? HA.cfg.trial_days : 30}"></label><button class="pr" onclick="haCfg()">Simpan pengaturan</button></div></div>`
     + haPkgCard() + (typeof haGwCard == 'function' ? haGwCard() : '')

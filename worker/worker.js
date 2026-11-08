@@ -76,7 +76,7 @@ function ready(env) {
   if (!READY) READY = (async () => {
     await env.DB.batch([...SCHEMA, ...MSCHEMA, ...SSCHEMA, ...RSCHEMA, ...MSCH2, ...HSCHEMA].map((q) => env.DB.prepare(q)));
     for (const c of [...SALTER, ...RALTER]) { try { await env.DB.prepare('ALTER TABLE ' + c).run(); } catch (e) { } }
-    for (const c of ['phone TEXT', 'exp INTEGER', "plan TEXT DEFAULT 'trial'", 'note TEXT', "tier TEXT DEFAULT 'high'", 'perm TEXT']) { try { await env.DB.prepare('ALTER TABLE stores ADD COLUMN ' + c).run(); } catch (e) { } }
+    for (const c of ['phone TEXT', 'exp INTEGER', "plan TEXT DEFAULT 'trial'", 'note TEXT', "tier TEXT DEFAULT 'high'", 'perm TEXT', 'ref_by TEXT']) { try { await env.DB.prepare('ALTER TABLE stores ADD COLUMN ' + c).run(); } catch (e) { } }
     for (const c of ['sess TEXT']) { try { await env.DB.prepare('ALTER TABLE staff ADD COLUMN ' + c).run(); } catch (e) { } }
   })().catch((e) => { READY = null; throw e; });
   return READY;
@@ -168,13 +168,19 @@ export default {
         const email = String(b.email || '').trim().toLowerCase(), pin = String(b.pin || ''), phone = String(b.phone || '').replace(/[^\d+]/g, '').slice(0, 20);
         if (!SID.test(id) || !store || !NAME.test(owner) || (email && !/^\S+@\S+\.\S+$/.test(email)) || !PIN.test(pin)) return J({ e: 'Data tidak valid (nama pemilik, email, atau PIN 4-8 angka)' }, 400);
         const c = await cfgAll(env), now = Date.now(), exp = now + (+(c.trial_days || 30)) * DAY, tier = ['biasa', 'standar', 'high'].includes(b.tier) ? b.tier : c.trial_tier || 'high';
+        // referral: kode toko pengundang = kode toko pengundang itu sendiri. Divalidasi otomatis (toko harus benar-benar ada,
+        // tidak boleh mengundang diri sendiri) — begitu valid, langsung tercatat tanpa perlu Head Admin menyetujui manual.
+        const refCode = String(b.ref || '').trim().toLowerCase();
+        const ref = refCode && refCode != id && SID.test(refCode) ? await env.DB.prepare('SELECT id FROM stores WHERE id=?').bind(refCode).first() : null;
         try {
-          await env.DB.batch([
-            env.DB.prepare("INSERT INTO stores(id,name,owner,email,phone,created,exp,plan,tier) VALUES(?,?,?,?,?,?,?,'trial',?)").bind(id, store, owner, email || null, phone, now, exp, tier),
+          const st = [
+            env.DB.prepare("INSERT INTO stores(id,name,owner,email,phone,created,exp,plan,tier,ref_by) VALUES(?,?,?,?,?,?,?,'trial',?,?)").bind(id, store, owner, email || null, phone, now, exp, tier, ref ? ref.id : null),
             env.DB.prepare('INSERT INTO staff(store_id,name,role,pin_hash,created) VALUES(?,?,?,?,?)').bind(id, owner, 'owner', await hp(pin, id, owner), now),
-          ]);
+          ];
+          if (ref) st.push(env.DB.prepare('INSERT INTO referrals(store_id,new_store_id,new_name,t) VALUES(?,?,?,?)').bind(ref.id, id, store, now));
+          await env.DB.batch(st);
         } catch { return J({ e: 'Email atau kode toko sudah terdaftar' }, 409); }
-        await logAct(env, 'staff', owner, owner, id, 'daftar toko baru', store);
+        await logAct(env, 'staff', owner, owner, id, 'daftar toko baru' + (ref ? ' (referral dari ' + ref.id + ')' : ''), store);
         return J({ token: await sign(env, { sid: id, name: owner, exp: now + 30 * DAY }), role: 'owner', name: owner, sn: store, exp, plan: 'trial', status: 'active', ...stInfo({ exp, plan: 'trial', status: 'active', name: store, tier }) });
       }
       if (p == '/api/login' && M == 'POST') {
@@ -216,7 +222,7 @@ export default {
         if (p == '/api/admin/activity' && M == 'GET') return J(await adminActivity(env, u));
         if (p == '/api/admin/pulse' && M == 'GET') return adminPulse(env, J);
         if (p == '/api/admin/stores' && M == 'GET') {
-          const r = await env.DB.prepare(`SELECT s.id,s.name,s.owner,s.email,s.phone,s.status,s.created,s.exp,s.plan,s.tier,s.note,
+          const r = await env.DB.prepare(`SELECT s.id,s.name,s.owner,s.email,s.phone,s.status,s.created,s.exp,s.plan,s.tier,s.note,s.ref_by,
               (SELECT COUNT(*) FROM staff WHERE store_id=s.id) users, COALESCE(e.n,0) tx, COALESCE(e.o,0) omzet, COALESCE(e.n30,0) tx30, COALESCE(e.o30,0) om30, e.last,
               sn.t snt, json_extract(sn.data,'$.sv') sv, json_extract(sn.data,'$.nsku') nsku, json_extract(sn.data,'$.qty') qty, json_extract(sn.data,'$.nlow') nlow, json_extract(sn.data,'$.ar') ar, json_extract(sn.data,'$.od') od,
               json_extract(sn.data,'$.ap') ap, json_extract(sn.data,'$.lm') lm, json_extract(sn.data,'$.om') om, json_extract(sn.data,'$.kas') kas, json_extract(sn.data,'$.bank') bank

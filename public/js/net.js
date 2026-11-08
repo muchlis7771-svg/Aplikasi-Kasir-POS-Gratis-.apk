@@ -118,8 +118,9 @@ async function doLogin(id, name, pin) {
   }
   return loginLocal(id, name, pin);
 }
-async function registerStore(name, owner, email, pin, code, phone, biz) {
+async function registerStore(name, owner, email, pin, code, phone, biz, ref) {
   let id = String(code || '').trim().toLowerCase();
+  ref = String(ref || '').trim().toLowerCase();
   if (id && !/^[a-z0-9]{6,20}$/.test(id)) throw new Error('Kode toko: 6–20 huruf kecil/angka');
   if (!/^\d{4,8}$/.test(pin)) throw new Error('PIN harus 4–8 angka');
   biz = biz == 'cafe' ? 'cafe' : 'retail'; // jenis usaha: disimpan via event 'set' (S.set.biz) — tidak perlu kolom D1 baru
@@ -131,7 +132,7 @@ async function registerStore(name, owner, email, pin, code, phone, biz) {
     let down = false;
     for (let i = 0; i < 4; i++) {
       const cid = id || Math.random().toString(36).slice(2, 8).padEnd(6, 'x');
-      try { const r = await post('/api/register', { id: cid, store: name, owner, email, pin, phone, tier: typeof regTier != 'undefined' ? regTier : undefined }, ''); await enterStore(cid, r, pin); if (biz == 'cafe') emit('set', { set: { biz } }); toast('Toko dibuat. Kode toko: ' + cid, 9000); return; }
+      try { const r = await post('/api/register', { id: cid, store: name, owner, email, pin, phone, ref, tier: typeof regTier != 'undefined' ? regTier : undefined }, ''); await enterStore(cid, r, pin); if (biz == 'cafe') emit('set', { set: { biz } }); toast('Toko dibuat. Kode toko: ' + cid + '. Ini juga kode referral Anda — bagikan ke toko lain lewat menu Pengaturan.', 10000); return; }
       catch (e) { if (e.status == 409 && !id && /kode/i.test(e.message)) continue; if (e.net || e.status == 404 || e.status >= 500) { toast('Server belum aktif — toko dibuat dalam mode lokal di HP ini', 6000); down = true; break; } throw e; }
     }
     if (!down) throw new Error('Gagal membuat kode toko, coba lagi');
