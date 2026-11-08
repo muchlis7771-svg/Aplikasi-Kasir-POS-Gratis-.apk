@@ -19,6 +19,9 @@ export const HSCHEMA = [
   // lisensi "sekali beli": satu kode (dibuat Head Admin) boleh dipakai sejumlah `acts` aktivasi (toko/perangkat); harga bebas ditentukan Head Admin per kode
   "CREATE TABLE IF NOT EXISTS serials(sn TEXT PRIMARY KEY,tier TEXT DEFAULT 'high',acts INTEGER DEFAULT 1,used INTEGER DEFAULT 0,price INTEGER DEFAULT 0,note TEXT,active INTEGER DEFAULT 1,created INTEGER,by TEXT)",
   'CREATE TABLE IF NOT EXISTS activations(id INTEGER PRIMARY KEY AUTOINCREMENT,sn TEXT NOT NULL,store_id TEXT NOT NULL,t INTEGER)', 'CREATE UNIQUE INDEX IF NOT EXISTS act_u ON activations(sn,store_id)', 'CREATE INDEX IF NOT EXISTS act_sn ON activations(sn)',
+  // rincian pengunjung website (negara/kota dari jaringan Cloudflare, jenis perangkat dari User-Agent) — disimpan 30 hari untuk tab Statistik Head Admin
+  'CREATE TABLE IF NOT EXISTS visits(id INTEGER PRIMARY KEY AUTOINCREMENT,t INTEGER,country TEXT,city TEXT,dev TEXT)',
+  'CREATE INDEX IF NOT EXISTS visits_t ON visits(t)',
 ];
 const VIS_DAYS = 31, DAY = 864e5, INV_TTL = 3 * DAY, MONTHS = [1, 3, 6, 12];
 const pj = (s, d) => { try { return JSON.parse(s); } catch (e) { return d; } };
@@ -339,12 +342,26 @@ export function siteClean(raw, base) {
   return o;
 }
 export const siteOf = (C) => { try { return siteClean(JSON.parse(C.site || 'null'), SITE_DEF); } catch (e) { return siteClean(null, SITE_DEF); } };
-export async function siteHit(env, ip, J, limited, b) {
+// perangkat dari User-Agent — pengenalan ringan, cukup untuk statistik (bukan untuk sidik jari/pelacakan individu)
+function uaDev(ua) {
+  ua = String(ua || '');
+  if (/iPad/.test(ua)) return 'iPad';
+  if (/iPhone/.test(ua)) return 'iPhone';
+  if (/Android/.test(ua)) return /Mobile/.test(ua) ? 'Android (HP)' : 'Android (tablet)';
+  if (/Windows/.test(ua)) return 'Windows';
+  if (/Macintosh|Mac OS/.test(ua)) return 'Mac';
+  if (/Linux/.test(ua)) return 'Linux';
+  return 'Lainnya';
+}
+export async function siteHit(env, ip, J, limited, b, req) {
   if (await limited(env, 'hit:' + ip, 40, 36e5)) return J({ ok: 1 });
   const day = new Date(Date.now() + 288e5).toISOString().slice(0, 10), src = b && typeof b.src == 'string' && /^[a-z0-9]{1,12}$/.test(b.src) ? b.src : '', ins = "INSERT INTO sitehits(k,n) VALUES(?,1) ON CONFLICT(k) DO UPDATE SET n=n+1";
   const st = [env.DB.prepare(ins).bind('v:' + day)]; if (src) st.push(env.DB.prepare(ins).bind('s:' + src + ':' + day));
+  const cf = (req && req.cf) || {}, country = typeof cf.country == 'string' ? cf.country.slice(0, 4) : null, city = typeof cf.city == 'string' ? clip(cf.city, 60) : null;
+  st.push(env.DB.prepare('INSERT INTO visits(t,country,city,dev) VALUES(?,?,?,?)').bind(Date.now(), country, city, uaDev(req && req.headers.get('user-agent'))));
   await env.DB.batch(st); return J({ ok: 1 });
 }
+export async function pruneVisits(env, now) { await env.DB.prepare('DELETE FROM visits WHERE t<?').bind(now - VIS_DAYS * DAY).run(); }
 async function siteAdmin(x) {
   const { env, p, M, b, J, C, cfgSet } = x;
   if (p == '/api/admin/site') {
@@ -358,6 +375,15 @@ async function siteAdmin(x) {
     const L = (await env.DB.prepare("SELECT strftime('%Y-%m-%d',(t/1000)+28800,'unixepoch') d,COUNT(*) n FROM leads WHERE t>? GROUP BY d").bind(Date.now() - 15 * DAY).all()).results, lm = {}; for (const y of L) lm[y.d] = y.n;
     const srcs = {}; for (const x2 of r) if (x2.k.startsWith('s:') && x2.k.slice(-10) >= days[0]) { const n2 = x2.k.slice(2, -11); srcs[n2] = (srcs[n2] || 0) + x2.n; }
     return J({ src: srcs, days: days.map((d) => ({ d, v: mp['v:' + d] || 0, a: mp['a:' + d] || 0, dl: mp['d:' + d] || 0, gh: mp['g:' + d] || 0, o: lm[d] || 0 })) });
+  }
+  if (p == '/api/admin/site/visits') {
+    const since = Date.now() - VIS_DAYS * DAY;
+    const [rows, byC, byD] = await Promise.all([
+      env.DB.prepare('SELECT t,country,city,dev FROM visits ORDER BY t DESC LIMIT 300').all(),
+      env.DB.prepare("SELECT COALESCE(country,'?') c,COUNT(*) n FROM visits WHERE t>? GROUP BY c ORDER BY n DESC LIMIT 20").bind(since).all(),
+      env.DB.prepare("SELECT COALESCE(dev,'?') d,COUNT(*) n FROM visits WHERE t>? GROUP BY d ORDER BY n DESC").bind(since).all(),
+    ]);
+    return J({ rows: rows.results, byCountry: byC.results, byDev: byD.results });
   }
   return null;
 }

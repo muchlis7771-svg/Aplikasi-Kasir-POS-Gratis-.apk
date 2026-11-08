@@ -6,11 +6,22 @@ const HAW = { med: null, site: null, apk: null, stats: null, busy: false, err: '
 const WCH = 360 * 1024;
 async function haWebLoad() {
   try {
-    const [s, a, st, md] = await Promise.all([haApi('/api/admin/site'), haApi('/api/admin/apk'), haApi('/api/admin/site/stats'), haApi('/api/admin/media')]); HAW.med = md.list;
-    HAW.site = s.site; HAW.def = s.def; HAW.apk = a; HAW.stats = st.days; HAW.src = st.src || {}; HAW.err = '';
+    const [s, a, st, md, vi] = await Promise.all([haApi('/api/admin/site'), haApi('/api/admin/apk'), haApi('/api/admin/site/stats'), haApi('/api/admin/media'), haApi('/api/admin/site/visits')]); HAW.med = md.list;
+    HAW.site = s.site; HAW.def = s.def; HAW.apk = a; HAW.stats = st.days; HAW.src = st.src || {}; HAW.visits = vi; HAW.err = '';
   } catch (e) { if (e.status == 401) return haOut(); HAW.err = e.message; }
   if (MODE == 'ha' && HA.tab == 'web' && !HAW.busy && !document.querySelector('.md')) R();
 }
+// nama negara dari kode ISO (mis. "ID" → "Indonesia"); jika browser tidak mendukung, tampilkan kode saja
+const cName = (c) => { try { return c && c != '?' ? new Intl.DisplayNames(['id'], { type: 'region' }).of(c) : 'Tidak diketahui'; } catch (e) { return c || '?'; } };
+function haVisitsCard() {
+  const V = HAW.visits; if (!V) return '';
+  const area = (r) => (r.country ? cName(r.country) + (r.city ? ' · ' + esc(r.city) : '') : 'Tidak diketahui');
+  return `<div class="cd"><h3>📍 Pengunjung website · ${VIS_DAYS_LBL} hari terakhir</h3><small class="mu">Area (negara/kota) dari jaringan Cloudflare, perangkat dari User-Agent browser — bukan pelacakan pribadi, hanya untuk statistik.</small>
+<small class="mu" style="display:block;margin-top:10px">Area pengunjung</small><div class="wrap" style="margin-top:4px">${V.byCountry.length ? V.byCountry.map((x) => `<span class="chip g">${esc(cName(x.c))} · ${x.n}</span>`).join('') : '<small class="mu">Belum ada data</small>'}</div>
+<small class="mu" style="display:block;margin-top:10px">Perangkat pengunjung</small><div class="wrap" style="margin-top:4px">${V.byDev.length ? V.byDev.map((x) => `<span class="chip">${esc(x.d)} · ${x.n}</span>`).join('') : '<small class="mu">Belum ada data</small>'}</div>
+<small class="mu" style="display:block;margin-top:10px">Kunjungan terbaru</small><div class="ov" style="max-height:340px"><table><tr><th>Tanggal<th>Jam<th>Area<th>Perangkat</tr>${V.rows.length ? V.rows.map((r) => `<tr><td>${dstr(r.t)}<td>${hm(r.t)}<td>${area(r)}<td>${esc(r.dev || '-')}</tr>`).join('') : '<tr><td colspan="4" class="mu">Belum ada kunjungan tercatat</td></tr>'}</table></div></div>`;
+}
+const VIS_DAYS_LBL = 31;
 const wTxt = (id, v, ph, ml) => `<input id="${id}" value="${esc(v || '')}" ${ph ? `placeholder="${esc(ph)}"` : ''} ${ml ? `maxlength="${ml}"` : ''}>`;
 const wChk = (id, on, lb) => `<label class="row wsw"><span>${lb}</span><input type="checkbox" id="${id}" ${on ? 'checked' : ''} style="width:22px;height:22px;flex:none"></label>`;
 function haWebView() {
@@ -44,7 +55,7 @@ ${A.has ? `<div class="hsg" style="margin:10px 0"><div><small>Nama</small><b sty
 <div class="wrap" style="margin-top:8px"><a class="gh pri" target="_blank" rel="noopener" href="${esc(base)}/gh">📥 Buka link unduh GitHub (terlacak)</a><button class="gh" onclick="copyTx('${esc(base)}/gh')">Salin link unduh GitHub</button></div>
 <small class="mu">Pakai link <b>${esc(base.replace(/^https?:\/\//, ''))}/gh</b> ini di flyer, caption FB/Marketplace, atau bio medsos — pengunjung tetap diarahkan ke file APK di GitHub, tapi unduhannya ikut terhitung di statistik di atas.</small>
 <small class="mu">Harga paket diatur di tab <b>Toko</b> (kartu “Harga paket langganan”). Pesanan masuk di tab <b>Pesanan</b>.</small></div>`;
-  return apkCard + haMediaCard() + haKit(base) + ctl + statCard + links;
+  return apkCard + haMediaCard() + haKit(base) + ctl + statCard + haVisitsCard() + links;
 }
 // ---- baca isian form → HAW.site ----
 function haWebCollect() {

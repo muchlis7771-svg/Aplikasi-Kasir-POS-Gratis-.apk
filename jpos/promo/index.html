@@ -42,6 +42,12 @@ nav .links{margin-left:auto;display:flex;gap:26px;font-size:14px;color:var(--mu)
 .ghcta{margin-top:10px;align-items:center}
 .ghnote{font-size:13px;color:var(--mu);align-self:center}
 @media(max-width:860px){.ghnote{display:block;width:100%;text-align:center;margin-top:-4px}}
+.btn.main{padding:18px 34px;font-size:16.5px;animation:dlpulse 2.8s ease-in-out infinite}
+@keyframes dlpulse{0%,100%{box-shadow:0 12px 30px -14px #c9a24a}50%{box-shadow:0 16px 42px -10px #e9c763aa}}
+.dlbadges{display:flex;gap:8px 16px;flex-wrap:wrap;justify-content:center;margin:12px 0 0;font-size:12.5px;color:var(--mu)}
+.dlbadges b{color:var(--gold2);font-weight:600}
+.pwahint{max-width:460px;margin:12px auto 0;font-size:13px;color:var(--mu)}.pwahint b{color:var(--ink)}
+.ctasub{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:12px}
 .eyebrow{display:inline-block;letter-spacing:.3em;text-transform:uppercase;font-size:11px;color:var(--gold2);margin-bottom:18px}
 /* hero */
 .hero{padding:84px 0 40px;text-align:center;background:radial-gradient(800px 420px at 50% -10%,#24407f80,transparent 70%)}
@@ -156,8 +162,13 @@ dialog#vd{border:1px solid #c9a24a66;border-radius:22px;background:#070b1a;color
   <span class="eyebrow">Kasir · Stok · Grosir · Distributor · Coffee Shop</span>
   <h1>Kelola toko &amp; distribusi Anda <span class="gold">dalam satu aplikasi</span></h1>
   <p class="lead">Kasir yang tetap jalan tanpa internet, stok terpantau, sales lapangan dengan GPS, sampai laporan keuangan. Mulai <b style="color:var(--gold2)">Rp25.000/bulan</b>, coba gratis dulu.</p>
-  <div class="cta"><a class="btn g" href="#pesan">Pesan sekarang</a><button class="btn o" id="vidBtn" type="button">🎬 Tonton video 30 detik</button><a class="btn o" id="demoLink" href="#" target="_blank" rel="noopener">▶ Coba demo gratis</a><a class="btn o" id="apkLink" href="apk/J-POS.apk" download hidden>⬇ Unduh aplikasi Android</a></div>
-  <div class="cta ghcta"><a class="btn gh" id="ghLink" href="https://sistem-penjualan--apk.muchlis7771.workers.dev/gh" target="_blank" rel="noopener"><svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg> Unduh APK gratis di GitHub</a><span class="ghnote">Langsung dari repositori resmi — tanpa nunggu, bisa dibagikan ke mana saja</span></div>
+  <div class="cta">
+    <a class="btn g main" id="ghLink" href="https://sistem-penjualan--apk.muchlis7771.workers.dev/gh"><svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></svg> ⬇ Unduh aplikasi Android <span id="ghSize"></span></a>
+    <a class="btn o" id="apkLink" href="apk/J-POS.apk" download hidden>⬇ Unduh versi situs ini</a>
+  </div>
+  <div class="dlbadges"><span>✓ <b>Terverifikasi</b> SHA-256</span><span>📱 Android 6.0+</span><span>🔄 Update otomatis (OTA)</span><span>🆓 Gratis, coba dulu</span></div>
+  <div class="ctasub"><a class="btn o s" id="heroCta" href="#pesan">Pesan sekarang</a><button class="btn o s" id="vidBtn" type="button">🎬 Video 30 detik</button><a class="btn o s" id="demoLink" href="#" target="_blank" rel="noopener">▶ Coba di browser</a></div>
+  <p class="pwahint">💡 <b>Tanpa unduh file sama sekali:</b> buka tombol “Coba di browser” di HP, lalu ketuk “Install aplikasi” — langsung ada ikonnya di HP, tanpa Play Store.</p>
   <p id="apkNote" hidden>Android akan meminta izin “pasang dari sumber ini” saat membuka file APK. Itu normal untuk aplikasi di luar Play Store.</p>
   <div id="dlOk" class="dlok" hidden></div>
   <div class="pts"><span>Online &amp; offline</span><span>Banyak pengguna</span><span>HP Android &amp; laptop</span><span>Tanpa biaya pemasangan</span></div>
@@ -346,6 +357,7 @@ dialog#vd{border:1px solid #c9a24a66;border-radius:22px;background:#070b1a;color
     }
   });
   fetch('apk/J-POS.apk', { method: 'HEAD' }).then((r) => { if (r.ok && /android|octet/i.test(r.headers.get('content-type') || '')) { $('#apkLink').hidden = false; $('#apkNote').hidden = false; } }).catch(() => { });
+  fetch((BASE || window.PROMO_APIS[0] || '') + '/gh', { method: 'HEAD' }).then((r) => { const n = +r.headers.get('content-length'); if (n > 1e6) $('#ghSize').textContent = '(' + (n / 1048576).toFixed(0) + ' MB)'; }).catch(() => { });
   drawPkg(); links();
   api('/api/info').then((j) => { if (j && j.pkg) { INFO = { pkg: j.pkg, wa: j.wa, trial: j.trial }; drawPkg(); links(); } }).catch(() => links());
   // ---- kontrol website dari dashboard Head Admin (/api/site) ----
@@ -357,7 +369,7 @@ dialog#vd{border:1px solid #c9a24a66;border-radius:22px;background:#070b1a;color
     if (S.eyebrow && h) h.querySelector('.eyebrow').textContent = S.eyebrow;
     if (S.title && h) { const t = h.querySelector('h1'); t.textContent = S.title + ' '; if (S.gold) { const g = document.createElement('span'); g.className = 'gold'; g.textContent = S.gold; t.appendChild(g); } }
     if (S.lead && h) h.querySelector('.lead').textContent = S.lead;
-    if (S.cta) document.querySelectorAll('a.btn.g[href="#pesan"]').forEach((a) => { if (!a.classList.contains('s')) a.textContent = S.cta; });
+    if (S.cta) { const hc = $('#heroCta'); if (hc) hc.textContent = S.cta; }
     const bn = $('#bn'), b = S.banner || {};
     if (b.on && b.text) { bn.textContent = ''; if (b.link) { const a = document.createElement('a'); a.href = b.link; a.textContent = b.text; if (/^https:/.test(b.link)) { a.target = '_blank'; a.rel = 'noopener'; } bn.appendChild(a); } else bn.textContent = b.text; bn.hidden = false; } else bn.hidden = true;
     const sw = S.show || {};
@@ -369,7 +381,7 @@ dialog#vd{border:1px solid #c9a24a66;border-radius:22px;background:#070b1a;color
     if (Array.isArray(S.faq) && S.faq.length) { const q = document.querySelector('#tanya .faq'); if (q) { q.textContent = ''; S.faq.forEach((x) => { const d = document.createElement('details'), m = document.createElement('summary'), p = document.createElement('p'); m.textContent = x.q; p.textContent = x.a; d.append(m, p); q.appendChild(d); }); } }
     if (S.maint && S.maint.on) { $('#mt').textContent = S.maint.msg || 'Website sedang dalam pemeliharaan.'; $('#mt').hidden = false; } else $('#mt').hidden = true;
     APKM = S.apk && S.apk.has && (!sw || sw.apk !== false) ? S.apk : null;
-    if (APKM) { const a = $('#apkLink'); a.hidden = false; $('#apkNote').hidden = false; a.textContent = '⬇ Unduh aplikasi Android (' + (APKM.size / 1048576).toFixed(0) + ' MB)'; a.removeAttribute('download'); a.href = '#'; a.onclick = dlApk; }
+    if (APKM) { const a = $('#apkLink'); a.hidden = false; $('#apkNote').hidden = false; a.textContent = '⬇ Unduh versi situs ini (' + (APKM.size / 1048576).toFixed(0) + ' MB)'; a.removeAttribute('download'); a.href = '#'; a.onclick = dlApk; }
     else if (sw && sw.apk === false) { $('#apkLink').hidden = true; $('#apkNote').hidden = true; }
   }
   const hex = (b) => [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, '0')).join('');
