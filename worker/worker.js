@@ -1,7 +1,7 @@
 import { MSCHEMA, buyerRoutes, shopRoutes, shipCfg } from './market.js';
 import { SSCHEMA, SALTER, logAct, heartbeat, adminActivity } from './social.js';
 import { MSCH2, mitraRoutes } from './mitra.js';
-import { HSCHEMA, payHook, hqStore, hqAdmin, leadPost, trailStmt, trailGet, pruneTrail, tunnelPost, tunnelRedirect, apkPublic, apkPubOf, apkChunkGet, apkDlCount, siteOf, siteHit, appHit, adminPulse, webPublic, mediaPublic, webExport, trkIssue, trkOff, trkLoc } from './hq.js';
+import { HSCHEMA, payHook, hqStore, hqAdmin, leadPost, trailStmt, trailGet, pruneTrail, tunnelPost, tunnelRedirect, apkPublic, apkPubOf, apkChunkGet, apkDlCount, siteOf, siteHit, appHit, adminPulse, webPublic, mediaPublic, webExport, trkIssue, trkOff, trkLoc, ghApkHit, GH_APK_URL } from './hq.js';
 import { RSCHEMA, RALTER, rptCfg, cleanCfg, dayRange, buildDaily, sendOut, cronDaily } from './lapor.js';
 // J-POS API v4 — Cloudflare Worker + D1 (SQLite)
 // Multi-tenant: 1 toko = 1 tenant. Data bisnis = LOG KEJADIAN (tabel ev) yang diputar ulang tiap perangkat (offline-first).
@@ -133,6 +133,7 @@ export default {
     if (p == '/ota.json') { const r = await env.ASSETS.fetch(req), h = new Headers(r.headers); h.set('Access-Control-Allow-Origin', '*'); h.set('Cache-Control', 'no-store'); return new Response(r.body, { status: r.status, headers: h }); } // manifest pembaruan otomatis aplikasi Android
     if (p == '/termux') { try { await ready(env); return await tunnelRedirect(env, await cfgAll(env), req); } catch (e) { return Response.redirect(new URL('/promo/', req.url).href, 302); } } // link tetap → server Termux (bila aktif)
     { const m = p.match(/^\/(?:p|w|web|promo)(?:\/([a-z0-9]{1,12}))?\/?$/); if (m && (m[1] || p != '/promo/')) return Response.redirect(new URL('/promo/' + (m[1] ? '?src=' + m[1] : ''), req.url).href, 302); } // link pendek: /p  /p/wa  /p/fb …
+    if (p == '/gh' || p == '/apk' || p == '/dl') { try { await ready(env); ghApkHit(env, ip, limited).catch(() => { }); } catch (e) { } return Response.redirect(GH_APK_URL, 302); } // link APK langsung terlacak (dipakai di flyer / caption FB-marketplace, di luar website promo)
     { const g = p.match(/^\/google([a-f0-9]{16})\.html$/); if (g) { try { await ready(env); if (siteOf(await cfgAll(env)).gsv == g[1]) return new Response('google-site-verification: google' + g[1] + '.html', { headers: { 'Content-Type': 'text/html; charset=utf-8' } }); } catch (e) { } return new Response('Not found', { status: 404 }); } } // verifikasi Google Search Console
     if (!p.startsWith('/api/')) return env.ASSETS.fetch(req);
     const cors = { 'Access-Control-Allow-Origin': env.ORIGIN || '*', 'Access-Control-Allow-Headers': 'Authorization,Content-Type', 'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS' };

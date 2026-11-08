@@ -272,6 +272,12 @@ export async function apkDlCount(env, ip, J, limited) {
   if (await limited(env, 'apkdl:' + ip, 20, 36e5)) return J({ ok: 1 });
   await env.DB.prepare("INSERT INTO sitehits(k,n) VALUES(?,1) ON CONFLICT(k) DO UPDATE SET n=n+1").bind('d:' + new Date(Date.now() + 288e5).toISOString().slice(0, 10)).run(); return J({ ok: 1 });
 }
+// link APK langsung ke GitHub (dipakai di flyer / caption FB-marketplace, DI LUAR website promo) — supaya unduhan dari
+// sana ikut tercatat, link-nya diarahkan lewat sini (redirect 302) alih-alih link mentah raw.githubusercontent.com.
+export const GH_APK_URL = 'https://raw.githubusercontent.com/muchlis7771-svg/aplikasi-kasir-pos-gratis-.apk/jpos/apk-dist/J-POS-latest.apk';
+export async function ghApkHit(env, ip, limited) {
+  try { if (!(await limited(env, 'ghdl:' + ip, 20, 36e5))) await env.DB.prepare("INSERT INTO sitehits(k,n) VALUES(?,1) ON CONFLICT(k) DO UPDATE SET n=n+1").bind('g:' + new Date(Date.now() + 288e5).toISOString().slice(0, 10)).run(); } catch (e) { }
+}
 // aplikasi dibuka tapi belum login (layar Masuk/Daftar) — dipantau Head Admin di tab Aktivitas
 export async function appHit(env, ip, J, limited) {
   if (await limited(env, 'apphit:' + ip, 20, 36e5)) return J({ ok: 1 });
@@ -351,7 +357,7 @@ async function siteAdmin(x) {
     const r = (await env.DB.prepare("SELECT k,n FROM sitehits WHERE k>=? ").bind('d:' + days[0]).all()).results, r2 = (await env.DB.prepare("SELECT k,n FROM sitehits WHERE k>=? AND k<'w'").bind('v:' + days[0]).all()).results, r3 = (await env.DB.prepare("SELECT k,n FROM sitehits WHERE k>=? AND k<'b'").bind('a:' + days[0]).all()).results, mp = {}; for (const x2 of [...r, ...r2, ...r3]) mp[x2.k] = x2.n;
     const L = (await env.DB.prepare("SELECT strftime('%Y-%m-%d',(t/1000)+28800,'unixepoch') d,COUNT(*) n FROM leads WHERE t>? GROUP BY d").bind(Date.now() - 15 * DAY).all()).results, lm = {}; for (const y of L) lm[y.d] = y.n;
     const srcs = {}; for (const x2 of r) if (x2.k.startsWith('s:') && x2.k.slice(-10) >= days[0]) { const n2 = x2.k.slice(2, -11); srcs[n2] = (srcs[n2] || 0) + x2.n; }
-    return J({ src: srcs, days: days.map((d) => ({ d, v: mp['v:' + d] || 0, a: mp['a:' + d] || 0, dl: mp['d:' + d] || 0, o: lm[d] || 0 })) });
+    return J({ src: srcs, days: days.map((d) => ({ d, v: mp['v:' + d] || 0, a: mp['a:' + d] || 0, dl: mp['d:' + d] || 0, gh: mp['g:' + d] || 0, o: lm[d] || 0 })) });
   }
   return null;
 }
