@@ -479,6 +479,20 @@ button.kpi:active{transform:translateY(-1px) scale(.98)}
 :is(html,body)[data-th="cahaya"] .cd::before{content:'';position:absolute;inset:0;border-radius:inherit;background:linear-gradient(160deg,#ffffffdd,transparent 45%);pointer-events:none}
 :is(html,body)[data-th="cahaya"] h2,:is(html,body)[data-th="cahaya"] h3{background:linear-gradient(90deg,#5b7fff,#8f6fff);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;letter-spacing:-.01em}
 [data-th="cahaya"] :is(.hero,.hero2,.k0,.gc){background:linear-gradient(135deg,#eef2ff,#ffffff 55%,#f3ecff)!important;color:#1b2436!important;border:1px solid #5b7fff33!important;box-shadow:0 16px 44px -18px #5b7fff4d!important}
+/* cahaya: latar hero/kpi terang → semua teks & aksen di dalamnya yang tadinya putih (dibuat untuk latar gelap tema lain) perlu digelapkan supaya tetap terbaca */
+[data-th="cahaya"] :is(.hero,.hero2,.k0,.gc) small{color:#5b668bcc!important}
+[data-th="cahaya"] .hg{color:#1b2436!important}
+[data-th="cahaya"] .hbadge{background:#5b7fff1c!important;color:#3347a3!important}
+[data-th="cahaya"] .hchip{background:#5b7fff20!important;color:#2c3e8f!important}
+[data-th="cahaya"] .hero2 .hsplit{border-top:1px solid #5b7fff26!important}
+[data-th="cahaya"] .hsplit span{background:#5b7fff12!important}
+[data-th="cahaya"] .hero2::before{background:radial-gradient(#5b7fff1f,transparent 70%)!important}
+[data-th="cahaya"] .spk path:first-child{fill:#5b7fff22!important}
+[data-th="cahaya"] .spk path:last-child{stroke:#5b7fff!important}
+[data-th="cahaya"] .gc .gh{background:#5b7fff14!important;color:#1b2436!important;border:1px solid #5b7fff3d!important}
+[data-th="cahaya"] .gc .gh.d{color:#b42318!important}
+[data-th="cahaya"] .gc input,[data-th="cahaya"] .gc textarea{color:#1b2436!important;background:#fff!important;border:1px solid #5b7fff33!important}
+[data-th="cahaya"] .hero .gr,[data-th="cahaya"] .hero .rd,[data-th="cahaya"] .k0 .gr,[data-th="cahaya"] .k0 .rd{color:#1b2436!important;background:#5b7fff20!important}
 [data-th="klasik"] :is(.hero,.hero2,.k0,.gc){background:linear-gradient(150deg,#5a3413,#7c4a1e 60%,#a8743a)!important;border-radius:6px!important}
 [data-th="robot"] :is(.hero,.hero2,.k0,.gc){background:linear-gradient(150deg,#031018,#06263a 60%,#003b4f)!important;border:1px solid #00e5ff88!important;box-shadow:0 0 22px #00e5ff33!important;border-radius:8px!important}
 [data-th="minimalis"] :is(.hero,.hero2,.k0,.gc){background:#111!important;box-shadow:none!important;border-radius:10px!important}
