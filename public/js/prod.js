@@ -65,7 +65,7 @@ ${S.set.biz == 'cafe' ? `<div><b>🧂 Resep (bahan baku per 1 ${p && p.u ? esc(p
   });
   m.addEventListener('change', (e) => { const si = e.target.dataset.rci; if (si != null) rcp[si].id = e.target.value; });
   m.addEventListener('click', (e) => { if (e.target.dataset.del != null) { tr.splice(+e.target.dataset.del, 1); draw(); } if (e.target.dataset.rcx != null) { rcp.splice(+e.target.dataset.rcx, 1); drawR(); } });
-  $('#ta', m).onclick = () => { tr.push({ min: 0, d: '' }); draw(); };
+  const ta = $('#ta', m); if (ta) ta.onclick = () => { tr.push({ min: 0, d: '' }); draw(); }; // #ta (tombol "+ Tingkat") hanya ada saat !isIng — tanpa guard ini, akses ke null akan melempar error dan membatalkan sisa setup form (termasuk tombol Simpan jadi tidak terpasang) khusus saat menambah bahan baku
   const rcadd = $('#rcadd', m); if (rcadd) rcadd.onclick = () => { if (!ingProds().length) return toast('Tambahkan bahan baku dulu di tab 🧂 Bahan Baku'); rcp.push({ id: ingProds()[0].id, q: 0 }); drawR(); };
   const fsc = $('#fsc', m); if (fsc) fsc.onclick = () => scanCode((v) => { $('#fk', m).value = v; });
   const fgen = $('#fgen', m); if (fgen) fgen.onclick = () => { const k = $('#fk', m); if (k.value.trim() && !confirm('SKU/barcode sudah terisi (' + k.value.trim() + '). Ganti dengan kode baru?')) return; k.value = genSku(); toast('Barcode dibuat: ' + k.value); };
