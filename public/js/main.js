@@ -144,7 +144,7 @@ ${apiCustom() || LS.get('jpos:apiAuto', '') ? '<button class="gh" onclick="srvRe
   return head + `<div class="fm" style="text-align:left">${reg.length ? '<small class="mu">Toko di HP ini — ketuk untuk masuk</small>' : ''}${typeof bioList == 'function' && BIOP() ? bioList().filter((b) => reg.some((r) => r.id == b.id)).map((b) => `<button class="pr bio" onclick="bioLogin('${esc(b.id)}','${esc(b.n)}')">👆 ${esc(b.n)} · ${esc((reg.find((r) => r.id == b.id) || {}).n || b.id)}</button>`).join('') : ''}${reg.map((r) => `<button class="us2" onclick="quickLogin('${esc(r.id)}')"><em>${esc((r.n || '?')[0].toUpperCase())}</em><span>${esc(r.n)}<br><small class="mu">${esc(r.id)}${r.demo ? ' · demo' : ''}</small></span><span class="sp"></span>›</button>`).join('')}
 <div class="lxbtn"><button class="pr lxmain" onclick="mode('login')"><span>${ico('key')}</span><b>Masuk toko<small>Pemilik &amp; karyawan</small></b>›</button>
 <button class="pr shop lxalt" onclick="startBuyer()"><span>${ico('bag')}</span><b>Belanja<small>Untuk kios &amp; pembeli</small></b>›</button></div>
-<div class="lxsub"><button onclick="mode('reg')">${ico('plus')}<b>Daftarkan toko</b><small>gratis ${info.trial || 30} hari</small></button><button onclick="startDemo()">${ico('play')}<b>Coba demo</b><small>tanpa daftar</small></button></div></div>
+<div class="lxsub"><button onclick="mode('reg')">${ico('plus')}<b>Daftarkan toko</b><small>gratis ${info.trial || 30} hari</small></button><button onclick="startDemo()">${ico('play')}<b>Coba demo</b><small>tanpa daftar</small></button></div>${pwaReady() ? `<button class="gh big" style="margin-top:10px" onclick="pwaInstall()">📲 Install aplikasi ke HP (tanpa Play Store)</button>` : ''}</div>
 <div class="lxfoot"><span class="srvpill" id="srvst">${srvTxt()}</span><div class="lnk"><button class="gh" onclick="mode('srv')">${ico('srv')}Server</button><button class="gh" onclick="mode('ha')">${ico('crown')}Head Admin</button><a class="gh" href="privasi.html" target="_blank" rel="noopener">${ico('lock')}Privasi</a></div><small>© J-POS · Kasir &amp; distribusi</small></div></div>`;
 }
 /* ---------- pilihan paket saat daftar ---------- */
@@ -195,6 +195,12 @@ function haShell() {
 /* ---------- boot ---------- */
 window.addEventListener('error', (e) => console.error('JS error:', e.message));
 window.addEventListener('unhandledrejection', (e) => { console.error('Promise error:', e.reason); });
+/* ---------- instal langsung dari browser (PWA) — alternatif tanpa Play Store / unduh APK ---------- */
+let PWAIP = null;
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); PWAIP = e; if (MODE == 'home' && !$('.md')) R(); });
+window.addEventListener('appinstalled', () => { PWAIP = null; if (MODE == 'home' && !$('.md')) R(); });
+const pwaReady = () => !isNative() && !!PWAIP && !window.matchMedia('(display-mode: standalone)').matches;
+async function pwaInstall() { if (!PWAIP) return; try { PWAIP.prompt(); await PWAIP.userChoice; } catch (e) { } PWAIP = null; R(); }
 (function boot() {
   initApi(); applyTheme();
   // Pelanggan scan QR di meja (coffee shop) → langsung ke tampilan pesan-sendiri toko ini, TANPA perlu instal app:

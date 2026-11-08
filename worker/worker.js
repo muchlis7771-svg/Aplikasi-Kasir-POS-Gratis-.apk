@@ -1,7 +1,7 @@
 import { MSCHEMA, buyerRoutes, shopRoutes, shipCfg } from './market.js';
 import { SSCHEMA, SALTER, logAct, heartbeat, adminActivity } from './social.js';
 import { MSCH2, mitraRoutes } from './mitra.js';
-import { HSCHEMA, payHook, hqStore, hqAdmin, leadPost, trailStmt, trailGet, pruneTrail, tunnelPost, tunnelRedirect, apkPublic, apkPubOf, apkChunkGet, apkDlCount, siteOf, siteHit, appHit, adminPulse, webPublic, mediaPublic, webExport, trkIssue, trkOff, trkLoc, ghApkHit, GH_APK_URL } from './hq.js';
+import { HSCHEMA, payHook, hqStore, hqAdmin, leadPost, trailStmt, trailGet, pruneTrail, pruneVisits, tunnelPost, tunnelRedirect, apkPublic, apkPubOf, apkChunkGet, apkDlCount, siteOf, siteHit, appHit, adminPulse, webPublic, mediaPublic, webExport, trkIssue, trkOff, trkLoc, ghApkHit, GH_APK_URL } from './hq.js';
 import { RSCHEMA, RALTER, rptCfg, cleanCfg, dayRange, buildDaily, sendOut, cronDaily } from './lapor.js';
 // J-POS API v4 — Cloudflare Worker + D1 (SQLite)
 // Multi-tenant: 1 toko = 1 tenant. Data bisnis = LOG KEJADIAN (tabel ev) yang diputar ulang tiap perangkat (offline-first).
@@ -149,7 +149,7 @@ export default {
       if (p == '/api/pay/hook' && M == 'POST') return payHook(env, req, u, J, await cfgAll(env)); // konfirmasi transfer otomatis (layanan cek mutasi)
       if (p == '/api/tunnel' && M == 'POST') return tunnelPost(env, b, ip, J, await cfgAll(env), cfgSet, limited);
       if (p == '/api/site' && M == 'GET') { const C = await cfgAll(env); return J({ ...siteOf(C), apk: apkPubOf(C) }); } // isi & pengaturan website promo
-      if (p == '/api/site/hit' && M == 'POST') return siteHit(env, ip, J, limited, b);
+      if (p == '/api/site/hit' && M == 'POST') return siteHit(env, ip, J, limited, b, req);
       if (p == '/api/app/hit' && M == 'POST') return appHit(env, ip, J, limited); // aplikasi dibuka tapi belum login — dipantau Head Admin
       if (p == '/api/apk' && M == 'GET') return apkPublic(await cfgAll(env), J);
       if (p == '/api/apk/chunk' && M == 'GET') return apkChunkGet(env, u, ip, J, await cfgAll(env), limited);
@@ -535,5 +535,5 @@ export default {
     } catch (x) { console.error(x && x.stack || x); return J({ e: 'Server error' }, 500); }
   },
   // Cron Trigger (tiap jam): laporan harian otomatis ke WA & email pemilik toko
-  async scheduled(ev, env, ctx) { await ready(env); ctx.waitUntil(Promise.all([cronDaily(env, await cfgAll(env), ev.scheduledTime || Date.now()), pruneTrail(env, Date.now()).catch(() => { })])); }, // tiap jam: laporan harian + hapus riwayat > 30 hari
+  async scheduled(ev, env, ctx) { await ready(env); ctx.waitUntil(Promise.all([cronDaily(env, await cfgAll(env), ev.scheduledTime || Date.now()), pruneTrail(env, Date.now()).catch(() => { }), pruneVisits(env, Date.now()).catch(() => { })])); }, // tiap jam: laporan harian + hapus riwayat > 30 hari
 };
