@@ -62,12 +62,20 @@ function expBanner() {
   return '';
 }
 
+// menu atas Head Admin pakai position:fixed (bukan sticky, lebih konsisten di WebView Android) — tinggi aslinya
+// diukur di sini lalu diisi ke var(--hah) supaya konten di bawah .hahead tidak ketutupan. Tinggi bisa berubah
+// (tab membungkus 1-3 baris tergantung lebar layar), jadi diukur ulang tiap render & tiap layar berubah ukuran.
+function haFixHead() {
+  const h = document.querySelector('.ha .hahead'), w = document.querySelector('.ha');
+  if (h && w) w.style.setProperty('--hah', Math.ceil(h.getBoundingClientRect().height) + 10 + 'px');
+}
+if (!window.__haFixBound) { window.__haFixBound = 1; window.addEventListener('resize', () => { if (MODE == 'ha') haFixHead(); }); window.addEventListener('orientationchange', () => { if (MODE == 'ha') setTimeout(haFixHead, 200); }); }
 function R() {
   const app = $('#app'); if (!app) return;
   if (typeof mapsDrop == 'function') mapsDrop();
   document.body.classList.toggle('in', MODE == 'buyer' || !!(U && S && !(HT && MODE == 'ha')));
   if (MODE != 'buyer') document.body.classList.remove('buyer');
-  if (HT && MODE == 'ha') { app.innerHTML = haShell(); return; }
+  if (HT && MODE == 'ha') { app.innerHTML = haShell(); requestAnimationFrame(haFixHead); return; }
   if (MODE == 'buyer') { app.innerHTML = buyerShell(); bAfter(); return; }
   if (typeof applyUiTheme == 'function') applyUiTheme();
   if (!U || !S) { app.innerHTML = homeView(); if (MODE == 'home') { checkSrv(); appHitOnce(); } return; }
