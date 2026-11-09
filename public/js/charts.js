@@ -44,10 +44,10 @@ function donut(D, label = 'kategori') {
     + `</g><circle cx="60" cy="60" r="${R - 10}" fill="var(--cd)"/><text x="60" y="58" text-anchor="middle" font-size="15" font-weight="800" style="fill:var(--tx)">${D.length}</text><text x="60" y="71" text-anchor="middle" font-size="9" style="fill:var(--mu)">${esc(label)}</text></svg><div>`
     + D.map((x, i) => `<div class="lg"><i style="background:${COL[i % COL.length]}"></i>${esc(x.l)} <b>${Math.round(x.v / t * 100)}%</b></div>`).join('') + '</div></div>';
 }
-function bars(D, fmt = (v) => v) {
+function bars(D, fmt = (v) => v, onClk) {
   D = D.filter((x) => x.v > 0); if (!D.length) return '<p class="mu">Belum ada data</p>';
   const m = Math.max(...D.map((x) => x.v), 1);
-  return D.map((x) => `<div class="br"><span title="${esc(x.l)}">${esc(x.l)}</span><div><u style="width:${x.v / m * 100}%;background:linear-gradient(90deg,#27407e,#1aa08c 65%,#00c2a8)"></u></div><b>${esc(fmt(x.v))}</b></div>`).join('');
+  return D.map((x) => { const click = onClk && onClk(x); return `<div class="br${click ? ' clk' : ''}"${click ? ` onclick="${click}"` : ''}><span title="${esc(x.l)}">${esc(x.l)}</span><div><u style="width:${x.v / m * 100}%;background:linear-gradient(90deg,#27407e,#1aa08c 65%,#00c2a8)"></u></div><b>${esc(fmt(x.v))}</b></div>`; }).join('');
 }
 function vbars(D, fmt = (v) => Math.round(v / 1000) + 'k') {
   if (!D.length) return '<p class="mu">Belum ada data</p>';
