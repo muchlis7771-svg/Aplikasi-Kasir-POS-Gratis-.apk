@@ -86,6 +86,25 @@ const RPT = {
       { title: 'Mutasi Barang Kanvas · ' + perLabel(), head: ['Tanggal', 'Kejadian', 'Sales', 'Produk', 'Qty', 'Nilai HPP', 'Disetujui'], fmt: ['d', 't', 't', 't', 'q', 'm', 't'], rows: mv.length ? mv.sort((a, b) => a[0] - b[0]) : [['', 'Tidak ada mutasi', '', '', '', '', '']] }];
   },
   absen(f, t) { return [{ title: 'Rekap Absensi · ' + perLabel(), head: ['Karyawan', 'Hari hadir', 'Terlambat', 'Total jam', 'Kunjungan'], fmt: ['t', 'q', 'q', 'q', 'q'], rows: attRecap(f, t).map((r) => [r.u, r.days, r.late, +r.hours.toFixed(1), r.visits]) }]; },
+  kpi(f, t) {
+    const byU = {}, byP = {};
+    for (const s of salesIn(f, t)) {
+      const net = netSale(s);
+      const u = byU[s.u] || (byU[s.u] = { ec: 0, ao: new Set(), omz: 0 });
+      u.ec++; u.omz += net; if (s.cu && net > 0) u.ao.add(s.cu);
+      for (const i of s.L) {
+        const left = i.q - (i.rq || 0); if (left <= 0) continue;
+        const x = byP[i.id] || (byP[i.id] = { n: i.n, ao: new Set(), qty: 0, omz: 0 });
+        x.qty += left; x.omz += (i.p * i.q - i.dd) * (left / i.q); if (s.cu) x.ao.add(s.cu);
+      }
+    }
+    const salesRows = Object.entries(byU).sort((a, b) => b[1].omz - a[1].omz).map(([u, x]) => [u, x.ec, x.ao.size, Math.round(x.omz)]);
+    const skuRows = Object.entries(byP).sort((a, b) => b[1].ao.size - a[1].ao.size).map(([, x]) => [x.n, x.ao.size, Math.round(x.qty), Math.round(x.omz)]);
+    return [
+      { title: 'EC, AO & Omset per Salesman · ' + perLabel(), head: ['Salesman', 'EC (Effective Call)', 'AO (Outlet Aktif)', 'Omset'], fmt: ['t', 'q', 'q', 'm'], rows: salesRows.length ? salesRows : [['Belum ada data pada periode ini', '', '', '']] },
+      { title: 'AO by SKU — Distribusi Outlet per Produk · ' + perLabel(), head: ['Produk', 'AO (Outlet Aktif)', 'Qty terjual', 'Omset'], fmt: ['t', 'q', 'q', 'm'], rows: skuRows.length ? skuRows : [['Belum ada data pada periode ini', '', '', '']] },
+    ];
+  },
   preq(f, t) {
     const L = (S.preq || []).filter((x) => x.t >= f && x.t <= t), g = {};
     for (const r of L) for (const i of r.items) { const k = i.n.toLowerCase(); const x = g[k] || (g[k] = { n: i.n, n2: 0, out: new Set(), cat: {}, done: 0 }); x.n2++; x.out.add(r.cn); if (i.cat) x.cat[i.cat] = (x.cat[i.cat] || 0) + 1; if (r.done) x.done++; }
@@ -97,7 +116,21 @@ const RPT = {
   },
 };
 RPT.akt = (f, t) => [...RPT.lr(f, t), ...RPT.neraca(f, t), ...RPT.cf(f, t), ...RPT.ns(f, t)];
-const RTABS = [['lr', 'Laba Rugi'], ['neraca', 'Neraca'], ['cf', 'Arus Kas'], ['ns', 'Neraca Saldo'], ['gl', 'Buku Besar'], ['jual', 'Penjualan'], ['piutang', 'Piutang'], ['utang', 'Utang'], ['stok', 'Stok'], ['kanvas', 'Kanvas'], ['absen', 'Absensi'], ['preq', 'Diminta outlet']];
+const RTABS = [['lr', 'Laba Rugi'], ['neraca', 'Neraca'], ['cf', 'Arus Kas'], ['ns', 'Neraca Saldo'], ['gl', 'Buku Besar'], ['jual', 'Penjualan'], ['kpi', 'EC/AO/Omset Sales'], ['piutang', 'Piutang'], ['utang', 'Utang'], ['stok', 'Stok'], ['kanvas', 'Kanvas'], ['absen', 'Absensi'], ['preq', 'Diminta outlet']];
+// grafik untuk tab "EC/AO/Omset Sales": s = section (judul+rows mentah), i = indeks section (0: per salesman, 1: AO by SKU)
+function kpiChartH(s, i) {
+  if (i == 0) {
+    const rows = s.rows.filter((r) => typeof r[3] == 'number'); if (!rows.length) return '';
+    return `<div class="cd"><h3>📊 Omset per Salesman</h3>${bars(rows.map((r) => ({ l: r[0], v: r[3] })), rp)}</div>
+<div class="cd"><h3>🏪 AO (Outlet Aktif) per Salesman</h3>${bars(rows.map((r) => ({ l: r[0], v: r[2] })), (v) => v + ' outlet')}</div>
+<div class="cd"><h3>🧾 EC (Effective Call) per Salesman</h3>${bars(rows.map((r) => ({ l: r[0], v: r[1] })), (v) => v + ' nota')}</div>`;
+  }
+  if (i == 1) {
+    const rows = s.rows.filter((r) => typeof r[1] == 'number').slice(0, 15); if (!rows.length) return '';
+    return `<div class="cd"><h3>📦 AO by SKU — Top 15 Produk</h3>${bars(rows.map((r) => ({ l: r[0], v: r[1] })), (v) => v + ' outlet')}</div>`;
+  }
+  return '';
+}
 const cellH = (v, f) => (v === '' || v == null ? '' : typeof v == 'string' ? esc(v) : f == 'm' ? rp(v) : f == 'q' ? Number(v).toLocaleString('id-ID') : f == 'd' ? dstr(v) : esc(v));
 // cari outlet dari namanya persis seperti yang tampil di laporan (laporan hanya menyimpan nama, bukan id)
 const outletByName = (n) => (S.c || []).find((c) => c.n === n);
@@ -113,7 +146,7 @@ const secH = (s) => `<div class="cd"><h3>${esc(s.title)}</h3>${tblH(s)}</div>`;
 VW.lap = () => {
   const secs = RT == 'gl' ? RPT.gl(PF, PT, LG) : RPT[RT](PF, PT);
   return `${perBar()}<div class="cd"><div class="seg" style="margin-top:0">${RTABS.map((x) => `<button class="${RT == x[0] ? 'a' : ''}" onclick="RT='${x[0]}';R()">${x[1]}</button>`).join('')}</div>${RT == 'gl' ? `<select onchange="LG=this.value;R()">${Object.keys(AC).map((a) => `<option value="${a}" ${a == LG ? 'selected' : ''}>${a} ${AC[a]}</option>`).join('')}</select>` : ''}
-<div class="wrap" style="margin-top:8px"><button class="gh a" onclick="expXlsx('all')">⬇ Laporan lengkap (Excel)</button><button class="gh" onclick="expXlsx('cur')">Excel: tab ini</button><button class="gh" onclick="expPdf('akt')">PDF akuntansi lengkap</button><button class="gh" onclick="expPdf('cur')">PDF: tab ini</button></div></div>${secs.map(secH).join('')}`;
+<div class="wrap" style="margin-top:8px"><button class="gh a" onclick="expXlsx('all')">⬇ Laporan lengkap (Excel)</button><button class="gh" onclick="expXlsx('cur')">Excel: tab ini</button><button class="gh" onclick="expPdf('akt')">PDF akuntansi lengkap</button><button class="gh" onclick="expPdf('cur')">PDF: tab ini</button></div></div>${secs.map((s, i) => secH(s) + (RT == 'kpi' ? kpiChartH(s, i) : '')).join('')}`;
 };
 
 /* ============ KEUANGAN: piutang, utang, kas ============ */
