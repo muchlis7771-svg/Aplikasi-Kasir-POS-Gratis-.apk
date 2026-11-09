@@ -33,7 +33,7 @@ const OCOL = {
   id: ['id', 'id outlet', 'id sistem'], kd: ['kode outlet', 'kd outlet', 'kode', 'kd'], n: ['nama', 'nama outlet', 'nama toko', 'outlet', 'toko', 'pelanggan', 'nama pelanggan'], ad: ['alamat', 'address'],
   ph: ['telepon', 'telp', 'hp', 'wa', 'no hp', 'no telepon', 'no wa', 'phone', 'whatsapp'], sl: ['sales', 'salesman', 'sales penanggung jawab', 'penanggung jawab'],
   term: ['tipe', 'pembayaran', 'tipe bayar', 'jenis', 'term', 'tunai kredit', 'kredit tunai'], lim: ['limit', 'limit kredit', 'plafon', 'plafon kredit'], tempo: ['tempo', 'tempo hari', 'jatuh tempo', 'tempo bayar'],
-  lat: ['latitude', 'lat', 'lintang'], lng: ['longitude', 'lng', 'long', 'lon', 'bujur'], ll: ['koordinat', 'gps', 'lokasi', 'lat lng', 'maps', 'link maps', 'google maps', 'titik'], note: ['catatan', 'keterangan', 'note', 'notes'],
+  lat: ['latitude', 'lat', 'lintang'], lng: ['longitude', 'lng', 'long', 'lon', 'bujur'], ll: ['koordinat', 'gps', 'lokasi', 'lat lng', 'lintang bujur', 'lintang dan bujur', 'koordinat gps', 'maps', 'link maps', 'google maps', 'titik'], note: ['catatan', 'keterangan', 'note', 'notes'],
 };
 function xlsOutletExport() {
   if (!xlsOk()) return;
@@ -52,6 +52,12 @@ async function xlsOutletImport(el) {
   const f = el.files[0]; el.value = ''; if (!f || !xlsOk()) return;
   let rows; try { rows = await readXls(f); } catch (e) { return toast(e.message); }
   const { hi, map } = colMap(rows, OCOL); if (map.n == null) return toast('Kolom "Nama Outlet" tidak ditemukan. Unduh template untuk contoh format.');
+  // fallback: kolom koordinat gabungan dengan judul yang tidak persis cocok (mis. "Lintang dan bujur") — kenali dari kata kuncinya
+  if (map.ll == null && map.lat == null) {
+    const hdr = rows[hi] || [];
+    const idx = hdr.findIndex((c) => { const h = hn(c); return (h.includes('lintang') && h.includes('bujur')) || h.includes('koordinat') || (h.includes('lat') && (h.includes('lng') || h.includes('long'))); });
+    if (idx >= 0) map.ll = idx;
+  }
   const boss = U.r == 'owner', mgr = MGR(U.r), plan = [], errs = [], seen = new Set(); let ign = 0;
   rows.slice(hi + 1, hi + 1501).forEach((r, i) => {
     const line = hi + i + 2, n = sval(cell(r, map, 'n')); if (!n && r.every((x) => x === '')) return; if (!n) return errs.push('Baris ' + line + ': nama kosong');
