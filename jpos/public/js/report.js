@@ -99,10 +99,11 @@ const RPT = {
       }
     }
     const salesRows = Object.entries(byU).sort((a, b) => b[1].omz - a[1].omz).map(([u, x]) => [u, x.ec, x.ao.size, Math.round(x.omz)]);
-    const skuRows = Object.entries(byP).sort((a, b) => b[1].ao.size - a[1].ao.size).map(([, x]) => [x.n, x.ao.size, Math.round(x.qty), Math.round(x.omz)]);
+    // kolom ke-5 (pid) tersembunyi — dipakai untuk drill-down per produk, tidak ditampilkan (lihat tblH: kolom di luar head diperlakukan sebagai metadata)
+    const skuRows = Object.entries(byP).sort((a, b) => b[1].ao.size - a[1].ao.size).map(([id, x]) => [x.n, x.ao.size, Math.round(x.qty), Math.round(x.omz), id]);
     return [
-      { title: 'EC, AO & Omset per Salesman · ' + perLabel(), head: ['Salesman', 'EC (Effective Call)', 'AO (Outlet Aktif)', 'Omset'], fmt: ['t', 'q', 'q', 'm'], rows: salesRows.length ? salesRows : [['Belum ada data pada periode ini', '', '', '']] },
-      { title: 'AO by SKU — Distribusi Outlet per Produk · ' + perLabel(), head: ['Produk', 'AO (Outlet Aktif)', 'Qty terjual', 'Omset'], fmt: ['t', 'q', 'q', 'm'], rows: skuRows.length ? skuRows : [['Belum ada data pada periode ini', '', '', '']] },
+      { title: 'EC, AO & Omset per Salesman · ' + perLabel(), head: ['Salesman', 'EC (Effective Call)', 'AO (Outlet Aktif)', 'Omset'], fmt: ['t', 'q', 'q', 'm'], rows: salesRows.length ? salesRows : [['Belum ada data pada periode ini', '', '', '']], rowFn: salesRows.length ? (r) => `kpiSalesDetail('${esc(r[0]).replace(/'/g, '')}')` : null },
+      { title: 'AO by SKU — Distribusi Outlet per Produk · ' + perLabel(), head: ['Produk', 'AO (Outlet Aktif)', 'Qty terjual', 'Omset'], fmt: ['t', 'q', 'q', 'm'], rows: skuRows.length ? skuRows : [['Belum ada data pada periode ini', '', '', '']], rowFn: skuRows.length ? (r) => `kpiSkuDetail('${esc(r[4]).replace(/'/g, '')}')` : null },
     ];
   },
   preq(f, t) {
@@ -119,15 +120,16 @@ RPT.akt = (f, t) => [...RPT.lr(f, t), ...RPT.neraca(f, t), ...RPT.cf(f, t), ...R
 const RTABS = [['lr', 'Laba Rugi'], ['neraca', 'Neraca'], ['cf', 'Arus Kas'], ['ns', 'Neraca Saldo'], ['gl', 'Buku Besar'], ['jual', 'Penjualan'], ['kpi', 'EC/AO/Omset Sales'], ['piutang', 'Piutang'], ['utang', 'Utang'], ['stok', 'Stok'], ['kanvas', 'Kanvas'], ['absen', 'Absensi'], ['preq', 'Diminta outlet']];
 // grafik untuk tab "EC/AO/Omset Sales": s = section (judul+rows mentah), i = indeks section (0: per salesman, 1: AO by SKU)
 function kpiChartH(s, i) {
+  const clkU = (x) => `kpiSalesDetail('${esc(x.l).replace(/'/g, '')}')`;
   if (i == 0) {
     const rows = s.rows.filter((r) => typeof r[3] == 'number'); if (!rows.length) return '';
-    return `<div class="cd"><h3>📊 Omset per Salesman</h3>${bars(rows.map((r) => ({ l: r[0], v: r[3] })), rp)}</div>
-<div class="cd"><h3>🏪 AO (Outlet Aktif) per Salesman</h3>${bars(rows.map((r) => ({ l: r[0], v: r[2] })), (v) => v + ' outlet')}</div>
-<div class="cd"><h3>🧾 EC (Effective Call) per Salesman</h3>${bars(rows.map((r) => ({ l: r[0], v: r[1] })), (v) => v + ' nota')}</div>`;
+    return `<div class="cd"><h3>📊 Omset per Salesman</h3>${bars(rows.map((r) => ({ l: r[0], v: r[3] })), rp, clkU)}</div>
+<div class="cd"><h3>🏪 AO (Outlet Aktif) per Salesman</h3>${bars(rows.map((r) => ({ l: r[0], v: r[2] })), (v) => v + ' outlet', clkU)}</div>
+<div class="cd"><h3>🧾 EC (Effective Call) per Salesman</h3>${bars(rows.map((r) => ({ l: r[0], v: r[1] })), (v) => v + ' nota', clkU)}</div>`;
   }
   if (i == 1) {
     const rows = s.rows.filter((r) => typeof r[1] == 'number').slice(0, 15); if (!rows.length) return '';
-    return `<div class="cd"><h3>📦 AO by SKU — Top 15 Produk</h3>${bars(rows.map((r) => ({ l: r[0], v: r[1] })), (v) => v + ' outlet')}</div>`;
+    return `<div class="cd"><h3>📦 AO by SKU — Top 15 Produk</h3>${bars(rows.map((r) => ({ l: r[0], v: r[1], pid: r[4] })), (v) => v + ' outlet', (x) => `kpiSkuDetail('${esc(x.pid).replace(/'/g, '')}')`)}</div>`;
   }
   return '';
 }
@@ -136,11 +138,35 @@ const cellH = (v, f) => (v === '' || v == null ? '' : typeof v == 'string' ? esc
 const outletByName = (n) => (S.c || []).find((c) => c.n === n);
 function tblH(s) {
   const fm = s.fmt || s.head.map((_, i) => (i ? 'm' : 't')), nh = s.head.length, outCol = s.head[0] == 'Outlet';
-  return `<div class="ov"><table><tr>${s.head.map((h, i) => `<th class="${fm[i] != 't' ? 'n' : ''}">${esc(h)}</th>`).join('')}</tr>${s.rows.map((r) => {
+  return `<div class="ov"><table><tr>${s.head.map((h, i) => `<th class="${fm[i] != 't' ? 'n' : ''}">${esc(h)}</th>`).join('')}</tr>${s.rows.map((r, idx) => {
     const fl = r.length > nh ? r[nh] : ''; if (fl == 'h') return `<tr><td colspan="${nh}" class="mu bo">${esc(r[0])}</td></tr>`;
     const oc = outCol && fl != 'b' ? outletByName(r[0]) : null;
-    return `<tr class="${fl == 'b' ? 'bo' : ''}">${s.head.map((_, i) => i == 0 && oc ? `<td><a href="#" class="olk" onclick="outletDetail('${esc(oc.id)}');return false">${esc(r[0])}</a></td>` : `<td class="${fm[i] != 't' ? 'n' : ''}">${cellH(r[i], fm[i])}</td>`).join('')}</tr>`;
+    const click = s.rowFn && fl != 'b' ? s.rowFn(r, idx) : '';
+    return `<tr class="${fl == 'b' ? 'bo' : ''}${click ? ' clk' : ''}"${click ? ` onclick="${click}"` : ''}>${s.head.map((_, i) => i == 0 && oc ? `<td><a href="#" class="olk" onclick="outletDetail('${esc(oc.id)}');return false">${esc(r[0])}</a></td>` : `<td class="${fm[i] != 't' ? 'n' : ''}">${cellH(r[i], fm[i])}</td>`).join('')}</tr>`;
   }).join('') || `<tr><td colspan="${nh}" class="mu">Tidak ada data</td></tr>`}</table></div>`;
+}
+// drill-down: detail outlet (EC & AO) untuk satu salesman, dari tab "EC/AO/Omset Sales"
+function kpiSalesDetail(u) {
+  const byO = {};
+  for (const s of salesIn(PF, PT)) {
+    if (s.u != u) continue; const net = netSale(s);
+    const o = byO[s.cu] || (byO[s.cu] = { ec: 0, omz: 0, last: 0 });
+    o.ec++; o.omz += net; if (s.t > o.last) o.last = s.t;
+  }
+  const list = Object.entries(byO).map(([cid, x]) => { const c = cust(cid); return { id: cid, n: c ? c.n : '(outlet dihapus)', ok: !!c, ec: x.ec, omz: x.omz, last: x.last }; }).sort((a, b) => b.omz - a.omz);
+  const ao = list.filter((x) => x.omz > 0).length, ec = list.reduce((a, x) => a + x.ec, 0);
+  modal(`<h3>${esc(u)}</h3><small>EC ${ec} · AO ${ao} outlet · ${perLabel()}</small><div class="ov" style="margin-top:8px"><table><tr><th>Outlet</th><th class="n">EC</th><th class="n">Omset</th><th class="n">Terakhir</th></tr>${list.map((x) => `<tr><td>${x.ok ? `<a href="#" class="olk" onclick="outletDetail('${esc(x.id)}');return false">${esc(x.n)}</a>` : esc(x.n)}</td><td class="n">${x.ec}</td><td class="n">${rp(x.omz)}</td><td class="n">${dstr(x.last)}</td></tr>`).join('') || `<tr><td colspan="4" class="mu">Tidak ada data</td></tr>`}</table></div>`);
+}
+// drill-down: detail outlet pembeli satu SKU, dari tab "EC/AO/Omset Sales"
+function kpiSkuDetail(pid) {
+  const p = prod(pid), byO = {};
+  for (const s of salesIn(PF, PT)) for (const i of s.L) {
+    if (i.id != pid) continue; const left = i.q - (i.rq || 0); if (left <= 0) continue;
+    const o = byO[s.cu] || (byO[s.cu] = { qty: 0, omz: 0, u: new Set() });
+    o.qty += left; o.omz += (i.p * i.q - i.dd) * (left / i.q); if (s.u) o.u.add(s.u);
+  }
+  const list = Object.entries(byO).map(([cid, x]) => { const c = cust(cid); return { id: cid, n: c ? c.n : '(outlet dihapus)', ok: !!c, qty: x.qty, omz: x.omz, sales: [...x.u].join(', ') }; }).sort((a, b) => b.omz - a.omz);
+  modal(`<h3>${esc(p ? p.n : '?')}</h3><small>AO ${list.length} outlet · ${perLabel()}</small><div class="ov" style="margin-top:8px"><table><tr><th>Outlet</th><th class="n">Qty</th><th class="n">Omset</th><th>Sales</th></tr>${list.map((x) => `<tr><td>${x.ok ? `<a href="#" class="olk" onclick="outletDetail('${esc(x.id)}');return false">${esc(x.n)}</a>` : esc(x.n)}</td><td class="n">${Math.round(x.qty).toLocaleString('id-ID')}</td><td class="n">${rp(x.omz)}</td><td>${esc(x.sales)}</td></tr>`).join('') || `<tr><td colspan="4" class="mu">Tidak ada data</td></tr>`}</table></div>`);
 }
 const secH = (s) => `<div class="cd"><h3>${esc(s.title)}</h3>${tblH(s)}</div>`;
 VW.lap = () => {
