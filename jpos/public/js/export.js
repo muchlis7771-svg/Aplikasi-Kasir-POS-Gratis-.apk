@@ -23,7 +23,7 @@ function expXlsx(kind) {
   if (kind == 'all') {
     const J = RPT.jual(f, t), nm = ['Ringkasan', 'Harian', 'Per Produk', 'Per Kategori', 'Per Outlet', 'Per Kasir-Sales', 'Per Pembayaran'];
     J.forEach((s, i) => addSheet(wb, nm[i], [s]));
-    addSheet(wb, 'Detail Item', RPT.fakturDetail(f, t)); addSheet(wb, 'Piutang', RPT.piutang()); addSheet(wb, 'Utang', RPT.utang()); addSheet(wb, 'Stok', RPT.stok()); addSheet(wb, 'Outlet', RPT.outlet());
+    addSheet(wb, 'Detail Item', RPT.fakturDetail(f, t)); addSheet(wb, 'EC-AO-Omset Sales', RPT.kpi(f, t)); addSheet(wb, 'Piutang', RPT.piutang()); addSheet(wb, 'Utang', RPT.utang()); addSheet(wb, 'Stok', RPT.stok()); addSheet(wb, 'Outlet', RPT.outlet());
     addSheet(wb, 'Laba Rugi', RPT.lr(f, t)); addSheet(wb, 'Neraca', RPT.neraca(f, t)); addSheet(wb, 'Arus Kas', RPT.cf(f, t)); addSheet(wb, 'Neraca Saldo', RPT.ns(f, t));
     addSheet(wb, 'Buku Besar', RPT.glAll(f, t)); addSheet(wb, 'Jurnal', RPT.jurnal(f, t)); addSheet(wb, 'Absensi', RPT.absen(f, t)); name = 'laporan-lengkap';
   } else if (kind == 'jurnal') { addSheet(wb, 'Jurnal', RPT.jurnal(f, t)); name = 'jurnal'; }
