@@ -1,5 +1,5 @@
 // Service worker: cache aplikasi agar bisa dibuka offline. API tidak di-cache.
-const V = 'jpos-v107', ASSETS = ['./', 'index.html', 'config.js', 'manifest.webmanifest', 'css/app.css', 'fonts/inter-Regular.woff2', 'fonts/inter-Medium.woff2', 'fonts/inter-SemiBold.woff2', 'fonts/inter-Bold.woff2', 'fonts/inter-ExtraBold.woff2',
+const V = 'jpos-v108', ASSETS = ['./', 'index.html', 'config.js', 'manifest.webmanifest', 'css/app.css', 'fonts/inter-Regular.woff2', 'fonts/inter-Medium.woff2', 'fonts/inter-SemiBold.woff2', 'fonts/inter-Bold.woff2', 'fonts/inter-ExtraBold.woff2',
   'fonts/poppins-400.woff2', 'fonts/poppins-500.woff2', 'fonts/poppins-600.woff2', 'fonts/poppins-700.woff2', 'fonts/manrope-400.woff2', 'fonts/manrope-500.woff2', 'fonts/manrope-600.woff2', 'fonts/manrope-700.woff2', 'fonts/space-grotesk-400.woff2', 'fonts/space-grotesk-500.woff2', 'fonts/space-grotesk-600.woff2', 'fonts/space-grotesk-700.woff2',
   'icons/icon-192.png', 'icons/icon-512.png',
   'vendor/leaflet.js', 'vendor/leaflet.css', 'vendor/xlsx.full.min.js', 'vendor/jspdf.umd.min.js', 'vendor/jspdf.plugin.autotable.min.js', 'vendor/zxing.min.js', 'vendor/qrcode.js',
