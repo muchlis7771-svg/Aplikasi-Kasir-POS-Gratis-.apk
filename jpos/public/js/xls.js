@@ -27,38 +27,85 @@ function parseLL(v) { // "-5.14,119.43" | link google maps | angka terpisah
 }
 const llOk = (la, ln) => Number.isFinite(la) && Number.isFinite(ln) && Math.abs(la) <= 90 && Math.abs(ln) <= 180 && !(la == 0 && ln == 0);
 const normN = (s) => hn(s).replace(/^(toko|warung|kios|ud|cv|pt)\s+/, '');
+// cocokkan isi kolom "Channel" dari file luar (bebas) ke daftar baku OCHAN (lihat outlet.js)
+function chNorm(v) {
+  const s = hn(v); if (!s) return '';
+  if (/modern|market|mart|swalayan|minimarket/.test(s)) return 'Modern Trade';
+  if (/horeca|hotel|resto|restoran|cafe|kafe|catering/.test(s)) return 'HORECA';
+  if (/online|ecommerce|e commerce|marketplace|shopee|tokopedia|lazada/.test(s)) return 'Online';
+  if (/grosir|wholesale|distributor/.test(s)) return 'Grosir';
+  if (/general|tradisional|warung|toko|ritel|retail/.test(s)) return 'General Trade';
+  return 'Lainnya';
+}
 
 /* ---------------- OUTLET ---------------- */
 const OCOL = {
-  id: ['id', 'id outlet', 'id sistem'], kd: ['kode outlet', 'kd outlet', 'kode', 'kd'], n: ['nama', 'nama outlet', 'nama toko', 'outlet', 'toko', 'pelanggan', 'nama pelanggan'], ad: ['alamat', 'address'],
+  id: ['id', 'id outlet', 'id sistem'], kd: ['kode outlet', 'kd outlet', 'kode', 'kd'], n: ['nama', 'nama outlet', 'nama toko', 'outlet', 'toko', 'pelanggan', 'nama pelanggan'],
+  ch: ['channel', 'chanel', 'saluran', 'segmen', 'segment', 'tipe outlet', 'jenis outlet', 'kanal', 'kanal outlet', 'tipe toko', 'klasifikasi outlet'],
+  ad: ['alamat', 'address', 'alamat outlet', 'alamat lengkap', 'alamat toko', 'domisili', 'lokasi outlet', 'detail alamat'],
   ph: ['telepon', 'telp', 'hp', 'wa', 'no hp', 'no telepon', 'no wa', 'phone', 'whatsapp'], sl: ['sales', 'salesman', 'sales penanggung jawab', 'penanggung jawab'],
   term: ['tipe', 'pembayaran', 'tipe bayar', 'jenis', 'term', 'tunai kredit', 'kredit tunai'], lim: ['limit', 'limit kredit', 'plafon', 'plafon kredit'], tempo: ['tempo', 'tempo hari', 'jatuh tempo', 'tempo bayar'],
-  lat: ['latitude', 'lat', 'lintang'], lng: ['longitude', 'lng', 'long', 'lon', 'bujur'], ll: ['koordinat', 'gps', 'lokasi', 'lat lng', 'lintang bujur', 'lintang dan bujur', 'koordinat gps', 'maps', 'link maps', 'google maps', 'titik'], note: ['catatan', 'keterangan', 'note', 'notes'],
+  lat: ['latitude', 'lat', 'lintang'], lng: ['longitude', 'lng', 'long', 'lon', 'bujur'],
+  ll: ['koordinat', 'gps', 'lokasi', 'lat lng', 'lintang bujur', 'lintang dan bujur', 'koordinat gps', 'maps', 'link maps', 'google maps', 'titik', 'titik lokasi', 'posisi', 'pin lokasi', 'share location', 'url maps', 'link lokasi'],
+  note: ['catatan', 'keterangan', 'note', 'notes'],
+  xp: ['omset distributor lain', 'pembelian distributor lain', 'riwayat pembelian', 'riwayat pengambilan', 'pembelian di distributor lain', 'pengambilan distributor lain', 'omset bulanan', 'rata rata pembelian', 'rata rata pengambilan', 'nilai pembelian', 'total pembelian', 'purchase history', 'monthly purchase', 'average purchase', 'omset lain'],
 };
+// field yang bisa dipilih manual di layar cocokkan-kolom (fallback saat "Nama Outlet" tak terdeteksi otomatis)
+const OFIELDS = [['n', 'Nama Outlet'], ['kd', 'Kode Outlet'], ['ch', 'Channel'], ['ad', 'Alamat'], ['ph', 'Telepon'], ['sl', 'Sales'], ['term', 'Tipe (Tunai/Kredit)'], ['lim', 'Limit Kredit'], ['tempo', 'Tempo (hari)'], ['lat', 'Latitude'], ['lng', 'Longitude'], ['ll', 'Koordinat / Link Maps'], ['note', 'Catatan'], ['xp', 'Riwayat pembelian di distributor lain'], ['id', 'ID Sistem (lanjutan)']];
 function xlsOutletExport() {
   if (!xlsOk()) return;
-  const H = ['ID', 'Kode Outlet', 'Nama Outlet', 'Alamat', 'Telepon', 'Sales', 'Tipe (Tunai/Kredit)', 'Limit Kredit', 'Tempo (hari)', 'Latitude', 'Longitude', 'Link Google Maps', 'Catatan', 'Piutang Berjalan', 'Jatuh Tempo'];
-  const rows = [H, ...S.c.filter((c) => !c.x).map((c) => [c.id, c.kd || '', c.n, c.ad || '', c.ph || '', c.sl || '', c.term == 'kredit' ? 'Kredit' : 'Tunai', c.lim || 0, c.tempo || S.set.tempo || 30, c.lat ?? '', c.lng ?? '', c.lat != null ? mapsUrl(c).replace('dir/?api=1&destination=', 'search/?api=1&query=') : '', c.note || '', outOf(c.id), overdue(c.id)])];
-  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, xlsSheet(rows, [14, 12, 28, 34, 15, 14, 12, 12, 10, 12, 12, 34, 26, 14, 14]), 'Outlet'); xlsSave(wb, 'outlet'); toast(rows.length - 1 + ' outlet diekspor');
+  const H = ['ID', 'Kode Outlet', 'Nama Outlet', 'Channel', 'Alamat', 'Telepon', 'Sales', 'Tipe (Tunai/Kredit)', 'Limit Kredit', 'Tempo (hari)', 'Latitude', 'Longitude', 'Link Google Maps', 'Catatan', 'Riwayat Pembelian Distributor Lain', 'Piutang Berjalan', 'Jatuh Tempo'];
+  const rows = [H, ...S.c.filter((c) => !c.x).map((c) => [c.id, c.kd || '', c.n, c.ch || '', c.ad || '', c.ph || '', c.sl || '', c.term == 'kredit' ? 'Kredit' : 'Tunai', c.lim || 0, c.tempo || S.set.tempo || 30, c.lat ?? '', c.lng ?? '', c.lat != null ? mapsUrl(c).replace('dir/?api=1&destination=', 'search/?api=1&query=') : '', c.note || '', c.xp || '', outOf(c.id), overdue(c.id)])];
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, xlsSheet(rows, [14, 12, 28, 14, 34, 15, 14, 12, 12, 10, 12, 12, 34, 26, 16, 14, 14]), 'Outlet'); xlsSave(wb, 'outlet'); toast(rows.length - 1 + ' outlet diekspor');
 }
 function xlsOutletTemplate() {
   if (!xlsOk()) return;
   const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, xlsSheet([['Kode Outlet', 'Nama Outlet', 'Alamat', 'Telepon', 'Sales', 'Tipe (Tunai/Kredit)', 'Limit Kredit', 'Tempo (hari)', 'Latitude', 'Longitude', 'Catatan'], ['', 'Toko Berkah Jaya', 'Jl. Contoh No. 12, Makassar', '081234567890', 'Andi', 'Kredit', 5000000, 14, -5.1477, 119.4327, 'Buka jam 7 pagi'], ['', 'Warung Bu Sari', 'Jl. Mawar 3', '085211112222', '', 'Tunai', '', '', -5.1520, 119.4410, '']], [14, 28, 34, 15, 14, 18, 12, 10, 12, 12, 26]), 'Outlet');
-  XLSX.utils.book_append_sheet(wb, xlsSheet([['PETUNJUK'], ['• Kolom wajib: Nama Outlet. Kolom lain boleh kosong (sel kosong TIDAK menghapus data lama).'], ['• Kode Outlet: kosongkan untuk outlet baru (dibuat otomatis OT-0001, OT-0002, …). Isi kode yang sudah ada untuk memperbarui outlet itu.'], ['• GPS: isi Latitude & Longitude (contoh -5.1477 dan 119.4327), ATAU satu kolom "Koordinat" berisi "-5.1477, 119.4327" / link Google Maps.'], ['• Tipe Tunai/Kredit, Limit, Tempo hanya berlaku bila diimpor oleh Pemilik (Owner).'], ['• Sales penanggung jawab hanya bisa diatur Owner/Admin.'], ['• Koordinat outlet yang sudah punya titik hanya bisa diubah Owner/Admin.']], [110]), 'Petunjuk');
+  XLSX.utils.book_append_sheet(wb, xlsSheet([['Kode Outlet', 'Nama Outlet', 'Channel', 'Alamat', 'Telepon', 'Sales', 'Tipe (Tunai/Kredit)', 'Limit Kredit', 'Tempo (hari)', 'Latitude', 'Longitude', 'Catatan', 'Riwayat Pembelian Distributor Lain'],
+    ['', 'Toko Berkah Jaya', 'General Trade', 'Jl. Contoh No. 12, Makassar', '081234567890', 'Andi', 'Kredit', 5000000, 14, -5.1477, 119.4327, 'Buka jam 7 pagi', ''],
+    ['', 'Warung Bu Sari', 'General Trade', 'Jl. Mawar 3', '085211112222', '', 'Tunai', '', '', -5.1520, 119.4410, '', 3000000]], [14, 28, 14, 34, 15, 14, 18, 12, 10, 12, 12, 26, 16]), 'Outlet');
+  XLSX.utils.book_append_sheet(wb, xlsSheet([['PETUNJUK'],
+    ['• Kolom wajib: Nama Outlet. Kolom lain boleh kosong (sel kosong TIDAK menghapus data lama).'],
+    ['• Nama kolom di file Anda TIDAK harus sama persis dengan template ini — JPOS mengenali banyak variasi nama kolom otomatis. Bila kolom "Nama Outlet" sama sekali tidak terdeteksi, akan muncul layar untuk mencocokkan kolom secara manual.'],
+    ['• Kode Outlet: kosongkan untuk outlet baru (dibuat otomatis OT-0001, OT-0002, …). Isi kode yang sudah ada untuk memperbarui outlet itu.'],
+    ['• Channel: General Trade / Modern Trade / HORECA / Grosir / Online / Lainnya — isi apa saja, JPOS mencocokkan ke kategori terdekat.'],
+    ['• Alamat & GPS dibaca fleksibel: boleh Latitude+Longitude terpisah, ATAU satu kolom "Koordinat"/link Google Maps.'],
+    ['• Tipe Tunai/Kredit, Limit, Tempo hanya berlaku bila diimpor oleh Pemilik (Owner).'],
+    ['• Riwayat Pembelian Distributor Lain (opsional): rata-rata/total pembelian outlet ini di distributor lain. Bila diisi dan outlet belum punya Limit Kredit, JPOS akan menyarankan limit kredit sebesar nilai ini (hanya oleh Pemilik, bisa diubah lagi).'],
+    ['• Sales penanggung jawab hanya bisa diatur Owner/Admin.'],
+    ['• Koordinat outlet yang sudah punya titik hanya bisa diubah Owner/Admin.']], [110]), 'Petunjuk');
   xlsSave(wb, 'template-outlet');
 }
-async function xlsOutletImport(el) {
-  const f = el.files[0]; el.value = ''; if (!f || !xlsOk()) return;
-  let rows; try { rows = await readXls(f); } catch (e) { return toast(e.message); }
-  const { hi, map } = colMap(rows, OCOL); if (map.n == null) return toast('Kolom "Nama Outlet" tidak ditemukan. Unduh template untuk contoh format.');
-  // fallback: kolom koordinat gabungan dengan judul yang tidak persis cocok (mis. "Lintang dan bujur") — kenali dari kata kuncinya
+// deteksi otomatis kolom (sinonim) + sapuan tambahan untuk Alamat & GPS agar terbaca seflexibel mungkin meski judul kolom tidak persis cocok
+function autoOMap(rows) {
+  const { hi, map } = colMap(rows, OCOL), hdr = rows[hi] || [];
+  const taken = (i) => Object.values(map).includes(i);
   if (map.ll == null && map.lat == null) {
-    const hdr = rows[hi] || [];
-    const idx = hdr.findIndex((c) => { const h = hn(c); return (h.includes('lintang') && h.includes('bujur')) || h.includes('koordinat') || (h.includes('lat') && (h.includes('lng') || h.includes('long'))); });
+    const idx = hdr.findIndex((c, i) => { if (taken(i)) return false; const h = hn(c); return (h.includes('lintang') && h.includes('bujur')) || h.includes('koordinat') || h.includes('posisi') || h.includes('pin lokasi') || h.includes('share location') || (h.includes('lat') && (h.includes('lng') || h.includes('long'))); });
     if (idx >= 0) map.ll = idx;
   }
-  const boss = U.r == 'owner', mgr = MGR(U.r), plan = [], errs = [], seen = new Set(); let ign = 0;
+  if (map.ad == null) {
+    const idx = hdr.findIndex((c, i) => { if (taken(i)) return false; const h = hn(c); return h.includes('alamat') || h.includes('address') || h.includes('domisili'); });
+    if (idx >= 0) map.ad = idx;
+  }
+  return { hi, map };
+}
+// layar cocokkan-kolom manual — tampil hanya saat kolom wajib (Nama Outlet) gagal terdeteksi otomatis
+function oMapFallback(rows, hi, map) {
+  const hdr = rows[hi] || [], sample = rows[hi + 1] || [];
+  const cols = hdr.map((h, i) => [h, i]).filter(([h, i]) => sval(h) !== '' || sval(sample[i]) !== '');
+  const m = modal(`<h3>Kolom "Nama Outlet" tidak terdeteksi otomatis</h3><small class="mu">Cocokkan kolom file Anda ke field JPOS, lalu lanjutkan impor. Kolom yang tidak dicocokkan akan diabaikan.</small>
+<div class="ov" style="max-height:50vh;margin-top:8px"><table><tr><th>Kolom di file</th><th>Contoh isi</th><th>Field JPOS</th></tr>${cols.map(([h, i]) => { const cur = Object.keys(map).find((k) => map[k] == i) || ''; return `<tr><td><b>${esc(sval(h) || '(kolom ' + (i + 1) + ')')}</b></td><td><small class="mu">${esc(sval(sample[i]).slice(0, 30))}</small></td><td><select data-i="${i}"><option value="">— abaikan —</option>${OFIELDS.map(([k, lbl]) => `<option value="${k}" ${cur == k ? 'selected' : ''}>${esc(lbl)}</option>`).join('')}</select></td></tr>`; }).join('')}</table></div>
+<button class="pr" id="ok">Lanjutkan impor</button><button class="gh" id="x">Batal</button>`, 'w');
+  $('#x', m).onclick = () => m.close();
+  $('#ok', m).onclick = () => {
+    const nm = {}; $$('select[data-i]', m).forEach((s) => { if (s.value) nm[s.value] = +s.dataset.i; });
+    if (nm.n == null) return toast('Pilih kolom untuk "Nama Outlet" dulu');
+    m.close(); runOutletImport(rows, hi, nm);
+  };
+}
+function runOutletImport(rows, hi, map) {
+  const boss = U.r == 'owner', mgr = MGR(U.r), plan = [], errs = [], seen = new Set(); let ign = 0, sugg = 0;
   rows.slice(hi + 1, hi + 1501).forEach((r, i) => {
     const line = hi + i + 2, n = sval(cell(r, map, 'n')); if (!n && r.every((x) => x === '')) return; if (!n) return errs.push('Baris ' + line + ': nama kosong');
     const id = sval(cell(r, map, 'id')), ph = sval(cell(r, map, 'ph')).replace(/[^\d+]/g, '');
@@ -68,22 +115,37 @@ async function xlsOutletImport(el) {
     const d = { id: ex ? ex.id : 'c' + uid() }; if (!ex && kd) d.kd = kd;
     if (!ex || n != ex.n) d.n = n;
     for (const k of ['ad', 'note']) { const v = sval(cell(r, map, k)); if (v) d[k] = v; }
+    const chRaw = sval(cell(r, map, 'ch')); if (chRaw) d.ch = chNorm(chRaw);
     if (ph) d.ph = sval(cell(r, map, 'ph'));
     let la = dec(cell(r, map, 'lat')), ln = dec(cell(r, map, 'lng'));
     if (!llOk(la, ln)) { const g = parseLL(map.ll != null ? cell(r, map, 'll') : ''); if (g) { la = g[0]; ln = g[1]; } }
     if (llOk(la, ln)) { if (ex && ex.lat != null && !mgr) ign++; else { d.lat = +la.toFixed(6); d.lng = +ln.toFixed(6); } }
     else if ((cell(r, map, 'lat') !== '' || cell(r, map, 'lng') !== '') || (map.ll != null && sval(cell(r, map, 'll')))) errs.push('Baris ' + line + ' (' + n + '): koordinat tidak terbaca — diimpor tanpa GPS');
     const sl = sval(cell(r, map, 'sl')); if (sl) { if (mgr) d.sl = sl; else ign++; }
-    const tp = sval(cell(r, map, 'term')); if (tp || cell(r, map, 'lim') !== '' || cell(r, map, 'tempo') !== '') {
-      if (!boss) ign++; else { if (/kredit|credit|tempo/i.test(tp)) d.term = 'kredit'; else if (/tunai|cash/i.test(tp)) d.term = 'cash'; const lm = dec(cell(r, map, 'lim')), tm = dec(cell(r, map, 'tempo')); if (Number.isFinite(lm)) d.lim = Math.max(0, Math.round(lm)); if (Number.isFinite(tm)) d.tempo = Math.max(1, Math.round(tm)); }
+    let sg = false;
+    const tp = sval(cell(r, map, 'term')), limCell = cell(r, map, 'lim');
+    if (tp || limCell !== '' || cell(r, map, 'tempo') !== '') {
+      if (!boss) ign++; else { if (/kredit|credit|tempo/i.test(tp)) d.term = 'kredit'; else if (/tunai|cash/i.test(tp)) d.term = 'cash'; const lm = dec(limCell), tm = dec(cell(r, map, 'tempo')); if (Number.isFinite(lm)) d.lim = Math.max(0, Math.round(lm)); if (Number.isFinite(tm)) d.tempo = Math.max(1, Math.round(tm)); }
     }
-    plan.push({ d, nw: !ex, n, gps: d.lat != null || (ex && ex.lat != null) });
+    // riwayat pembelian di distributor lain: dicatat sebagai info, dan jadi usulan limit kredit bila outlet belum punya limit (hanya oleh pemilik)
+    const xp = dec(cell(r, map, 'xp'));
+    if (Number.isFinite(xp) && xp > 0) {
+      if (!boss) ign++; else { d.xp = Math.round(xp); if (d.lim == null && !(ex && ex.lim > 0)) { d.lim = Math.round(xp); if (!d.term && !(ex && ex.term == 'kredit')) d.term = 'kredit'; sg = true; sugg++; } }
+    }
+    plan.push({ d, nw: !ex, n, gps: d.lat != null || (ex && ex.lat != null), sugg: sg });
   });
   if (!plan.length) return toast(errs[0] || 'Tidak ada baris valid');
   const nw = plan.filter((p) => p.nw).length, up = plan.length - nw, g = plan.filter((p) => p.gps).length;
-  const m = modal(`<h3>Pratinjau impor outlet</h3>${row('Baru', '<b class="gr">' + nw + '</b>')}${row('Diperbarui', '<b>' + up + '</b>')}${row('Punya titik GPS', g + ' dari ' + plan.length)}${ign ? row('Kolom diabaikan (tanpa izin)', '<b class="or">' + ign + '</b>') : ''}${errs.length ? `<div class="warnbox">⚠ ${errs.length} catatan:<br>${errs.slice(0, 6).map(esc).join('<br>')}${errs.length > 6 ? '<br>…' : ''}</div>` : ''}<div class="ov" style="max-height:30vh"><table>${plan.slice(0, 8).map((p) => `<tr><td>${esc(p.n)}<td>${p.nw ? '<span class="chip g">baru</span>' : '<span class="chip">update</span>'}<td>${p.gps ? '📍' : ''}</tr>`).join('')}</table></div><button class="pr" id="ok">Impor ${plan.length} outlet</button><button class="gh" id="x">Batal</button>`);
+  const m = modal(`<h3>Pratinjau impor outlet</h3>${row('Baru', '<b class="gr">' + nw + '</b>')}${row('Diperbarui', '<b>' + up + '</b>')}${row('Punya titik GPS', g + ' dari ' + plan.length)}${sugg ? row('Limit kredit disarankan (riwayat pembelian)', '<b class="or">' + sugg + ' outlet</b>') : ''}${ign ? row('Kolom diabaikan (tanpa izin)', '<b class="or">' + ign + '</b>') : ''}${errs.length ? `<div class="warnbox">⚠ ${errs.length} catatan:<br>${errs.slice(0, 6).map(esc).join('<br>')}${errs.length > 6 ? '<br>…' : ''}</div>` : ''}<div class="ov" style="max-height:30vh"><table>${plan.slice(0, 8).map((p) => `<tr><td>${esc(p.n)}<td>${p.nw ? '<span class="chip g">baru</span>' : '<span class="chip">update</span>'}<td>${p.gps ? '📍' : ''}${p.sugg ? ' 💳' : ''}</tr>`).join('')}</table></div><button class="pr" id="ok">Impor ${plan.length} outlet</button><button class="gh" id="x">Batal</button>`);
   $('#x', m).onclick = () => m.close();
-  $('#ok', m).onclick = () => { for (const p of plan) emit('cu', { c: p.d }); m.close(); R(); toast(nw + ' outlet baru, ' + up + ' diperbarui'); };
+  $('#ok', m).onclick = () => { for (const p of plan) emit('cu', { c: p.d }); m.close(); R(); toast(nw + ' outlet baru, ' + up + ' diperbarui' + (sugg ? ', ' + sugg + ' limit kredit disarankan' : '')); };
+}
+async function xlsOutletImport(el) {
+  const f = el.files[0]; el.value = ''; if (!f || !xlsOk()) return;
+  let rows; try { rows = await readXls(f); } catch (e) { return toast(e.message); }
+  const { hi, map } = autoOMap(rows);
+  if (map.n == null) return oMapFallback(rows, hi, map);
+  runOutletImport(rows, hi, map);
 }
 
 /* ---------------- STOK / PRODUK ---------------- */
