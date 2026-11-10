@@ -1,7 +1,7 @@
 {
   "name": "jpos-desktop",
   "productName": "J-POS",
-  "version": "2.1.10",
+  "version": "2.1.11",
   "description": "J-POS untuk laptop: kasir, stok, akuntansi, grosir & distributor",
   "author": "J-POS",
   "main": "main.js",

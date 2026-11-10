@@ -269,7 +269,7 @@ const Ap = {
     if ('lat' in q && q.lat != null && !(Math.abs(+q.lat) <= 90 && Math.abs(+q.lng) <= 180 && !(Math.abs(+q.lat) < 0.01 && Math.abs(+q.lng) < 0.01))) { q.lat = null; q.lng = null; } // titik 0,0 = GPS belum terkunci → abaikan
     if (c.lat == null || c.lng == null || (Math.abs(c.lat) < 0.01 && Math.abs(c.lng) < 0.01)) { c.lat = null; c.lng = null; } // titik tidak lengkap / 0,0 = belum punya titik
     const lock = c.lat != null && !MGR(e.r); // titik outlet yang sudah ada hanya bisa diubah owner/admin/akuntan
-    for (const f of ['n', 'ph', 'ad', 'lat', 'lng', 'note']) { if ((f == 'lat' || f == 'lng') && lock) continue; if (f in q) c[f] = q[f]; }
+    for (const f of ['n', 'ph', 'ad', 'ch', 'xp', 'lat', 'lng', 'note']) { if ((f == 'lat' || f == 'lng') && lock) continue; if (f in q) c[f] = q[f]; }
     if (q.img && /^data:image\//.test(q.img)) c.img = q.img; // foto outlet dari kamera (ph = telepon)
     if (c.lat == null || c.lng == null) { c.lat = null; c.lng = null; } // titik outlet yang sudah ada hanya bisa diubah owner/admin/akuntan
     if (MGR(e.r) && 'sl' in q) c.sl = q.sl;
