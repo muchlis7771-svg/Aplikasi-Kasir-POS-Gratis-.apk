@@ -115,7 +115,8 @@ function pset(idx, v) { const c = cart[idx]; if (!c) return; const p = prod(c.id
 function pstep(idx, d) { const c = cart[idx]; if (!c) return; if (c.q + d < 1) return pdel(idx); const p = prod(c.id), mx = U.r == 'kanvas' ? vanQ(U.n, c.id) : pStock(p); if (c.q + d > mx) { toast('Stok ' + p.n + ' hanya ' + mx); return; } c.q += d; cartUp(); }
 const pdel = (idx) => { cart.splice(idx, 1); cartUp(); };
 const pld = (idx, v) => { const c = cart[idx]; if (c) c.ld = v.replace(/[^\d.,+]/g, ''); cartUp(); };
-const pcu = (id) => { cCu = id; if (!id && cPay == 'Piutang') cPay = 'Tunai'; cartUp(); };
+// pilih outlet: kalau outlet itu punya fasilitas kredit, metode bayar otomatis diarahkan ke "Kredit" (hemat satu tap); kalau tunai-saja, otomatis balik ke Tunai — tombol Kredit sendiri tetap dinonaktifkan untuk outlet tunai-saja (lihat cartH)
+const pcu = (id) => { cCu = id; const c = id && cust(id); cPay = c && c.term == 'kredit' ? 'Piutang' : 'Tunai'; cartUp(); };
 // pemilih outlet dengan pencarian + terdekat
 function outPick() {
   let q = '', all = oScope == 'all';
