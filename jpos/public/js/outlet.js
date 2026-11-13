@@ -39,7 +39,7 @@ ${L.map((c) => { const out = outOf(c.id), od = overdue(c.id), d = MYPOS && c.lat
 };
 VW.outlet.after = () => { if (oMap) drawMap(); needPos(); }; // langsung (bukan setTimeout) agar tidak ada jeda yang bisa balapan dengan render berikutnya (penyebab peta kadang blank) — lokasi saya selalu disegarkan agar tampil di peta & jarak ke outlet akurat
 async function nearMe() { toast('Mencari lokasi…', 1500); MYPOS = await getPos(); if (MYPOS) MYPOS.t = Date.now(); if (!MYPOS) return toast('Lokasi tidak tersedia. Aktifkan GPS & izin lokasi.'); oSort = 'near'; R(); }
-function orderFor(id) { cCu = id; V = 'pos'; R(); }
+function orderFor(id) { cCu = id; const c = cust(id); cPay = c && c.term == 'kredit' ? 'Piutang' : 'Tunai'; V = 'pos'; R(); }
 // hapus outlet massal/terpilih (soft-delete, sama seperti hapus satuan — owner saja, outlet dengan piutang berjalan dilewati)
 function oSelToggle() { oSel = oSel ? null : new Set(); R(); }
 function oSelAll() { const L = outlets(); if (oSel.size && oSel.size >= L.length) oSel.clear(); else L.forEach((c) => oSel.add(c.id)); R(); }
