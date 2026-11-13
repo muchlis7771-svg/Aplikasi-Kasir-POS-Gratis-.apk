@@ -67,7 +67,10 @@ async function scanCode(onCode, opt = {}) {
         const vv = String(v).trim();
         if (scanDup(vv)) { if (opt.multi) setTimeout(() => scanCode(onCode, opt), 350); return; } // kode sama dalam 2 detik — abaikan, jangan tambah qty lagi
         if (navigator.vibrate) navigator.vibrate(60);
-        const ok = onCode(vv); if (opt.multi && ok !== false) setTimeout(() => scanCode(onCode, opt), 350);
+        const ok = onCode(vv);
+        // onCode boleh mengembalikan teks (bukan cuma true/false) berisi nama+qty hasil scan — ditampilkan jelas supaya kasir tahu pasti sudah tercatat & tidak scan dobel (pemindai OS tidak punya overlay di dalam app)
+        if (typeof ok == 'string') toast('✓ ' + ok, 2200);
+        if (opt.multi && ok !== false) setTimeout(() => scanCode(onCode, opt), 350);
       } else {
         // sesi scan selesai tapi tidak ada kode terbaca (bukan dibatalkan user — itu masuk ke catch di bawah sebagai "cancel").
         // sebelumnya ini diam saja tanpa kabar apa pun ke kasir, terasa seperti "barcode tidak terbaca" tanpa penjelasan.
@@ -80,11 +83,13 @@ async function scanCode(onCode, opt = {}) {
 }
 function openWebScanner(onCode, opt = {}) {
   const el = document.createElement('div'); el.className = 'scan';
-  el.innerHTML = `<video playsinline muted></video><div class="bx"></div><div class="bar"><input placeholder="…atau ketik kode lalu Enter" inputmode="numeric"><button class="gh" id="sx">Tutup</button></div>`;
+  el.innerHTML = `<video playsinline muted></video><div class="bx"></div><div class="scanlbl" id="sl"></div><div class="bar"><input placeholder="…atau ketik kode lalu Enter" inputmode="numeric"><button class="gh" id="sx">Tutup</button></div>`;
   document.body.appendChild(el);
-  const video = $('video', el), inp = $('input', el); let stream = null, stop = false, reader = null;
+  const video = $('video', el), inp = $('input', el), lbl = $('#sl', el); let stream = null, stop = false, reader = null, lblT = null;
   const done = () => { stop = true; try { reader && reader.reset(); } catch (e) { } if (stream) stream.getTracks().forEach((t) => t.stop()); el.remove(); };
-  const hit = (v) => { v = String(v || '').trim(); if (!v) return; if (scanDup(v)) return; if (navigator.vibrate) navigator.vibrate(60); const ok = onCode(v); if (!opt.multi || ok === false) done(); };
+  // onCode boleh mengembalikan teks (nama produk + qty di keranjang) — ditampilkan besar & tetap di layar scan (bukan toast kecil yang cepat hilang) supaya kasir yakin sudah tercatat dan tidak scan dobel
+  const showLbl = (txt) => { if (!lbl) return; lbl.textContent = '✓ ' + txt; lbl.classList.add('show'); clearTimeout(lblT); lblT = setTimeout(() => lbl.classList.remove('show'), 1800); };
+  const hit = (v) => { v = String(v || '').trim(); if (!v) return; if (scanDup(v)) return; if (navigator.vibrate) navigator.vibrate(60); const ok = onCode(v); if (typeof ok == 'string') showLbl(ok); if (!opt.multi || ok === false) done(); };
   $('#sx', el).onclick = done;
   inp.addEventListener('keydown', (e) => { if (e.key == 'Enter') { hit(inp.value); inp.value = ''; } });
   (async () => {

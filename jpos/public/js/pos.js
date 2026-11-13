@@ -106,10 +106,10 @@ function pkey(e) {
 const pcat = (c) => { pCat = c; $('#pcats').innerHTML = catsH(); $('#pg').innerHTML = gridH(); };
 // bonus barang gratis hanya boleh otomatis dari sistem promo (admin ajukan → owner setujui, atau owner buat langsung) — tidak ada lagi tombol bonus manual di kasir, untuk mencegah fraud
 function padd(id, n = 1) {
-  const p = prod(id); if (!p) return;
+  const p = prod(id); if (!p) return null;
   const c = cart.find((x) => x.id == id && !x.free), q = (c ? c.q : 0) + n;
-  const mx = U.r == 'kanvas' ? vanQ(U.n, id) : pStock(p); if (q > mx) { toast((U.r == 'kanvas' ? 'Stok ' + p.n + ' di mobil hanya ' : 'Stok ' + p.n + ' hanya ') + mx); return cartUp(); }
-  if (c) c.q = q; else cart.push({ id, q: n, ld: '' }); cartUp();
+  const mx = U.r == 'kanvas' ? vanQ(U.n, id) : pStock(p); if (q > mx) { toast((U.r == 'kanvas' ? 'Stok ' + p.n + ' di mobil hanya ' : 'Stok ' + p.n + ' hanya ') + mx); cartUp(); return null; }
+  if (c) c.q = q; else cart.push({ id, q: n, ld: '' }); cartUp(); return q; // qty baru item ini di keranjang — dipakai scanAdd() untuk tampilkan konfirmasi qty, bukan cuma "+nama"
 }
 function pset(idx, v) { const c = cart[idx]; if (!c) return; const p = prod(c.id); let q = Math.max(1, num(v)); const mx = U.r == 'kanvas' ? vanQ(U.n, c.id) : pStock(p); if (q > mx) { q = mx; toast('Stok ' + p.n + ' hanya ' + mx); } c.q = q; cartUp(); }
 function pstep(idx, d) { const c = cart[idx]; if (!c) return; if (c.q + d < 1) return pdel(idx); const p = prod(c.id), mx = U.r == 'kanvas' ? vanQ(U.n, c.id) : pStock(p); if (c.q + d > mx) { toast('Stok ' + p.n + ' hanya ' + mx); return; } c.q += d; cartUp(); }
@@ -135,7 +135,8 @@ function outPick() {
   if (!MYPOS || Date.now() - (MYPOS.t || 0) > 12e4) getPos().then((p) => { if (p) { p.t = Date.now(); MYPOS = p; } if (document.body.contains(m)) draw(); });
 }
 const ppay = (m) => { cPay = m; cartUp(); };
-function scanAdd() { scanCode((v) => { const p = bySku(v); if (p) { padd(p.id); toast('+ ' + p.n, 1200); return true; } skuUnknown(v, (id) => padd(id)); return false; }, { multi: true }); }
+// setiap kode berhasil dipindai, tampilkan nama + qty item itu di keranjang (bukan cuma "+nama") agar kasir yakin sudah tercatat dan tidak scan dobel karena ragu
+function scanAdd() { scanCode((v) => { const p = bySku(v); if (p) { const q = padd(p.id); return q == null ? false : p.n + ' — Qty di keranjang: ' + q; } skuUnknown(v, (id) => padd(id)); return false; }, { multi: true }); }
 function ptahan() { if (!cart.length) return toast('Keranjang kosong'); S.hold.push({ cart, cCd, cCdRp, cPay, cCu, cDp, cDpm, cNote, cKr, cAs, t: Date.now() }); resetCart(); save(); cartUp(); toast('Transaksi ditahan'); }
 function planjut() { if (!S.hold.length) return toast('Tidak ada transaksi ditahan'); if (cart.length && !confirm('Keranjang saat ini akan diganti. Lanjutkan?')) return; const h = S.hold.pop(); ({ cart, cCd, cPay, cCu, cDp, cDpm, cNote } = h); cCdRp = h.cCdRp || 0; cKr = h.cKr == null ? null : !!h.cKr; cAs = h.cAs || ''; save(); cartUp(); }
 async function pbayar() {
