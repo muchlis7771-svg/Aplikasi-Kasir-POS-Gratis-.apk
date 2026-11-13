@@ -172,11 +172,33 @@ function receiptText(s) {
 }
 function receipt(s) {
   s = S.sales.find((x) => x.no == s.no) || s;
-  const m = modal(`<div class="rc"><h3>◆ ${esc(S.name || 'J-POS')}</h3><small>${esc(S.set.addr || '')}${S.set.tel ? ' · ' + esc(S.set.tel) : ''}<br>${esc(s.no)} · ${tstr(s.t)}<br>Kasir: ${esc(s.u)}${s.cn ? ' · ' + esc(s.cn) : ''}</small><hr>${s.L.map((i) => `<p><span>${esc(i.n)} ×${i.q}${i.rq ? ` <small class="rd">(retur ${i.rq})</small>` : ''}${i.dd ? `<br><small>diskon ${rp(i.dd)}</small>` : ''}</span><b>${rp(i.p * i.q - i.dd)}</b></p>`).join('')}<hr><p>Subtotal<b>${rp(s.sub)}</b></p>${s.disc ? `<p>Diskon<b>${rp(-s.disc)}</b></p>` : ''}${s.tax ? `<p>PPN<b>${rp(s.tax)}</b></p>` : ''}<h2>${rp(s.tot)}</h2><small>${s.cod ? 'Bayar saat diantar (' + esc(s.cm || 'Tunai') + ') · sisa ' + rp(sOut(s)) : s.pay == 'Piutang' ? 'Kredit · dibayar ' + rp(s.pa || 0) + ' · sisa ' + rp(sOut(s)) + ' · tempo ' + dstr(s.due) : esc(s.pay)}${s.rtot ? ' · retur ' + rp(s.rtot) : ''}${s.note ? '<br>Catatan: ' + esc(s.note) : ''}</small></div><button class="pr" id="rp">🖨️ Cetak faktur</button><button class="gh a" id="rsj">📦 Surat jalan</button>${!s.kirim && !(s.dl && s.dl.st != 'baru') && s.cu && pkgHas('kirim') && S.srv && !(s.rtot >= s.tot) && (MGR(U.r) || s.u == U.n) ? '<button class="gh a" id="rkr">🚚 Kirim lewat tim dropping</button>' : ''}<div class="fm2"><button class="gh" id="rs">Bagikan</button><button class="gh" id="rx">Tutup</button></div>${sOut(s) > 0 ? `<button class="gh a" id="rpay">Terima pembayaran</button>` : ''}${can('retur') && s.L.some((i) => i.q > (i.rq || 0)) ? `<button class="gh d" id="rret">Retur barang</button>` : ''}`);
+  const canEdit = U.r == 'owner' && !(s.rtot > 0) && !(s.pays && s.pays.length);
+  const m = modal(`<div class="rc"><h3>◆ ${esc(S.name || 'J-POS')}</h3><small>${esc(S.set.addr || '')}${S.set.tel ? ' · ' + esc(S.set.tel) : ''}<br>${esc(s.no)} · ${tstr(s.t)}<br>Kasir: ${esc(s.u)}${s.cn ? ' · ' + esc(s.cn) : ''}${s.edited ? ' · <small class="mu">diedit</small>' : ''}</small><hr>${s.L.map((i) => `<p><span>${esc(i.n)} ×${i.q}${i.rq ? ` <small class="rd">(retur ${i.rq})</small>` : ''}${i.dd ? `<br><small>diskon ${rp(i.dd)}</small>` : ''}</span><b>${rp(i.p * i.q - i.dd)}</b></p>`).join('')}<hr><p>Subtotal<b>${rp(s.sub)}</b></p>${s.disc ? `<p>Diskon<b>${rp(-s.disc)}</b></p>` : ''}${s.tax ? `<p>PPN<b>${rp(s.tax)}</b></p>` : ''}<h2>${rp(s.tot)}</h2><small>${s.cod ? 'Bayar saat diantar (' + esc(s.cm || 'Tunai') + ') · sisa ' + rp(sOut(s)) : s.pay == 'Piutang' ? 'Kredit · dibayar ' + rp(s.pa || 0) + ' · sisa ' + rp(sOut(s)) + ' · tempo ' + dstr(s.due) : esc(s.pay)}${s.rtot ? ' · retur ' + rp(s.rtot) : ''}${s.note ? '<br>Catatan: ' + esc(s.note) : ''}</small></div><button class="pr" id="rp">🖨️ Cetak faktur</button><button class="gh a" id="rsj">📦 Surat jalan</button>${!s.kirim && !(s.dl && s.dl.st != 'baru') && s.cu && pkgHas('kirim') && S.srv && !(s.rtot >= s.tot) && (MGR(U.r) || s.u == U.n) ? '<button class="gh a" id="rkr">🚚 Kirim lewat tim dropping</button>' : ''}<div class="fm2"><button class="gh" id="rs">Bagikan</button><button class="gh" id="rx">Tutup</button></div>${sOut(s) > 0 ? `<button class="gh a" id="rpay">Terima pembayaran</button>` : ''}${can('retur') && s.L.some((i) => i.q > (i.rq || 0)) ? `<button class="gh d" id="rret">Retur barang</button>` : ''}${canEdit ? `<button class="gh" id="redit">✏️ Edit nota</button>` : ''}`);
   $('#rp', m).onclick = () => printMenu(s, 'faktur'); { const kb = $('#rkr', m); if (kb) kb.onclick = () => { emit('dlv', { sale: s.no, st: 'baru' }); m.close(); toast('Order masuk papan tim dropping 🚚'); R(); }; } $('#rsj', m).onclick = () => printMenu(s, 'sj');
   $('#rx', m).onclick = () => m.close(); $('#rs', m).onclick = () => shareText('Struk ' + s.no, receiptText(s));
   const pb = $('#rpay', m); if (pb) pb.onclick = () => { m.close(); payModal(s.no); };
   const rb = $('#rret', m); if (rb) rb.onclick = () => { m.close(); returModal(s.no); };
+  const eb = $('#redit', m); if (eb) eb.onclick = () => { m.close(); editModal(s.no); };
+}
+// edit nota penjualan (khusus pemilik) — betulkan qty/harga/baris/metode bayar/catatan tanpa harus retur+buat ulang
+function editModal(no) {
+  const s = S.sales.find((x) => x.no == no); if (!s) return;
+  if (U.r != 'owner') return toast('Hanya pemilik yang bisa mengedit nota');
+  if (s.rtot > 0) return toast('Nota ini sudah ada retur — tidak bisa diedit lagi');
+  if (s.pays && s.pays.length) return toast('Nota ini sudah ada pembayaran cicilan terpisah — tidak bisa diedit lagi');
+  const credOk = s.cu && cust(s.cu) && cust(s.cu).term == 'kredit';
+  const m = modal(`<h3>Edit nota ${esc(s.no)}</h3><small class="mu">${esc(s.cn || 'Tanpa outlet')} · ubah qty/harga, hapus baris (qty 0), metode bayar, atau catatan — stok & jurnal disesuaikan otomatis</small>
+<div class="ov" style="max-height:40vh">${s.L.map((i, n) => `<div class="row" data-n="${n}"><span style="min-width:0">${esc(i.n)}${i.free ? ' <small class="mu">(bonus)</small>' : ''}</span><input type="number" min="0" id="eq${n}" style="width:60px" value="${i.q}" title="Qty"><input type="number" min="0" id="ep${n}" style="width:90px" value="${i.p}" title="Harga satuan"${i.free ? ' disabled' : ''}></div>`).join('')}</div>
+<select id="epm"><option value="Tunai"${s.pay == 'Tunai' ? ' selected' : ''}>Tunai</option><option value="QRIS"${s.pay == 'QRIS' ? ' selected' : ''}>QRIS</option><option value="Transfer"${s.pay == 'Transfer' ? ' selected' : ''}>Transfer</option><option value="Piutang"${s.pay == 'Piutang' ? ' selected' : ''}${credOk ? '' : ' disabled'}>Kredit</option></select>
+<input type="number" id="edp" placeholder="Dibayar / DP diterima" value="${s.pay == 'Piutang' ? s.pa || 0 : s.tot}">
+<textarea id="enote" placeholder="Catatan">${esc(s.note || '')}</textarea>
+<button class="pr" id="ok">Simpan perubahan</button>`);
+  $('#ok', m).onclick = () => {
+    const items = s.L.map((i, n) => { const q = num($('#eq' + n, m).value), p = num($('#ep' + n, m).value); return q > 0 ? { id: i.id, q, pp: i.free ? 0 : p, ld: i.ld, free: i.free } : null; }).filter(Boolean);
+    const pay = $('#epm', m).value, dp = num($('#edp', m).value);
+    try { editSale(no, { items, pay, cu: s.cu, dpay: dp, dpm: s.dpm, note: $('#enote', m).value }); } catch (err) { return toast(err.message); }
+    m.close(); toast('Nota diperbarui'); R();
+  };
 }
 function payModal(no) {
   const s = S.sales.find((x) => x.no == no); if (!s) return; const out = sOut(s);
