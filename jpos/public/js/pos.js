@@ -187,14 +187,30 @@ function editModal(no) {
   if (s.rtot > 0) return toast('Nota ini sudah ada retur — tidak bisa diedit lagi');
   if (s.pays && s.pays.length) return toast('Nota ini sudah ada pembayaran cicilan terpisah — tidak bisa diedit lagi');
   const credOk = s.cu && cust(s.cu) && cust(s.cu).term == 'kredit';
-  const m = modal(`<h3>Edit nota ${esc(s.no)}</h3><small class="mu">${esc(s.cn || 'Tanpa outlet')} · ubah qty/harga, hapus baris (qty 0), metode bayar, atau catatan — stok & jurnal disesuaikan otomatis</small>
-<div class="ov" style="max-height:40vh">${s.L.map((i, n) => `<div class="row" data-n="${n}"><span style="min-width:0">${esc(i.n)}${i.free ? ' <small class="mu">(bonus)</small>' : ''}</span><input type="number" min="0" id="eq${n}" style="width:60px" value="${i.q}" title="Qty"><input type="number" min="0" id="ep${n}" style="width:90px" value="${i.p}" title="Harga satuan"${i.free ? ' disabled' : ''}></div>`).join('')}</div>
+  const eRow = (i, n) => { const p = prod(i.id), kd = p && (p.kd || p.sku); return `<div class="row" data-n="${n}" style="flex-wrap:wrap;gap:4px"><span style="min-width:0;flex-basis:100%">${kd ? '<small class="kd">' + esc(kd) + '</small> ' : ''}${esc(i.n)}${i.free ? ' <small class="mu">(bonus)</small>' : ''}</span><input type="number" min="0" id="eq${n}" style="width:56px" value="${i.q}" title="Qty"><input type="number" min="0" id="ep${n}" style="width:80px" value="${i.p}" title="Harga satuan"${i.free ? ' disabled' : ''}><input type="number" min="0" id="ed${n}" style="width:80px" value="${i.free ? 0 : i.dd}" title="Diskon (Rp)"${i.free ? ' disabled' : ''}><b id="et${n}" style="min-width:70px;text-align:right">${rp(i.p * i.q - i.dd)}</b></div>`; };
+  const m = modal(`<h3>Edit nota ${esc(s.no)}</h3><small class="mu">${esc(s.cn || 'Tanpa outlet')} · ubah SKU-nya lewat qty/harga/diskon per baris, hapus baris (qty 0), metode bayar, atau catatan — stok & jurnal disesuaikan otomatis</small>
+<div class="row" style="font-size:.78rem;opacity:.7"><span style="flex-basis:100%">Barang</span><span style="width:56px">Qty</span><span style="width:80px">Harga</span><span style="width:80px">Diskon</span><span style="min-width:70px;text-align:right">Total</span></div>
+<div class="ov" style="max-height:40vh">${s.L.map((i, n) => eRow(i, n)).join('')}</div>
+<p>Total nota<b id="egt">${rp(s.tot)}</b></p>
 <select id="epm"><option value="Tunai"${s.pay == 'Tunai' ? ' selected' : ''}>Tunai</option><option value="QRIS"${s.pay == 'QRIS' ? ' selected' : ''}>QRIS</option><option value="Transfer"${s.pay == 'Transfer' ? ' selected' : ''}>Transfer</option><option value="Piutang"${s.pay == 'Piutang' ? ' selected' : ''}${credOk ? '' : ' disabled'}>Kredit</option></select>
 <input type="number" id="edp" placeholder="Dibayar / DP diterima" value="${s.pay == 'Piutang' ? s.pa || 0 : s.tot}">
 <textarea id="enote" placeholder="Catatan">${esc(s.note || '')}</textarea>
 <button class="pr" id="ok">Simpan perubahan</button>`);
+  const eCalc = () => {
+    let tot = 0;
+    s.L.forEach((i, n) => {
+      const q = num($('#eq' + n, m).value), p = num($('#ep' + n, m).value), d = i.free ? 0 : Math.min(num($('#ed' + n, m).value), p * q);
+      const lt = Math.max(0, p * q - d); $('#et' + n, m).textContent = rp(lt); tot += lt;
+    });
+    const tax = Math.round(tot * (S.set.ppn || 0) / 100); $('#egt', m).textContent = rp(tot + tax);
+  };
+  s.L.forEach((i, n) => { [`#eq${n}`, `#ep${n}`, `#ed${n}`].forEach((sel) => { const el = $(sel, m); if (el) el.oninput = eCalc; }); });
   $('#ok', m).onclick = () => {
-    const items = s.L.map((i, n) => { const q = num($('#eq' + n, m).value), p = num($('#ep' + n, m).value); return q > 0 ? { id: i.id, q, pp: i.free ? 0 : p, ld: i.ld, free: i.free } : null; }).filter(Boolean);
+    const items = s.L.map((i, n) => {
+      const q = num($('#eq' + n, m).value), p = num($('#ep' + n, m).value), gross = p * q, d = i.free ? 0 : Math.min(num($('#ed' + n, m).value), gross);
+      const ld = !i.free && d > 0 && gross > 0 ? (Math.min(99.99, d / gross * 100)).toFixed(2) : '';
+      return q > 0 ? { id: i.id, q, pp: i.free ? 0 : p, ld, free: i.free } : null;
+    }).filter(Boolean);
     const pay = $('#epm', m).value, dp = num($('#edp', m).value);
     try { editSale(no, { items, pay, cu: s.cu, dpay: dp, dpm: s.dpm, note: $('#enote', m).value }); } catch (err) { return toast(err.message); }
     m.close(); toast('Nota diperbarui'); R();
