@@ -111,7 +111,7 @@ dialog label{display:block;font-size:12.5px;color:var(--mu);margin:10px 0 4px}di
     <div class="app"><div class="top"><div class="ic" style="background:linear-gradient(135deg,#34e0c4,#1ba58f)">📊</div><div><h3>J-DATA Report</h3><div class="sub">Laporan distributor otomatis</div></div></div>
       <ul><li>Bagikan file Excel dari WhatsApp, laporan jadi otomatis</li><li>Omset, AO, Efektif Call, SKU &amp; RO vs Actual</li><li>Grafik batang &amp; tabel rapi, periode 1–12 bulan atau kalender</li><li>Unduh Excel + gambar, kirim ke grup WhatsApp</li></ul>
       <div class="meta"><span class="chip">Android</span><span class="chip">±18 MB</span><span class="chip">Login akun · 1 perangkat</span></div>
-      <div class="act"><button class="btn t" data-dl="jdata">⬇ Unduh J-DATA Report</button></div></div>
+      <div class="act"><button class="btn t" data-dl="jdata">⬇ Unduh J-DATA Report</button><a class="btn o" href="/promo/Panduan-JDATA-Report.pdf" target="_blank" rel="noopener" style="text-decoration:none;display:inline-block;text-align:center">📄 Panduan Cara Pakai (PDF)</a></div></div>
   </div>
   <p class="note" style="text-align:center;margin-top:14px">Android akan meminta izin “pasang dari sumber ini” saat membuka file APK. Itu normal untuk aplikasi di luar Play Store.</p>
 </div></section>
@@ -160,6 +160,7 @@ dialog label{display:block;font-size:12.5px;color:var(--mu);margin:10px 0 4px}di
     <label for="dn">Nama</label><input id="dn" name="name" autocomplete="name" required minlength="2" maxlength="60" placeholder="Nama Anda">
     <label for="dp">Nomor WhatsApp</label><input id="dp" name="phone" type="tel" inputmode="tel" autocomplete="tel" required placeholder="08xxxxxxxxxx">
     <div class="err" id="dE" role="alert"></div>
+    <a id="dPdf" href="/promo/Panduan-JDATA-Report.pdf" target="_blank" rel="noopener" style="display:none;margin:6px 0;font-weight:700">📄 Unduh juga: Panduan Cara Pakai J-DATA (PDF)</a>
     <div class="row"><button type="button" class="btn o" id="dC">Batal</button><button class="btn g" id="dB">Mulai Unduh</button></div>
     <p class="note">Data hanya dipakai untuk membantu proses awal Anda dan tidak dibagikan ke pihak lain.</p>
   </form>
@@ -188,13 +189,13 @@ dialog label{display:block;font-size:12.5px;color:var(--mu);margin:10px 0 4px}di
   // unduh: isi nama & WA dulu (tercatat untuk Head Admin), lalu unduhan dimulai
   const dlg = $('#dlg'); let app = 'jpos';
   const NAMES = { jpos: 'J-POS', jdata: 'J-DATA Report' }, URLS = { jpos: '/gh', jdata: '/jdata' };
-  $$('[data-dl]').forEach(function (b) { b.onclick = function () { app = b.dataset.dl; $('#dT').textContent = 'Unduh ' + NAMES[app]; $('#dE').textContent = ''; try { const s = JSON.parse(localStorage.getItem('ht:me') || '{}'); if (s.n) $('#dn').value = s.n; if (s.p) $('#dp').value = s.p; } catch (e) { } dlg.showModal(); }; });
+  $$('[data-dl]').forEach(function (b) { b.onclick = function () { app = b.dataset.dl; $('#dT').textContent = 'Unduh ' + NAMES[app]; $('#dE').textContent = ''; $('#dPdf').style.display = app == 'jdata' ? 'block' : 'none'; try { const s = JSON.parse(localStorage.getItem('ht:me') || '{}'); if (s.n) $('#dn').value = s.n; if (s.p) $('#dp').value = s.p; } catch (e) { } dlg.showModal(); }; });
   $('#dC').onclick = function () { dlg.close(); };
   $('#dF').onsubmit = async function (e) {
     e.preventDefault(); const n = $('#dn').value.trim(), p = $('#dp').value.trim(), B = $('#dB'); $('#dE').textContent = ''; B.disabled = true; B.textContent = 'Memproses…';
     let url = URLS[app];
     try { const r = await fetch('/api/dl/lead', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ app: app, name: n, phone: p }) }); const j = await r.json().catch(function () { return {}; }); if (!r.ok) { $('#dE').textContent = j.e || 'Gagal, coba lagi.'; B.disabled = false; B.textContent = 'Mulai Unduh'; return; } if (j.url) url = j.url; try { localStorage.setItem('ht:me', JSON.stringify({ n: n, p: p })); } catch (e2) { } } catch (err) { /* jaringan bermasalah: unduhan tetap dilanjutkan */ }
-    dlg.close(); B.disabled = false; B.textContent = 'Mulai Unduh'; location.href = url;
+    B.disabled = false; B.textContent = 'Mulai Unduh'; if (app == 'jdata') { $('#dE').textContent = 'Unduhan APK dimulai. Jangan lupa unduh panduan PDF di bawah ini.'; $('#dE').style.color = '#0a7'; location.href = url; return; } dlg.close(); location.href = url;
   };
 })();
 </script>
