@@ -273,7 +273,7 @@ function tutupKasir() {
 }
 
 /* ============ HEAD ADMIN (pemilik aplikasi) ============ */
-const HA = { d: null, stores: [], q: '', f: 'all', cfg: null, err: '', ref: null };
+const HA = { d: null, stores: [], q: '', f: 'all', cfg: null, err: '', ref: null, dl: null };
 const PLANS = [['trial', 'Trial'], ['bulanan', 'Bulanan'], ['3bulan', '3 Bulan'], ['tahunan', 'Tahunan'], ['premium', 'Premium'], ['lifetime', '🔑 Lisensi Lifetime']];
 const planName = (p) => (PLANS.find((x) => x[0] == p) || [p, p || '-'])[1];
 const sDays = (s) => (s.exp ? calDays(s.exp) : null);
@@ -282,8 +282,8 @@ const expChip = (s) => { if (s.status == 'active' && s.plan == 'lifetime') retur
 const waLink = (no, txt) => 'https://wa.me/' + String(no || '').replace(/^0/, '62').replace(/\D/g, '') + '?text=' + encodeURIComponent(txt);
 async function haLoad() {
   try {
-    const [st, ss, cf, rf] = await Promise.all([haApi('/api/admin/stats?tz=' + -new Date().getTimezoneOffset() / 60), haApi('/api/admin/stores'), haApi('/api/admin/cfg'), haApi('/api/admin/referrals').catch(() => null)]);
-    HA.d = st; HA.stores = ss.stores; HA.cfg = cf; HA.ref = rf; HA.err = ''; HT && R();
+    const [st, ss, cf, rf, dl] = await Promise.all([haApi('/api/admin/stats?tz=' + -new Date().getTimezoneOffset() / 60), haApi('/api/admin/stores'), haApi('/api/admin/cfg'), haApi('/api/admin/referrals').catch(() => null), haApi('/api/admin/dl').catch(() => null)]);
+    HA.d = st; HA.stores = ss.stores; HA.cfg = cf; HA.ref = rf; HA.dl = dl; HA.err = ''; HT && R();
   } catch (e) { if (e.status == 401) { haOut(); toast('Sesi berakhir, login ulang'); } else { HA.err = e.message; R(); } }
   haPulse();
 }
@@ -301,6 +301,18 @@ let HPULSE = null;
 async function haPulse() { try { HPULSE = await haApi('/api/admin/pulse'); const b = $('#habdg'); if (b) { const n = HPULSE.visit + HPULSE.app + HPULSE.login; b.textContent = n || ''; b.style.display = n ? '' : 'none'; } if (HA.tab == 'act') R(); } catch (e) { } }
 function haOut() { HT = ''; sessionStorage.removeItem('jpos:ht'); HA.d = null; R(); }
 const fill14 = (rows) => days(14).map((d) => ({ l: d.l, v: (rows.find((r) => r.d == d.k) || {}).v || 0 }));
+// peserta masa coba (trial) + siapa yang mengunduh APK J-POS / J-DATA Report — dari halaman HomeTech
+function haTrialCard() {
+  const TD = (HA.cfg && HA.cfg.trial_days) || 30, now = Date.now(), tr = HA.stores.filter((s) => s.plan == 'trial').sort((a, b) => b.created - a.created);
+  const live = tr.filter((s) => s.status == 'active' && s.exp && s.exp >= now), soon = live.filter((s) => sDays(s) <= 7), dead = tr.filter((s) => s.exp && s.exp < now), paid = HA.stores.filter((s) => s.plan != 'trial').length;
+  const dl = HA.dl || { leads: [], hits: [] }, d0 = new Date(now + 288e5), key = (n) => new Date(d0.getTime() - n * 864e5).toISOString().slice(0, 10);
+  const cnt = (pre, days) => dl.hits.filter((h) => pre.includes(h.k.slice(0, 2)) && (!days || h.k.slice(2) >= key(days - 1))).reduce((a, h) => a + h.n, 0);
+  const row = (s) => { const d = sDays(s), used = Math.max(0, Math.min(TD, TD - (d == null ? TD : d))), pc = Math.round(used * 100 / TD); return `<div class="sc"><div class="row" style="margin:0"><span><b>${esc(s.name)}</b><br><small class="mu">Kode <b>${esc(s.id)}</b> · ${esc(s.owner || '')}${s.phone ? ' · ' + esc(s.phone) : ''}</small></span>${expChip(s)}</div><div style="height:7px;border-radius:6px;background:#e6ebf3;margin:8px 0 4px;overflow:hidden"><div style="height:100%;width:${pc}%;background:${d != null && d < 0 ? '#e5484d' : d != null && d <= 7 ? '#f5a524' : '#2f9e6f'}"></div></div><small class="mu">Mulai ${dstr(s.created)} · berakhir ${s.exp ? dstr(s.exp) : '-'} · ${s.tx} trx${s.last ? ' · terakhir aktif ' + dstr(s.last) : ' · belum pernah transaksi'}</small>${s.phone ? `<div class="wrap" style="margin-top:6px"><a class="gh" target="_blank" href="${esc(waLink(s.phone, 'Halo ' + (s.owner || '') + ', terima kasih sudah mencoba J-POS. Ada yang bisa kami bantu?'))}">💬 WhatsApp</a></div>` : ''}</div>`; };
+  const lead = (x) => `<div class="sc"><div class="row" style="margin:0"><span><b>${esc(x.name || '-')}</b> <span class="chip ${x.app == 'jdata' ? 'o' : 'g'}">${x.app == 'jdata' ? 'J-DATA Report' : 'J-POS'}</span><br><small class="mu">${esc(x.phone || '')} · ${dstr(x.t)} ${hm(x.t)}</small></span>${x.phone ? `<a class="gh" target="_blank" href="${esc(waLink(x.phone, 'Halo ' + (x.name || '') + ', terima kasih sudah mengunduh aplikasi kami (HomeTech). Ada yang bisa kami bantu?'))}">💬</a>` : ''}</div></div>`;
+  return kpi([['Trial aktif', live.length, 'masa coba ' + TD + ' hari'], ['Trial hampir habis', soon.length, '≤ 7 hari'], ['Trial habis', dead.length, 'belum berlangganan'], ['Sudah berlangganan', paid, 'bukan trial'], ['Unduh J-POS', cnt(['g:', 'd:']), '7 hari: ' + cnt(['g:', 'd:'], 7)], ['Unduh J-DATA Report', cnt(['j:']), '7 hari: ' + cnt(['j:'], 7)]])
+    + `<div class="cd"><h3>🧪 Peserta masa coba ${TD} hari (${tr.length})</h3><small class="mu">Toko yang mendaftar dan sedang / pernah memakai J-POS gratis. Garis = pemakaian masa coba.</small>${tr.slice(0, 40).map(row).join('') || '<p class="mu" style="margin-top:8px">Belum ada peserta trial.</p>'}${tr.length > 40 ? '<small class="mu">+ ' + (tr.length - 40) + ' lainnya di Daftar toko (filter Trial)</small>' : ''}</div>`
+    + `<div class="cd"><h3>⬇️ Pengunduh APK (${dl.leads.length})</h3><small class="mu">Orang yang mengisi nama & WhatsApp di halaman HomeTech sebelum mengunduh J-POS atau J-DATA Report.</small>${dl.leads.slice(0, 30).map(lead).join('') || '<p class="mu" style="margin-top:8px">Belum ada pengunduh.</p>'}</div>`;
+}
 function haView() {
   if (!HA.d) return `<div class="cd">${HA.err ? '<p class="rd">' + esc(HA.err) + '</p><button class="gh" onclick="haLoad()">Coba lagi</button>' : '<p class="mu">Memuat data…</p>'}</div>`;
   const t = HA.d.totals, q = HA.q.toLowerCase(), F = { all: () => 1, ok: (s) => sState(s) == 'ok', soon: (s) => sState(s) == 'soon', exp: (s) => sState(s) == 'exp', sus: (s) => sState(s) == 'sus', trial: (s) => s.plan == 'trial' };
@@ -308,6 +320,7 @@ function haView() {
   const cnt = (f) => HA.stores.filter(F[f]).length;
   return kpi([['Toko terdaftar', t.stores, t.active + ' aktif', "haList('all')"], ['Masa coba (trial)', t.trial, '', "HA.f='trial';R()"], ['Berbayar aktif', t.paid, '', "HA.f='ok';R()"], ['Akan habis ≤7 hari', t.soon, '', "HA.f='soon';R()"], ['Sudah habis', t.expired, '', "HA.f='exp';R()"], ['Total pengguna', t.users, 'ketuk: per toko', "haList('users')"], ['Omzet semua toko', rp(t.omzet), 'ketuk: per toko', "haList('omzet')"], ['Transaksi', t.tx, 'ketuk: per toko', "haList('tx')"], ['Pembeli online', t.buyers || 0], ['Toko buka online', t.shops || 0], ['Pesanan online', t.orders || 0], ['Nilai pesanan selesai', rp(t.gmv || 0)]])
     + (typeof haPriceCard == 'function' ? haPriceCard() : '')
+    + haTrialCard()
     + `<div class="cd"><h3>🏪 Daftar toko</h3><input placeholder="Cari nama / kode / pemilik / no. HP" value="${esc(HA.q)}" onchange="HA.q=this.value;R()"><div class="seg">${[['all', 'Semua'], ['trial', 'Trial'], ['soon', 'Akan habis'], ['exp', 'Habis'], ['sus', 'Suspend']].map((x) => `<button class="${HA.f == x[0] ? 'a' : ''}" onclick="HA.f='${x[0]}';R()">${x[1]} (${cnt(x[0])})</button>`).join('')}</div>
 ${L.map((s) => `<div class="sc"><div class="row" style="margin:0"><span><b>${esc(s.name)}</b> <span class="chip">${esc(planName(s.plan))}</span> <span class="chip o">${esc(tierName(s.tier))}</span><br><small class="mu">Kode <b>${esc(s.id)}</b> · ${esc(s.owner || '')}${s.phone ? ' · ' + esc(s.phone) : ''}</small></span>${expChip(s)}</div><small class="mu">Daftar ${dstr(s.created)} · aktif s/d ${s.exp ? dstr(s.exp) : '-'} · ${s.users} user · ${s.tx} trx · ${rp(s.omzet)}${s.last ? ' · terakhir ' + dstr(s.last) : ''}</small><div class="wrap" style="margin-top:6px"><button class="gh a" onclick="haExt('${esc(s.id)}',30)">+30 hari</button><button class="gh" onclick="haSum('${esc(s.id)}')">📊 Ringkasan</button><button class="gh" onclick="haStore('${esc(s.id)}')">Kelola</button>${s.phone ? `<a class="gh" target="_blank" href="${esc(waLink(s.phone, 'Halo ' + (s.owner || '') + ', terkait aplikasi J-POS toko ' + s.name + ' (kode ' + s.id + ')'))}">WhatsApp</a>` : ''}</div></div>`).join('') || '<p class="mu">Tidak ada toko</p>'}</div>`
     + `<div class="cd"><h3>📈 Omzet seluruh toko · 14 hari</h3>${area(fill14(HA.d.daily))}</div>`

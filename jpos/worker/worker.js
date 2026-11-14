@@ -1,7 +1,7 @@
 import { MSCHEMA, buyerRoutes, shopRoutes, shipCfg } from './market.js';
 import { SSCHEMA, SALTER, logAct, heartbeat, adminActivity } from './social.js';
 import { MSCH2, mitraRoutes } from './mitra.js';
-import { HSCHEMA, payHook, hqStore, hqAdmin, leadPost, trailStmt, trailGet, pruneTrail, pruneVisits, tunnelPost, tunnelRedirect, apkPublic, apkPubOf, apkChunkGet, apkDlCount, siteOf, siteHit, appHit, adminPulse, webPublic, mediaPublic, webExport, trkIssue, trkOff, trkLoc, ghApkHit, GH_APK_URL } from './hq.js';
+import { HSCHEMA, payHook, hqStore, hqAdmin, leadPost, trailStmt, trailGet, pruneTrail, pruneVisits, tunnelPost, tunnelRedirect, apkPublic, apkPubOf, apkChunkGet, apkDlCount, siteOf, siteHit, appHit, adminPulse, webPublic, mediaPublic, webExport, trkIssue, trkOff, trkLoc, ghApkHit, GH_APK_URL, jdataHit, JDATA_APK_URL, dlLead, dlAdmin } from './hq.js';
 import { RSCHEMA, RALTER, rptCfg, cleanCfg, dayRange, buildDaily, sendOut, cronDaily } from './lapor.js';
 // J-POS API v4 — Cloudflare Worker + D1 (SQLite)
 // Multi-tenant: 1 toko = 1 tenant. Data bisnis = LOG KEJADIAN (tabel ev) yang diputar ulang tiap perangkat (offline-first).
@@ -134,6 +134,7 @@ export default {
     if (p == '/termux') { try { await ready(env); return await tunnelRedirect(env, await cfgAll(env), req); } catch (e) { return Response.redirect(new URL('/promo/', req.url).href, 302); } } // link tetap → server Termux (bila aktif)
     { const m = p.match(/^\/(?:p|w|web|promo)(?:\/([a-z0-9]{1,12}))?\/?$/); if (m && (m[1] || p != '/promo/')) return Response.redirect(new URL('/promo/' + (m[1] ? '?src=' + m[1] : ''), req.url).href, 302); } // link pendek: /p  /p/wa  /p/fb …
     if (p == '/gh' || p == '/apk' || p == '/dl') { try { await ready(env); ghApkHit(env, ip, limited).catch(() => { }); } catch (e) { } return Response.redirect(GH_APK_URL, 302); } // link APK langsung terlacak (dipakai di flyer / caption FB-marketplace, di luar website promo)
+    if (p == '/jdata') { try { await ready(env); jdataHit(env, ip, limited).catch(() => { }); } catch (e) { } return Response.redirect(JDATA_APK_URL, 302); } // APK J-DATA Report (terlacak)
     { const g = p.match(/^\/google([a-f0-9]{16})\.html$/); if (g) { try { await ready(env); if (siteOf(await cfgAll(env)).gsv == g[1]) return new Response('google-site-verification: google' + g[1] + '.html', { headers: { 'Content-Type': 'text/html; charset=utf-8' } }); } catch (e) { } return new Response('Not found', { status: 404 }); } } // verifikasi Google Search Console
     if (!p.startsWith('/api/')) return env.ASSETS.fetch(req);
     const cors = { 'Access-Control-Allow-Origin': env.ORIGIN || '*', 'Access-Control-Allow-Headers': 'Authorization,Content-Type', 'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS' };
@@ -154,6 +155,7 @@ export default {
       if (p == '/api/apk' && M == 'GET') return apkPublic(await cfgAll(env), J);
       if (p == '/api/apk/chunk' && M == 'GET') return apkChunkGet(env, u, ip, J, await cfgAll(env), limited);
       if (p == '/api/apk/dl' && M == 'POST') return apkDlCount(env, ip, J, limited);
+      if (p == '/api/dl/lead' && M == 'POST') return dlLead(env, b, ip, J, limited); // pengunduh APK mengisi nama & WA (HomeTech)
       if (p == '/api/pesan' && M == 'POST') return leadPost(env, b, ip, J, await cfgAll(env), pkgAll, limited); // pemesanan dari website promo
       if (p.startsWith('/api/chat/') || p == '/api/ulasan') { const r = await webPublic({ env, p, M, b, u, ip, J, limited, pkgAll }); if (r) return r; }
       if (p == '/api/media' || p == '/api/media/chunk') { const r = await mediaPublic({ env, p, M, u, ip, J, limited }); if (r) return r; }
@@ -221,6 +223,7 @@ export default {
         if (!a || a.role != 'super') return J({ e: 'Unauthorized' }, 401);
         if (p == '/api/admin/activity' && M == 'GET') return J(await adminActivity(env, u));
         if (p == '/api/admin/pulse' && M == 'GET') return adminPulse(env, J);
+        if (p == '/api/admin/dl' && M == 'GET') return dlAdmin(env, J);
         if (p == '/api/admin/stores' && M == 'GET') {
           const r = await env.DB.prepare(`SELECT s.id,s.name,s.owner,s.email,s.phone,s.status,s.created,s.exp,s.plan,s.tier,s.note,s.ref_by,
               (SELECT COUNT(*) FROM staff WHERE store_id=s.id) users, COALESCE(e.n,0) tx, COALESCE(e.o,0) omzet, COALESCE(e.n30,0) tx30, COALESCE(e.o30,0) om30, e.last,
