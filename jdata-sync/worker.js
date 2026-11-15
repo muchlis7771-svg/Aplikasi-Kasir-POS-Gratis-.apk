@@ -38,12 +38,12 @@ export default {
         await batch(db, del); await batch(db, ins);
         // ringkasan harian untuk tanggal yang tersentuh
         const touched = [...new Set(rows.map((r) => s(r.tanggal)))];
+        const ds = [];
         for (const d of touched) {
-          await db.batch([
-            db.prepare("DELETE FROM daily_outlet WHERE profile=? AND tanggal=?").bind(p, d),
-            db.prepare("INSERT INTO daily_outlet SELECT profile,tanggal,outlet_key,MAX(salesman),SUM(omset),SUM(qty_karton),COUNT(DISTINCT sku_code||sku_name) FROM sales WHERE profile=? AND tanggal=? AND ordered=1 GROUP BY outlet_key").bind(p, d),
-          ]);
+          ds.push(db.prepare("DELETE FROM daily_outlet WHERE profile=? AND tanggal=?").bind(p, d));
+          ds.push(db.prepare("INSERT INTO daily_outlet SELECT profile,tanggal,outlet_key,MAX(salesman),SUM(omset),SUM(qty_karton),COUNT(DISTINCT sku_code||sku_name) FROM sales WHERE profile=? AND tanggal=? AND ordered=1 GROUP BY outlet_key").bind(p, d));
         }
+        await batch(db, ds);
         return J({ ok: true, saved: rows.length });
       }
       if (url.pathname === "/sync/history" && req.method === "GET") {
@@ -58,7 +58,7 @@ export default {
         const b = await req.json(); const p = s(b.profile), list = Array.isArray(b.outlets) ? b.outlets : [];
         if (!p) return J({ error: "profile wajib" }, 400);
         const now = Date.now();
-        const st = [db.prepare("DELETE FROM ro WHERE profile=?").bind(p)];
+        const st = b.append ? [] : [db.prepare("DELETE FROM ro WHERE profile=?").bind(p)];
         for (const o of list) st.push(db.prepare("INSERT OR REPLACE INTO ro VALUES(?,?,?,?,?,?,?,?,?,?,?)").bind(p, s(o.outletKey), s(o.outletId), s(o.outletName), s(o.salesman), s(o.channel), s(o.cluster), s(o.kecamatan), s(o.kabupaten), JSON.stringify(o.extra || {}), now));
         await batch(db, st);
         return J({ ok: true, saved: list.length });
@@ -79,6 +79,10 @@ export default {
       if (url.pathname === "/sync/targets" && req.method === "GET") {
         const r = await db.prepare("SELECT salesman,omset,ao,qty FROM targets WHERE profile=?").bind(profile).all();
         return J({ targets: r.results || [] });
+      }
+      if (url.pathname === "/sync/profiles") {
+        const r = await db.prepare("SELECT profile FROM sales UNION SELECT profile FROM ro").all();
+        return J({ profiles: (r.results || []).map((x) => x.profile) });
       }
       // ---- STATUS ----
       if (url.pathname === "/sync/status") {
