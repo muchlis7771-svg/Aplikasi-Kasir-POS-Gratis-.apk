@@ -229,6 +229,26 @@ const Ap = {
     jr(e, 'HPP (diedit) ' + s.no, [['5101', r.hpp, 0], ['1201', 0, r.hpp]]);
     notif(e, 'nota', '✏️ Nota ' + s.no + ' diedit oleh pemilik (' + e.u + ') — total jadi ' + rp(s.tot));
   },
+  // hapus nota penjualan (piutang ataupun kes) — hanya pemilik, & hanya nota yang belum ada retur/pembayaran cicilan terpisah.
+  // Stok (gudang/van/bahan baku) dikembalikan seperti semula, jurnal asli dibalik via jurnal koreksi (TIDAK dihapus, demi jejak
+  // audit & neraca tetap seimbang), baru nota-nya sendiri dibuang dari daftar — otomatis hilang dari semua laporan & stok ter-update.
+  saleDelete(e) {
+    if (e.r != 'owner') return;
+    const i = S.sales.findIndex((x) => x.no == e.sale); if (i < 0) return;
+    const s = S.sales[i];
+    if ((s.rtot || 0) > 0 || (s.pays && s.pays.length)) { notif(e, 'nota', '❌ Hapus nota ' + s.no + ' gagal — sudah ada retur/pembayaran cicilan tersendiri, tidak bisa dihapus.'); return; }
+    for (const li of s.L) {
+      const p = prod(li.id), hasRcp = p && Array.isArray(p.rcp) && p.rcp.length;
+      if (p && !hasRcp) p.st += li.q;
+      if (s.r == 'kanvas') vanAdd(s.u, li.id, li.q);
+      if (hasRcp) for (const r of p.rcp) { const bk = prod(r.id); if (bk) bk.st += r.q * li.q; }
+    }
+    const oldPaid = s.pa || 0, oldAr = s.tot - oldPaid;
+    jr(e, 'Hapus nota ' + s.no, [[payAcc(s.pay == 'Piutang' ? s.dpm || 'Tunai' : s.pay), 0, oldPaid], ['1103', 0, oldAr], ['4102', 0, s.disc], ['4101', s.sub, 0], ['2101', s.tax, 0]]);
+    jr(e, 'Hapus HPP ' + s.no, [['5101', 0, s.hpp], ['1201', s.hpp, 0]]);
+    S.sales.splice(i, 1);
+    notif(e, 'nota', '🗑️ Nota ' + s.no + ' dihapus oleh pemilik (' + e.u + ') — stok & laporan otomatis disesuaikan.');
+  },
   stk(e) {
     // keputusan pemilik atas restok admin yang tertahan menunggu persetujuan (lihat di bawah) — kind 'stk' dipakai ulang,
     // bukan kind baru, supaya tidak perlu ubah aturan server untuk tenant lain
@@ -586,6 +606,13 @@ function editSale(no, o) { // o: {items,cd,cdRp,pay,cu,dpay,dpm,note}
   const c = o.cu ? cust(o.cu) : null;
   if (o.pay == 'Piutang') { if (!c) throw new Error('Pilih outlet untuk penjualan kredit'); if (c.term != 'kredit') throw new Error('Outlet ini belum diberi fasilitas kredit oleh pemilik'); }
   return emit('saleEdit', { sale: no, items: o.items, cd: o.cd || '', cdRp: o.cdRp || 0, pay: o.pay, cu: o.cu || '', dpay: o.dpay || 0, dpm: o.dpm || 'Tunai', note: o.note || '' });
+}
+function deleteSale(no) {
+  if (U.r != 'owner') throw new Error('Hanya pemilik yang bisa menghapus nota penjualan');
+  const s = S.sales.find((x) => x.no == no); if (!s) throw new Error('Nota tidak ditemukan');
+  if ((s.rtot || 0) > 0) throw new Error('Nota ini sudah ada retur — tidak bisa dihapus');
+  if (s.pays && s.pays.length) throw new Error('Nota ini sudah ada pembayaran cicilan terpisah — tidak bisa dihapus');
+  return emit('saleDelete', { sale: no });
 }
 const netSale = (s) => s.sub - s.disc - (s.rn || 0); // penjualan bersih (tanpa PPN) setelah retur
 
