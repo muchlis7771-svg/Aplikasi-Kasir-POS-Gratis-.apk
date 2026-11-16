@@ -310,6 +310,16 @@ const Ap = {
     notif(e, 'reset', '🔄 Reset buku akuntansi & kas oleh ' + e.u + ' — jurnal, kas/bank, piutang & utang usaha dinolkan ulang. Produk, stok & histori nota tetap ada.');
     S.lastRst = e.t;
   },
+  // reset TOTAL data operasional (lebih dalam dari reset buku): stok fisik semua produk dinolkan, dan seluruh histori transaksi
+  // (penjualan, retur, jurnal, kas, piutang/utang, PO/restok, mutasi kanvas, notifikasi) dihapus bersih — toko mulai dari nol.
+  // Produk (nama/harga), pelanggan/outlet, pengguna/karyawan, pemasok, target, dan pengaturan toko TIDAK dihapus — supaya tidak perlu setup ulang dari awal.
+  // Hanya pemilik (sudah diverifikasi PIN di sisi UI sebelum kejadian ini dikirim) yang boleh melakukan ini.
+  rstAll(e) {
+    S.sales = []; S.rtr = []; S.j = []; S.ap = []; S.kn = []; S.po = []; S.bst = []; S.kv = []; S.kvq = []; S.notif = []; S.pend = {}; S.van = {};
+    for (const p of S.p) { p.st = 0; p.bad = 0; p.bv = 0; }
+    S.lastRst = e.t; S.lastRstAll = e.t;
+    notif(e, 'reset', '🧹 RESET TOTAL DATA oleh ' + e.u + ' — stok, penjualan, retur, piutang/utang, jurnal, kas & mutasi kanvas semua dimulai dari nol. Produk, pelanggan & pengguna tetap ada.');
+  },
   pu(e) {
     const q = e.p || {}; if (!/^[\w-]{1,40}$/.test(String(q.id))) return; let p = prod(q.id);
     const isNew = !p, prevPr = p ? p.pr : null;
@@ -506,7 +516,7 @@ function trailAdd(e) {
 function apply(e) {
   if (!e || S.done[e.no]) return false;
   S.done[e.no] = 1;
-  if ((e.k == 'cap' || e.k == 'set' || e.k == 'rst') && e.r && e.r != 'owner') return false; // reset buku (rst) hanya boleh oleh pemilik
+  if ((e.k == 'cap' || e.k == 'set' || e.k == 'rst' || e.k == 'rstAll') && e.r && e.r != 'owner') return false; // reset buku (rst) & reset total (rstAll) hanya boleh oleh pemilik
   if (e.k == 'gji' && e.r && ((['cfg', 'paid'].includes(e.op) && e.r != 'owner') || (['ok', 'tolak'].includes(e.op) && e.r != 'owner' && e.r != 'admin'))) return false;
   if ((e.k == 'kvl' || e.k == 'kvb') && e.r && e.r != 'owner' && e.r != 'admin') return false; // muat / balik kanvas wajib lewat persetujuan admin // kejadian lain sudah divalidasi server saat diterima
   try { (Ap[e.k] || (() => { }))(e); } catch (x) { console.error('apply gagal', e && e.no, x); }
