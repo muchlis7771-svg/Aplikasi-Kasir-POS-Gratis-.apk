@@ -135,8 +135,24 @@ ${S.srv ? `<div class="cd"><div class="row" style="margin:0"><span><b>🤝 Refer
 <div class="cd"><h3>Tampilan</h3><div class="seg"><button class="${th == 'auto' ? 'a' : ''}" onclick="setTheme('auto')">Otomatis</button><button class="${th == 'light' ? 'a' : ''}" onclick="setTheme('light')">Terang</button><button class="${th == 'dark' ? 'a' : ''}" onclick="setTheme('dark')">Gelap</button></div></div>
 ${adm ? rptCard() + mitraCard() + payCard() + uiOrgCard() + fontCard() + absSetCard() : ''}${adm ? `<div class="cd"><h3>Profil & pajak toko</h3><div class="fm"><input id="sn" placeholder="Nama toko" value="${esc(S.name)}"><input id="sa" placeholder="Alamat (tampil di struk)" value="${esc(S.set.addr || '')}"><input id="st" placeholder="Telepon" value="${esc(S.set.tel || '')}"><div class="fm2"><input id="sp" type="number" min="0" max="100" step="0.5" placeholder="PPN %" value="${S.set.ppn ?? 11}"><input id="sd" type="number" placeholder="Tempo kredit bawaan (hari)" value="${S.set.tempo || 30}"></div><div class="fm2"><input id="sj" type="time" value="${esc(S.set.jin || '08:00')}"><label class="row" style="margin:0"><span>Blokir kredit jika ada tagihan jatuh tempo</span><input type="checkbox" id="so" ${S.set.od ? 'checked' : ''}></label></div><label class="gh">Logo toko<input type="file" accept="image/*" onchange="setLogo(this)"></label><button class="gh" onclick="setGeo()">📍 Set lokasi toko untuk absensi (${S.set.glat != null ? 'sudah diatur' : 'belum'})</button><button class="pr" onclick="saveSet()">Simpan pengaturan</button></div></div>` : ''}
 <div class="cd"><h3>Server</h3><div class="fm"><input id="sv" placeholder="https://jpos-api.<akun>.workers.dev" value="${esc(AP)}"><button class="gh" onclick="if(confirm('Ubah alamat server? Alamat yang salah membuat HP ini tidak bisa sinkron.'))saveApi()">Simpan & tes koneksi</button>${apiCustom() ? '<button class="gh" onclick="srvReset()">↺ Kembalikan ke server bawaan</button>' : ''}</div><small class="mu">🔒 Hanya pemilik yang bisa mengubah. Karyawan tidak bisa mengubah alamat server, baik di dalam aplikasi maupun di layar awal.</small></div>
-${can('backup') ? `<div class="cd"><h3>Data</h3><div class="wrap"><button class="gh" onclick="expBackup()">⬇ Backup JSON</button>${S.srv ? '' : '<label class="gh">Pulihkan backup<input type="file" accept=".json" onchange="restoreBackup(this)"></label>'}<button class="gh" onclick="expXlsx('all')">⬇ Laporan lengkap Excel</button></div><small class="mu">${S.srv ? 'Data toko online tersimpan aman di server; backup ini hanya salinan.' : 'Toko lokal: backup berkala sangat disarankan.'}</small></div>` : ''}`;
+${can('backup') ? `<div class="cd"><h3>Data</h3><div class="wrap"><button class="gh" onclick="expBackup()">⬇ Backup JSON</button>${S.srv ? '' : '<label class="gh">Pulihkan backup<input type="file" accept=".json" onchange="restoreBackup(this)"></label>'}<button class="gh" onclick="expXlsx('all')">⬇ Laporan lengkap Excel</button></div><small class="mu">${S.srv ? 'Data toko online tersimpan aman di server; backup ini hanya salinan.' : 'Toko lokal: backup berkala sangat disarankan.'}</small></div>` : ''}
+${adm ? `<div class="cd warn" style="border:2px solid #e74c3c"><h3 style="margin:0">☢️ Reset total data</h3><small class="mu">Nolkan SEMUA stok produk &amp; hapus bersih seluruh histori penjualan, retur, jurnal, kas, piutang/utang, PO/restok dan mutasi kanvas — toko mulai dari nol. Produk, pelanggan/outlet, pengguna &amp; pengaturan toko tetap ada.${S.lastRstAll ? '<br>Terakhir reset total: ' + tstr(S.lastRstAll) : ''}</small><div class="wrap" style="margin-top:8px"><button class="pr d" onclick="rstAllFlow()">☢️ Reset total data</button></div></div>` : ''}`;
 };
+async function rstAllFlow() {
+  if (U.r != 'owner') return toast('Hanya pemilik yang bisa reset total data');
+  if (!confirm('⚠️ RESET TOTAL DATA?\n\nSemua stok produk akan DINOLKAN, dan SELURUH histori penjualan, retur, jurnal, kas, piutang/utang usaha, PO/restok, serta mutasi kanvas akan DIHAPUS BERSIH — tidak bisa dikembalikan.\n\nProduk, pelanggan/outlet, pengguna & pengaturan toko TIDAK dihapus.\n\nBackup JSON akan diunduh otomatis sebelum reset. Lanjutkan?')) return;
+  const sure = prompt('Ketik HAPUS untuk melanjutkan:');
+  if ((sure || '').trim().toUpperCase() != 'HAPUS') return toast('Dibatalkan');
+  const pin = prompt('Masukkan PIN pemilik (' + U.n + ') untuk konfirmasi:');
+  if (!pin) return;
+  const me = S.users.find((x) => x.n.toLowerCase() == U.n.toLowerCase());
+  if (!me || !me.h) return toast('Tidak bisa memverifikasi PIN. Keluar lalu masuk ulang dengan PIN, lalu coba lagi.', 5000);
+  if (me.h != (await sha(SID + ':' + U.n.toLowerCase() + ':' + pin))) return toast('PIN salah — reset dibatalkan');
+  try { expBackup(); } catch (e) { }
+  emit('rstAll', {});
+  toast('Reset total data selesai ✓ — stok & histori dimulai dari nol', 5000);
+  R();
+}
 async function referralOpen() {
   const m = modal(`<div id="refbody"><h3>🤝 Referral</h3><small class="mu">Memuat…</small></div>`);
   try {
