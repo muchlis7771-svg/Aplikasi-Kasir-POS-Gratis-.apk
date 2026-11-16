@@ -15,6 +15,9 @@ export const HSCHEMA = [
   'CREATE TABLE IF NOT EXISTS trail(sid TEXT NOT NULL,u TEXT NOT NULL,t INTEGER NOT NULL,lat REAL,lng REAL,k TEXT NOT NULL DEFAULT \'\')', 'CREATE UNIQUE INDEX IF NOT EXISTS trail_k ON trail(sid,u,t,k)', 'CREATE INDEX IF NOT EXISTS trail_t ON trail(t)',
   'CREATE TABLE IF NOT EXISTS apkc(up TEXT NOT NULL,i INTEGER NOT NULL,d TEXT NOT NULL,t INTEGER,PRIMARY KEY(up,i))',
   'CREATE TABLE IF NOT EXISTS sitehits(k TEXT PRIMARY KEY,n INTEGER NOT NULL DEFAULT 0)',
+  // HomeTech: siapa yang mengunduh APK (J-POS / J-DATA Report) — nama & WhatsApp diisi pengunduh sebelum unduhan dimulai
+  'CREATE TABLE IF NOT EXISTS dlleads(id INTEGER PRIMARY KEY AUTOINCREMENT,app TEXT NOT NULL,name TEXT,phone TEXT,t INTEGER NOT NULL)',
+  'CREATE INDEX IF NOT EXISTS dlleads_t ON dlleads(t)',
   "CREATE TABLE IF NOT EXISTS leads(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT,store TEXT,phone TEXT,city TEXT,tier TEXT,months INTEGER,note TEXT,src TEXT,st TEXT DEFAULT 'baru',hnote TEXT,t INTEGER,upd INTEGER)", 'CREATE INDEX IF NOT EXISTS leads_t ON leads(st,t)',
   // lisensi "sekali beli": satu kode (dibuat Head Admin) boleh dipakai sejumlah `acts` aktivasi (toko/perangkat); harga bebas ditentukan Head Admin per kode
   "CREATE TABLE IF NOT EXISTS serials(sn TEXT PRIMARY KEY,tier TEXT DEFAULT 'high',acts INTEGER DEFAULT 1,used INTEGER DEFAULT 0,price INTEGER DEFAULT 0,note TEXT,active INTEGER DEFAULT 1,created INTEGER,by TEXT)",
@@ -297,6 +300,28 @@ export async function apkDlCount(env, ip, J, limited) {
 export const GH_APK_URL = 'https://raw.githubusercontent.com/muchlis7771-svg/aplikasi-kasir-pos-gratis-.apk/jpos/apk-dist/J-POS-latest.apk';
 export async function ghApkHit(env, ip, limited) {
   try { if (!(await limited(env, 'ghdl:' + ip, 20, 36e5))) await env.DB.prepare("INSERT INTO sitehits(k,n) VALUES(?,1) ON CONFLICT(k) DO UPDATE SET n=n+1").bind('g:' + new Date(Date.now() + 288e5).toISOString().slice(0, 10)).run(); } catch (e) { }
+}
+// APK J-DATA Report (aplikasi laporan distributor) — disimpan di repo GitHub publik yang sama; unduhan lewat /jdata ikut terhitung
+export const JDATA_APK_URL = 'https://raw.githubusercontent.com/muchlis7771-svg/aplikasi-kasir-pos-gratis-.apk/main/jpos/apk-dist/JDATA-Report-latest.apk';
+export async function jdataHit(env, ip, limited) {
+  try { if (!(await limited(env, 'jddl:' + ip, 20, 36e5))) await env.DB.prepare("INSERT INTO sitehits(k,n) VALUES(?,1) ON CONFLICT(k) DO UPDATE SET n=n+1").bind('j:' + new Date(Date.now() + 288e5).toISOString().slice(0, 10)).run(); } catch (e) { }
+}
+// pengunduh APK mengisi nama & WhatsApp (halaman HomeTech) → tercatat untuk Head Admin; hitungan unduhan dicatat oleh /gh dan /jdata
+export async function dlLead(env, b, ip, J, limited) {
+  if (await limited(env, 'dllead:' + ip, 10, 36e5)) return J({ e: 'Terlalu banyak percobaan, coba lagi nanti' }, 429);
+  const app = b.app == 'jdata' ? 'jdata' : 'jpos', name = clip(b.name, 60).trim(), phone = clip(b.phone, 20).replace(/[^\d+]/g, '');
+  if (name.length < 2) return J({ e: 'Isi nama Anda' }, 400);
+  if (phone.replace(/\D/g, '').length < 9) return J({ e: 'Isi nomor WhatsApp yang benar' }, 400);
+  await env.DB.prepare('INSERT INTO dlleads(app,name,phone,t) VALUES(?,?,?,?)').bind(app, name, phone, Date.now()).run();
+  return J({ ok: 1, url: app == 'jdata' ? '/jdata' : '/gh' });
+}
+// Head Admin: daftar pengunduh APK + hitungan unduhan harian (g:/d: = J-POS, j: = J-DATA Report)
+export async function dlAdmin(env, J) {
+  const [leads, hits] = await Promise.all([
+    env.DB.prepare('SELECT id,app,name,phone,t FROM dlleads ORDER BY t DESC LIMIT 200').all(),
+    env.DB.prepare("SELECT k,n FROM sitehits WHERE k LIKE 'g:%' OR k LIKE 'd:%' OR k LIKE 'j:%'").all(),
+  ]);
+  return J({ leads: leads.results, hits: hits.results, now: Date.now() });
 }
 // aplikasi dibuka tapi belum login (layar Masuk/Daftar) — dipantau Head Admin di tab Aktivitas
 export async function appHit(env, ip, J, limited) {
