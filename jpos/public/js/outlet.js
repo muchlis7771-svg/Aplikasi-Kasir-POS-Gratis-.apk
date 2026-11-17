@@ -274,7 +274,12 @@ async function osmShops(p, r, all) {
 }
 function OSMC_get(p, r, all) { const c = LS.get('jpos:osmc', null); return c && c.r >= r && c.all == all && Date.now() - c.t < 6 * 36e5 && haversine(c.lat, c.lng, p.lat, p.lng) < 300 ? c.list.filter((x) => haversine(p.lat, p.lng, x.lat, x.lng) <= r) : null; }
 function markDup(list, p) { return list.map((x) => ({ ...x, d: haversine(p.lat, p.lng, x.lat, x.lng), dup: S.c.find((c) => !c.x && ((c.lat != null && haversine(c.lat, c.lng, x.lat, x.lng) < 60) || c.n.toLowerCase() == x.n.toLowerCase())) })).sort((a, b) => a.d - b.d); }
-async function revGeo(p) { try { const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&accept-language=id&lat=${p.lat}&lon=${p.lng}`, { signal: AbortSignal.timeout ? AbortSignal.timeout(12000) : undefined }); if (!r.ok) return ''; const j = await r.json(), a = j.address || {}; return [a.road, a.house_number, a.neighbourhood || a.hamlet, a.village || a.suburb, a.city_district, a.city || a.town || a.county].filter(Boolean).join(', ') || (j.display_name || '').split(',').slice(0, 4).join(','); } catch (e) { return ''; } }
+// Alamat dari koordinat: lewat server kami dulu (dicache + User-Agent benar, jadi tidak mudah diblokir Nominatim),
+// baru jika itu gagal (server semua down) panggil Nominatim langsung dari HP sebagai cadangan.
+async function revGeo(p) {
+  if (S.srv && canNet()) { try { const r = await api('/api/geo/reverse?lat=' + p.lat + '&lng=' + p.lng); if (r && r.addr) return r.addr; } catch (e) { } }
+  try { const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&accept-language=id&lat=${p.lat}&lon=${p.lng}`, { signal: AbortSignal.timeout ? AbortSignal.timeout(12000) : undefined }); if (!r.ok) return ''; const j = await r.json(), a = j.address || {}; return [a.road, a.house_number, a.neighbourhood || a.hamlet, a.village || a.suburb, a.city_district, a.city || a.town || a.county].filter(Boolean).join(', ') || (j.display_name || '').split(',').slice(0, 4).join(','); } catch (e) { return ''; }
+}
 function scanList(out, m) {
   const L = SCAN.list, nw = L.filter((x) => !x.dup);
   out.innerHTML = `<div class="row"><b>${L.length} toko ditemukan · ${nw.length} belum jadi outlet</b><label class="row" style="margin:0;gap:6px"><small>Pilih semua</small><input type="checkbox" id="sall"></label></div><div id="smap" class="map" style="height:220px"></div>

@@ -70,6 +70,7 @@ const SCHEMA = [
   'CREATE TABLE IF NOT EXISTS chat(seq INTEGER PRIMARY KEY AUTOINCREMENT,room TEXT NOT NULL,sid TEXT,sn TEXT,un TEXT,tx TEXT NOT NULL,t INTEGER)', 'CREATE INDEX IF NOT EXISTS chat_room ON chat(room,seq)',
   'CREATE TABLE IF NOT EXISTS rl(k TEXT NOT NULL,t INTEGER NOT NULL)', 'CREATE INDEX IF NOT EXISTS rl_k ON rl(k,t)',
   'CREATE TABLE IF NOT EXISTS cfg(k TEXT PRIMARY KEY,v TEXT)',
+  'CREATE TABLE IF NOT EXISTS geocache(k TEXT PRIMARY KEY,addr TEXT NOT NULL,t INTEGER)',
 ];
 let READY = null;
 function ready(env) {
@@ -124,6 +125,29 @@ async function limited(env, key, max, win) {
   await env.DB.prepare('INSERT INTO rl(k,t) VALUES(?,?)').bind(key, now).run();
   return false;
 }
+// Reverse-geocoding (alamat dari koordinat) lewat server, bukan langsung dari HP karyawan ke Nominatim —
+// supaya patuh kebijakan Nominatim (wajib User-Agent jelas + caching, tidak boleh dipanggil massal dari banyak app
+// dengan User-Agent generik) dan tidak mudah diblokir mereka. Hasil dicache 180 hari di D1 (titik yang sama = gratis).
+async function geoReverse(env, u, ip, J, limited) {
+  const lat = parseFloat(u.searchParams.get('lat')), lng = parseFloat(u.searchParams.get('lng'));
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) return J({ e: 'Koordinat tidak valid' }, 400);
+  if (await limited(env, 'geo:' + ip, 30, 60000)) return J({ e: 'Terlalu banyak permintaan peta, coba lagi sebentar' }, 429);
+  const key = lat.toFixed(4) + ',' + lng.toFixed(4);
+  try {
+    const row = await env.DB.prepare('SELECT addr,t FROM geocache WHERE k=?').bind(key).first();
+    if (row && Date.now() - row.t < 180 * DAY) return J({ addr: row.addr, cache: 1 });
+  } catch (e) { }
+  let addr = '';
+  try {
+    const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&accept-language=id&lat=${lat}&lon=${lng}`, { headers: { 'User-Agent': 'J-POS-App/1 (aplikasi kasir offline-first; +https://jpos.id)' }, signal: AbortSignal.timeout ? AbortSignal.timeout(10000) : undefined });
+    if (r.ok) {
+      const j = await r.json(), a = j.address || {};
+      addr = [a.road, a.house_number, a.neighbourhood || a.hamlet, a.village || a.suburb, a.city_district, a.city || a.town || a.county].filter(Boolean).join(', ') || (j.display_name || '').split(',').slice(0, 4).join(',');
+    }
+  } catch (e) { }
+  if (addr) { try { await env.DB.prepare('INSERT INTO geocache(k,addr,t) VALUES(?,?,?) ON CONFLICT(k) DO UPDATE SET addr=excluded.addr,t=excluded.t').bind(key, addr, Date.now()).run(); } catch (e) { } }
+  return J({ addr });
+}
 const expired = (s) => !!s.exp && s.exp < Date.now();
 const stInfo = (s) => { const pk = pkgOf(s.tier); return { exp: s.exp || 0, plan: s.plan || 'trial', status: s.status, sn: s.sn || s.name, tier: s.tier || 'high', tn: pk.n, pf: pk.f + ' ' + ALWAYS, lim: pk.max, pm: permObj(s) }; };
 
@@ -161,6 +185,7 @@ export default {
       if (p == '/api/media' || p == '/api/media/chunk') { const r = await mediaPublic({ env, p, M, u, ip, J, limited }); if (r) return r; }
       if (p == '/api/tunnel/export' && M == 'GET') return webExport(env, u, ip, J, await cfgAll(env), limited);
       if (p == '/api/trk/loc' && M == 'POST') return trkLoc(env, b, bearer, ip, J, (tk) => verify(env, tk), limited); // titik lokasi dari pelacak HP (token khusus)
+      if (p == '/api/geo/reverse' && M == 'GET') return geoReverse(env, u, ip, J, limited); // alamat dari koordinat (dicache di D1), dipakai saat tambah outlet
       if (p == '/api/ping') return J({ ok: 1, v: 5 });
       if (p == '/api/time') return J({ t: Date.now() });
       if (p == '/api/info') { const c = await cfgAll(env); const pk = pkgAll(), pkg = {}; for (const t of Object.keys(pk)) pkg[t] = { n: pk[t].n, max: pk[t].max, f: pk[t].f, pr: pk[t].pr }; return J({ wa: c.wa || '', price: c.price || '', trial: +(c.trial_days || 30), app: c.app_name || 'J-POS', pkg }); }
