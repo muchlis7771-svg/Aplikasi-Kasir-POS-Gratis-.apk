@@ -24,6 +24,7 @@ async function ensureTables(db) {
   await db.batch([
     db.prepare("CREATE TABLE IF NOT EXISTS app_users(username TEXT PRIMARY KEY, role TEXT, first_seen INTEGER, last_seen INTEGER, opens INTEGER DEFAULT 0, app_version TEXT, model TEXT, last_event TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS app_devices(username TEXT, device_id TEXT, model TEXT, first_seen INTEGER, last_seen INTEGER, PRIMARY KEY(username, device_id))"),
+    db.prepare("CREATE TABLE IF NOT EXISTS programs(profile TEXT NOT NULL, id TEXT NOT NULL, name TEXT, type TEXT, from_d TEXT, to_d TEXT, sku TEXT, outlets INTEGER DEFAULT 0, target REAL DEFAULT 0, actual REAL DEFAULT 0, achieved INTEGER DEFAULT 0, def TEXT, daily TEXT, updated INTEGER, PRIMARY KEY(profile, id))"),
     db.prepare("CREATE TABLE IF NOT EXISTS licenses(username TEXT PRIMARY KEY, type TEXT DEFAULT 'trial', trial_start INTEGER, trial_days INTEGER DEFAULT 30, seats INTEGER DEFAULT 1, paid_until TEXT, note TEXT)"),
   ]);
   ready = true;
@@ -171,6 +172,22 @@ export default {
       if (url.pathname === "/sync/targets" && req.method === "GET") {
         const r = await db.prepare("SELECT salesman,omset,ao,qty FROM targets WHERE profile=?").bind(profile).all();
         return J({ targets: r.results || [] });
+      }
+      // ---- PROGRAM (trade promo dll): definisi, target, actual total & harian ----
+      if (url.pathname === "/sync/programs" && req.method === "POST") {
+        await ensureTables(db);
+        const b = await req.json(); const p = s(b.profile), list = Array.isArray(b.programs) ? b.programs : [];
+        if (!p) return J({ error: "profile wajib" }, 400);
+        const now = Date.now();
+        const st = [db.prepare("DELETE FROM programs WHERE profile=?").bind(p)];
+        for (const g of list) st.push(db.prepare("INSERT OR REPLACE INTO programs VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)").bind(p, s(g.id), s(g.name), s(g.type), s(g.from), s(g.to), s(g.sku), n(g.outlets), n(g.target), n(g.actual), n(g.achieved), s(g.def), s(g.daily), now));
+        await batch(db, st);
+        return J({ ok: true, saved: list.length });
+      }
+      if (url.pathname === "/sync/programs" && req.method === "GET") {
+        await ensureTables(db);
+        const r = await db.prepare("SELECT id,name,type,from_d,to_d,sku,outlets,target,actual,achieved,def,daily,updated FROM programs WHERE profile=?").bind(profile).all();
+        return J({ programs: r.results || [] });
       }
       if (url.pathname === "/sync/profiles") {
         const r = await db.prepare("SELECT profile FROM sales UNION SELECT profile FROM ro").all();
