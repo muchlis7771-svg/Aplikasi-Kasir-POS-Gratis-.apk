@@ -2,7 +2,8 @@ import { MSCHEMA, buyerRoutes, shopRoutes, shipCfg } from './market.js';
 import { SSCHEMA, SALTER, logAct, heartbeat, adminActivity } from './social.js';
 import { MSCH2, mitraRoutes } from './mitra.js';
 import { HSCHEMA, payHook, hqStore, hqAdmin, leadPost, trailStmt, trailGet, pruneTrail, pruneVisits, tunnelPost, tunnelRedirect, apkPublic, apkPubOf, apkChunkGet, apkDlCount, siteOf, siteHit, appHit, adminPulse, webPublic, mediaPublic, webExport, trkIssue, trkOff, trkLoc, ghApkHit, GH_APK_URL } from './hq.js';
-import { RSCHEMA, RALTER, rptCfg, cleanCfg, dayRange, buildDaily, sendOut, cronDaily } from './lapor.js';
+import { RSCHEMA, RALTER, rptCfg, cleanCfg, dayRange, buildDaily, sendOut, cronDaily, notifNewAR, dueNotify } from './lapor.js';
+import { TGSCHEMA, tgHook, tgLinkCode, tgSetWebhook } from './tg.js';
 // J-POS API v4 — Cloudflare Worker + D1 (SQLite)
 // Multi-tenant: 1 toko = 1 tenant. Data bisnis = LOG KEJADIAN (tabel ev) yang diputar ulang tiap perangkat (offline-first).
 // v4: peran owner/admin/akuntan/kasir/sales, masa aktif toko (trial 30 hari + perpanjangan oleh Head Admin),
@@ -75,7 +76,7 @@ const SCHEMA = [
 let READY = null;
 function ready(env) {
   if (!READY) READY = (async () => {
-    await env.DB.batch([...SCHEMA, ...MSCHEMA, ...SSCHEMA, ...RSCHEMA, ...MSCH2, ...HSCHEMA].map((q) => env.DB.prepare(q)));
+    await env.DB.batch([...SCHEMA, ...MSCHEMA, ...SSCHEMA, ...RSCHEMA, ...MSCH2, ...HSCHEMA, ...TGSCHEMA].map((q) => env.DB.prepare(q)));
     for (const c of [...SALTER, ...RALTER]) { try { await env.DB.prepare('ALTER TABLE ' + c).run(); } catch (e) { } }
     for (const c of ['phone TEXT', 'exp INTEGER', "plan TEXT DEFAULT 'trial'", 'note TEXT', "tier TEXT DEFAULT 'high'", 'perm TEXT', 'ref_by TEXT']) { try { await env.DB.prepare('ALTER TABLE stores ADD COLUMN ' + c).run(); } catch (e) { } }
     for (const c of ['sess TEXT']) { try { await env.DB.prepare('ALTER TABLE staff ADD COLUMN ' + c).run(); } catch (e) { } }
@@ -152,7 +153,7 @@ const expired = (s) => !!s.exp && s.exp < Date.now();
 const stInfo = (s) => { const pk = pkgOf(s.tier); return { exp: s.exp || 0, plan: s.plan || 'trial', status: s.status, sn: s.sn || s.name, tier: s.tier || 'high', tn: pk.n, pf: pk.f + ' ' + ALWAYS, lim: pk.max, pm: permObj(s) }; };
 
 export default {
-  async fetch(req, env) {
+  async fetch(req, env, ctx) {
     const u = new URL(req.url), p = u.pathname, M = req.method, ip = req.headers.get('CF-Connecting-IP') || 'x';
     if (p == '/ota.json') { const r = await env.ASSETS.fetch(req), h = new Headers(r.headers); h.set('Access-Control-Allow-Origin', '*'); h.set('Cache-Control', 'no-store'); return new Response(r.body, { status: r.status, headers: h }); } // manifest pembaruan otomatis aplikasi Android
     if (p == '/termux') { try { await ready(env); return await tunnelRedirect(env, await cfgAll(env), req); } catch (e) { return Response.redirect(new URL('/promo/', req.url).href, 302); } } // link tetap → server Termux (bila aktif)
@@ -184,6 +185,11 @@ export default {
       if (p == '/api/tunnel/export' && M == 'GET') return webExport(env, u, ip, J, await cfgAll(env), limited);
       if (p == '/api/trk/loc' && M == 'POST') return trkLoc(env, b, bearer, ip, J, (tk) => verify(env, tk), limited); // titik lokasi dari pelacak HP (token khusus)
       if (p == '/api/geo/reverse' && M == 'GET') return geoReverse(env, u, ip, J, limited); // alamat dari koordinat (dicache di D1), dipakai saat tambah outlet
+      if (p == '/api/tg/hook' && M == 'POST') { // webhook Telegram: pesan masuk ke bot notifikasi J-POS
+        const C0 = await cfgAll(env); const sec = req.headers.get('X-Telegram-Bot-Api-Secret-Token');
+        if (C0.tg_sec && sec !== C0.tg_sec) return J({ ok: 1 }); // token rahasia tidak cocok → diabaikan diam-diam
+        return tgHook(env, b, C0, J);
+      }
       if (p == '/api/ping') return J({ ok: 1, v: 5 });
       if (p == '/api/time') return J({ t: Date.now() });
       if (p == '/api/info') { const c = await cfgAll(env); const pk = pkgAll(), pkg = {}; for (const t of Object.keys(pk)) pkg[t] = { n: pk[t].n, max: pk[t].max, f: pk[t].f, pr: pk[t].pr }; return J({ wa: c.wa || '', price: c.price || '', trial: +(c.trial_days || 30), app: c.app_name || 'J-POS', pkg }); }
@@ -281,8 +287,23 @@ export default {
             // gerbang laporan otomatis: token Fonnte (WhatsApp) & API key Resend (email). Kosongkan '-' untuk menghapus.
             for (const k of ['wa_tok', 'mail_key', 'mail_from']) if (b[k] != null && String(b[k]).trim() !== '') await cfgSet(env, k, String(b[k]).trim() == '-' ? '' : String(b[k]).trim().slice(0, 200));
             for (const k of ['ship_base', 'ship_per_m', 'ship_road', 'ship_min', 'ship_max_km', 'ship_round']) if (b[k] != null && Number.isFinite(+b[k]) && +b[k] >= 0) await cfgSet(env, k, +b[k]);
+            // bot Telegram (notifikasi piutang/utang/laporan): token dari @BotFather. Webhook didaftarkan otomatis ke Telegram saat disimpan.
+            if (b.tg_tok != null && String(b.tg_tok).trim() !== '') {
+              const tok = String(b.tg_tok).trim();
+              if (tok == '-') { await cfgSet(env, 'tg_tok', ''); await cfgSet(env, 'tg_bot', ''); }
+              else {
+                try {
+                  const me = await (await fetch(`https://api.telegram.org/bot${tok}/getMe`)).json();
+                  if (!me.ok) return J({ e: 'Token bot Telegram tidak valid: ' + (me.description || '') }, 400);
+                  let sec = (await cfgAll(env)).tg_sec; if (!sec) { sec = b64(crypto.getRandomValues(new Uint8Array(24))); await cfgSet(env, 'tg_sec', sec); }
+                  const hook = await tgSetWebhook(tok, new URL('/api/tg/hook', req.url).href, sec);
+                  if (!hook.ok) return J({ e: 'Gagal mendaftarkan webhook Telegram: ' + (hook.e || '') }, 400);
+                  await cfgSet(env, 'tg_tok', tok); await cfgSet(env, 'tg_bot', me.result.username);
+                } catch (e) { return J({ e: 'Gagal menghubungi Telegram: ' + String(e.message || e).slice(0, 150) }, 400); }
+              }
+            }
           }
-          const c = await cfgAll(env); return J({ wa: c.wa || '', price: c.price || '', trial_days: +(c.trial_days || 30), user: c.admin_user || env.ADMIN_USER || 'headadmin', ship: shipCfg(c), pkg: pkgAll(), allf: ALLF, trial_tier: c.trial_tier || 'high', gw: { wa: !!c.wa_tok, mail: !!c.mail_key, from: c.mail_from || '' } });
+          const c = await cfgAll(env); return J({ wa: c.wa || '', price: c.price || '', trial_days: +(c.trial_days || 30), user: c.admin_user || env.ADMIN_USER || 'headadmin', ship: shipCfg(c), pkg: pkgAll(), allf: ALLF, trial_tier: c.trial_tier || 'high', gw: { wa: !!c.wa_tok, mail: !!c.mail_key, from: c.mail_from || '', tg: !!c.tg_tok, tgBot: c.tg_bot || '' } });
         }
         if (p == '/api/admin/password' && M == 'POST') {
           const c = await cfgAll(env);
@@ -409,24 +430,30 @@ export default {
       }
 
       // ---------- laporan otomatis ke WA & email pemilik ----------
-      if (p.startsWith('/api/rpt') || p == '/api/snap') {
+      if (p.startsWith('/api/rpt') || p == '/api/snap' || p == '/api/notif/due') {
         const srow = await env.DB.prepare('SELECT id,name,rpt FROM stores WHERE id=?').bind(sid).first(), rc = rptCfg(srow), C = await cfgAll(env);
         if (p == '/api/snap' && M == 'POST') { const d = JSON.stringify(b.d || {}); if (d.length > 30000) return J({ e: 'terlalu besar' }, 400); await env.DB.prepare('INSERT INTO snap(store_id,t,data) VALUES(?,?,?) ON CONFLICT(store_id) DO UPDATE SET t=excluded.t,data=excluded.data').bind(sid, Date.now(), d).run(); return J({ ok: 1 }); }
-        const gw = { wa: !!(rc.tok || C.wa_tok), mail: !!C.mail_key };
-        if (p == '/api/rpt' && M == 'GET') return J({ cfg: role == 'owner' ? { ...rc, tok: rc.tok ? '••••' + rc.tok.slice(-4) : '' } : { close: !!rc.close, has: !!((rc.wa || []).length || (rc.em || []).length) }, gw, wa: (rc.wa || [])[0] || '' });
+        const gw = { wa: !!(rc.tok || C.wa_tok), mail: !!C.mail_key, tg: !!C.tg_tok };
+        if (p == '/api/rpt' && M == 'GET') return J({ cfg: role == 'owner' ? { ...rc, tok: rc.tok ? '••••' + rc.tok.slice(-4) : '' } : { close: !!rc.close, has: !!((rc.wa || []).length || (rc.em || []).length || (rc.tg || []).length) }, gw, wa: (rc.wa || [])[0] || '', tgN: (rc.tg || []).length });
         if (p == '/api/rpt/push' && M == 'POST') { // closing kasir & laporan manual dari aplikasi
           if (!rc.close && b.kind == 'closing') return J({ ok: 0, off: 1 });
           if (await limited(env, 'rpt:' + sid, 40, 864e5)) return J({ e: 'Batas kirim laporan hari ini tercapai' }, 429);
           const tx = String(b.text || '').slice(0, 6000); if (!tx) return J({ e: 'kosong' }, 400);
           return J({ ok: 1, res: await sendOut(env, C, rc, tx, String(b.subject || 'Laporan ' + srow.name).slice(0, 150)), gw });
         }
+        if (p == '/api/notif/due' && M == 'POST') { if (!['owner', 'admin'].includes(role)) return J({ e: 'Khusus pemilik/admin' }, 403); return dueNotify(env, C, sid, srow.name, b, J); }
         if (role != 'owner') return J({ e: 'Khusus pemilik' }, 403);
-        if (p == '/api/rpt' && M == 'PUT') { const o = cleanCfg(b); if (b.tok === undefined || String(b.tok).startsWith('••••')) o.tok = rc.tok || ''; await env.DB.prepare('UPDATE stores SET rpt=? WHERE id=?').bind(JSON.stringify(o), sid).run(); return J({ ok: 1, cfg: { ...o, tok: o.tok ? '••••' + o.tok.slice(-4) : '' }, gw: { wa: !!(o.tok || C.wa_tok), mail: !!C.mail_key } }); }
+        if (p == '/api/rpt' && M == 'PUT') { const o = cleanCfg(b); if (b.tok === undefined || String(b.tok).startsWith('••••')) o.tok = rc.tok || ''; o.tg = rc.tg || []; await env.DB.prepare('UPDATE stores SET rpt=? WHERE id=?').bind(JSON.stringify(o), sid).run(); return J({ ok: 1, cfg: { ...o, tok: o.tok ? '••••' + o.tok.slice(-4) : '' }, gw: { wa: !!(o.tok || C.wa_tok), mail: !!C.mail_key, tg: !!C.tg_tok }, tgN: o.tg.length }); }
         if (p == '/api/rpt/test' && M == 'POST') {
           if (!b.dry && await limited(env, 'rptt:' + sid, 10, 36e5)) return J({ e: 'Terlalu sering, coba lagi nanti' }, 429);
           const R = dayRange(rc.tz || 8, Date.now(), 0), text = await buildDaily(env, sid, srow.name, rc.tz || 8, R, Date.now());
-          return J({ ok: 1, text, res: !b.dry && ((rc.wa || []).length || (rc.em || []).length ) ? await sendOut(env, C, rc, text, 'Laporan ' + srow.name + ' · ' + R.label) : [], gw });
+          return J({ ok: 1, text, res: !b.dry && ((rc.wa || []).length || (rc.em || []).length || (rc.tg || []).length) ? await sendOut(env, C, rc, text, 'Laporan ' + srow.name + ' · ' + R.label) : [], gw });
         }
+        if (p == '/api/rpt/tg/code' && M == 'POST') { // kode sekali-pakai utk tombol "Hubungkan Telegram" di Pengaturan
+          if (!C.tg_tok || !C.tg_bot) return J({ e: 'Telegram belum diaktifkan pemilik aplikasi' }, 400);
+          return J({ ok: 1, code: await tgLinkCode(env, sid), bot: C.tg_bot });
+        }
+        if (p == '/api/rpt/tg/clear' && M == 'POST') { const o = { ...rc, tg: [] }; await env.DB.prepare('UPDATE stores SET rpt=? WHERE id=?').bind(JSON.stringify(o), sid).run(); return J({ ok: 1 }); }
       }
 
       if (p == '/api/me/pin' && M == 'POST') {
@@ -461,7 +488,8 @@ export default {
             if (d.length > 150000) { rej.push({ no: x.no, e: 'terlalu besar' }); continue; }
             const tot = x.k == 'sale' ? Math.round(+x.tot) || 0 : x.k == 'retur' ? -Math.abs(Math.round(+x.tot) || 0) : 0;
             st.push(env.DB.prepare('INSERT OR IGNORE INTO ev(store_id,no,k,t,tot,data) VALUES(?,?,?,?,?,?)').bind(sid, x.no, x.k, Math.round(x.t), tot, d));
-            { const ts = trailStmt(env, sid, uname, x, rt); if (ts) st.push(ts); } // riwayat perjalanan (30 hari)
+            { const ts = trailStmt(env, sid, uname, x, rt); if (ts) st.push(ts); } // riwayat perjalanan (90 hari)
+            if (x.k == 'sale' && x.pay == 'Piutang' && ctx) ctx.waitUntil(cfgAll(env).then((C) => notifNewAR(env, C, sid, me.name, x)).catch(() => {})); // notifikasi piutang baru (WA/email/Telegram)
           }
           if (st.length) { await env.DB.batch(st); const kinds = {}; for (const x of b.items || []) if (x && x.k) kinds[x.k] = (kinds[x.k] || 0) + 1; if (kinds.loc) { try { await env.DB.prepare("DELETE FROM ev WHERE store_id=? AND k='loc' AND json_extract(data,'$.u')=? AND seq < (SELECT MAX(seq) FROM ev WHERE store_id=? AND k='loc' AND json_extract(data,'$.u')=?)").bind(sid, uname, sid, uname).run(); } catch (e) { } } await logAct(env, 'staff', uname, uname, sid, 'sinkron data', Object.entries(kinds).map(([k, n]) => k + '×' + n).join(', ')); }
           return J({ done, rej, st: stInfo(me) });

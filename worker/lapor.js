@@ -1,7 +1,10 @@
-// ============ LAPORAN OTOMATIS KE WHATSAPP & EMAIL PEMILIK ============
-// Harian (pergantian hari, lewat Cron Trigger tiap jam) + closing kasir (dikirim saat kasir tutup shift).
-// Gerbang kirim: WhatsApp lewat Fonnte (token), email lewat Resend (API key). Diatur Head Admin (berlaku semua toko)
-// atau token WA milik toko sendiri. Tanpa gerbang, aplikasi tetap menyediakan tombol kirim manual (wa.me / email).
+// ============ LAPORAN OTOMATIS KE WHATSAPP, EMAIL & TELEGRAM PEMILIK ============
+// Harian (pergantian hari, lewat Cron Trigger tiap jam) + closing kasir (dikirim saat kasir tutup shift)
+// + piutang baru (langsung saat nota kredit dibuat) + pengingat piutang/utang jatuh tempo besok.
+// Gerbang kirim: WhatsApp lewat Fonnte (token), email lewat Resend (API key), Telegram lewat bot (token).
+// Diatur Head Admin (berlaku semua toko) atau token WA milik toko sendiri. Tanpa gerbang, aplikasi tetap
+// menyediakan tombol kirim manual (wa.me / email).
+import { tgSendAll } from './tg.js';
 export const RSCHEMA = [
   'CREATE TABLE IF NOT EXISTS snap(store_id TEXT PRIMARY KEY,t INTEGER,data TEXT)',
   'CREATE TABLE IF NOT EXISTS rptlog(store_id TEXT NOT NULL,day TEXT NOT NULL,kind TEXT NOT NULL,t INTEGER,res TEXT,PRIMARY KEY(store_id,day,kind))',
@@ -14,7 +17,7 @@ export const rptCfg = (s) => { try { const o = s && s.rpt ? JSON.parse(s.rpt) : 
 export function cleanCfg(b) {
   const nums = (v) => String(v || '').split(/[,;\s]+/).map((x) => x.replace(/[^\d]/g, '').replace(/^0/, '62')).filter((x) => x.length >= 9 && x.length <= 16).slice(0, 3);
   const ems = (v) => String(v || '').split(/[,;\s]+/).map((x) => x.trim().toLowerCase()).filter((x) => /^[^@\s]{1,64}@[^@\s]{1,120}\.[a-z]{2,}$/.test(x)).slice(0, 3);
-  return { wa: nums(b.wa), em: ems(b.em), on: !!b.on, close: !!b.close, h: Math.max(0, Math.min(23, Math.round(+b.h) || 0)), tz: [7, 8, 9].includes(+b.tz) ? +b.tz : 8, tok: String(b.tok || '').trim().slice(0, 80) };
+  return { wa: nums(b.wa), em: ems(b.em), on: !!b.on, close: !!b.close, due: b.due === false ? false : true, h: Math.max(0, Math.min(23, Math.round(+b.h) || 0)), tz: [7, 8, 9].includes(+b.tz) ? +b.tz : 8, tok: String(b.tok || '').trim().slice(0, 80) };
 }
 // waktu lokal toko → rentang UTC
 export function dayRange(tz, t, back) {
@@ -94,7 +97,52 @@ export async function sendOut(env, CFG, rc, text, subject) {
       const j = await r.json().catch(() => ({})); out.push({ ch: 'email', ok: r.ok ? 1 : 0, e: r.ok ? '' : j.message || 'HTTP ' + r.status });
     } catch (e) { out.push({ ch: 'email', ok: 0, e: String(e.message || e).slice(0, 120) }); }
   }
+  if ((rc.tg || []).length) {
+    if (!CFG.tg_tok) out.push({ ch: 'tg', ok: 0, e: 'bot Telegram belum diatur' });
+    else out.push(await tgSendAll(CFG.tg_tok, rc.tg, text));
+  }
   return out;
+}
+
+/* ============ PENGINGAT PIUTANG & UTANG JATUH TEMPO + PIUTANG BARU ============
+   Dikirim lewat saluran yang sama (WA/email/Telegram). Piutang baru dikirim langsung saat nota kredit
+   dibuat (dipanggil dari handler /api/ev). Pengingat jatuh tempo dicek sekali per hari lewat Cron Trigger. */
+const rpn = (n) => 'Rp' + Math.round(n || 0).toLocaleString('id-ID');
+export async function notifNewAR(env, CFG, sid, sname, sale) {
+  try {
+    const s = await env.DB.prepare('SELECT rpt FROM stores WHERE id=?').bind(sid).first(); if (!s) return;
+    let rc = {}; try { rc = s.rpt ? JSON.parse(s.rpt) : {}; } catch (e) { }
+    if (!((rc.wa || []).length || (rc.em || []).length || (rc.tg || []).length)) return;
+    const out = (sale.tot || 0) - (sale.dpay || 0); if (out <= 0) return;
+    const d = new Date(sale.due); const due = String(d.getUTCDate()).padStart(2, '0') + '/' + String(d.getUTCMonth() + 1).padStart(2, '0') + '/' + d.getUTCFullYear();
+    const text = `*🆕 PIUTANG BARU — ${String(sname || '').toUpperCase()}*\nOutlet: *${sale.cn || '-'}*\nNota: ${sale.no || '-'}\nJumlah: *${rpn(out)}*\nTempo: ${due}\nOleh: ${sale.u || '-'}`;
+    await sendOut(env, CFG, rc, text, 'Piutang baru · ' + (sale.cn || ''));
+  } catch (e) { }
+}
+// Pengingat piutang/utang jatuh tempo besok: dipicu HP pemilik/admin (yang sudah punya angka SISA tagihan
+// yang BENAR dari replay transaksi di aplikasi — retur, cicilan, dll sudah terhitung), bukan dihitung ulang
+// di server (supplier/piutang punya banyak sumber kejadian berbeda, rawan salah hitung bila direplikasi di sini).
+// Server hanya menyaring & meneruskan ke WA/email/Telegram, dengan jatah kirim 1×/hari per toko (anti-spam
+// walau beberapa HP pemilik mengirim bersamaan).
+export async function dueNotify(env, CFG, sid, sname, b, J) {
+  const clip = (arr, n) => (Array.isArray(arr) ? arr : []).slice(0, n);
+  const ar = clip(b.ar, 20).map((x) => ({ cn: String(x.cn || '-').slice(0, 60), no: String(x.no || '').slice(0, 30), amt: Math.max(0, Math.round(+x.amt) || 0), due: +x.due || 0 })).filter((x) => x.amt > 0);
+  const ap = clip(b.ap, 20).map((x) => ({ sup: String(x.sup || '-').slice(0, 60), amt: Math.max(0, Math.round(+x.amt) || 0), due: +x.due || 0 })).filter((x) => x.amt > 0);
+  if (!ar.length && !ap.length) return J({ ok: 1, sent: 0 });
+  const s = await env.DB.prepare('SELECT rpt FROM stores WHERE id=?').bind(sid).first(); const rc = rptCfg(s || {});
+  if (rc.due === false) return J({ ok: 1, sent: 0 });
+  if (!((rc.wa || []).length || (rc.em || []).length || (rc.tg || []).length)) return J({ ok: 1, sent: 0 });
+  const day = new Date(Date.now() + (rc.tz || 8) * 36e5).toISOString().slice(0, 10);
+  const done = await env.DB.prepare('SELECT 1 FROM rptlog WHERE store_id=? AND day=? AND kind=?').bind(sid, day, 'due').first();
+  if (done) return J({ ok: 1, sent: 0, already: 1 });
+  await env.DB.prepare('INSERT OR IGNORE INTO rptlog(store_id,day,kind,t,res) VALUES(?,?,?,?,?)').bind(sid, day, 'due', Date.now(), 'kirim').run();
+  const L = ['*⏰ PENGINGAT JATUH TEMPO (besok) — ' + String(sname || '').toUpperCase() + '*', ''];
+  if (ar.length) { L.push('*📥 Piutang dari outlet (' + ar.length + '):*'); for (const x of ar) L.push('• ' + x.cn + ' · ' + rpn(x.amt) + (x.no ? ' (nota ' + x.no + ')' : '')); L.push(''); }
+  if (ap.length) { L.push('*📤 Utang ke supplier (' + ap.length + '):*'); for (const x of ap) L.push('• ' + x.sup + ' · ' + rpn(x.amt)); L.push(''); }
+  L.push('_Dikirim otomatis oleh J-POS_');
+  const res = await sendOut(env, CFG, rc, L.join('\n'), 'Jatuh tempo besok · ' + sname);
+  await env.DB.prepare('UPDATE rptlog SET res=? WHERE store_id=? AND day=? AND kind=?').bind(JSON.stringify(res), sid, day, 'due').run();
+  return J({ ok: 1, sent: 1, res });
 }
 
 // Cron tiap jam: kirim laporan harian ke toko yang jam lokalnya = jam kirim yang dipilih pemilik

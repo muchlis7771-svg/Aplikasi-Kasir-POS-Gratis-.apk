@@ -4,13 +4,13 @@
    (setelah absen masuk & aplikasi terbuka). Karyawan melihat pemberitahuan bahwa lokasinya dibagikan. */
 const GPSR = ['sales', 'kanvas', 'dropping'];
 let GPSU = '', GMAP = null, GLAY = null, GSIG = '', GPSD = 7, GTR = null, GTRQ = 0;
-const GDAYS = [[1, 'Hari ini'], [2, '2 hari'], [3, '3 hari'], [7, '7 hari'], [14, '14 hari'], [30, '30 hari (maks)']], GPCOL = ['#22366e', '#c9772a', '#1f8a5e', '#8e3b8a', '#b8392f', '#2b7fa8', '#6b6f1f'];
+const GDAYS = [[1, 'Hari ini'], [2, '2 hari'], [3, '3 hari'], [7, '7 hari'], [14, '14 hari'], [30, '30 hari'], [60, '60 hari'], [90, '90 hari (maks)']], GPCOL = ['#22366e', '#c9772a', '#1f8a5e', '#8e3b8a', '#b8392f', '#2b7fa8', '#6b6f1f'];
 const gpsSt = (t) => { const m = t ? (Date.now() - t) / 6e4 : 1e9; return m <= 3 ? ['live', 'Live', '#16a34a'] : m <= 15 ? ['near', 'Baru saja', '#d97706'] : ['off', 'Tidak aktif', '#94a3b8']; };
 function gpsKm(L) { let d = 0; for (let i = 1; i < L.length; i++) { const x = haversine(L[i - 1][1], L[i - 1][2], L[i][1], L[i][2]); if (x < 5000) d += x; } return d / 1000; }
 const gdur = (ms) => { const s = Math.max(0, Math.round(ms / 1000)); if (s < 60) return s + ' dtk'; const m = Math.round(s / 60); if (m < 60) return m + ' mnt'; return Math.floor(m / 60) + ' jam ' + (m % 60) + ' mnt'; };
 // outlet terdekat dari satu titik (untuk menamai lokasi berhenti)
 function gpsPlace(lat, lng) { let best = null, bd = 1e9; for (const c of S.c || []) { if (c.x || c.lat == null) continue; const d = haversine(lat, lng, c.lat, c.lng); if (d < bd) { bd = d; best = c; } } return best && bd <= 150 ? { n: best.n, d: Math.round(bd) } : null; }
-// susun riwayat perjalanan dari jejak: berhenti (≥4 mnt di radius 70 m) vs perjalanan, beserta durasi & jarak
+// susun riwayat perjalanan dari jejak: berhenti (≥3 mnt di radius 70 m) vs perjalanan, beserta durasi & jarak
 function gpsHistory(P0, user) {
   const P = (P0 || []).filter((p) => p[1] != null && p[2] != null).slice().sort((a, b) => a[0] - b[0]);
   const out = { km: 0, moveMs: 0, stopMs: 0, nStop: 0, first: P.length ? P[0][0] : 0, last: P.length ? P[P.length - 1][0] : 0, tl: [], maxStop: null, P };
@@ -19,7 +19,7 @@ function gpsHistory(P0, user) {
   const segDist = (a, b) => { let d = 0; for (let k = a + 1; k <= b; k++) { const x = haversine(P[k - 1][1], P[k - 1][2], P[k][1], P[k][2]); if (x < 3000) d += x; } return d; };
   for (let k = 1; k < P.length; k++) out.km += (hv(k - 1, k) < 3000 ? hv(k - 1, k) : 0);
   out.km /= 1000;
-  const STOPR = 70, STOPMIN = 4 * 6e4, vis = (S.att || []).filter((a) => a.k == 'visit' && a.u == user);
+  const STOPR = 70, STOPMIN = 3 * 6e4, vis = (S.att || []).filter((a) => a.k == 'visit' && a.u == user);
   const segs = []; let i = 0;
   while (i < P.length) { let j = i + 1; while (j < P.length && hv(i, j) <= STOPR) j++; segs.push({ i, e: j - 1 }); i = j; }
   let leg = null;
@@ -36,7 +36,7 @@ function gpsHistory(P0, user) {
   out.moveMs = Math.max(0, (out.last - out.first) - out.stopMs);
   return out;
 }
-// ambil riwayat dari server (disimpan 30 hari); tanpa server dipakai jejak lokal 24 jam
+// ambil riwayat dari server (disimpan 90 hari); tanpa server dipakai jejak lokal 24 jam
 function gpsTrailLoad(force) {
   if (!GPSU) return; const key = GPSU + '|' + GPSD;
   if (!force && GTR && GTR.key == key && Date.now() - GTR.t < (GPSD == 1 ? 55000 : 5 * 6e4)) return;
@@ -84,7 +84,7 @@ function trkSetCard() {
 function gpsVisCard(u) {
   if (!u) return '';
   const A = gpsVisits(u.n), head = `<div class="row" style="margin:0"><b>📍 Riwayat kunjungan ${esc(u.n)}</b>${gpsDaysSel()}</div>` + (U.r == 'owner' ? (gpsOffLoad(), (GOFF || []).includes(u.n) ? `<button class="gh" style="margin-top:8px" onclick="gpsOffSet('${esc(u.n)}',false)">▶ Aktifkan lagi pelacakan HP ini</button>` : `<button class="gh d" style="margin-top:8px" onclick="gpsOffSet('${esc(u.n)}',true)">⏹ Hentikan pelacakan HP ini</button>`) : '');
-  if (!A.length) return `<div class="cd">${head}<p class="mu" style="margin:8px 0 0">Belum ada kunjungan (check-in outlet) pada rentang ini. Riwayat kunjungan disimpan <b>1 bulan</b>, lebih lama dihapus otomatis dari server.</p></div>`;
+  if (!A.length) return `<div class="cd">${head}<p class="mu" style="margin:8px 0 0">Belum ada kunjungan (check-in outlet) pada rentang ini. Riwayat kunjungan disimpan <b>3 bulan</b>, lebih lama dihapus otomatis dari server.</p></div>`;
   const dur = A.filter((x) => x.dur != null), tD = dur.reduce((a, x) => a + x.dur, 0), outl = new Set(A.map((x) => x.v.cid)).size, omz = A.reduce((a, x) => a + x.tot, 0), by = {};
   for (const x of A) (by[dkey(x.v.t)] = by[dkey(x.v.t)] || []).push(x);
   const days = Object.keys(by).sort().reverse();
@@ -97,7 +97,7 @@ function gpsVisCard(u) {
 <div class="pnums" style="margin:10px 0"><span><small>Kunjungan</small><b>${A.length}×</b></span><span><small>Outlet berbeda</small><b>${outl}</b></span><span><small>Total di outlet</small><b class="gr">${gdur(tD)}</b></span><span><small>Rata-rata</small><b>${dur.length ? gdur(tD / dur.length) : '–'}</b></span></div>
 <small class="mu">${days.length} hari · omzet dari kunjungan ${rp(omz)} · garis putus-putus di peta = urutan kunjungan per hari (warna sama dengan hari ini). Ketuk garis untuk melihat lama perjalanan.</small>
 <div class="gdays-l">${days.map(dayRow).join('')}</div>
-<small class="mu" style="display:block;margin-top:8px">Kunjungan = check-in/check-out outlet. Riwayat disimpan <b>1 bulan</b>; data lebih lama dihapus otomatis dari server.</small></div>`;
+<small class="mu" style="display:block;margin-top:8px">Kunjungan = check-in/check-out outlet. Riwayat disimpan <b>3 bulan</b>; data lebih lama dihapus otomatis dari server.</small></div>`;
 }
 function gpsHistCard(u) {
   if (!u) return '';
@@ -106,7 +106,7 @@ function gpsHistCard(u) {
   const head = `<div class="row" style="margin:0"><b>🧭 Riwayat perjalanan ${esc(u.n)}</b>${gpsDaysSel()}</div>`;
   const pts = (GTR.pts || []).slice().sort((a, b) => a[0] - b[0]);
   if (GTR.err) return `<div class="cd">${head}<p class="rd" style="margin:8px 0 0">${esc(GTR.err)}</p></div>`;
-  if (!pts.length) return `<div class="cd">${head}<p class="mu" style="margin:8px 0 0">Belum ada data perjalanan pada rentang ini. Jejak mulai terekam saat karyawan sudah absen masuk dan mengirim lokasi. Riwayat disimpan ${30} hari, lebih lama dihapus otomatis.</p></div>`;
+  if (!pts.length) return `<div class="cd">${head}<p class="mu" style="margin:8px 0 0">Belum ada data perjalanan pada rentang ini. Jejak terekam dari lokasi latar (walau karyawan belum absen/sudah keluar akun, sesuai jam pelacakan). Riwayat disimpan ${90} hari, lebih lama dihapus otomatis.</p></div>`;
   const byDay = {}; for (const p of pts) (byDay[dkey(p[0])] = byDay[dkey(p[0])] || []).push(p);
   const days = Object.keys(byDay).sort().reverse().map((k) => ({ k, h: gpsHistory(byDay[k], u.n) }));
   const T = days.reduce((a, d) => ({ km: a.km + d.h.km, mv: a.mv + d.h.moveMs, st: a.st + d.h.stopMs, n: a.n + d.h.nStop }), { km: 0, mv: 0, st: 0, n: 0 });
@@ -120,7 +120,47 @@ function gpsHistCard(u) {
 <div class="pnums" style="margin:10px 0"><span><small>Jarak tempuh</small><b>${T.km.toFixed(1)} km</b></span><span><small>Waktu jalan</small><b class="gr">${gdur(T.mv)}</b></span><span><small>Waktu berhenti</small><b class="or">${gdur(T.st)}</b></span><span><small>Berhenti</small><b>${T.n}×</b></span></div>
 <small class="mu">${days.length} hari terdata${GPSD > 1 ? ' dalam ' + GPSD + ' hari terakhir' : ''} · ketuk hari untuk melihat rincian${GTR.local ? ' · <b class="or">mode lokal (offline), hanya 24 jam</b>' : ''}</small>
 <div class="gdays-l">${days.map(dayRow).join('')}</div>
-<small class="mu" style="display:block;margin-top:8px">Berhenti = diam ≥4 menit dalam radius 70 m. Riwayat disimpan <b>30 hari</b>; data lebih lama dihapus otomatis.</small></div>`;
+<small class="mu" style="display:block;margin-top:8px">Berhenti = diam ≥3 menit dalam radius 70 m (ditandai 🅿️ di peta beserta lama & lokasinya). Riwayat disimpan <b>90 hari (3 bulan)</b>; data lebih lama dihapus otomatis.</small></div>`;
+}
+// ---- 10 lokasi paling sering disinggahi: kelompokkan semua titik berhenti (≥3 mnt) dalam radius 100 m jadi satu tempat ----
+const GCLR = 100; // radius pengelompokan (meter)
+function gpsClusterStops(stops) {
+  const cl = [];
+  for (const s of stops) {
+    let best = null, bd = 1e9;
+    for (const c of cl) { const d = haversine(s.lat, s.lng, c.lat, c.lng); if (d < bd) { bd = d; best = c; } }
+    if (best && bd <= GCLR) { best.sumLat += s.lat; best.sumLng += s.lng; best.n++; best.dur += s.dur; best.lat = best.sumLat / best.n; best.lng = best.sumLng / best.n; best.first = Math.min(best.first, s.start); best.last = Math.max(best.last, s.end); }
+    else cl.push({ lat: s.lat, lng: s.lng, sumLat: s.lat, sumLng: s.lng, n: 1, dur: s.dur, first: s.start, last: s.end });
+  }
+  for (const c of cl) c.place = gpsPlace(c.lat, c.lng);
+  return cl.sort((a, b) => b.n - a.n);
+}
+let GTOP = null, GTOPQ = 0;
+function gpsTopLoad() {
+  if (!GPSU) return; const key = GPSU + '|' + GPSD;
+  if (GTOP && GTOP.key == key) return; if (GTOPQ == key) return;
+  if (!(GTR && GTR.key == key)) return; // tunggu jejak (GTR) siap dulu
+  GTOPQ = key;
+  const pts = (GTR.pts || []).slice().sort((a, b) => a[0] - b[0]), byDay = {};
+  for (const p of pts) (byDay[dkey(p[0])] = byDay[dkey(p[0])] || []).push(p);
+  const stops = []; for (const k of Object.keys(byDay)) for (const e of gpsHistory(byDay[k], GPSU).tl) if (e.type == 'stop') stops.push(e);
+  const top = gpsClusterStops(stops).slice(0, 10);
+  GTOP = { key, top, loading: !!top.some((c) => !c.place) }; GTOPQ = 0;
+  (async () => {
+    for (const c of top) if (!c.place && !c.addr) { try { c.addr = await revGeo({ lat: c.lat, lng: c.lng }); } catch (e) { } }
+    GTOP.loading = 0;
+    if (V == 'gps' && GPSU + '|' + GPSD == key && !document.querySelector('.md')) R();
+  })();
+}
+function gpsTopCard(u) {
+  if (!u) return '';
+  const key = GPSU + '|' + GPSD;
+  if (!GTOP || GTOP.key != key) { gpsTopLoad(); return `<div class="cd"><b>📍 10 lokasi sering disinggahi · ${esc(u.n)}</b><p class="mu" style="margin:8px 0 0">Menganalisis titik berhenti…</p></div>`; }
+  const { top, loading } = GTOP;
+  if (!top.length) return `<div class="cd"><b>📍 10 lokasi sering disinggahi · ${esc(u.n)}</b><p class="mu" style="margin:8px 0 0">Belum ada titik berhenti (≥3 menit) pada rentang ini.</p></div>`;
+  return `<div class="cd"><b>📍 10 lokasi sering disinggahi · ${esc(u.n)}</b><small class="mu" style="display:block;margin:2px 0 8px">Titik berhenti ≥3 menit dikelompokkan jika berjarak ≤100 m satu sama lain.</small>
+${top.map((c, i) => `<div class="gh2 stop"><span class="gd"><b class="gvn" style="background:var(--dc)">${i + 1}</b></span><span class="gi"><b>${c.place ? '🏬 ' + esc(c.place.n) : esc(c.addr || (loading ? 'Memuat alamat…' : 'Lokasi tanpa nama'))}</b><small class="mu">${c.n}× berhenti · total ${gdur(c.dur)} · terakhir ${dstr(c.last)}</small></span><a class="gh" target="_blank" rel="noopener" href="https://www.google.com/maps?q=${c.lat},${c.lng}">Peta</a></div>`).join('')}
+</div>`;
 }
 function gpsTeam() {
   const m = new Map(), add = (n, r) => { if (n && GPSR.includes(r) && !m.has(n.toLowerCase())) m.set(n.toLowerCase(), { n, r }); };
@@ -138,7 +178,7 @@ VW.gps = () => {
   return `<div class="kp"><div class="cd k0"><small>Live sekarang</small><h2>${live} / ${T.length}</h2><small>sales · kanvas · dropping</small></div><div class="cd k1"><small>Jarak tempuh hari ini</small><h2>${T.reduce((a, u) => a + u.km, 0).toFixed(1)} km</h2><small>${T.reduce((a, u) => a + u.vis, 0)} kunjungan outlet</small></div></div>
 <div class="cd gpsc"><div class="row" style="margin:0 0 8px"><b>${GPSU ? '🧭 Jejak ' + esc(GPSU) + ' · ' + (GDAYS.find((d) => d[0] == GPSD) || [0, GPSD + ' hari'])[1].replace(' (maks)', '') : '🛰️ Posisi tim'}</b><span class="wrap">${GPSU ? '<button class="gh" onclick="GPSU=\'\';R()">Semua</button>' : ''}<button class="gh" onclick="gpsExportOpen()" title="Simpan riwayat perjalanan sebagai file peta">💾 Ekspor</button><button class="gh" onclick="gpsRefresh(1)">⟳</button></span></div><div class="map gmap" id="gmap"></div>
 <small class="mu" id="gupd">Diperbarui otomatis tiap ±20 detik</small>${GPSU && !(T.find((x) => x.n == GPSU) || {}).loc ? `<small class="or" style="display:block;margin-top:4px">⚠️ Belum ada posisi GPS langsung dari ${esc(GPSU)} — titik bernomor di peta ini adalah kunjungan/check-in outlet terakhir, <b>bukan</b> lokasi HP saat ini.</small>` : ''}</div>
-${GPSU ? '' : trkSetCard()}${GPSU ? gpsVisCard(T.find((x) => x.n == GPSU)) + gpsHistCard(T.find((x) => x.n == GPSU)) : ''}
+${GPSU ? '' : trkSetCard()}${GPSU ? gpsVisCard(T.find((x) => x.n == GPSU)) + gpsTopCard(T.find((x) => x.n == GPSU)) + gpsHistCard(T.find((x) => x.n == GPSU)) : ''}
 <div class="cd">${T.map((u) => `<div class="trow gpr ${GPSU == u.n ? 'on' : ''}" onclick="GPSU=GPSU=='${esc(u.n)}'?'':'${esc(u.n)}';R()"><em class="tav" style="background:${u.st[2]}">${esc(u.n[0].toUpperCase())}</em><span class="ti"><b>${esc(u.n)} <small class="mu">· ${esc(ROLE[u.r] || u.r)}</small></b><small><b style="color:${u.st[2]}">● ${u.st[1]}</b> · ${u.loc ? agoTxt(u.loc.t) : 'belum ada posisi'}${u.loc && u.loc.acc ? ' · ±' + u.loc.acc + ' m' : ''}</small>${u.work && u.st[0] == 'off' ? '<small class="or">⚠ Tidak terdeteksi' + (u.loc ? ' sejak ' + agoTxt(u.loc.t) : ' (belum pernah mengirim lokasi)') + ' pada jam kerja. Kemungkinan: HP mati / tanpa sinyal, lokasi atau izin “Sepanjang waktu” dimatikan, atau aplikasi dihentikan sistem (hemat baterai). Hubungi karyawan.</small>' : ''}<small class="mu">${u.ci ? '🏬 di ' + esc(u.ci.cn) + ' sejak ' + hm(u.ci.t) : 'tidak sedang check-in'} · ${u.km.toFixed(1)} km · ${u.vis} kunjungan${u.omz ? ' · ' + rp(u.omz) : ''}</small></span>${u.loc ? `<a class="gh" onclick="event.stopPropagation()" target="_blank" rel="noopener" href="https://www.google.com/maps?q=${u.loc.lat},${u.loc.lng}">Maps</a>` : ''}</div>`).join('') || '<p class="mu">Belum ada sales, kanvas, atau tim dropping.</p>'}</div>
 <small class="mu" style="display:block;margin:0 4px 14px">Lokasi dikirim HP karyawan ±1 menit sekali selama jam kerja (setelah absen masuk). Di aplikasi Android, posisi tetap terkirim <b>walau aplikasi ditutup</b> selama karyawan mengizinkan lokasi "sepanjang waktu" (ada notifikasi tetap di HP karyawan). Bila HP dimatikan, di-restart, kehabisan baterai, tanpa sinyal, atau karyawan mematikan berbagi lokasi / mencabut izin, posisi terakhir yang tetap ditampilkan.</small>`;
 };
@@ -178,7 +218,7 @@ function gpsDraw(fit) {
   setTimeout(() => { try { GMAP && GMAP.invalidateSize(); } catch (e) { } }, 150);
   const g = $('#gupd'); if (g) g.textContent = 'Diperbarui ' + hm(Date.now()) + ' · otomatis tiap ±20 detik';
 }
-// ---- Ekspor riwayat perjalanan ke file HTML (peta) yang bisa disimpan di HP — sebelum dihapus otomatis (30 hari) ----
+// ---- Ekspor riwayat perjalanan ke file HTML (peta) yang bisa disimpan di HP — sebelum dihapus otomatis (90 hari) ----
 async function gpsFetchTrail(name, days) {
   if (S.srv && canNet()) { try { const r = await api('/api/trail?user=' + encodeURIComponent(name) + '&days=' + days); return r.pts || []; } catch (e) { } }
   return ((S.trail || {})[name] || []).slice();
@@ -192,7 +232,7 @@ function gpsVpIn(v, pts) {
 }
 function gpsExportOpen() {
   const T = gpsTeam(); if (!T.length) return toast('Belum ada sales, kanvas, atau tim dropping');
-  const m = modal(`<h3>💾 Ekspor riwayat perjalanan</h3><small class="mu">Hasilnya file peta (.html) yang bisa dibuka/dibagikan di HP mana saja — simpan sebagai arsip sebelum riwayat terhapus otomatis (maks. 30 hari).</small>
+  const m = modal(`<h3>💾 Ekspor riwayat perjalanan</h3><small class="mu">Hasilnya file peta (.html) yang bisa dibuka/dibagikan di HP mana saja — simpan sebagai arsip sebelum riwayat terhapus otomatis (maks. 90 hari).</small>
 <label style="display:block;margin-top:10px"><small class="mu">Karyawan</small><select id="gxu" style="width:100%"><option value="">Semua (${T.length} karyawan)</option>${T.map((u) => `<option value="${esc(u.n)}" ${GPSU == u.n ? 'selected' : ''}>${esc(u.n)}</option>`).join('')}</select></label>
 <label style="display:block;margin-top:8px"><small class="mu">Rentang</small><select id="gxd" style="width:100%">${GDAYS.map((d) => `<option value="${d[0]}" ${GPSD == d[0] ? 'selected' : ''}>${d[1]}</option>`).join('')}</select></label>
 <button class="pr" id="gxok" style="margin-top:12px;width:100%">Buat & simpan file</button>`);

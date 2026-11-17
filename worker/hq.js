@@ -235,8 +235,9 @@ export async function hqAdmin(x) {
   return null;
 }
 
-/* ============ RIWAYAT PERJALANAN (jejak GPS) — disimpan 30 hari, lebih lama dihapus otomatis ============ */
-export const TRAIL_DAYS = 30;
+/* ============ RIWAYAT PERJALANAN (jejak GPS) — disimpan 90 hari (3 bulan), lebih lama dihapus otomatis ============ */
+export const TRAIL_DAYS = 90;
+const CI_DAYS = 90; // riwayat kunjungan (check-in/check-out outlet) karyawan lapangan — beda dari VIS_DAYS (statistik pengunjung website promo)
 const okLL = (a, b) => Number.isFinite(+a) && Number.isFinite(+b) && Math.abs(+a) <= 90 && Math.abs(+b) <= 180 && !(Math.abs(+a) < 0.01 && Math.abs(+b) < 0.01);
 // pernyataan INSERT untuk satu kejadian (loc / absen / kunjungan) — kembali null bila tidak punya titik valid
 export function trailStmt(env, sid, uname, x, now) {
@@ -244,7 +245,7 @@ export function trailStmt(env, sid, uname, x, now) {
   const t = Math.round(x.t); if (!(t < now + 6e5 && t > now - TRAIL_DAYS * DAY)) return null;
   return env.DB.prepare('INSERT OR IGNORE INTO trail(sid,u,t,lat,lng,k) VALUES(?,?,?,?,?,?)').bind(sid, String(uname).slice(0, 40), t, +(+x.lat).toFixed(6), +(+x.lng).toFixed(6), kk);
 }
-export async function pruneTrail(env, now) { await pruneApk(env, now).catch(() => { }); const c = now - TRAIL_DAYS * DAY; await env.DB.batch([env.DB.prepare('DELETE FROM trail WHERE t<?').bind(c), env.DB.prepare("DELETE FROM ev WHERE k='loc' AND t<?").bind(now - 3 * DAY), env.DB.prepare("DELETE FROM ev WHERE k IN ('visit','vout') AND t<?").bind(now - VIS_DAYS * DAY)]); }
+export async function pruneTrail(env, now) { await pruneApk(env, now).catch(() => { }); const c = now - TRAIL_DAYS * DAY; await env.DB.batch([env.DB.prepare('DELETE FROM trail WHERE t<?').bind(c), env.DB.prepare("DELETE FROM ev WHERE k='loc' AND t<?").bind(now - 3 * DAY), env.DB.prepare("DELETE FROM ev WHERE k IN ('visit','vout') AND t<?").bind(now - CI_DAYS * DAY)]); }
 const rad = Math.PI / 180, dm = (a, b, c, d) => { const x = (d - b) * rad * Math.cos((a + c) / 2 * rad), y = (c - a) * rad; return 6371000 * Math.sqrt(x * x + y * y); };
 // GET /api/trail?user=NAMA&days=N → titik jejak (ditipiskan: ±150 detik atau ≥25 m) untuk pemilik / admin
 export async function trailGet(env, sid, u, J) {
