@@ -129,14 +129,7 @@ export default {
         for (const r of rows) ins.push(db.prepare("INSERT INTO sales(profile,tanggal,outlet_key,outlet_id,outlet_name,salesman,sku_code,sku_name,omset,qty_karton,ordered,visited,faktur,channel,updated) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
           .bind(p, s(r.tanggal), s(r.outletKey), s(r.outletId), s(r.outletName), s(r.salesman), s(r.skuCode), s(r.skuName), n(r.omset), n(r.qtyKarton), r.ordered ? 1 : 0, r.visited ? 1 : 0, s(r.faktur), s(r.channel), now));
         await batch(db, del); await batch(db, ins);
-        // ringkasan harian untuk tanggal yang tersentuh
-        const touched = [...new Set(rows.map((r) => s(r.tanggal)))];
-        const ds = [];
-        for (const d of touched) {
-          ds.push(db.prepare("DELETE FROM daily_outlet WHERE profile=? AND tanggal=?").bind(p, d));
-          ds.push(db.prepare("INSERT INTO daily_outlet SELECT profile,tanggal,outlet_key,MAX(salesman),SUM(omset),SUM(qty_karton),COUNT(DISTINCT sku_code||sku_name) FROM sales WHERE profile=? AND tanggal=? AND ordered=1 GROUP BY outlet_key").bind(p, d));
-        }
-        await batch(db, ds);
+        // (ringkasan daily_outlet dimatikan: belum dipakai app & boros baca baris D1)
         return J({ ok: true, saved: rows.length });
       }
       if (url.pathname === "/sync/history" && req.method === "GET") {
