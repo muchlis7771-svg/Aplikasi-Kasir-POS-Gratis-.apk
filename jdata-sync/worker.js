@@ -1,5 +1,67 @@
 // J-DATA Sync: simpan riwayat penjualan, RO, dan target di Cloudflare D1.
 // Auth: header "Authorization: Bearer <SYNC_TOKEN>" (secret Worker). Data dipisah per "profile".
+const DASH_HTML = `<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>J-DATA Dashboard</title>
+<style>
+:root{--bg:#f6f8fb;--card:#fff;--ink:#16222b;--mut:#5b6b79;--pri:#0b3c6b;--ok:#1b8a4b;--bad:#c62828;--line:#e3e9f0}
+*{box-sizing:border-box}body{margin:0;font:14px system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+header{background:var(--pri);color:#fff;padding:14px 16px}h1{margin:0;font-size:18px}
+main{max-width:1100px;margin:0 auto;padding:12px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;margin:10px 0;overflow-x:auto}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+select,input,button{font:inherit;padding:8px 10px;border:1px solid #c7d0da;border-radius:8px;background:#fff}
+button{background:var(--pri);color:#fff;border:0;cursor:pointer}button.alt{background:#fff;color:var(--pri);border:1px solid var(--pri)}
+button.on{background:var(--pri);color:#fff}
+table{border-collapse:collapse;width:100%;min-width:560px}th,td{padding:7px 8px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap}
+th:first-child,td:first-child{text-align:left}th{background:#1565c0;color:#fff;position:sticky;top:0}
+tr.tot td{background:#dce9f6;font-weight:700}
+.bar{height:8px;background:#e8edf3;border-radius:4px;min-width:80px}.bar i{display:block;height:8px;border-radius:4px;background:#1565c0}
+.kpis{display:flex;gap:10px;flex-wrap:wrap}.kpi{flex:1;min-width:140px;background:#0b3c6b;color:#fff;border-radius:12px;padding:12px}.kpi b{display:block;font-size:20px}
+.neg{color:var(--bad)}.pos{color:var(--ok)}.mut{color:var(--mut);font-size:12px}
+</style></head><body>
+<header><h1>J-DATA Dashboard</h1></header>
+<main>
+<div class="card" id="login"><div class="row"><input id="tok" type="password" placeholder="Token (SYNC_TOKEN)" style="flex:1;min-width:220px"><button onclick="saveTok()">Masuk</button></div><div class="mut">Token hanya disimpan di browser ini.</div></div>
+<div id="app" style="display:none">
+<div class="card"><div class="row">
+<select id="prof" onchange="load()"></select>
+<input id="from" type="date" onchange="load()"><span>s/d</span><input id="to" type="date" onchange="load()">
+<button class="alt" onclick="setMonth(0)">Bulan ini</button><button class="alt" onclick="setMonth(-1)">Bulan lalu</button>
+<button id="uRp" class="on" onclick="setUnit('rp')">Rp</button><button id="uKrt" class="alt" onclick="setUnit('krt')">Karton</button>
+</div></div>
+<div class="kpis" id="kpis"></div>
+<div class="card"><b>Target vs Actual per Salesman</b><div class="mut" id="note"></div><div id="tSales"></div></div>
+<div class="card"><b>Program Promo</b><div id="tProg"></div></div>
+<div class="card"><b>Top SKU</b><div id="tSku"></div></div>
+</div></main>
+<script>
+let T=localStorage.getItem('jd_tok')||'',D=null,U='rp';
+const $=i=>document.getElementById(i);
+const nf=new Intl.NumberFormat('id-ID',{maximumFractionDigits:0}),nf1=new Intl.NumberFormat('id-ID',{maximumFractionDigits:1});
+const fmt=v=>U==='rp'?nf.format(Math.round(v)):nf1.format(v);
+async function api(p){const r=await fetch(p,{headers:{authorization:'Bearer '+T}});if(r.status==401){localStorage.removeItem('jd_tok');location.reload();}return r.json();}
+function saveTok(){T=$('tok').value.trim();localStorage.setItem('jd_tok',T);init();}
+function iso(d){return d.toISOString().slice(0,10)}
+function setMonth(k){const n=new Date();const a=new Date(Date.UTC(n.getFullYear(),n.getMonth()+k,1)),b=new Date(Date.UTC(n.getFullYear(),n.getMonth()+k+1,0));$('from').value=iso(a);$('to').value=iso(b);load();}
+function setUnit(u){U=u;$('uRp').className=u==='rp'?'on':'alt';$('uKrt').className=u==='krt'?'on':'alt';render();}
+async function init(){if(!T)return;$('login').style.display='none';$('app').style.display='block';
+ const r=await api('/sync/profiles');const ps=(r.profiles||[]).sort();$('prof').innerHTML=ps.map(p=>\`<option>\${p}</option>\`).join('');setMonth(0);}
+async function load(){if(!$('prof').value)return;D=await api(\`/dash/data?profile=\${encodeURIComponent($('prof').value)}&from=\${$('from').value}&to=\${$('to').value}\`);render();}
+function nm(x){return String(x||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim()}
+function tgt(n){const k=nm(n);if(!k)return{};const e=Object.entries(D.targets);let m=e.find(([a])=>nm(a)===k)||e.find(([a])=>{const x=nm(a);return x&&(x.includes(k)||k.includes(x))});return m?m[1]:{}}
+function pct(a,t){return t>0?Math.round(a/t*100)+'%':'-'}
+function cls(v){return v>=0?'pos':'neg'}
+function render(){if(!D||D.error){if(D&&D.error)$('tSales').textContent=D.error;return}
+ const days=Math.max(1,(Date.parse($('to').value)-Date.parse($('from').value))/864e5+1),f=days/30;
+ const sv=s=>U==='rp'?s.omset:s.qty;
+ let tt=0,ta=0,ao=0,aoT=0;
+ const rows=D.sales.map(s=>{const t=tgt(s.salesman),tg=(U==='rp'?t.omset:t.qty||0)*f||0;tt+=tg;ta+=sv(s);ao+=s.ao;aoT+=t.ao||0;return{s,tg,a:sv(s),aoT:t.ao||0}});
+ $('kpis').innerHTML=\`<div class="kpi">Actual<b>\${U==='rp'?'Rp ':''}\${fmt(ta)}\${U==='rp'?'':' krt'}</b></div><div class="kpi">Target<b>\${fmt(tt)}</b></div><div class="kpi">% Capai<b>\${pct(ta,tt)}</b></div><div class="kpi">AO<b>\${ao}\${aoT?' / '+aoT:''}</b></div>\`;
+ $('note').textContent=\`Target bulanan x \${nf1.format(f)} bulan. AO = outlet unik yang order.\`;
+ $('tSales').innerHTML=\`<table><tr><th>Salesman</th><th>Target</th><th>Actual</th><th>%</th><th>Gap</th><th></th><th>AO Tgt</th><th>AO</th><th>%AO</th></tr>\`+rows.map(r=>\`<tr><td>\${r.s.salesman||'-'}</td><td>\${r.tg?fmt(r.tg):'-'}</td><td>\${fmt(r.a)}</td><td>\${pct(r.a,r.tg)}</td><td class="\${cls(r.a-r.tg)}">\${r.tg?(r.a-r.tg>=0?'+':'-')+fmt(Math.abs(r.a-r.tg)):'-'}</td><td><div class="bar"><i style="width:\${Math.min(100,r.tg?r.a/r.tg*100:0)}%"></i></div></td><td>\${r.aoT||'-'}</td><td>\${r.s.ao}</td><td>\${pct(r.s.ao,r.aoT)}</td></tr>\`).join('')+\`<tr class="tot"><td>TOTAL</td><td>\${fmt(tt)}</td><td>\${fmt(ta)}</td><td>\${pct(ta,tt)}</td><td class="\${cls(ta-tt)}">\${(ta-tt>=0?'+':'-')+fmt(Math.abs(ta-tt))}</td><td></td><td>\${aoT||'-'}</td><td>\${ao}</td><td>\${pct(ao,aoT)}</td></tr></table>\`;
+ $('tProg').innerHTML=D.programs.length?\`<table><tr><th>Program</th><th>Periode</th><th>Target</th><th>Actual</th><th>%</th><th>Outlet tercapai</th></tr>\`+D.programs.map(p=>{const q=(p.unit==='KRT');const F=v=>q?nf1.format(v)+' krt':'Rp '+nf.format(Math.round(v));return\`<tr><td>\${p.name}</td><td>\${p.from_d} s/d \${p.to_d}</td><td>\${F(p.target)}</td><td>\${F(p.actual)}</td><td>\${pct(p.actual,p.target)}</td><td>\${p.achieved}/\${p.outlets}</td></tr>\`}).join('')+\`</table>\`:'<div class="mut">Belum ada program.</div>';
+ $('tSku').innerHTML=\`<table><tr><th>SKU</th><th>Actual</th><th>Outlet (AO)</th></tr>\`+D.skus.map(k=>\`<tr><td>\${k.sku||'-'}</td><td>\${fmt(U==='rp'?k.omset:k.qty)}</td><td>\${k.ao}</td></tr>\`).join('')+\`</table>\`;}
+init();
+</script></body></html>`;
 const J = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { "content-type": "application/json", "access-control-allow-origin": "*" } });
 const CHUNK = 80; // statement per batch D1
 
@@ -104,6 +166,7 @@ export default {
     const url = new URL(req.url);
     if (req.method === "OPTIONS") return new Response(null, { headers: { "access-control-allow-origin": "*", "access-control-allow-headers": "authorization,content-type", "access-control-allow-methods": "GET,POST" } });
     if (url.pathname === "/health") return J({ ok: true });
+    if (url.pathname === "/dash" && req.method === "GET") return new Response(DASH_HTML, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
     if (req.method === "POST" && (url.pathname.startsWith("/usage/") || url.pathname.startsWith("/admin/"))) {
       try { return await usageRoutes(url, req, env); } catch (e) { return J({ error: String(e && e.message || e) }, 500); }
     }
@@ -185,6 +248,19 @@ export default {
       if (url.pathname === "/sync/profiles") {
         const r = await db.prepare("SELECT profile FROM sales UNION SELECT profile FROM ro").all();
         return J({ profiles: (r.results || []).map((x) => x.profile) });
+      }
+      // ---- DASHBOARD WEB (read-only, tanpa baca baris mentah ke klien) ----
+      if (url.pathname === "/dash/data") {
+        const from = url.searchParams.get("from") || "0000-01-01", to = url.searchParams.get("to") || "9999-12-31";
+        const [sa, sk, tg, pg] = await Promise.all([
+          db.prepare("SELECT salesman, SUM(omset) omset, SUM(qty_karton) qty, COUNT(DISTINCT outlet_key) ao FROM sales WHERE profile=? AND tanggal>=? AND tanggal<=? AND ordered=1 GROUP BY salesman ORDER BY omset DESC").bind(profile, from, to).all(),
+          db.prepare("SELECT COALESCE(NULLIF(sku_name,''),sku_code) sku, SUM(omset) omset, SUM(qty_karton) qty, COUNT(DISTINCT outlet_key) ao FROM sales WHERE profile=? AND tanggal>=? AND tanggal<=? AND ordered=1 GROUP BY 1 ORDER BY omset DESC LIMIT 30").bind(profile, from, to).all(),
+          db.prepare("SELECT salesman,omset,ao,qty FROM targets WHERE profile=?").bind(profile).all(),
+          db.prepare("SELECT id,name,type,from_d,to_d,sku,outlets,target,actual,achieved,def FROM programs WHERE profile=? AND from_d<=? AND to_d>=? ORDER BY name").bind(profile, to, from).all(),
+        ]);
+        const targets = {}; for (const t of tg.results || []) targets[t.salesman] = { omset: t.omset, ao: t.ao, qty: t.qty };
+        const programs = (pg.results || []).map((p) => { let unit = "RP"; try { unit = JSON.parse(p.def || "{}").u || "RP"; } catch (e) {} return { ...p, unit, def: undefined }; });
+        return J({ sales: sa.results || [], skus: sk.results || [], targets, programs });
       }
       // ---- STATUS ----
       if (url.pathname === "/sync/status") {
