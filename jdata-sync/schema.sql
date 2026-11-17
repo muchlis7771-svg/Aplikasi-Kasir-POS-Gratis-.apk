@@ -25,3 +25,9 @@ CREATE TABLE IF NOT EXISTS daily_outlet(
   omset REAL DEFAULT 0, qty_karton REAL DEFAULT 0, sku_count INTEGER DEFAULT 0,
   PRIMARY KEY(profile, tanggal, outlet_key)
 );
+
+CREATE TABLE IF NOT EXISTS programs(
+  profile TEXT NOT NULL, id TEXT NOT NULL, name TEXT, type TEXT, from_d TEXT, to_d TEXT, sku TEXT, outlets INTEGER DEFAULT 0,
+  target REAL DEFAULT 0, actual REAL DEFAULT 0, achieved INTEGER DEFAULT 0, def TEXT, daily TEXT, updated INTEGER,
+  PRIMARY KEY(profile, id)
+);
