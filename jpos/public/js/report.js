@@ -1,6 +1,6 @@
 'use strict';
 /* ============ LAPORAN: pembangun data bersama (layar, Excel, PDF) ============ */
-let PF = 0, PT = 1e15, PER = 'month', RT = 'lr', LG = '1101';
+let PF = 0, PT = 1e15, PER = 'month', RT = 'lr', LG = '1101', PSORT = 'due'; // PSORT: urutan tab "Piutang" — 'due' jatuh tempo terdekat, 'amt' piutang terbesar
 const sod = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 function initPer() { const n = new Date(); PF = new Date(n.getFullYear(), n.getMonth(), 1).getTime(); PT = 1e15; PER = 'month'; }
 function setPer(p) {
@@ -53,15 +53,21 @@ const RPT = {
   },
   fakturDetail(f, t) { const rows = []; salesIn(f, t).forEach((s) => s.L.forEach((i, n) => rows.push([n ? '' : s.no, n ? '' : s.t, n ? '' : s.u, n ? '' : s.cn || '', n ? '' : s.pay, i.n, i.q, i.p, i.dd, i.p * i.q - i.dd]))); return [{ title: 'Detail Penjualan per Item', head: ['No', 'Tanggal', 'Petugas', 'Outlet', 'Bayar', 'Produk', 'Qty', 'Harga', 'Diskon', 'Subtotal'], fmt: ['t', 'd', 't', 't', 't', 't', 'q', 'm', 'm', 'm'], rows }]; },
   piutang() {
-    const now = Date.now(), g = {}; S.sales.filter((s) => sOut(s) > 0).forEach((s) => { const k = s.cn || '(Umum)', x = g[k] || (g[k] = [k, 0, 0, 0, 0, 0]); x[1 + ageBucket(s, now)] += sOut(s); x[5] += sOut(s); });
-    const rows = Object.values(g).sort((a, b) => b[5] - a[5]);
-    const kredOutlets = (S.c || []).filter((c) => !c.x && c.term == 'kredit').map((c) => { const out = outOf(c.id); return [c.n, c.lim, out, c.lim - out, (c.tempo || 30) + ' hari']; }).sort((a, b) => b[2] - a[2]);
+    const now = Date.now(), g = {}, byDue = PSORT == 'due';
+    S.sales.filter((s) => sOut(s) > 0).forEach((s) => { const k = s.cn || '(Umum)', x = g[k] || (g[k] = [k, 0, 0, 0, 0, 0, Infinity]); x[1 + ageBucket(s, now)] += sOut(s); x[5] += sOut(s); if (s.due < x[6]) x[6] = s.due; });
+    // kolom ke-7 (nearest due, indeks array 6) tersembunyi — hanya dipakai untuk sortir, tidak ditampilkan (di luar head)
+    const rows = Object.values(g).sort(byDue ? (a, b) => a[6] - b[6] : (a, b) => b[5] - a[5]);
+    const kredOutlets = (S.c || []).filter((c) => !c.x && c.term == 'kredit').map((c) => {
+      const out = outOf(c.id), due = Math.min(Infinity, ...S.sales.filter((s) => s.cu == c.id && sOut(s) > 0).map((s) => s.due));
+      return [c.n, c.lim, out, c.lim - out, (c.tempo || 30) + ' hari', due];
+    }).sort(byDue ? (a, b) => a[5] - b[5] : (a, b) => b[2] - a[2]);
     const skuTxt = (s) => s.L.map((i) => { const p = prod(i.id), kd = p && (p.kd || p.sku); return (kd ? kd + ' ' : '') + i.n + ' ×' + i.q; }).join(', ');
     const dueTxt = (due) => { const d = Math.ceil((due - now) / 864e5); return d < 0 ? 'Lewat ' + (-d) + ' hari' : d == 0 ? 'Jatuh tempo hari ini' : d + ' hari lagi'; };
+    const faktur = S.sales.filter((s) => sOut(s) > 0).sort(byDue ? (a, b) => a.due - b.due : (a, b) => sOut(b) - sOut(a));
     return [
-      { title: 'Status Kredit per Outlet', head: ['Outlet', 'Limit kredit', 'Piutang berjalan', 'Sisa limit', 'Tempo pembayaran'], fmt: ['t', 'm', 'm', 'm', 't'], rows: kredOutlets.length ? kredOutlets : [['Belum ada outlet berstatus kredit (semua tunai)', '', '', '', '']] },
-      { title: 'Umur Piutang per Outlet', head: ['Outlet', 'Belum jatuh tempo', '1–30 hari', '31–60 hari', '> 60 hari', 'Total'], fmt: ['t', 'm', 'm', 'm', 'm', 'm'], rows: [...rows, ['TOTAL', ...[1, 2, 3, 4, 5].map((i) => rows.reduce((a, r) => a + r[i], 0)), 'b']] },
-      { title: 'Faktur Belum Lunas — Barang (SKU) & Sisa Jatuh Tempo', head: ['No', 'Outlet', 'Tanggal', 'Barang (SKU) ×qty', 'Jatuh tempo', 'Sisa hari', 'Total', 'Sisa tagihan'], fmt: ['t', 't', 'd', 't', 'd', 't', 'm', 'm'], rows: S.sales.filter((s) => sOut(s) > 0).sort((a, b) => a.due - b.due).map((s) => [s.no, s.cn || '', s.t, skuTxt(s), s.due, dueTxt(s.due), s.tot, sOut(s)]) },
+      { title: 'Status Kredit per Outlet · diurutkan ' + (byDue ? 'jatuh tempo terdekat' : 'piutang terbesar'), head: ['Outlet', 'Limit kredit', 'Piutang berjalan', 'Sisa limit', 'Tempo pembayaran'], fmt: ['t', 'm', 'm', 'm', 't'], rows: kredOutlets.length ? kredOutlets.map((r) => r.slice(0, 5)) : [['Belum ada outlet berstatus kredit (semua tunai)', '', '', '', '']] },
+      { title: 'Umur Piutang per Outlet · diurutkan ' + (byDue ? 'jatuh tempo terdekat' : 'piutang terbesar'), head: ['Outlet', 'Belum jatuh tempo', '1–30 hari', '31–60 hari', '> 60 hari', 'Total'], fmt: ['t', 'm', 'm', 'm', 'm', 'm'], rows: [...rows.map((r) => r.slice(0, 6)), ['TOTAL', ...[1, 2, 3, 4, 5].map((i) => rows.reduce((a, r) => a + r[i], 0)), 'b']] },
+      { title: 'Faktur Belum Lunas — Barang (SKU) & Sisa Jatuh Tempo · diurutkan ' + (byDue ? 'jatuh tempo terdekat' : 'piutang terbesar'), head: ['No', 'Outlet', 'Tanggal', 'Barang (SKU) ×qty', 'Jatuh tempo', 'Sisa hari', 'Total', 'Sisa tagihan'], fmt: ['t', 't', 'd', 't', 'd', 't', 'm', 'm'], rows: faktur.map((s) => [s.no, s.cn || '', s.t, skuTxt(s), s.due, dueTxt(s.due), s.tot, sOut(s)]) },
     ];
   },
   utang() { return [{ title: 'Utang Usaha', head: ['Supplier', 'Keterangan', 'Tanggal', 'Jatuh tempo', 'Total', 'Sisa'], fmt: ['t', 't', 'd', 'd', 'm', 'm'], rows: S.ap.filter((a) => apOut(a) > 0).map((a) => [a.sup, a.d, a.t, a.due, a.amt, apOut(a)]) }]; },
@@ -171,7 +177,7 @@ function kpiSkuDetail(pid) {
 const secH = (s) => `<div class="cd"><h3>${esc(s.title)}</h3>${tblH(s)}</div>`;
 VW.lap = () => {
   const secs = RT == 'gl' ? RPT.gl(PF, PT, LG) : RPT[RT](PF, PT);
-  return `${perBar()}<div class="cd"><div class="seg" style="margin-top:0">${RTABS.map((x) => `<button class="${RT == x[0] ? 'a' : ''}" onclick="RT='${x[0]}';R()">${x[1]}</button>`).join('')}</div>${RT == 'gl' ? `<select onchange="LG=this.value;R()">${Object.keys(AC).map((a) => `<option value="${a}" ${a == LG ? 'selected' : ''}>${a} ${AC[a]}</option>`).join('')}</select>` : ''}
+  return `${perBar()}<div class="cd"><div class="seg" style="margin-top:0">${RTABS.map((x) => `<button class="${RT == x[0] ? 'a' : ''}" onclick="RT='${x[0]}';R()">${x[1]}</button>`).join('')}</div>${RT == 'gl' ? `<select onchange="LG=this.value;R()">${Object.keys(AC).map((a) => `<option value="${a}" ${a == LG ? 'selected' : ''}>${a} ${AC[a]}</option>`).join('')}</select>` : ''}${RT == 'piutang' ? `<div class="seg" style="margin-top:8px">${[['due', '📅 Jatuh tempo terdekat'], ['amt', '💰 Piutang terbesar']].map((x) => `<button class="${PSORT == x[0] ? 'a' : ''}" onclick="PSORT='${x[0]}';R()">${x[1]}</button>`).join('')}</div>` : ''}
 <div class="wrap" style="margin-top:8px"><button class="gh a" onclick="expXlsx('all')">⬇ Laporan lengkap (Excel)</button><button class="gh" onclick="expXlsx('cur')">Excel: tab ini</button><button class="gh" onclick="expPdf('akt')">PDF akuntansi lengkap</button><button class="gh" onclick="expPdf('cur')">PDF: tab ini</button></div></div>${secs.map((s, i) => secH(s) + (RT == 'kpi' ? kpiChartH(s, i) : '')).join('')}`;
 };
 
