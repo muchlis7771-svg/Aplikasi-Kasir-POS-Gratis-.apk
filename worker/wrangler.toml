@@ -21,5 +21,9 @@ PUBLIC_API_ORIGIN = "https://aplikasi-kasir-pos-gratis--apk.muchlis7771.workers.
 binding = "DB"
 database_name = "jpos"
 
+[[r2_buckets]]
+binding = "BACKUP"
+bucket_name = "jpos-backup"
+
 [triggers]
 crons = ["5 * * * *"]

@@ -8,6 +8,7 @@ import { tgSendAll } from './tg.js';
 export const RSCHEMA = [
   'CREATE TABLE IF NOT EXISTS snap(store_id TEXT PRIMARY KEY,t INTEGER,data TEXT)',
   'CREATE TABLE IF NOT EXISTS rptlog(store_id TEXT NOT NULL,day TEXT NOT NULL,kind TEXT NOT NULL,t INTEGER,res TEXT,PRIMARY KEY(store_id,day,kind))',
+  'CREATE TABLE IF NOT EXISTS notifq(id INTEGER PRIMARY KEY AUTOINCREMENT,sid TEXT NOT NULL,ch TEXT NOT NULL,payload TEXT NOT NULL,text TEXT NOT NULL,subject TEXT,tries INTEGER DEFAULT 0,next INTEGER NOT NULL,created INTEGER NOT NULL,last_err TEXT)',
 ];
 export const RALTER = ['stores ADD COLUMN rpt TEXT', 'buyers ADD COLUMN kind TEXT', 'buyers ADD COLUMN kname TEXT', 'buyers ADD COLUMN kvis INTEGER DEFAULT 0', 'catalog ADD COLUMN tiers TEXT', 'catalog ADD COLUMN kd TEXT', 'catalog ADD COLUMN br TEXT', 'buyers ADD COLUMN sid TEXT'];
 
@@ -82,31 +83,74 @@ export async function buildDaily(env, sid, sname, tz, R, upto) {
 const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
 const waToHtml = (t) => '<div style="font-family:Arial,sans-serif;font-size:14px;line-height:1.5;white-space:pre-wrap">' + esc(t).replace(/\*([^*\n]+)\*/g, '<b>$1</b>').replace(/_([^_\n]+)_/g, '<i>$1</i>') + '</div>';
 
-// kirim ke semua saluran yang tersedia; hasil per saluran
-export async function sendOut(env, CFG, rc, text, subject) {
+async function sendWaOnce(tok, targets, text) {
+  if (!tok) return { ch: 'wa', ok: 0, e: 'gerbang WhatsApp belum diatur' };
+  try {
+    const fd = new FormData(); fd.append('target', targets.join(',')); fd.append('message', text); fd.append('countryCode', '62');
+    const r = await fetch('https://api.fonnte.com/send', { method: 'POST', headers: { Authorization: tok }, body: fd });
+    const j = await r.json().catch(() => ({})); return { ch: 'wa', ok: r.ok && j.status !== false ? 1 : 0, e: j.reason || j.detail || (r.ok ? '' : 'HTTP ' + r.status) };
+  } catch (e) { return { ch: 'wa', ok: 0, e: String(e.message || e).slice(0, 120) }; }
+}
+async function sendEmailOnce(mailKey, mailFrom, targets, text, subject) {
+  if (!mailKey) return { ch: 'email', ok: 0, e: 'gerbang email belum diatur' };
+  try {
+    const r = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: 'Bearer ' + mailKey, 'Content-Type': 'application/json' }, body: JSON.stringify({ from: mailFrom || 'J-POS <onboarding@resend.dev>', to: targets, subject, text: text.replace(/[*_]/g, ''), html: waToHtml(text) }) });
+    const j = await r.json().catch(() => ({})); return { ch: 'email', ok: r.ok ? 1 : 0, e: r.ok ? '' : j.message || 'HTTP ' + r.status };
+  } catch (e) { return { ch: 'email', ok: 0, e: String(e.message || e).slice(0, 120) }; }
+}
+// gagal kirim yg BUKAN karena gerbang belum diatur (jaringan/limit/server pihak ketiga down, dkk) disimpan
+// di notifq utk dicoba ulang otomatis lewat cron (lihat notifRetryRun) — supaya laporan/pengingat tidak
+// hilang begitu saja. Kegagalan karena gerbang belum diatur TIDAK dimasukkan (akan gagal lagi percuma).
+async function enqueueRetry(env, sid, ch, payload, text, subject, err) {
+  try {
+    await env.DB.prepare('INSERT INTO notifq(sid,ch,payload,text,subject,tries,next,created,last_err) VALUES(?,?,?,?,?,0,?,?,?)')
+      .bind(sid, ch, JSON.stringify(payload), text, subject || '', Date.now() + NOTIFQ_BACKOFF[0] * 60000, Date.now(), String(err || '').slice(0, 200)).run();
+  } catch (e) { console.error('enqueueRetry', e && e.stack || e); }
+}
+const NOTIFQ_MAX_TRIES = 5;
+const NOTIFQ_BACKOFF = [5, 15, 60, 180, 360]; // menit — makin lama tiap gagal lagi (±24 jam total)
+const isCfgMissing = (e) => /belum diatur/.test(String(e || ''));
+
+// kirim ke semua saluran yang tersedia; hasil per saluran. sid dipakai utk antre retry kalau gagal.
+export async function sendOut(env, CFG, rc, text, subject, sid) {
   const out = [];
   const tok = rc.tok || CFG.wa_tok;
   if ((rc.wa || []).length) {
-    if (!tok) out.push({ ch: 'wa', ok: 0, e: 'gerbang WhatsApp belum diatur' });
-    else try {
-      const fd = new FormData(); fd.append('target', rc.wa.join(',')); fd.append('message', text); fd.append('countryCode', '62');
-      const r = await fetch('https://api.fonnte.com/send', { method: 'POST', headers: { Authorization: tok }, body: fd });
-      const j = await r.json().catch(() => ({})); out.push({ ch: 'wa', ok: r.ok && j.status !== false ? 1 : 0, e: j.reason || j.detail || (r.ok ? '' : 'HTTP ' + r.status) });
-    } catch (e) { out.push({ ch: 'wa', ok: 0, e: String(e.message || e).slice(0, 120) }); }
+    const res = await sendWaOnce(tok, rc.wa, text); out.push(res);
+    if (!res.ok && sid && !isCfgMissing(res.e)) await enqueueRetry(env, sid, 'wa', { tok, wa: rc.wa }, text, subject, res.e);
   }
   if ((rc.em || []).length) {
-    if (!CFG.mail_key) out.push({ ch: 'email', ok: 0, e: 'gerbang email belum diatur' });
-    else try {
-      const r = await fetch('https://api.resend.com/emails', { method: 'POST', headers: { Authorization: 'Bearer ' + CFG.mail_key, 'Content-Type': 'application/json' }, body: JSON.stringify({ from: CFG.mail_from || 'J-POS <onboarding@resend.dev>', to: rc.em, subject, text: text.replace(/[*_]/g, ''), html: waToHtml(text) }) });
-      const j = await r.json().catch(() => ({})); out.push({ ch: 'email', ok: r.ok ? 1 : 0, e: r.ok ? '' : j.message || 'HTTP ' + r.status });
-    } catch (e) { out.push({ ch: 'email', ok: 0, e: String(e.message || e).slice(0, 120) }); }
+    const res = await sendEmailOnce(CFG.mail_key, CFG.mail_from, rc.em, text, subject); out.push(res);
+    if (!res.ok && sid && !isCfgMissing(res.e)) await enqueueRetry(env, sid, 'email', { mailKey: CFG.mail_key, mailFrom: CFG.mail_from, em: rc.em }, text, subject, res.e);
   }
   if ((rc.tg || []).length) {
     const tgTok = rc.tg_tok || CFG.tg_tok; // bot sendiri toko (kalau diatur) lebih diutamakan dari bot bersama
     if (!tgTok) out.push({ ch: 'tg', ok: 0, e: 'bot Telegram belum diatur' });
-    else out.push(await tgSendAll(tgTok, rc.tg, text));
+    else { const res = await tgSendAll(tgTok, rc.tg, text); out.push(res); if (!res.ok && sid) await enqueueRetry(env, sid, 'tg', { tok: tgTok, tg: rc.tg }, text, subject, res.e); }
   }
   return out;
+}
+
+// Cron tiap jam: coba ulang notifikasi yg sebelumnya gagal (lihat enqueueRetry). Backoff makin lama tiap
+// gagal lagi; setelah NOTIFQ_MAX_TRIES tetap gagal, dibuang (toko tetap bisa kirim manual dari aplikasi).
+export async function notifRetryRun(env, now) {
+  const rows = (await env.DB.prepare('SELECT * FROM notifq WHERE next<=? ORDER BY id LIMIT 50').bind(now).all()).results;
+  let ok = 0, drop = 0;
+  for (const r of rows) {
+    try {
+      let p = {}; try { p = JSON.parse(r.payload); } catch (e) { }
+      let res;
+      if (r.ch == 'wa') res = await sendWaOnce(p.tok, p.wa || [], r.text);
+      else if (r.ch == 'email') res = await sendEmailOnce(p.mailKey, p.mailFrom, p.em || [], r.text, r.subject);
+      else if (r.ch == 'tg') res = await tgSendAll(p.tok, p.tg || [], r.text);
+      else res = { ok: 0, e: 'saluran tidak dikenal' };
+      if (res && res.ok) { await env.DB.prepare('DELETE FROM notifq WHERE id=?').bind(r.id).run(); ok++; continue; }
+      const tries = (r.tries || 0) + 1;
+      if (tries >= NOTIFQ_MAX_TRIES) { await env.DB.prepare('DELETE FROM notifq WHERE id=?').bind(r.id).run(); drop++; }
+      else { const mins = NOTIFQ_BACKOFF[tries] || 360; await env.DB.prepare('UPDATE notifq SET tries=?,next=?,last_err=? WHERE id=?').bind(tries, now + mins * 60000, String((res && res.e) || '').slice(0, 200), r.id).run(); }
+    } catch (e) { console.error('notifRetryRun', r.id, e && e.stack || e); }
+  }
+  return { ok, drop, checked: rows.length };
 }
 
 /* ============ PENGINGAT PIUTANG & UTANG JATUH TEMPO + PIUTANG BARU ============
@@ -121,7 +165,7 @@ export async function notifNewAR(env, CFG, sid, sname, sale) {
     const out = (sale.tot || 0) - (sale.dpay || 0); if (out <= 0) return;
     const d = new Date(sale.due); const due = String(d.getUTCDate()).padStart(2, '0') + '/' + String(d.getUTCMonth() + 1).padStart(2, '0') + '/' + d.getUTCFullYear();
     const text = `*🆕 PIUTANG BARU — ${String(sname || '').toUpperCase()}*\nOutlet: *${sale.cn || '-'}*\nNota: ${sale.no || '-'}\nJumlah: *${rpn(out)}*\nTempo: ${due}\nOleh: ${sale.u || '-'}`;
-    await sendOut(env, CFG, rc, text, 'Piutang baru · ' + (sale.cn || ''));
+    await sendOut(env, CFG, rc, text, 'Piutang baru · ' + (sale.cn || ''), sid);
   } catch (e) { }
 }
 // Pengingat piutang/utang (jatuh tempo ≤2 hari lagi, hari ini, atau sudah lewat) + stok menipis: dipicu HP
@@ -151,7 +195,7 @@ export async function dueNotify(env, CFG, sid, sname, b, J) {
   if (ap.length) { L.push('*📤 Utang ke supplier (' + ap.length + '):*'); for (const x of ap) L.push('• ' + x.sup + ' · ' + rpn(x.amt) + ' · ' + dueLabel(x.due)); L.push(''); }
   if (low.length) { L.push('*📦 Stok menipis (' + low.length + ' SKU):*'); for (const x of low) L.push('• ' + x.n + ': sisa ' + x.st + ' (min ' + x.min + ')'); L.push(''); }
   L.push('_Dikirim otomatis oleh J-POS_');
-  const res = await sendOut(env, CFG, rc, L.join('\n'), 'Pengingat piutang & stok · ' + sname);
+  const res = await sendOut(env, CFG, rc, L.join('\n'), 'Pengingat piutang & stok · ' + sname, sid);
   await env.DB.prepare('UPDATE rptlog SET res=? WHERE store_id=? AND day=? AND kind=?').bind(JSON.stringify(res), sid, day, kind).run();
   return J({ ok: 1, sent: 1, res });
 }
@@ -198,7 +242,7 @@ export async function cronDaily(env, CFG, now) {
     await env.DB.prepare('INSERT OR IGNORE INTO rptlog(store_id,day,kind,t,res) VALUES(?,?,?,?,?)').bind(s.id, R.key, 'daily', now, 'kirim').run();
     try {
       const text = await buildDaily(env, s.id, s.name, tz, R, (rc.h || 0) < 12 ? 0 : now);
-      const res = await sendOut(env, CFG, rc, text, 'Laporan harian ' + s.name + ' · ' + R.label);
+      const res = await sendOut(env, CFG, rc, text, 'Laporan harian ' + s.name + ' · ' + R.label, s.id);
       await env.DB.prepare('UPDATE rptlog SET res=? WHERE store_id=? AND day=? AND kind=?').bind(JSON.stringify(res), s.id, R.key, 'daily').run(); n++;
     } catch (e) { console.error('cronDaily', s.id, e && e.stack || e); }
   }
