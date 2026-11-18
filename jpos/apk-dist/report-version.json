@@ -1,7 +1,7 @@
 {
- "versionCode": 207,
+ "versionCode": 208,
  "versionName": "1.0",
  "force": true,
  "url": "https://github.com/muchlis7771-svg/Aplikasi-Kasir-POS-Gratis-.apk/raw/main/jpos/apk-dist/JDATA-Report-latest.apk",
- "notes": "Multi-owner: data per pemilik, menu Tim Saya untuk tambah sales."
+ "notes": "Dashboard admin: tab Owner. Perbaikan akun tim."
 }
