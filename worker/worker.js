@@ -245,7 +245,7 @@ export default {
         if (await limited(env, 'adm:' + ip, 8, 9e5)) return J({ e: 'Terlalu banyak percobaan, coba lagi 15 menit' }, 429);
         if (!(await adminOk(env, b.user, b.pass))) return J({ e: 'Username atau password salah' }, 401);
         await logAct(env, 'admin', 'hq', 'Head Admin', null, 'login head admin', ip);
-        return J({ token: await sign(env, { role: 'super', exp: Date.now() + 12 * 36e5 }) });
+        return J({ token: await sign(env, { role: 'super', exp: Date.now() + 30 * DAY }) });
       }
       if (p.startsWith('/api/admin/')) {
         const a = await verify(env, bearer);

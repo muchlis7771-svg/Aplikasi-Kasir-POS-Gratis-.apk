@@ -91,7 +91,7 @@ async function enterStore(id, r, pin) {
   LS.set('jpos:tk:' + id, r.token); setReg(id, S.name);
   const h = await sha(id + ':' + r.name.toLowerCase() + ':' + pin);
   S.users = S.users.filter((u) => u.n.toLowerCase() != r.name.toLowerCase()); S.users.push({ n: r.name, r: r.role, h });
-  U = { n: r.name, r: r.role }; LS.set('jpos:last', { id, name: r.name }); save();
+  U = { n: r.name, r: r.role }; LS.set('jpos:last', { id, name: r.name }); LS.set('jpos:active', { id, name: r.name }); save();
   V = defView(U.r);
   if (!S.ec) { R(); $('#app').insertAdjacentHTML('afterbegin', '<div class="lo cd"><h3>Mengunduh data toko…</h3><small class="mu">Pertama kali di perangkat ini</small></div>'); }
   await sync(); R(); window.scrollTo(0, 0); chatPoll(true); hb('login'); setTimeout(() => { try { rptLoad(); snapPost(true); dueNotifCheck(); if (U.r == 'owner') mitLoad().then(() => dsnapPost(true)); else dsnapPost(); } catch (e) { } }, 2500); if (typeof pollOrders == 'function') { ONL.seen = -1; pollOrders(); }
@@ -102,7 +102,7 @@ async function loginLocal(id, name, pin) {
   const u = S.users.find((x) => x.n.toLowerCase() == name.toLowerCase());
   const ok = u && (u.pin ? u.pin == pin : u.h == (await sha(id + ':' + u.n.toLowerCase() + ':' + pin)));
   if (!ok) throw new Error('Nama atau PIN salah');
-  U = { n: u.n, r: u.r }; V = defView(U.r); LS.set('jpos:last', { id, name: u.n }); R(); chatPoll(true);
+  U = { n: u.n, r: u.r }; V = defView(U.r); LS.set('jpos:last', { id, name: u.n }); LS.set('jpos:active', { id, name: u.n }); R(); chatPoll(true);
   // Toko lokal + pemilik baru saja login (PIN sudah terverifikasi) + HP ternyata ada internet
   // → langsung sambungkan ke server otomatis di latar belakang, tanpa perlu buka Pengaturan atau isi PIN lagi.
   // PIN disimpan sebentar di memori (bukan disk) agar bisa dicoba otomatis lagi saat sinyal baru muncul
@@ -192,7 +192,16 @@ function autoConnect(pin) {
 // berubah dalam sesi yang sama — supaya tidak perlu minta PIN berulang kali tiap kali sinyal naik-turun.
 let ownerPinMem = '';
 addEventListener('online', () => { if (S && !S.srv && U && U.r == 'owner' && ownerPinMem) autoConnect(ownerPinMem); });
-function logout() { flushSave(); stopChat(); U = null; S = null; SID = null; V = 'dash'; ownerPinMem = ''; R(); }
+function logout() { flushSave(); stopChat(); U = null; S = null; SID = null; V = 'dash'; ownerPinMem = ''; LS.del('jpos:active'); R(); }
+// buka kembali sesi terakhir tanpa minta PIN lagi — dipanggil saat aplikasi dibuka ulang (bukan logout eksplisit),
+// misalnya WebView di-reset Android karena app dipindah ke latar belakang lalu dibuka lagi.
+function tryResume() {
+  const a = LS.get('jpos:active', null); if (!a || !a.id || !a.name) return false;
+  if (!loadStore(a.id)) return false;
+  const u = S.users.find((x) => x.n.toLowerCase() == String(a.name).toLowerCase());
+  if (!u) { S = null; SID = null; return false; }
+  U = { n: u.n, r: u.r }; V = defView(U.r); return true;
+}
 async function reauth() {
   const dup = !!S.reauthDup;
   const m = modal(`<h3>Masuk ulang</h3><small class="mu">${dup ? 'Akun ini baru saja login di perangkat lain, sesi di sini otomatis dicabut (1 akun = 1 perangkat untuk sales/kanvas/dropping, agar jejak GPS tidak kacau). Masukkan PIN untuk masuk kembali — ini akan mencabut sesi di perangkat lain.' : 'Sesi berakhir. Masukkan PIN untuk melanjutkan sinkron.'}</small><input id="rp" type="password" inputmode="numeric" placeholder="PIN" autocomplete="off"><button class="pr" id="rg">Masuk</button>`);
@@ -201,6 +210,6 @@ async function reauth() {
 const defView = (r) => 'dash';
 
 /* ---------- Head Admin (developer) ---------- */
-let HT = sessionStorage.getItem('jpos:ht') || '';
-async function haLogin(user, pass) { const r = await post('/api/admin/login', { user, pass }, ''); HT = r.token; sessionStorage.setItem('jpos:ht', HT); }
+let HT = LS.get('jpos:ht', '');
+async function haLogin(user, pass) { const r = await post('/api/admin/login', { user, pass }, ''); HT = r.token; LS.set('jpos:ht', HT); }
 const haApi = (p, o) => api(p, o || {}, HT);
