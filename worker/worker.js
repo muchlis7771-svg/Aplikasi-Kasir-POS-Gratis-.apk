@@ -539,6 +539,29 @@ export default {
         }
       }
 
+      // cek ringan stok terkini sebelum checkout (BUKAN kunci atom): membandingkan dgn kejadian 'sale'/'retur'/'stk'/
+      // 'bst'/'opn' milik SKU yg sama SEJAK HP ini terakhir sinkron (b.since = S.ec milik HP), supaya kasir tahu kalau
+      // ada kasir/perangkat lain yg sudah menjual duluan sebelum HP ini sempat tahu. HP menggabungkan delta ini dgn
+      // stok lokalnya (hasil replay penuh, sudah benar termasuk resep/BOM) utk memutuskan tampilkan peringatan atau
+      // tidak — server TIDAK menolak transaksi apa pun di sini, hanya melaporkan delta (lihat stkLiveWarn di pos.js).
+      // Replay stok penuh (resep/BOM, bad stock, kanvas, biaya rata-rata) sengaja tetap hanya dihitung di HP, sama
+      // spt alasan AR/AP tidak direplikasi di server (lihat catatan di lapor.js).
+      if (p == '/api/stk/check' && M == 'POST') {
+        const since = Math.max(0, Math.round(+b.since) || 0);
+        const ids = (Array.isArray(b.items) ? b.items : []).slice(0, 40).map((x) => String(x || '').slice(0, 40)).filter(Boolean);
+        if (!ids.length) return J({ ok: 1, delta: {} });
+        const idset = new Set(ids), delta = {};
+        const rows = (await env.DB.prepare("SELECT k,data FROM ev WHERE store_id=? AND seq>? AND k IN ('sale','retur','stk','bst','opn') ORDER BY seq LIMIT 3000").bind(sid, since).all()).results;
+        for (const row of rows) {
+          let e; try { e = JSON.parse(row.data); } catch (er) { continue; }
+          if (row.k == 'sale' || row.k == 'retur') { const sign = row.k == 'sale' ? -1 : 1; for (const li of (e.L || [])) { if (li && li.id && idset.has(String(li.id))) delta[li.id] = (delta[li.id] || 0) + sign * (Math.round(+li.q) || 0); } }
+          else if (row.k == 'stk') { if (e.p && idset.has(String(e.p))) delta[e.p] = (delta[e.p] || 0) + (Math.round(+e.qty) || 0); }
+          else if (row.k == 'bst') { if (e.id && idset.has(String(e.id))) { const q = Math.round(+e.q) || 0; delta[e.id] = (delta[e.id] || 0) + (e.act == 'layak' ? q : -q); } }
+          else if (row.k == 'opn') { if (e.p && idset.has(String(e.p))) delta[e.p] = (delta[e.p] || 0) + (Math.round(+e.delta) || 0); }
+        }
+        return J({ ok: 1, delta });
+      }
+
       if (p == '/api/perm') {
         if (M == 'GET') return J({ pm: permObj(me), def: DEFPERM, pf: stInfo(me).pf, all: ALLF });
         if (role != 'owner') return J({ e: 'Khusus pemilik' }, 403);
