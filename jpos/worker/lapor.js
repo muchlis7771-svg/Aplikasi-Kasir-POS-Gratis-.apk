@@ -156,6 +156,35 @@ export async function dueNotify(env, CFG, sid, sname, b, J) {
   return J({ ok: 1, sent: 1, res });
 }
 
+// Cadangan server utk pengingat piutang/utang & stok menipis: kalau HP pemilik/admin TIDAK aktif pas jam
+// kirim, Cron Trigger (tiap jam) memakai snapshot terakhir (dikirim HP tiap ≤20 menit saat toko online lewat
+// /api/snap — snapData()/snapMore() di client, termasuk arL & apL yg sudah berisi angka SISA yg benar dari
+// replay transaksi) supaya pengingat tetap terkirim. Dedup kirim tetap lewat rptlog (sama persis dgn jalur
+// dari HP), jadi tidak dobel kalau HP memang aktif & sudah mengirim duluan. Snapshot yg sudah basi (>48 jam,
+// toko lama tidak dibuka) dilewati drpd mengirim data usang.
+export async function dueCronCheck(env, CFG, now) {
+  const rows = (await env.DB.prepare("SELECT s.id sid, s.name sname, s.rpt rpt, sn.t st, sn.data sdata FROM stores s JOIN snap sn ON sn.store_id=s.id WHERE s.status='active' AND s.rpt IS NOT NULL").all()).results;
+  let n = 0;
+  for (const r of rows) {
+    try {
+      if (now - (r.st || 0) > 48 * 36e5) continue; // snapshot basi, lewati
+      const rc = rptCfg({ rpt: r.rpt }), tz = rc.tz || 8;
+      const lh = new Date(now + tz * 36e5).getUTCHours();
+      if (lh < 7 || lh >= 21) continue; // di luar jam wajar toko buka; coba lagi jam berikutnya
+      const part = lh < 13 ? 'am' : 'pm';
+      let S = {}; try { S = r.sdata ? JSON.parse(r.sdata) : {}; } catch (e) { continue; }
+      const d0 = new Date(now + tz * 36e5); d0.setUTCHours(0, 0, 0, 0);
+      const t2 = d0.getTime() - tz * 36e5 + 3 * 864e5; // batas atas: akhir hari ini + 2 hari (tanpa batas bawah → termasuk yg sudah lewat tempo)
+      const ar = (S.arL || []).filter((x) => x.due && x.due < t2);
+      const ap = (S.apL || []).filter((x) => x.due && x.due < t2);
+      const low = (S.low || []).map((x) => ({ n: x[0], st: x[1], min: x[2] }));
+      const res = await dueNotify(env, CFG, r.sid, r.sname, { ar, ap, low, part }, (o) => o);
+      if (res && res.sent) n++;
+    } catch (e) { console.error('dueCronCheck', r.sid, e && e.stack || e); }
+  }
+  return n;
+}
+
 // Cron tiap jam: kirim laporan harian ke toko yang jam lokalnya = jam kirim yang dipilih pemilik
 export async function cronDaily(env, CFG, now) {
   const st = (await env.DB.prepare("SELECT id,name,rpt,exp,status FROM stores WHERE rpt IS NOT NULL AND status='active'").all()).results;
