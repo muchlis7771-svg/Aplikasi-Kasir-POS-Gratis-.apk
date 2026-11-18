@@ -56,10 +56,24 @@ const hex = (buf) => [...new Uint8Array(buf)].map((x) => x.toString(16).padStart
 async function hmac(key, txt) { const k = await crypto.subtle.importKey('raw', new TextEncoder().encode(key), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']); return hex(await crypto.subtle.sign('HMAC', k, new TextEncoder().encode(txt))); }
 const safeEq = (a, b) => { a = String(a || ''); b = String(b || ''); if (!a || a.length != b.length) return false; let r = 0; for (let i = 0; i < a.length; i++) r |= a.charCodeAt(i) ^ b.charCodeAt(i); return r == 0; };
 
+// Verifikasi token widget Cloudflare Turnstile (anti-bot) dari form publik. Kalau Head Admin belum
+// mengatur secret key, lewati saja (fitur nonaktif, form tetap bisa dipakai spt sebelumnya — tidak
+// memblokir siapa pun sebelum diaktifkan sengaja).
+async function tsVerify(secret, token, ip) {
+  if (!secret) return true;
+  if (!token) return false;
+  try {
+    const fd = new FormData(); fd.append('secret', secret); fd.append('response', token); if (ip) fd.append('remoteip', ip);
+    const r = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', { method: 'POST', body: fd });
+    const j = await r.json().catch(() => ({})); return !!j.success;
+  } catch (e) { return false; } // layanan Turnstile tak terjangkau — gagalkan verifikasi drpd meloloskan bot
+}
+
 // POST /api/pesan — pemesanan dari website promo (publik, dibatasi per IP, ada perangkap bot)
 export async function leadPost(env, b, ip, J, C, pkgAll, limited) {
   if (b.website) return J({ ok: 1 }); // kolom jebakan terisi = bot; pura-pura sukses
   if (await limited(env, 'lead:' + ip, 4, 36e5)) return J({ e: 'Terlalu banyak pesanan dari jaringan ini. Coba lagi nanti atau hubungi lewat WhatsApp.' }, 429);
+  if (!(await tsVerify(C.ts_secret, b['cf-turnstile-response'], ip))) return J({ e: 'Verifikasi anti-bot gagal. Muat ulang halaman dan coba lagi.' }, 400);
   const clean = (v, n) => clip(String(v == null ? '' : v).replace(/[\u0000-\u001f<>]/g, ' '), n).trim();
   const name = clean(b.name, 60), store = clean(b.store, 80), city = clean(b.city, 60), note = clean(b.note, 300), phone = String(b.phone || '').replace(/[^\d+]/g, '').replace(/^\+?62/, '0').slice(0, 16), pk = pkgAll();
   if (name.length < 2) return J({ e: 'Isi nama Anda' }, 400);
@@ -308,8 +322,9 @@ export async function jdataHit(env, ip, limited) {
   try { if (!(await limited(env, 'jddl:' + ip, 20, 36e5))) await env.DB.prepare("INSERT INTO sitehits(k,n) VALUES(?,1) ON CONFLICT(k) DO UPDATE SET n=n+1").bind('j:' + new Date(Date.now() + 288e5).toISOString().slice(0, 10)).run(); } catch (e) { }
 }
 // pengunduh APK mengisi nama & WhatsApp (halaman HomeTech) → tercatat untuk Head Admin; hitungan unduhan dicatat oleh /gh dan /jdata
-export async function dlLead(env, b, ip, J, limited) {
+export async function dlLead(env, b, ip, J, limited, C) {
   if (await limited(env, 'dllead:' + ip, 10, 36e5)) return J({ e: 'Terlalu banyak percobaan, coba lagi nanti' }, 429);
+  if (!(await tsVerify(C && C.ts_secret, b['cf-turnstile-response'], ip))) return J({ e: 'Verifikasi anti-bot gagal. Muat ulang halaman dan coba lagi.' }, 400);
   const app = b.app == 'jdata' ? 'jdata' : 'jpos', name = clip(b.name, 60).trim(), phone = clip(b.phone, 20).replace(/[^\d+]/g, '');
   if (name.length < 2) return J({ e: 'Isi nama Anda' }, 400);
   if (phone.replace(/\D/g, '').length < 9) return J({ e: 'Isi nomor WhatsApp yang benar' }, 400);

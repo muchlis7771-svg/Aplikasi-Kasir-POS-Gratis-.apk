@@ -222,7 +222,7 @@ dialog#vd{border:1px solid #c9a24a66;border-radius:22px;background:#070b1a;color
   <div class="two">
     <form class="fm" id="tsForm" novalidate><h3>🧪 Jadi penguji gratis</h3><p class="n">Coba J-POS lebih dulu dan beri masukan. Tim kami menghubungi lewat WhatsApp.</p>
       <label>Nama<input name="name" maxlength="60" required></label><label>Nomor WhatsApp<input name="phone" type="tel" inputmode="tel" maxlength="16" required placeholder="08xxxxxxxxxx"></label>
-      <div class="hp" aria-hidden="true"><label>Website<input name="website" tabindex="-1" autocomplete="off"></label></div><div class="err" id="tsE"></div><button class="btn g" style="width:100%" type="submit">Daftar jadi penguji</button></form>
+      <div class="hp" aria-hidden="true"><label>Website<input name="website" tabindex="-1" autocomplete="off"></label></div><div id="tsW1"></div><div class="err" id="tsE"></div><button class="btn g" style="width:100%" type="submit">Daftar jadi penguji</button></form>
     <form class="fm" id="rvForm" novalidate><h3>⭐ Tulis ulasan</h3><p class="n">Sudah mencoba J-POS? Ceritakan pengalaman Anda.</p>
       <div class="r"><label>Nama<input name="name" maxlength="40" required></label><label>Toko / usaha<input name="store" maxlength="60"></label></div>
       <label>Bintang<select name="stars"><option value="5">★★★★★ (5)</option><option value="4">★★★★ (4)</option><option value="3">★★★ (3)</option><option value="2">★★ (2)</option><option value="1">★ (1)</option></select></label>
@@ -262,6 +262,7 @@ dialog#vd{border:1px solid #c9a24a66;border-radius:22px;background:#070b1a;color
       </div>
       <label>Catatan (opsional)<textarea name="note" rows="3" maxlength="300" placeholder="Jumlah karyawan, kebutuhan khusus, pertanyaan…"></textarea></label>
       <div class="hp" aria-hidden="true"><label>Website<input name="website" tabindex="-1" autocomplete="off"></label></div>
+      <div id="tsW2"></div>
       <div class="total"><span>Perkiraan total<br><small style="color:var(--mu)" id="totNote"></small></span><b id="tot">–</b></div>
       <div class="err" id="err" role="alert"></div>
       <button class="btn g" style="width:100%" id="send" type="submit">Kirim pesanan</button>
@@ -287,7 +288,14 @@ dialog#vd{border:1px solid #c9a24a66;border-radius:22px;background:#070b1a;color
 <a class="wa" id="waFab" href="#" target="_blank" rel="noopener">💬 Tanya via WhatsApp</a>
 
 <script src="config.js"></script>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=tsOnload" defer></script>
 <script>
+let TS_SITE = '', TS_READY = false;
+window.tsOnload = () => { TS_READY = true; tsTryRender(); };
+function tsTryRender() {
+  if (!TS_READY || !TS_SITE || !window.turnstile) return;
+  ['tsW1', 'tsW2'].forEach((id) => { const el = document.getElementById(id); if (el && !el.dataset.r) { el.dataset.r = '1'; turnstile.render('#' + id, { sitekey: TS_SITE }); } });
+}
 (() => {
   const $ = (s) => document.querySelector(s), rp = (n) => 'Rp' + Math.round(n).toLocaleString('id-ID');
   const DEF = {
@@ -332,7 +340,7 @@ dialog#vd{border:1px solid #c9a24a66;border-radius:22px;background:#070b1a;color
     const msg = `Halo, saya ${v.name}${v.store ? ' (' + v.store + ')' : ''} mau pesan J-POS paket ${nm(v.tier)} ${v.months} bulan (${rp(price(v.tier) * +v.months)}). Mohon dibantu aktivasi.`;
     try {
       const r = await api('/api/pesan', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...v, src: 'web' }) });
-      if (r.__s >= 400 || !r.ok) { err.textContent = r.e || 'Pesanan belum terkirim.'; b.disabled = false; b.textContent = 'Kirim pesanan'; return; }
+      if (r.__s >= 400 || !r.ok) { err.textContent = r.e || 'Pesanan belum terkirim.'; b.disabled = false; b.textContent = 'Kirim pesanan'; try { const tw = f.querySelector('[id^=tsW]'); if (window.turnstile && tw) turnstile.reset(tw); } catch (e2) { } return; }
       if (r.wa) INFO.wa = r.wa;
       $('#formBody').hidden = true; $('#okBox').hidden = false; $('#okWa').href = waUrl(msg);
     } catch (x) { // server tidak terjangkau → arahkan langsung ke WhatsApp agar pesanan tidak hilang
@@ -341,7 +349,7 @@ dialog#vd{border:1px solid #c9a24a66;border-radius:22px;background:#070b1a;color
   });
   fetch('apk/J-POS.apk', { method: 'HEAD' }).then((r) => { if (r.ok && /android|octet/i.test(r.headers.get('content-type') || '')) { $('#apkLink').hidden = false; $('#apkNote').hidden = false; } }).catch(() => { });
   drawPkg(); links();
-  api('/api/info').then((j) => { if (j && j.pkg) { INFO = { pkg: j.pkg, wa: j.wa, trial: j.trial }; drawPkg(); links(); } }).catch(() => links());
+  api('/api/info').then((j) => { if (j && j.pkg) { INFO = { pkg: j.pkg, wa: j.wa, trial: j.trial }; drawPkg(); links(); } if (j && j.ts) { TS_SITE = j.ts; tsTryRender(); } }).catch(() => links());
   // ---- kontrol website dari dashboard Head Admin (/api/site) ----
   const sh = (id, on) => { const e = document.getElementById(id); if (e) e.hidden = !on; document.querySelectorAll('nav .links a[href="#' + id + '"]').forEach((a) => (a.hidden = !on)); };
   let APKM = null;
@@ -436,9 +444,9 @@ dialog#vd{border:1px solid #c9a24a66;border-radius:22px;background:#070b1a;color
   const sendForm = (id, errId, path, mk, okMsg) => $(id).addEventListener('submit', async (e) => {
     e.preventDefault(); const f = e.target, v = Object.fromEntries(new FormData(f)), er = $(errId), b = f.querySelector('button[type=submit]'); er.style.color = ''; er.textContent = ''; b.disabled = true;
     try { const r = await api(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(mk(v)) }); if (r.__s >= 400 || !r.ok) { er.textContent = r.e || 'Belum terkirim.'; } else { er.style.color = '#58e0b0'; er.textContent = okMsg; f.reset(); } } catch (x) { er.textContent = 'Koneksi bermasalah. Coba lagi atau hubungi lewat WhatsApp.'; }
-    b.disabled = false;
+    b.disabled = false; try { const tw = f.querySelector('[id^=tsW]'); if (window.turnstile && tw) turnstile.reset(tw); } catch (e2) { }
   });
-  sendForm('#tsForm', '#tsE', '/api/pesan', (v) => ({ name: v.name, phone: v.phone, tier: 'biasa', months: 1, note: 'PENGUJI: ingin mencoba gratis', src: 'tester', website: v.website }), 'Terima kasih! Tim kami akan menghubungi lewat WhatsApp.');
+  sendForm('#tsForm', '#tsE', '/api/pesan', (v) => ({ name: v.name, phone: v.phone, tier: 'biasa', months: 1, note: 'PENGUJI: ingin mencoba gratis', src: 'tester', website: v.website, 'cf-turnstile-response': v['cf-turnstile-response'] }), 'Terima kasih! Tim kami akan menghubungi lewat WhatsApp.');
   sendForm('#rvForm', '#rvE', '/api/ulasan', (v) => v, 'Terima kasih! Ulasan tampil setelah disetujui admin.');
   // chat
   let cid = ls.g('jp_cid'); if (!/^[a-f0-9]{16}$/.test(cid || '')) { cid = [...crypto.getRandomValues(new Uint8Array(8))].map((x) => x.toString(16).padStart(2, '0')).join(''); ls.s('jp_cid', cid); }

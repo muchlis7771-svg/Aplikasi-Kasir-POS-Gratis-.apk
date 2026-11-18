@@ -116,6 +116,12 @@ function haGwCard() {
 <label><small class="mu">Pengirim email (domain terverifikasi di Resend)</small><input id="gwf" placeholder="J-POS &lt;laporan@domainanda.com&gt;" value="${esc(g.from || '')}"></label>
 <label><small class="mu">Token bot Telegram ${g.tg ? `<b class="gr">· aktif @${esc(g.tgBot || '')}</b>` : '<b class="or">· belum</b>'}</small><input id="gwtg" placeholder="${g.tg ? 'tersimpan — isi untuk mengganti, “-” untuk menghapus' : 'token dari @BotFather'}" autocomplete="off"></label>
 <small class="mu">Buat bot gratis lewat Telegram: chat <b>@BotFather</b> → <code>/newbot</code> → salin token yang diberikan ke kolom di atas.</small>
-<button class="pr" onclick="haGwSave()">Simpan gerbang</button></div></div>`;
+<button class="pr" onclick="haGwSave()">Simpan gerbang</button></div></div>
+<div class="cd"><h3>🛡️ Turnstile (anti-bot form publik)</h3><small class="mu">Melindungi formulir pemesanan & unduh APK di website promo dari bot/spam. ${HA.cfg && HA.cfg.tsOn ? '<b class="gr">· aktif</b>' : '<b class="or">· belum diatur (form tetap bisa dipakai apa adanya)</b>'}</small>
+<div class="fm"><label><small class="mu">Site key (publik)</small><input id="tsS" placeholder="0x4AAAAAAA..." value="${esc((HA.cfg && HA.cfg.tsSite) || '')}" autocomplete="off"></label>
+<label><small class="mu">Secret key</small><input id="tsK" placeholder="${HA.cfg && HA.cfg.tsOn ? 'tersimpan — isi untuk mengganti, “-” untuk menghapus/menonaktifkan' : '0x4AAAAAAA... (secret)'}" autocomplete="off"></label>
+<small class="mu">Daftar gratis di <b>dash.cloudflare.com → Turnstile → Add site</b>, pakai mode "Managed". Salin Site key & Secret key ke sini.</small>
+<button class="pr" onclick="haTsSave()">Simpan Turnstile</button></div></div>`;
 }
 async function haGwSave() { try { HA.cfg = await haApi('/api/admin/cfg', { method: 'PUT', body: JSON.stringify({ wa_tok: $('#gwt').value, mail_key: $('#gwm').value, mail_from: $('#gwf').value || '-', tg_tok: $('#gwtg').value }) }); toast('Gerbang disimpan'); R(); } catch (e) { toast(e.message); } }
+async function haTsSave() { try { HA.cfg = await haApi('/api/admin/cfg', { method: 'PUT', body: JSON.stringify({ ts_site: $('#tsS').value || '-', ts_secret: $('#tsK').value }) }); toast('Turnstile disimpan'); R(); } catch (e) { toast(e.message); } }
