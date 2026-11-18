@@ -14,6 +14,8 @@ run_worker_first = true
 # Login Head Admin (pemilik aplikasi). Password disimpan sebagai hash; bisa diganti dari panel Head Admin.
 ADMIN_USER = "headadmin"
 ADMIN_PASS_HASH = "pbkdf2$100000$j9L_HrV2MfTTEwdR$nstEU8E9BMGVnNl-3cHm3miKS-IBT8HMirmrGQ6Hvy8"
+# Domain publik worker ini (dipakai utk daftar webhook Telegram dll — JANGAN diturunkan dari req.url, bisa salah kalau diakses lewat domain/preview lain)
+PUBLIC_API_ORIGIN = "https://aplikasi-kasir-pos-gratis--apk.muchlis7771.workers.dev"
 
 [[d1_databases]]
 binding = "DB"

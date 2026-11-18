@@ -296,8 +296,10 @@ export default {
                   const me = await (await fetch(`https://api.telegram.org/bot${tok}/getMe`)).json();
                   if (!me.ok) return J({ e: 'Token bot Telegram tidak valid: ' + (me.description || '') }, 400);
                   let sec = (await cfgAll(env)).tg_sec; if (!sec) { sec = b64(crypto.getRandomValues(new Uint8Array(24))); await cfgSet(env, 'tg_sec', sec); }
-                  const hook = await tgSetWebhook(tok, new URL('/api/tg/hook', req.url).href, sec);
-                  if (!hook.ok) return J({ e: 'Gagal mendaftarkan webhook Telegram: ' + (hook.e || '') }, 400);
+                  // pakai PUBLIC_API_ORIGIN (env var tetap) kalau ada, bukan req.url — req.url bisa membawa host internal/preview yg tidak bisa di-resolve DNS publik oleh Telegram.
+                  const hookUrl = new URL('/api/tg/hook', env.PUBLIC_API_ORIGIN || req.url).href;
+                  const hook = await tgSetWebhook(tok, hookUrl, sec);
+                  if (!hook.ok) return J({ e: 'Gagal mendaftarkan webhook Telegram: ' + (hook.e || '') + ' (url: ' + hookUrl + ')' }, 400);
                   await cfgSet(env, 'tg_tok', tok); await cfgSet(env, 'tg_bot', me.result.username);
                 } catch (e) { return J({ e: 'Gagal menghubungi Telegram: ' + String(e.message || e).slice(0, 150) }, 400); }
               }
