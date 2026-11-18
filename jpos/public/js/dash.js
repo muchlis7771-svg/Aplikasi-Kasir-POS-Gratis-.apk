@@ -299,7 +299,7 @@ function haRefCard() {
 // ringkasan cepat hari ini (kunjungan website, buka app tanpa login, login karyawan/pemilik) — lencana di tab Aktivitas
 let HPULSE = null;
 async function haPulse() { try { HPULSE = await haApi('/api/admin/pulse'); const b = $('#habdg'); if (b) { const n = HPULSE.visit + HPULSE.app + HPULSE.login; b.textContent = n || ''; b.style.display = n ? '' : 'none'; } if (HA.tab == 'act') R(); } catch (e) { } }
-function haOut() { HT = ''; sessionStorage.removeItem('jpos:ht'); HA.d = null; R(); }
+function haOut() { HT = ''; LS.del('jpos:ht'); HA.d = null; R(); }
 const fill14 = (rows) => days(14).map((d) => ({ l: d.l, v: (rows.find((r) => r.d == d.k) || {}).v || 0 }));
 // peserta masa coba (trial) + siapa yang mengunduh APK J-POS / J-DATA Report — dari halaman HomeTech
 function haTrialCard() {

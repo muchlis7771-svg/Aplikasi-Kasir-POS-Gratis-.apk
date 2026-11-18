@@ -220,7 +220,9 @@ async function pwaInstall() { if (!PWAIP) return; try { PWAIP.prompt(); await PW
       REFQ = qRef; MODE = 'reg';
     }
   } catch (e) { }
-  if (HT) { MODE = 'ha'; R(); haLoad(); } else R();
+  if (HT) { MODE = 'ha'; R(); haLoad(); }
+  else if (!U && MODE != 'buyer' && MODE != 'reg' && typeof tryResume == 'function' && tryResume()) { R(); chatPoll(true); kick(); window.scrollTo(0, 0); }
+  else R();
   if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol) && !(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) navigator.serviceWorker.register('sw.js').catch(() => { });
   // tombol kembali Android: tutup dialog dulu, lalu kembali ke beranda
   document.addEventListener('backbutton', (e) => { const m = $$('.md').pop(); if (m) { e.preventDefault(); m.close(); } });
