@@ -193,15 +193,24 @@ const REPORT_HTML = "<!doctype html>\n<html lang=\"id\"><head><meta charset=\"ut
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
-    if (req.method === "OPTIONS") return new Response(null, { headers: { "access-control-allow-origin": "*", "access-control-allow-headers": "authorization,content-type", "access-control-allow-methods": "GET,POST" } });
+    if (req.method === "OPTIONS") return new Response(null, { headers: { "access-control-allow-origin": "*", "access-control-allow-headers": "authorization,content-type,x-auth-token,x-device-id", "access-control-allow-methods": "GET,POST" } });
     if (url.pathname === "/health") return J({ ok: true });
     if ((url.pathname === "/report" || url.pathname === "/report/") && req.method === "GET") return new Response(REPORT_HTML, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
     if (url.pathname === "/dash" && req.method === "GET") return new Response(DASH_HTML, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
     if (req.method === "POST" && (url.pathname.startsWith("/usage/") || url.pathname.startsWith("/admin/"))) {
       try { return await usageRoutes(url, req, env); } catch (e) { return J({ error: String(e && e.message || e) }, 500); }
     }
-    if (!env.SYNC_TOKEN) return J({ error: "SYNC_TOKEN belum diatur di Worker" }, 500);
-    if (req.headers.get("authorization") !== "Bearer " + env.SYNC_TOKEN) return J({ error: "unauthorized" }, 401);
+    // Akun tim (sales/supervisor): baca-saja lewat sesi login yang valid (data milik admin).
+    let teamOk = false;
+    const xt = req.headers.get("x-auth-token");
+    if (xt && req.method === "GET" && url.pathname.startsWith("/sync/") && url.pathname !== "/sync/status") {
+      const v = await authPost("/api/verify", { token: xt, device_id: req.headers.get("x-device-id") || "" });
+      teamOk = v.ok && v.j.valid !== false;
+    }
+    if (!teamOk) {
+      if (!env.SYNC_TOKEN) return J({ error: "SYNC_TOKEN belum diatur di Worker" }, 500);
+      if (req.headers.get("authorization") !== "Bearer " + env.SYNC_TOKEN) return J({ error: "unauthorized" }, 401);
+    }
     const db = env.DB;
     const profile = url.searchParams.get("profile") || "";
     try {
