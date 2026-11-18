@@ -202,7 +202,7 @@ export default {
       }
       if (p == '/api/ping') return J({ ok: 1, v: 5 });
       if (p == '/api/time') return J({ t: Date.now() });
-      if (p == '/api/info') { const c = await cfgAll(env); const pk = pkgAll(), pkg = {}; for (const t of Object.keys(pk)) pkg[t] = { n: pk[t].n, max: pk[t].max, f: pk[t].f, pr: pk[t].pr }; return J({ wa: c.wa || '', price: c.price || '', trial: +(c.trial_days || 30), app: c.app_name || 'J-POS', pkg }); }
+      if (p == '/api/info') { const c = await cfgAll(env); const pk = pkgAll(), pkg = {}; for (const t of Object.keys(pk)) pkg[t] = { n: pk[t].n, max: pk[t].max, f: pk[t].f, pr: pk[t].pr }; return J({ wa: c.wa || '', price: c.price || '', trial: +(c.trial_days || 30), app: c.app_name || 'J-POS', pkg, ts: c.ts_secret ? (c.ts_site || '') : '' }); } // ts: site key Turnstile (publik), hanya dikirim bila server punya secret key (anti-bot aktif)
       if (p == '/api/register' && M == 'POST') {
         if (await limited(env, 'reg:' + ip, 20, 36e5)) return J({ e: 'Terlalu banyak pendaftaran, coba lagi nanti' }, 429);
         const id = String(b.id || ''), store = String(b.store || '').trim().slice(0, 60), owner = String(b.owner || '').trim();
@@ -305,6 +305,8 @@ export default {
             if (['biasa', 'standar', 'high'].includes(b.trial_tier)) await cfgSet(env, 'trial_tier', b.trial_tier);
             // gerbang laporan otomatis: token Fonnte (WhatsApp) & API key Resend (email). Kosongkan '-' untuk menghapus.
             for (const k of ['wa_tok', 'mail_key', 'mail_from']) if (b[k] != null && String(b[k]).trim() !== '') await cfgSet(env, k, String(b[k]).trim() == '-' ? '' : String(b[k]).trim().slice(0, 200));
+            // Turnstile (anti-bot form publik: pemesanan & unduh APK) — site key boleh publik, secret key dipakai server utk verifikasi. Kosongkan '-' utk menghapus/matikan.
+            for (const k of ['ts_site', 'ts_secret']) if (b[k] != null && String(b[k]).trim() !== '') await cfgSet(env, k, String(b[k]).trim() == '-' ? '' : String(b[k]).trim().slice(0, 200));
             for (const k of ['ship_base', 'ship_per_m', 'ship_road', 'ship_min', 'ship_max_km', 'ship_round']) if (b[k] != null && Number.isFinite(+b[k]) && +b[k] >= 0) await cfgSet(env, k, +b[k]);
             // bot Telegram (notifikasi piutang/utang/laporan): token dari @BotFather. Webhook didaftarkan otomatis ke Telegram saat disimpan.
             if (b.tg_tok != null && String(b.tg_tok).trim() !== '') {
@@ -324,7 +326,7 @@ export default {
               }
             }
           }
-          const c = await cfgAll(env); return J({ wa: c.wa || '', price: c.price || '', trial_days: +(c.trial_days || 30), user: c.admin_user || env.ADMIN_USER || 'headadmin', ship: shipCfg(c), pkg: pkgAll(), allf: ALLF, trial_tier: c.trial_tier || 'high', gw: { wa: !!c.wa_tok, mail: !!c.mail_key, from: c.mail_from || '', tg: !!c.tg_tok, tgBot: c.tg_bot || '' } });
+          const c = await cfgAll(env); return J({ wa: c.wa || '', price: c.price || '', trial_days: +(c.trial_days || 30), user: c.admin_user || env.ADMIN_USER || 'headadmin', ship: shipCfg(c), pkg: pkgAll(), allf: ALLF, trial_tier: c.trial_tier || 'high', gw: { wa: !!c.wa_tok, mail: !!c.mail_key, from: c.mail_from || '', tg: !!c.tg_tok, tgBot: c.tg_bot || '' }, tsSite: c.ts_site || '', tsOn: !!c.ts_secret });
         }
         if (p == '/api/admin/password' && M == 'POST') {
           const c = await cfgAll(env);
