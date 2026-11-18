@@ -78,7 +78,7 @@ const DAY = 86400000;
 async function authPost(path, body, token) {
   const r = await fetch(AUTH_URL + path, { method: "POST", headers: { "content-type": "application/json", ...(token ? { "x-auth-token": token } : {}) }, body: JSON.stringify(body || {}) });
   let j = {}; try { j = await r.json(); } catch (e) {}
-  return { ok: r.ok, j };
+  return { ok: r.ok, j, status: r.status };
 }
 let ready = false;
 async function ensureTables(db) {
@@ -139,9 +139,10 @@ async function usageRoutes(url, req, env) {
   }
   // ---- HAK AKSES FITUR: dibaca tiap pengguna (token harus valid) ----
   // identitas dari sesi yang valid (username dari server login bila ada)
+  let whyFail = "";
   const whoami = async () => {
     const v = await authPost("/api/verify", { token: s(b.token), device_id: s(b.device_id) });
-    if (!v.ok || v.j.valid === false) return null;
+    if (!v.ok || v.j.valid === false) { whyFail = " (server login: " + v.status + " " + s(v.j.code || v.j.error || v.j.message) + ")"; return null; }
     return s(v.j.username || b.username).trim().toLowerCase().slice(0, 60) || null;
   };
   if (url.pathname === "/usage/perm") {
@@ -159,7 +160,7 @@ async function usageRoutes(url, req, env) {
   // ---- TIM: pemilik menambah akun sales/supervisor yang boleh melihat datanya ----
   if (url.pathname.startsWith("/usage/team-")) {
     const me = await whoami();
-    if (!me) return J({ error: "sesi tidak valid" }, 401);
+    if (!me) return J({ error: "sesi tidak valid" + whyFail }, 401);
     if (await db.prepare("SELECT 1 x FROM teams WHERE member=?").bind(me).first()) return J({ error: "akun tim tidak bisa mengelola tim" }, 403);
     const clean = (o) => { const r = {}; for (const [k, v] of Object.entries(o || {})) r[String(k).slice(0, 40)] = !!v; return JSON.stringify(r); };
     const mem = s(b.member).trim().toLowerCase().slice(0, 60);
