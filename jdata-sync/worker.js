@@ -185,6 +185,20 @@ async function usageRoutes(url, req, env) {
   }
   // ---- khusus admin ----
   if (!(await isAdmin(s(b.token)))) return J({ error: "khusus admin" }, 403);
+  // ringkasan semua pemilik (namespace data) + jumlah anggota tim: untuk head admin
+  if (url.pathname === "/admin/owners") {
+    const sal = (await db.prepare("SELECT profile, COUNT(*) rows, MAX(tanggal) last FROM sales GROUP BY profile").all()).results || [];
+    const mem = (await db.prepare("SELECT owner, COUNT(*) c FROM teams GROUP BY owner").all()).results || [];
+    const mc = Object.fromEntries(mem.map((m) => [m.owner, m.c]));
+    const by = {};
+    for (const r of sal) {
+      const m = /^u:([^:]+):/.exec(r.profile); const o = m ? m[1] : "(admin/legacy)";
+      const e = by[o] || (by[o] = { owner: o, profiles: 0, rows: 0, last: "", members: mc[o] || 0 });
+      e.profiles++; e.rows += r.rows; if (r.last > e.last) e.last = r.last;
+    }
+    for (const o of Object.keys(mc)) if (!by[o]) by[o] = { owner: o, profiles: 0, rows: 0, last: "", members: mc[o] };
+    return J({ owners: Object.values(by).sort((a, b) => b.rows - a.rows) });
+  }
   if (url.pathname === "/admin/perm-list") {
     const rows = (await db.prepare("SELECT kind,name,data FROM perms").all()).results || [];
     return J({ rows: rows.map(r => { let d = {}; try { d = JSON.parse(r.data || "{}"); } catch (e) {} return { kind: r.kind, name: r.name, perms: d }; }) });
