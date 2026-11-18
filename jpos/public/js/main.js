@@ -72,6 +72,7 @@ function haFixHead() {
 if (!window.__haFixBound) { window.__haFixBound = 1; window.addEventListener('resize', () => { if (MODE == 'ha') haFixHead(); }); window.addEventListener('orientationchange', () => { if (MODE == 'ha') setTimeout(haFixHead, 200); }); }
 function R() {
   const app = $('#app'); if (!app) return;
+  if (typeof chatBubbleSync == 'function') chatBubbleSync(); // ikon chat mengambang: nilai tampil/sembunyi dicek ulang tiap render, termasuk saat kembali ke layar login/mode lain
   if (typeof mapsDrop == 'function') mapsDrop();
   document.body.classList.toggle('in', MODE == 'buyer' || !!(U && S && !(HT && MODE == 'ha')));
   if (MODE != 'buyer') document.body.classList.remove('buyer');

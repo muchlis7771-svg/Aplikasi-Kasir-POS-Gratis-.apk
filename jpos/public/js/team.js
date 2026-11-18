@@ -79,7 +79,12 @@ ${mgr ? `<div class="cd"><h3>Kehadiran hari ini</h3><table>${board.map((r) => `<
 };
 
 /* ============ CHAT (antar pengguna, antar toko) ============ */
-const CH = { room: 'tk', msgs: [], last: 0, unread: 0, peer: null, timer: null, bg: null, dms: [] };
+// CH.open: true selagi ikon chat mengambang (lihat chatBubble di bawah) sedang dibuka — dipakai supaya chatLoad/chatPoll
+// tahu chat sedang aktif dilihat walau V (halaman) bukan 'chat' (mis. kasir sedang buka chat lewat ikon mengambang di
+// halaman Kasir). chatBubRepaint: dipasang chatBubbleOpen() selagi modal mengambang terbuka, dipanggil chatSwitch()
+// supaya tab & isi modal ikut ganti saat pindah ruang (Tim toko / Semua toko / Pesan toko lain).
+const CH = { room: 'tk', msgs: [], last: 0, unread: 0, peer: null, timer: null, bg: null, dms: [], open: false };
+let chatBubRepaint = null;
 const roomKey = () => CH.room;
 function stopChat() { clearInterval(CH.timer); clearInterval(CH.bg); CH.timer = CH.bg = null; CH.unread = 0; }
 async function chatFlush() { // kirim pesan yang tertunda saat offline
@@ -88,7 +93,8 @@ async function chatFlush() { // kirim pesan yang tertunda saat offline
 function chatPoll(start) {
   if (!S || !S.srv) return; if (start && !CH.bg) CH.bg = setInterval(() => chatPoll(), 20000);
   if (!canNet() || !TK()) return;
-  Promise.all(['tk', 'net'].map((r) => api('/api/chat?room=' + r + '&since=' + (S.cs[r] || 0)).then((x) => x.m.filter((m) => !(m.sid == SID && m.un == U.n)).length).catch(() => 0))).then(([a, b]) => { CH.unread = (CH.room == 'tk' && V == 'chat' ? 0 : a) + (CH.room == 'net' && V == 'chat' ? 0 : b); const el = $('#nb-chat'); if (el) { el.textContent = CH.unread; el.style.display = CH.unread ? 'grid' : 'none'; } });
+  const viewing = (r) => CH.room == r && (V == 'chat' || CH.open); // ruang yang sedang benar-benar dilihat (halaman atau ikon mengambang) tidak dihitung "belum dibaca"
+  Promise.all(['tk', 'net'].map((r) => api('/api/chat?room=' + r + '&since=' + (S.cs[r] || 0)).then((x) => x.m.filter((m) => !(m.sid == SID && m.un == U.n)).length).catch(() => 0))).then(([a, b]) => { CH.unread = (viewing('tk') ? 0 : a) + (viewing('net') ? 0 : b); const el = $('#nb-chat'); if (el) { el.textContent = CH.unread; el.style.display = CH.unread ? 'grid' : 'none'; } chatBubbleBadge(); });
 }
 const bubH = (m) => { const me = m.sid == SID && m.un == U.n, hq = m.sid == 'hq'; return `<div class="bub ${me ? 'me' : ''} ${hq ? 'hq' : ''}"><small>${me ? 'Saya' : esc(m.un) + (m.sid != SID ? ' · ' + esc(m.sn) : '')} · ${hm(m.t)}${m.pending ? ' ⏳' : ''}</small>${esc(m.tx)}</div>`; };
 VW.chat = () => {
@@ -97,18 +103,20 @@ VW.chat = () => {
 <small class="mu" id="chh"></small><div class="chat" id="chm"></div><div class="cin"><input id="chi" placeholder="Tulis pesan…" maxlength="500" onkeydown="if(event.key=='Enter')chatSend()"><button onclick="chatSend()">Kirim</button></div></div>`;
 };
 VW.chat.after = () => { if (!S.srv) return; chatLoad(true); clearInterval(CH.timer); CH.timer = setInterval(() => { if (V == 'chat') chatLoad(false); else clearInterval(CH.timer); }, 4000); };
-function chatRoom(r) { CH.room = r; CH.msgs = []; CH.last = 0; CH.peer = null; R(); }
+// ganti ruang chat & muat ulang — dipakai baik oleh halaman Chat biasa maupun ikon chat mengambang (lihat chatBubbleOpen)
+function chatSwitch(r) { CH.room = r; CH.msgs = []; CH.last = 0; CH.peer = null; if (CH.open && chatBubRepaint) { chatBubRepaint(); chatLoad(true); } R(); }
+function chatRoom(r) { chatSwitch(r); }
 async function chatDm() {
   let dms = []; try { dms = (await api('/api/chat/rooms')).rooms; } catch (e) { }
   const m = modal(`<h3>Pesan ke toko lain</h3>${dms.map((d) => `<button class="gh" style="text-align:left" data-r="${esc(d.room)}">💬 ${esc(d.name)}</button>`).join('')}<input id="dc" placeholder="Kode toko tujuan"><button class="pr" id="ok">Buka percakapan</button><small class="mu">Minta kode toko dari pemilik toko lain (menu Pengguna → Kode toko).</small>`);
-  const go = (r) => { m.close(); CH.room = r; CH.msgs = []; CH.last = 0; R(); };
+  const go = (r) => { m.close(); chatSwitch(r); };
   $$('[data-r]', m).forEach((b) => (b.onclick = () => go(b.dataset.r))); $('#ok', m).onclick = () => { const c = $('#dc', m).value.trim().toLowerCase(); if (!/^[a-z0-9]{6,20}$/.test(c)) return toast('Kode toko tidak valid'); go('dm:' + c); };
 }
 async function chatLoad(first) {
   if (!canNet()) { const h = $('#chh'); if (h) h.textContent = 'Offline — pesan akan terkirim saat online'; return; }
   const room = CH.room;
   try {
-    const r = await api('/api/chat?room=' + encodeURIComponent(room) + '&since=' + (first ? 0 : CH.last)); if (room != CH.room || V != 'chat') return;
+    const r = await api('/api/chat?room=' + encodeURIComponent(room) + '&since=' + (first ? 0 : CH.last)); if (room != CH.room || !(V == 'chat' || CH.open)) return;
     if (first) CH.msgs = []; r.m.forEach((m) => { CH.msgs.push(m); CH.last = Math.max(CH.last, m.seq); }); if (r.peer) CH.peer = r.peer;
     const el = $('#chm'); if (!el) return; const near = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
     if (first || r.m.length) { el.innerHTML = CH.msgs.map(bubH).join('') + (S.cq || []).filter((x) => x.room == room).map((x) => bubH({ sid: SID, un: U.n, sn: S.name, t: x.t, tx: x.text, pending: 1 })).join('') || '<small class="mu">Belum ada pesan. Mulai percakapan!</small>'; if (first || near) el.scrollTop = el.scrollHeight; }
@@ -120,6 +128,34 @@ async function chatSend() {
   const i = $('#chi'), tx = i.value.trim(); if (!tx) return; i.value = '';
   if (!canNet()) { S.cq.push({ room: CH.room, text: tx, t: Date.now() }); save(); toast('Offline: pesan dikirim saat online'); return chatLoad(true); }
   try { await post('/api/chat', { room: CH.room, text: tx }); await chatLoad(false); const el = $('#chm'); if (el) el.scrollTop = el.scrollHeight; } catch (e) { i.value = tx; toast(e.message); }
+}
+
+/* ---- ikon chat mengambang: tombol yang selalu tampil di setiap halaman dashboard (bukan harus pindah ke menu Chat) ----
+   Dipasang sekali ke <body> (di luar #app, jadi tidak ikut terhapus tiap R() me-render ulang halaman), lalu ditampilkan/
+   disembunyikan & dipindah badge-nya tiap render lewat chatBubbleSync() yang dipanggil dari R(). Ketuk ikon → modal terapung
+   berisi UI chat yang SAMA (tab ruang + daftar pesan + kolom ketik) seperti halaman Chat biasa, jadi tidak perlu menduplikasi
+   logika kirim/terima — hanya menandai CH.open=true supaya chatLoad/chatPoll tahu sedang dilihat. */
+function chatBubble() {
+  if ($('#chatbub')) return;
+  const b = document.createElement('button'); b.id = 'chatbub'; b.className = 'chatbub'; b.setAttribute('aria-label', 'Chat');
+  b.innerHTML = '💬<em id="cbub-n"></em>'; b.onclick = chatBubbleOpen; document.body.appendChild(b);
+}
+// dipanggil tiap R() — sembunyikan kalau belum login/toko lokal/sedang di halaman Chat sendiri/sedang di mode lain (pembeli/Head Admin)
+function chatBubbleSync() {
+  chatBubble(); const b = $('#chatbub'); if (!b) return;
+  b.style.display = (U && S && S.srv && MODE != 'buyer' && !(HT && MODE == 'ha') && V != 'chat' && can('chat')) ? '' : 'none';
+  chatBubbleBadge();
+}
+function chatBubbleBadge() { const n = $('#cbub-n'); if (n) { n.textContent = CH.unread; n.style.display = CH.unread ? 'grid' : 'none'; } }
+function chatBubbleOpen() {
+  if (!S.srv) return toast('Chat memerlukan toko yang terdaftar di server');
+  CH.open = true;
+  const m = modal(`<div class="row" style="margin:0"><h3 style="margin:0">💬 Chat</h3><button class="gh" id="cbx">✕</button></div><div id="cbw">${VW.chat()}</div>`);
+  $('#cbx', m).onclick = () => m.close();
+  chatBubRepaint = () => { const w = $('#cbw', m); if (w) w.innerHTML = VW.chat(); };
+  chatLoad(true);
+  const tm = setInterval(() => { if (!document.body.contains(m)) return clearInterval(tm); chatLoad(false); }, 4000);
+  m.onclose = () => { CH.open = false; chatBubRepaint = null; clearInterval(tm); chatPoll(); chatBubbleSync(); };
 }
 
 /* ============ PENGATURAN ============ */
