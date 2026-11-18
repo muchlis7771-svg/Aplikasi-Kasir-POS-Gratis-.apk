@@ -53,14 +53,14 @@ setInterval(dueNotifCheck, 3e5);
 /* ---------- pengaturan pemilik ---------- */
 let RPTX = null;
 function rptCard() {
-  const c = (RPTX && RPTX.cfg) || rptC().cfg || {}, gw = (RPTX && RPTX.gw) || rptC().gw || {}, tgN = (RPTX && RPTX.tgN) || rptC().tgN || 0;
+  const c = (RPTX && RPTX.cfg) || rptC().cfg || {}, gw = (RPTX && RPTX.gw) || rptC().gw || {}, tgN = (RPTX && RPTX.tgN) || rptC().tgN || 0, hpWa = LS.get('jpos:info', { wa: '' }).wa;
   if (!RPTX && S.srv && canNet()) rptLoad().then((r) => { if (r) { RPTX = r; if (V == 'set' && !uiTyping()) R(); } });
   const H = Array.from({ length: 24 }, (_, h) => h);
   return `<div class="cd"><h3>📤 Laporan otomatis ke WA, email & Telegram</h3><small class="mu">Absen, penjualan per karyawan, closing kasir, stok menipis, kas & piutang — dikirim ke Anda setiap pergantian hari dan setiap kasir closing. Plus notifikasi langsung piutang baru & pengingat jatuh tempo besok.</small>
 ${!S.srv ? '<div class="warnbox">Butuh toko online (terdaftar di server).</div>' : ''}
 <div class="fm" style="margin-top:8px"><label><small class="mu">No. WhatsApp pemilik (boleh 2–3, pisahkan koma)</small><input id="rwa" inputmode="tel" placeholder="0813xxxxxxx" value="${esc((c.wa || []).join(', '))}"></label>
 <label><small class="mu">Email pemilik (boleh 2–3)</small><input id="rem" type="email" placeholder="nama@email.com" value="${esc((c.em || []).join(', '))}"></label>
-<div class="row" style="margin:4px 0"><span>📨 Telegram ${tgN ? `<b class="gr">· ${tgN} akun terhubung</b>` : gw.tg ? '<b class="or">· belum terhubung</b>' : '<b class="mu">· belum aktif (Head Admin)</b>'}</span>${gw.tg ? `<button class="gh" onclick="tgLink()">${tgN ? 'Hubungkan lagi' : 'Hubungkan'}</button>` : ''}</div>
+<div class="row" style="margin:4px 0"><span>📨 Telegram ${!pkgHas('tg') ? '<b class="mu">· khusus paket High · Distributor</b>' : tgN ? `<b class="gr">· ${tgN} akun terhubung</b>` : gw.tg ? '<b class="or">· belum terhubung</b>' : '<b class="mu">· belum aktif (Head Admin)</b>'}</span>${pkgHas('tg') && gw.tg ? `<button class="gh" onclick="tgLink()">${tgN ? 'Hubungkan lagi' : 'Hubungkan'}</button>` : !pkgHas('tg') && hpWa ? `<a class="gh" style="text-decoration:none" target="_blank" rel="noopener" href="${esc(waLink(hpWa, 'Halo, saya ingin naik paket ke High · Distributor untuk toko ' + (S.name || '') + ' (kode ' + SID + ') agar bisa pakai notifikasi Telegram'))}">⬆ Naik paket</a>` : ''}</div>
 ${tgN ? '<div class="wrap"><button class="gh" onclick="tgUnlink()">Putuskan semua Telegram</button></div>' : ''}
 <label class="row" style="margin:4px 0"><span>Kirim laporan harian otomatis</span><input id="ron" type="checkbox" style="width:24px;height:24px" ${c.on !== false ? 'checked' : ''}></label>
 <div class="fm2"><label><small class="mu">Jam kirim</small><select id="rh">${H.map((h) => `<option value="${h}" ${(c.h || 0) == h ? 'selected' : ''}>${String(h).padStart(2, '0')}:05${h == 0 ? ' (pergantian hari)' : h < 12 ? ' · lap. kemarin' : ' · lap. hari ini'}</option>`).join('')}</select></label>
