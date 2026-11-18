@@ -5,7 +5,7 @@
    stok & keuangan ke server (snapshot) agar laporan harian memuat data stok terbaru. */
 const rptC = () => LS.get('jpos:rpt:' + SID, {});
 const rptWa = () => rptC().wa || '';
-async function rptLoad() { if (!S || !S.srv || !canNet()) return; try { const r = await api('/api/rpt'); LS.set('jpos:rpt:' + SID, { wa: r.wa || '', gw: r.gw, cfg: r.cfg }); return r; } catch (e) { } }
+async function rptLoad() { if (!S || !S.srv || !canNet()) return; try { const r = await api('/api/rpt'); LS.set('jpos:rpt:' + SID, { wa: r.wa || '', gw: r.gw, cfg: r.cfg, tgN: r.tgN, ownBot: r.ownBot }); return r; } catch (e) { } }
 
 // ringkasan stok & keuangan dari HP → server (maks tiap 20 menit)
 function snapData() {
@@ -53,15 +53,16 @@ setInterval(dueNotifCheck, 3e5);
 /* ---------- pengaturan pemilik ---------- */
 let RPTX = null;
 function rptCard() {
-  const c = (RPTX && RPTX.cfg) || rptC().cfg || {}, gw = (RPTX && RPTX.gw) || rptC().gw || {}, tgN = (RPTX && RPTX.tgN) || rptC().tgN || 0, hpWa = LS.get('jpos:info', { wa: '' }).wa;
+  const c = (RPTX && RPTX.cfg) || rptC().cfg || {}, gw = (RPTX && RPTX.gw) || rptC().gw || {}, tgN = (RPTX && RPTX.tgN) || rptC().tgN || 0, hpWa = LS.get('jpos:info', { wa: '' }).wa, ownBot = (RPTX && RPTX.ownBot) || rptC().ownBot || '';
   if (!RPTX && S.srv && canNet()) rptLoad().then((r) => { if (r) { RPTX = r; if (V == 'set' && !uiTyping()) R(); } });
   const H = Array.from({ length: 24 }, (_, h) => h);
   return `<div class="cd"><h3>📤 Laporan otomatis ke WA, email & Telegram</h3><small class="mu">Absen, penjualan per karyawan, closing kasir, stok menipis, kas & piutang — dikirim ke Anda setiap pergantian hari dan setiap kasir closing. Plus notifikasi langsung piutang baru & pengingat jatuh tempo besok.</small>
 ${!S.srv ? '<div class="warnbox">Butuh toko online (terdaftar di server).</div>' : ''}
 <div class="fm" style="margin-top:8px"><label><small class="mu">No. WhatsApp pemilik (boleh 2–3, pisahkan koma)</small><input id="rwa" inputmode="tel" placeholder="0813xxxxxxx" value="${esc((c.wa || []).join(', '))}"></label>
 <label><small class="mu">Email pemilik (boleh 2–3)</small><input id="rem" type="email" placeholder="nama@email.com" value="${esc((c.em || []).join(', '))}"></label>
-<div class="row" style="margin:4px 0"><span>📨 Telegram ${!pkgHas('tg') ? '<b class="mu">· khusus paket High · Distributor</b>' : tgN ? `<b class="gr">· ${tgN} akun terhubung</b>` : gw.tg ? '<b class="or">· belum terhubung</b>' : '<b class="mu">· belum aktif (Head Admin)</b>'}</span>${pkgHas('tg') && gw.tg ? `<button class="gh" onclick="tgLink()">${tgN ? 'Hubungkan lagi' : 'Hubungkan'}</button>` : !pkgHas('tg') && hpWa ? `<a class="gh" style="text-decoration:none" target="_blank" rel="noopener" href="${esc(waLink(hpWa, 'Halo, saya ingin naik paket ke High · Distributor untuk toko ' + (S.name || '') + ' (kode ' + SID + ') agar bisa pakai notifikasi Telegram'))}">⬆ Naik paket</a>` : ''}</div>
+<div class="row" style="margin:4px 0"><span>📨 Telegram ${!pkgHas('tg') ? '<b class="mu">· khusus paket High · Distributor</b>' : tgN ? `<b class="gr">· ${tgN} akun terhubung${ownBot ? ' lewat bot sendiri' : ''}</b>` : gw.tg ? '<b class="or">· belum terhubung</b>' : '<b class="mu">· belum aktif (Head Admin)</b>'}</span>${pkgHas('tg') && gw.tg ? `<button class="gh" onclick="tgLink()">${tgN ? 'Hubungkan lagi' : 'Hubungkan'}</button>` : !pkgHas('tg') && hpWa ? `<a class="gh" style="text-decoration:none" target="_blank" rel="noopener" href="${esc(waLink(hpWa, 'Halo, saya ingin naik paket ke High · Distributor untuk toko ' + (S.name || '') + ' (kode ' + SID + ') agar bisa pakai notifikasi Telegram'))}">⬆ Naik paket</a>` : ''}</div>
 ${tgN ? '<div class="wrap"><button class="gh" onclick="tgUnlink()">Putuskan semua Telegram</button></div>' : ''}
+${pkgHas('tg') ? `<details><summary class="mu" style="cursor:pointer">Bot Telegram sendiri (opsional, disarankan) ${ownBot ? `<b class="gr">· @${esc(ownBot)}</b>` : ''}</summary><small class="mu">Supaya laporan toko ini tidak lewat bot bersama J-POS — 1 toko 1 bot sendiri, tidak mungkin tercampur dengan toko lain. Buat gratis lewat Telegram: chat <b>@BotFather</b> → <code>/newbot</code> → salin token ke kolom ini. Ganti atau isi "-" untuk hapus akan memutus akun Telegram yang sudah terhubung (perlu hubungkan ulang).</small><input id="rtgtk" placeholder="${ownBot ? 'tersimpan — isi untuk mengganti, “-” untuk menghapus' : 'token dari @BotFather'}" autocomplete="off"></details>` : ''}
 <label class="row" style="margin:4px 0"><span>Kirim laporan harian otomatis</span><input id="ron" type="checkbox" style="width:24px;height:24px" ${c.on !== false ? 'checked' : ''}></label>
 <div class="fm2"><label><small class="mu">Jam kirim</small><select id="rh">${H.map((h) => `<option value="${h}" ${(c.h || 0) == h ? 'selected' : ''}>${String(h).padStart(2, '0')}:05${h == 0 ? ' (pergantian hari)' : h < 12 ? ' · lap. kemarin' : ' · lap. hari ini'}</option>`).join('')}</select></label>
 <label><small class="mu">Zona waktu toko</small><select id="rtz">${[[7, 'WIB'], [8, 'WITA'], [9, 'WIT']].map(([v, n]) => `<option value="${v}" ${(c.tz || 8) == v ? 'selected' : ''}>${n}</option>`).join('')}</select></label></div>
@@ -74,7 +75,8 @@ ${tgN ? '<div class="wrap"><button class="gh" onclick="tgUnlink()">Putuskan semu
 async function rptSave() {
   if (!S.srv || !canNet()) return toast('Butuh internet');
   const b = { wa: $('#rwa').value, em: $('#rem').value, on: $('#ron').checked, h: +$('#rh').value, tz: +$('#rtz').value, close: $('#rcl').checked, due: $('#rdue').checked, tok: $('#rtk').value.trim() };
-  try { const r = await api('/api/rpt', { method: 'PUT', body: JSON.stringify(b) }); RPTX = r; LS.set('jpos:rpt:' + SID, { wa: (r.cfg.wa || [])[0] || '', gw: r.gw, cfg: r.cfg, tgN: r.tgN }); toast('Pengaturan laporan disimpan'); R(); } catch (e) { toast(e.message); }
+  if ($('#rtgtk')) b.tgtok = $('#rtgtk').value.trim();
+  try { const r = await api('/api/rpt', { method: 'PUT', body: JSON.stringify(b) }); RPTX = r; LS.set('jpos:rpt:' + SID, { wa: (r.cfg.wa || [])[0] || '', gw: r.gw, cfg: r.cfg, tgN: r.tgN, ownBot: r.ownBot }); toast('Pengaturan laporan disimpan'); R(); } catch (e) { toast(e.message); }
 }
 // hubungkan akun Telegram pemilik: minta kode sekali-pakai lalu buka bot dengan deep-link /start=<kode>
 async function tgLink() {

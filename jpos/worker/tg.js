@@ -1,8 +1,11 @@
 // ============ NOTIFIKASI TELEGRAM (piutang, utang, laporan) ============
-// Satu bot Telegram dipakai bersama semua toko (token diatur Head Admin, sekali saja).
+// Dua mode: (1) satu bot bersama dipakai semua toko (diatur Head Admin di /api/tg/hook), atau
+// (2) bot sendiri per toko — khusus paket High · Distributor, supaya laporan 1 toko 1 bot, tidak
+// pernah tercampur dengan toko lain walau toko itu dikelola orang yang sama (/api/tg/hook/<sid>).
 // Tiap toko menghubungkan chat Telegram-nya sendiri lewat kode sekali-pakai (tombol "Hubungkan Telegram"
-// di Pengaturan → link https://t.me/<bot>?start=<kode> → webhook ini mencatat chat_id ke toko yang benar).
-// Tanpa ini, chat_id tiap toko tidak pernah tercampur — kode kedaluwarsa 15 menit & sekali pakai.
+// di Pengaturan → link https://t.me/<bot>?start=<kode> → webhook mencatat chat_id ke toko yang benar,
+// lewat bot bersama ATAU bot sendiri toko itu — kode kedaluwarsa 15 menit & sekali pakai, sudah cukup
+// aman tanpa perlu dicocokkan lagi ke sid URL karena kode sendiri sudah mengunci ke 1 toko tertentu).
 export const TGSCHEMA = ['CREATE TABLE IF NOT EXISTS tglink(code TEXT PRIMARY KEY,sid TEXT NOT NULL,t INTEGER NOT NULL)'];
 const TG_LINK_TTL = 15 * 60000;
 
@@ -27,10 +30,12 @@ export async function tgLinkCode(env, sid) {
   await env.DB.prepare('INSERT OR REPLACE INTO tglink(code,sid,t) VALUES(?,?,?)').bind(code, sid, Date.now()).run();
   return code;
 }
-// webhook Telegram: tiap update (pesan masuk ke bot) dikirim Telegram ke sini
-export async function tgHook(env, b, CFG, J) {
+// webhook Telegram: tiap update (pesan masuk ke bot) dikirim Telegram ke sini.
+// tok = token bot YANG MENERIMA update ini (bot bersama atau bot sendiri toko) — hanya dipakai utk
+// membalas chat; tidak memengaruhi toko mana yang tersambung (itu ditentukan murni oleh kode /start).
+export async function tgHook(env, b, tok, J) {
   try {
-    const msg = b && b.message; const chatId = msg && msg.chat && msg.chat.id; const tok = CFG.tg_tok;
+    const msg = b && b.message; const chatId = msg && msg.chat && msg.chat.id;
     if (!chatId) return J({ ok: 1 });
     const m = String(msg.text || '').trim().match(/^\/start(?:@\w+)?\s*([A-Za-z0-9]{4,10})?/);
     const code = m && m[1] ? m[1].toUpperCase() : '';

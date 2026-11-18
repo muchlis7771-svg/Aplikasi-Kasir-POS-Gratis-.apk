@@ -187,10 +187,19 @@ export default {
       if (p == '/api/tunnel/export' && M == 'GET') return webExport(env, u, ip, J, await cfgAll(env), limited);
       if (p == '/api/trk/loc' && M == 'POST') return trkLoc(env, b, bearer, ip, J, (tk) => verify(env, tk), limited); // titik lokasi dari pelacak HP (token khusus)
       if (p == '/api/geo/reverse' && M == 'GET') return geoReverse(env, u, ip, J, limited); // alamat dari koordinat (dicache di D1), dipakai saat tambah outlet
-      if (p == '/api/tg/hook' && M == 'POST') { // webhook Telegram: pesan masuk ke bot notifikasi J-POS
+      if (p == '/api/tg/hook' && M == 'POST') { // webhook bot BERSAMA (Head Admin) — dipakai toko tanpa bot sendiri
         const C0 = await cfgAll(env); const sec = req.headers.get('X-Telegram-Bot-Api-Secret-Token');
         if (C0.tg_sec && sec !== C0.tg_sec) return J({ ok: 1 }); // token rahasia tidak cocok → diabaikan diam-diam
-        return tgHook(env, b, C0, J);
+        return tgHook(env, b, C0.tg_tok, J);
+      }
+      if (p.startsWith('/api/tg/hook/') && M == 'POST') { // webhook bot SENDIRI milik 1 toko (High · Distributor)
+        const sid2 = p.slice('/api/tg/hook/'.length);
+        const s2 = sid2 && (await env.DB.prepare('SELECT rpt FROM stores WHERE id=?').bind(sid2).first());
+        if (!s2) return J({ ok: 1 });
+        let rc2 = {}; try { rc2 = s2.rpt ? JSON.parse(s2.rpt) : {}; } catch (e) { }
+        const sec2 = req.headers.get('X-Telegram-Bot-Api-Secret-Token');
+        if (rc2.tg_sec && sec2 !== rc2.tg_sec) return J({ ok: 1 });
+        return tgHook(env, b, rc2.tg_tok, J);
       }
       if (p == '/api/ping') return J({ ok: 1, v: 5 });
       if (p == '/api/time') return J({ t: Date.now() });
@@ -438,8 +447,8 @@ export default {
       if (p.startsWith('/api/rpt') || p == '/api/snap' || p == '/api/notif/due') {
         const srow = await env.DB.prepare('SELECT id,name,rpt FROM stores WHERE id=?').bind(sid).first(), rc = rptCfg(srow), C = await cfgAll(env);
         if (p == '/api/snap' && M == 'POST') { const d = JSON.stringify(b.d || {}); if (d.length > 30000) return J({ e: 'terlalu besar' }, 400); await env.DB.prepare('INSERT INTO snap(store_id,t,data) VALUES(?,?,?) ON CONFLICT(store_id) DO UPDATE SET t=excluded.t,data=excluded.data').bind(sid, Date.now(), d).run(); return J({ ok: 1 }); }
-        const gw = { wa: !!(rc.tok || C.wa_tok), mail: !!C.mail_key, tg: !!C.tg_tok };
-        if (p == '/api/rpt' && M == 'GET') return J({ cfg: role == 'owner' ? { ...rc, tok: rc.tok ? '••••' + rc.tok.slice(-4) : '' } : { close: !!rc.close, has: !!((rc.wa || []).length || (rc.em || []).length || (rc.tg || []).length) }, gw, wa: (rc.wa || [])[0] || '', tgN: (rc.tg || []).length });
+        const gw = { wa: !!(rc.tok || C.wa_tok), mail: !!C.mail_key, tg: !!(rc.tg_tok || C.tg_tok) };
+        if (p == '/api/rpt' && M == 'GET') return J({ cfg: role == 'owner' ? { ...rc, tok: rc.tok ? '••••' + rc.tok.slice(-4) : '', tg_tok: rc.tg_tok ? '••••' + rc.tg_tok.slice(-4) : '', tg_sec: undefined } : { close: !!rc.close, has: !!((rc.wa || []).length || (rc.em || []).length || (rc.tg || []).length) }, gw, wa: (rc.wa || [])[0] || '', tgN: (rc.tg || []).length, ownBot: rc.tg_bot || '' });
         if (p == '/api/rpt/push' && M == 'POST') { // closing kasir & laporan manual dari aplikasi
           if (!rc.close && b.kind == 'closing') return J({ ok: 0, off: 1 });
           if (await limited(env, 'rpt:' + sid, 40, 864e5)) return J({ e: 'Batas kirim laporan hari ini tercapai' }, 429);
@@ -448,7 +457,31 @@ export default {
         }
         if (p == '/api/notif/due' && M == 'POST') { if (!['owner', 'admin'].includes(role)) return J({ e: 'Khusus pemilik/admin' }, 403); return dueNotify(env, C, sid, srow.name, b, J); }
         if (role != 'owner') return J({ e: 'Khusus pemilik' }, 403);
-        if (p == '/api/rpt' && M == 'PUT') { const o = cleanCfg(b); if (b.tok === undefined || String(b.tok).startsWith('••••')) o.tok = rc.tok || ''; o.tg = rc.tg || []; await env.DB.prepare('UPDATE stores SET rpt=? WHERE id=?').bind(JSON.stringify(o), sid).run(); return J({ ok: 1, cfg: { ...o, tok: o.tok ? '••••' + o.tok.slice(-4) : '' }, gw: { wa: !!(o.tok || C.wa_tok), mail: !!C.mail_key, tg: !!C.tg_tok }, tgN: o.tg.length }); }
+        if (p == '/api/rpt' && M == 'PUT') {
+          const o = cleanCfg(b); if (b.tok === undefined || String(b.tok).startsWith('••••')) o.tok = rc.tok || ''; o.tg = rc.tg || [];
+          o.tg_tok = rc.tg_tok || ''; o.tg_bot = rc.tg_bot || ''; o.tg_sec = rc.tg_sec || '';
+          // bot Telegram sendiri per toko (opsional, khusus paket High) — 1 toko 1 bot, tidak berbagi dgn toko lain.
+          // Ganti/hapus bot sendiri selalu mengosongkan daftar chat terhubung (rc.tg): chat_id lama belum tentu
+          // pernah /start ke bot yang baru dipakai, jadi harus dihubungkan ulang supaya tidak diam-diam berhenti kirim.
+          if (b.tgtok !== undefined && String(b.tgtok).trim() !== '' && !String(b.tgtok).startsWith('••••')) {
+            const v = String(b.tgtok).trim();
+            if (v == '-') { o.tg_tok = ''; o.tg_bot = ''; o.tg_sec = ''; o.tg = []; }
+            else {
+              if (!stInfo(me).pf.split(' ').includes('tg')) return J({ e: 'Notifikasi Telegram khusus paket High · Distributor' }, 403);
+              try {
+                const r1 = await (await fetch(`https://api.telegram.org/bot${v}/getMe`)).json();
+                if (!r1.ok) return J({ e: 'Token bot Telegram tidak valid: ' + (r1.description || '') }, 400);
+                const sec2 = b64(crypto.getRandomValues(new Uint8Array(24)));
+                const hookUrl2 = new URL('/api/tg/hook/' + sid, env.PUBLIC_API_ORIGIN || req.url).href;
+                const hk = await tgSetWebhook(v, hookUrl2, sec2);
+                if (!hk.ok) return J({ e: 'Gagal mendaftarkan webhook Telegram: ' + (hk.e || '') + ' (url: ' + hookUrl2 + ')' }, 400);
+                o.tg_tok = v; o.tg_bot = r1.result.username; o.tg_sec = sec2; o.tg = [];
+              } catch (e) { return J({ e: 'Gagal menghubungi Telegram: ' + String(e.message || e).slice(0, 150) }, 400); }
+            }
+          }
+          await env.DB.prepare('UPDATE stores SET rpt=? WHERE id=?').bind(JSON.stringify(o), sid).run();
+          return J({ ok: 1, cfg: { ...o, tok: o.tok ? '••••' + o.tok.slice(-4) : '', tg_tok: o.tg_tok ? '••••' + o.tg_tok.slice(-4) : '' }, gw: { wa: !!(o.tok || C.wa_tok), mail: !!C.mail_key, tg: !!(o.tg_tok || C.tg_tok) }, tgN: o.tg.length, ownBot: o.tg_bot || '' });
+        }
         if (p == '/api/rpt/test' && M == 'POST') {
           if (!b.dry && await limited(env, 'rptt:' + sid, 10, 36e5)) return J({ e: 'Terlalu sering, coba lagi nanti' }, 429);
           const R = dayRange(rc.tz || 8, Date.now(), 0), text = await buildDaily(env, sid, srow.name, rc.tz || 8, R, Date.now());
@@ -456,8 +489,9 @@ export default {
         }
         if (p == '/api/rpt/tg/code' && M == 'POST') { // kode sekali-pakai utk tombol "Hubungkan Telegram" di Pengaturan
           if (!stInfo(me).pf.split(' ').includes('tg')) return J({ e: 'Notifikasi Telegram tidak termasuk paket ' + pkgOf(me.tier).n + ' — khusus paket High · Distributor' }, 403);
-          if (!C.tg_tok || !C.tg_bot) return J({ e: 'Telegram belum diaktifkan pemilik aplikasi' }, 400);
-          return J({ ok: 1, code: await tgLinkCode(env, sid), bot: C.tg_bot });
+          const bot = rc.tg_bot || C.tg_bot; // bot sendiri toko (kalau diatur) lebih diutamakan dari bot bersama
+          if (!bot) return J({ e: 'Telegram belum diaktifkan. Atur bot Telegram sendiri di bawah, atau hubungi pemilik aplikasi.' }, 400);
+          return J({ ok: 1, code: await tgLinkCode(env, sid), bot });
         }
         if (p == '/api/rpt/tg/clear' && M == 'POST') { const o = { ...rc, tg: [] }; await env.DB.prepare('UPDATE stores SET rpt=? WHERE id=?').bind(JSON.stringify(o), sid).run(); return J({ ok: 1 }); }
       }

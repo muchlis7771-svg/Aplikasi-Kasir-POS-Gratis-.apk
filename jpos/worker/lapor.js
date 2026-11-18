@@ -102,8 +102,9 @@ export async function sendOut(env, CFG, rc, text, subject) {
     } catch (e) { out.push({ ch: 'email', ok: 0, e: String(e.message || e).slice(0, 120) }); }
   }
   if ((rc.tg || []).length) {
-    if (!CFG.tg_tok) out.push({ ch: 'tg', ok: 0, e: 'bot Telegram belum diatur' });
-    else out.push(await tgSendAll(CFG.tg_tok, rc.tg, text));
+    const tgTok = rc.tg_tok || CFG.tg_tok; // bot sendiri toko (kalau diatur) lebih diutamakan dari bot bersama
+    if (!tgTok) out.push({ ch: 'tg', ok: 0, e: 'bot Telegram belum diatur' });
+    else out.push(await tgSendAll(tgTok, rc.tg, text));
   }
   return out;
 }
