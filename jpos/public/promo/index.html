@@ -59,6 +59,11 @@ section{padding:46px 0}.sh{text-align:center;margin-bottom:26px}.sh h2{font-size
 .app ul{list-style:none;display:grid;gap:8px;font-size:14.5px;color:#2b3350;margin:4px 0}.app li:before{content:"✓";color:var(--teal);font-weight:800;margin-right:9px}
 .meta{display:flex;gap:8px;flex-wrap:wrap}.chip{font-size:12px;border:1px solid var(--line);border-radius:999px;padding:4px 10px;color:var(--mu)}
 .app .act{display:flex;gap:9px;flex-wrap:wrap;margin-top:auto;padding-top:6px}
+/* video demo */
+.vgrid{display:grid;grid-template-columns:1fr 1fr;gap:18px}@media(max-width:820px){.vgrid{grid-template-columns:1fr}}
+.vcard{background:var(--card);border:1px solid var(--line);border-radius:22px;overflow:hidden;box-shadow:0 1px 2px #0b1a3a08,0 16px 34px -24px #0b1a3a30}
+.vcard video{width:100%;max-height:520px;background:#000;display:block}
+.vcard .vbody{padding:20px 22px}.vcard h3{font-size:19px;margin:8px 0 8px}.vcard p{color:var(--mu);font-size:14.5px;margin-bottom:14px}
 .three{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}@media(max-width:760px){.three{grid-template-columns:1fr}}
 .tc{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:20px;box-shadow:0 1px 2px #0b1a3a08}.tc i{font-style:normal;font-size:26px}.tc h3{margin:8px 0 6px;font-size:17px}.tc p{color:var(--mu);font-size:14px}
 .steps{counter-reset:s;display:grid;grid-template-columns:repeat(4,1fr);gap:12px}@media(max-width:820px){.steps{grid-template-columns:1fr 1fr}}
@@ -71,13 +76,20 @@ dialog h3{font-size:20px;margin-bottom:4px}dialog p{color:var(--mu);font-size:14
 dialog label{display:block;font-size:12.5px;color:var(--mu);margin:10px 0 4px}dialog input{width:100%;padding:13px 14px;border-radius:12px;border:1px solid #d7deee;background:#fbfcfe;color:var(--ink);font:600 15px system-ui,sans-serif}dialog input:focus{outline:2px solid var(--gold);border-color:transparent}
 .err{color:#d1484d;font-size:13px;min-height:18px;margin-top:8px}.row{display:flex;gap:9px;margin-top:14px}.row .btn{flex:1}
 .note{font-size:12px;color:var(--mu);margin-top:10px}
+/* chat ke Head Admin */
+#chBtn{position:fixed;right:16px;bottom:16px;z-index:31;border:0;cursor:pointer;font:700 14px inherit;padding:12px 18px;border-radius:99px;background:#ffffff;color:var(--ink);border:1px solid #b6842a60;box-shadow:0 14px 30px -10px #0b1a3a30}#chBtn b{background:#e5484d;color:#fff;border-radius:99px;padding:1px 7px;margin-left:6px;font-size:12px}#chBtn b[hidden]{display:none}
+#chP{position:fixed;right:16px;bottom:72px;z-index:32;width:min(360px,100vw - 32px);height:min(520px,calc(100vh - 110px));display:none;flex-direction:column;background:var(--bg2);border:1px solid #b6842a4a;border-radius:20px;box-shadow:0 30px 60px -20px #0b1a3a30;overflow:hidden}#chP.on{display:flex}
+#chP header{position:static;padding:14px 16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;backdrop-filter:none;background:none}#chP header b{font-weight:700;font-size:16px;color:#6b4a12}#chP header small{display:block;color:var(--mu);font-size:11.5px}#chP header button{background:none;border:0;color:var(--mu);font-size:20px;cursor:pointer}
+#chM{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:8px}.cm{max-width:84%;padding:9px 13px;border-radius:14px;font-size:14px;white-space:pre-wrap;word-break:break-word;line-height:1.5}.cm.v{align-self:flex-end;background:linear-gradient(135deg,#e6c878,#c9a24a);color:#1c1607}.cm.a{align-self:flex-start;background:#eef1fb;color:var(--ink)}.cm.b{align-self:flex-start;background:#f3f6fc;border:1px dashed #c7d3ec;color:#3a4568}.cm small{display:block;font-size:10.5px;opacity:.7;margin-bottom:2px}
+#chQ{display:flex;gap:6px;flex-wrap:wrap;padding:0 14px 8px}#chQ button{background:none;border:1px solid #b6842a4a;color:var(--gold2);border-radius:99px;padding:5px 11px;font-size:12.5px;cursor:pointer}
+#chF{display:flex;gap:8px;padding:12px;border-top:1px solid var(--line)}#chF input{flex:1;background:#fbfcfe;color:var(--ink);border:1px solid #d7deee;border-radius:99px;padding:10px 15px;font:inherit}#chF button{border:0;background:linear-gradient(135deg,#f0d88f,#c9a24a);color:#1c1607;border-radius:99px;padding:0 16px;font-weight:800;cursor:pointer}
 </style>
 </head>
 <body>
 <header><div class="wrap nav">
   <a class="brand" href="#top" aria-label="HomeTech"><svg viewBox="0 0 32 32" fill="none"><path d="M16 3 3 14h4v13h18V14h4L16 3Z" fill="url(#g)"/><rect x="12" y="15" width="8" height="8" rx="1.6" fill="#0b1330"/><path d="M14 18h4M14 20.5h4" stroke="#d4ae52" stroke-width="1.4" stroke-linecap="round"/><defs><linearGradient id="g" x1="3" y1="3" x2="29" y2="27"><stop stop-color="#f2d27d"/><stop offset="1" stop-color="#c9a24a"/></linearGradient></defs></svg><span>Home<b>Tech</b></span></a>
   <nav><a href="#aplikasi">Aplikasi</a><a href="#keunggulan">Keunggulan</a><a href="#cara">Cara Mulai</a><a href="#faq">FAQ</a></nav>
-  <a class="btn g s dlnav" href="#aplikasi">⬇ Unduh</a>
+  <a class="btn o s" href="/">Masuk / Daftar</a><a class="btn g s dlnav" href="#aplikasi">⬇ Unduh</a>
 </div></header>
 
 <main id="top">
@@ -85,7 +97,7 @@ dialog label{display:block;font-size:12.5px;color:var(--mu);margin:10px 0 4px}di
   <span class="eyebrow">Solusi digital untuk usaha Indonesia</span>
   <h1>Satu rumah, <span class="gold">dua aplikasi</span><br>untuk usaha yang lebih rapi</h1>
   <p class="lead">Kelola kasir, stok, dan keuangan dengan <b>J-POS</b>. Olah laporan distributor jadi omset, outlet aktif, dan grafik otomatis dengan <b>J-DATA Report</b>. Coba gratis 30 hari.</p>
-  <div class="cta"><a class="btn g" href="#aplikasi">⬇ Unduh Aplikasi</a><a class="btn o" href="jpos.html">Lihat detail & harga J-POS</a></div>
+  <div class="cta"><a class="btn g" href="#aplikasi">⬇ Unduh Aplikasi</a><a class="btn o" href="jpos.html">Lihat detail & harga J-POS</a><a class="btn o" href="/">Masuk / Daftar Akun</a></div>
   <div class="trust"><span>Gratis coba 30 hari</span><span>Data tersimpan aman</span><span>Tanpa biaya pemasangan</span><span>Dukungan lewat WhatsApp</span></div>
 
   <div class="slides" id="slides" aria-roledescription="carousel">
@@ -100,6 +112,20 @@ dialog label{display:block;font-size:12.5px;color:var(--mu);margin:10px 0 4px}di
     <div class="dots" id="dots"></div>
   </div>
 </div></div>
+
+<section id="video"><div class="wrap">
+  <div class="sh"><span class="eyebrow">Lihat langsung</span><h2>Video <span class="gold">demo</span> aplikasi</h2><p>Tonton cara kerja J-POS dan J-DATA Report, langsung dari rekaman HP sungguhan.</p></div>
+  <div class="vgrid">
+    <article class="vcard">
+      <video controls preload="metadata" poster="video/jpos-demo-poster.jpg" playsinline><source src="video/jpos-demo.mp4" type="video/mp4"></video>
+      <div class="vbody"><span class="tag">J-POS · Kasir &amp; Usaha</span><h3>Transaksi, stok, sampai laporan — dalam satu aplikasi</h3><p>Alur kasir J-POS dari transaksi, cetak struk, cek stok, sampai laporan keuangan harian yang masuk otomatis ke WhatsApp pemilik.</p><a class="btn o s" href="jpos.html">Detail &amp; harga J-POS →</a></div>
+    </article>
+    <article class="vcard">
+      <video controls preload="metadata" poster="video/jdata-demo-poster.jpg" playsinline><source src="video/jdata-demo.mp4" type="video/mp4"></video>
+      <div class="vbody"><span class="tag">J-DATA Report · Laporan Distributor</span><h3>File Excel distributor jadi laporan siap kirim</h3><p>J-DATA Report mengolah file penjualan jadi omset, Aktif Outlet, Efektif Call, dan grafik RO vs Actual secara otomatis — tinggal kirim ke grup WhatsApp.</p><a class="btn t s" href="#aplikasi">Unduh J-DATA Report →</a></div>
+    </article>
+  </div>
+</div></section>
 
 <section id="aplikasi"><div class="wrap">
   <div class="sh"><span class="eyebrow">Unduh aplikasi</span><h2>Pilih aplikasi untuk usaha Anda</h2><p>Keduanya untuk Android. Isi nama &amp; WhatsApp agar kami bisa membantu proses awal Anda.</p></div>
@@ -167,6 +193,14 @@ dialog label{display:block;font-size:12.5px;color:var(--mu);margin:10px 0 4px}di
   </form>
 </dialog>
 
+<button id="chBtn" type="button">💬 Chat Admin<b hidden id="chN">0</b></button>
+<div id="chP">
+  <header><div><b>Chat ke Admin HomeTech</b><small>Biasanya balas dalam beberapa menit</small></div><button id="chX" type="button" aria-label="Tutup">✕</button></header>
+  <div id="chM"></div>
+  <div id="chQ"></div>
+  <form id="chF"><input id="chI" maxlength="500" placeholder="Tulis pesan…" autocomplete="off" required><button type="submit">Kirim</button></form>
+</div>
+
 <script src="config.js"></script>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=tsOnload" defer></script>
 <script>
@@ -204,6 +238,30 @@ function tsTryRender() { if (TS_READY && TS_SITE && window.turnstile && !TS_W) T
     try { const r = await fetch('/api/dl/lead', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ app: app, name: n, phone: p, 'cf-turnstile-response': tsTok }) }); const j = await r.json().catch(function () { return {}; }); if (!r.ok) { $('#dE').textContent = j.e || 'Gagal, coba lagi.'; B.disabled = false; B.textContent = 'Mulai Unduh'; try { if (window.turnstile && TS_W != null) turnstile.reset(TS_W); } catch (e3) { } return; } if (j.url) url = j.url; try { localStorage.setItem('ht:me', JSON.stringify({ n: n, p: p })); } catch (e2) { } } catch (err) { /* jaringan bermasalah: unduhan tetap dilanjutkan */ }
     B.disabled = false; B.textContent = 'Mulai Unduh'; if (app == 'jdata') { $('#dE').textContent = 'Unduhan APK dimulai. Jangan lupa unduh panduan PDF di bawah ini.'; $('#dE').style.color = '#0a7'; location.href = url; return; } dlg.close(); location.href = url;
   };
+
+  // chat ke Head Admin
+  const ls = { g(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, s(k, v) { try { localStorage.setItem(k, v); } catch (e) { } } };
+  const T = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+  let cid = ls.g('ht_cid'); if (!/^[a-f0-9]{16}$/.test(cid || '')) { cid = [...crypto.getRandomValues(new Uint8Array(8))].map((x) => x.toString(16).padStart(2, '0')).join(''); ls.s('ht_cid', cid); }
+  let last = +ls.g('ht_last') || 0, seen = +ls.g('ht_seen') || 0, open = false, tm = 0, welcomed = false;
+  const M = $('#chM'), bubble = (who, txt) => { const d = T('div', 'cm ' + who); if (who == 'b') d.appendChild(T('small', '', 'Balasan otomatis')); if (who == 'a') d.appendChild(T('small', '', 'Admin HomeTech')); d.appendChild(document.createTextNode(txt)); M.appendChild(d); M.scrollTop = M.scrollHeight; };
+  function welcome() { if (welcomed) return; welcomed = true; bubble('b', 'Halo! 👋 Ada yang bisa kami bantu soal J-POS atau J-DATA Report? Pilih topik cepat di bawah, atau tulis pertanyaan Anda.'); const q = $('#chQ'); q.textContent = ''; [['Harga J-POS', 'Berapa harga J-POS?'], ['Cara pakai J-DATA', 'Bagaimana cara pakai J-DATA Report?'], ['Cara daftar', 'Bagaimana cara daftar akun?']].forEach(([l, t]) => { const b = T('button', '', l); b.type = 'button'; b.onclick = () => send(t); q.appendChild(b); }); }
+  async function poll() {
+    clearTimeout(tm); if (!document.hidden && ls.g('ht_started')) {
+      try { const j = await fetch('/api/chat/poll?cid=' + cid + '&after=' + last).then((r) => r.json()); (j.m || []).forEach((m) => { if (m.id <= last) return; last = m.id; if (m.who != 'v') { if (open) bubble(m.who, m.txt); else if (m.id > seen) { $('#chN').hidden = false; $('#chN').textContent = (+$('#chN').textContent || 0) + 1; } } }); ls.s('ht_last', last); if (open) { seen = last; ls.s('ht_seen', seen); } } catch (e) { }
+    }
+    tm = setTimeout(poll, open ? 4000 : 30000);
+  }
+  async function hist() { M.textContent = ''; last = 0; try { const j = await fetch('/api/chat/poll?cid=' + cid + '&after=0').then((r) => r.json()); (j.m || []).forEach((m) => { last = Math.max(last, m.id); bubble(m.who, m.txt); }); ls.s('ht_last', last); } catch (e) { } if (!M.childNodes.length) { welcomed = false; welcome(); } else { welcomed = true; } seen = last; ls.s('ht_seen', seen); }
+  async function send(t) {
+    t = String(t || '').trim(); if (!t) return; bubble('v', t); $('#chQ').textContent = ''; ls.s('ht_started', '1');
+    try { const j = await fetch('/api/chat/send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ cid, text: t, name: ls.g('ht_name') || '' }) }).then((r) => r.json()); if (!j || !j.ok) bubble('b', (j && j.e) || 'Pesan belum terkirim. Coba lagi atau hubungi lewat WhatsApp.'); } catch (x) { bubble('b', 'Koneksi bermasalah. Anda bisa menghubungi kami lewat WhatsApp.'); }
+    setTimeout(poll, 1200);
+  }
+  $('#chBtn').onclick = async () => { open = !open; $('#chP').classList.toggle('on', open); if (open) { $('#chN').hidden = true; $('#chN').textContent = '0'; await hist(); $('#chI').focus(); poll(); } };
+  $('#chX').onclick = () => { open = false; $('#chP').classList.remove('on'); poll(); };
+  $('#chF').addEventListener('submit', (e) => { e.preventDefault(); const i = $('#chI'), t = i.value; i.value = ''; if (!ls.g('ht_name')) { const m = /(?:nama (?:saya|aku)|saya|aku)\s+([A-Za-zÀ-ÿ' ]{2,30})/i.exec(t); if (m) ls.s('ht_name', m[1].trim()); } send(t); });
+  poll();
 })();
 </script>
 </body>
