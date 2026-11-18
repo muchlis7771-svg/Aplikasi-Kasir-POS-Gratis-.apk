@@ -1,7 +1,7 @@
 'use strict';
 /* ============ CETAK STRUK: printer thermal Bluetooth (BLE langsung / RawBT untuk Bluetooth klasik, USB, LAN),
    faktur besar A4/A5 (PDF), dan bagikan teks. Format ESC/POS 58mm (32 kolom) / 80mm (48 kolom). ============ */
-const PRN = Object.assign({ mode: (typeof isNative == 'function' && !isNative() ? 'a4' : 'rawbt'), paper: 58, auto: false, ble: null, copies: 1, logo: true, foot: 'Terima kasih 🙏' }, LS.get('jpos:prn', {}));
+const PRN = Object.assign({ mode: (typeof isNative == 'function' && !isNative() ? 'a4' : 'rawbt'), paper: 58, auto: false, ble: null, copies: 1, logo: true, foot: 'Terima kasih 🙏', set: false }, LS.get('jpos:prn', {}));
 const prnSave = () => LS.set('jpos:prn', PRN);
 const COLS = () => (PRN.paper == 80 ? 48 : 32);
 const ascii = (s) => String(s ?? '').normalize('NFKD').replace(/[−–—]/g, '-').replace(/[^\x20-\x7E\n]/g, '');
@@ -135,6 +135,10 @@ async function printReceipt(s, how, doc) {
     else await rawbt(data);
   } catch (e) { toast(e.message || 'Gagal mencetak', 5000); }
 }
+// cetak langsung pakai printer yang sudah dipilih (tanpa menu tiap kali) — pertama kali belum ada
+// printer tersimpan, tampilkan menu sekali untuk memilih; setelah itu langsung cetak ke printer itu.
+// Butuh printer lain sesekali? tombol "⋯" di sebelah tombol cetak selalu membuka menu pilihan.
+function quickPrint(s, doc) { if (!PRN.set) return printMenu(s, doc); printReceipt(s, null, doc); }
 function printMenu(s, doc) {
   doc = doc || 'faktur'; s = S.sales.find((x) => x.no == s.no) || s;
   const c = s.cu ? cust(s.cu) : null;
@@ -147,28 +151,33 @@ function printMenu(s, doc) {
   const m = modal(`<h3>🖨️ Cetak ${esc(s.no)}</h3><small class="mu">${esc(s.cn || 'Pelanggan umum')} · ${rp(s.tot)} · ${sOut(s) > 0 ? '<b class="or">belum lunas ' + rp(sOut(s)) + '</b>' : '<b class="gr">lunas</b>'}</small>
 <div class="seg" style="margin:6px 0"><button data-d="faktur" class="${doc == 'faktur' ? 'a' : ''}">🧾 Faktur (dengan harga)</button><button data-d="sj" class="${doc == 'sj' ? 'a' : ''}">📦 Surat jalan (gudang & dropping)</button></div>
 ${G.map((g) => `<b style="font-size:12px;margin-top:4px">${g[0]}</b><div class="mg pmg">${g[1].map((x) => `<button data-h="${x[0]}" class="${PRN.mode == x[0] ? 'a' : ''}"><i>${x[1]}</i><b>${x[2]}</b><small>${x[3]}</small></button>`).join('')}</div>`).join('')}
-<label class="row" style="margin:4px 0"><span>Jadikan printer utama</span><input type="checkbox" id="pdef" style="width:22px;height:22px"></label><button class="gh" id="ps">⚙️ Pengaturan printer & cetak tes</button>`, 'w');
+<label class="row" style="margin:4px 0"><span>Jadikan printer utama (langsung cetak tanpa menu ini lagi)</span><input type="checkbox" id="pdef" style="width:22px;height:22px" checked></label><button class="gh" id="ps">⚙️ Pengaturan printer & cetak tes</button>`, 'w');
   $$('[data-d]', m).forEach((b) => (b.onclick = () => { m.close(); printMenu(s, b.dataset.d); }));
   $$('[data-h]', m).forEach((b) => (b.onclick = () => {
     if (b.dataset.h == 'wa') { m.close(); const L = receiptLines(s, doc); window.open(waLink(c.ph, linesText(L)), '_blank'); return; }
-    if ($('#pdef', m).checked && !['pdf', 'text'].includes(b.dataset.h)) { PRN.mode = b.dataset.h; prnSave(); } m.close(); printReceipt(s, b.dataset.h, doc);
+    if (!['pdf', 'text'].includes(b.dataset.h)) { PRN.set = true; if ($('#pdef', m).checked) PRN.mode = b.dataset.h; prnSave(); } m.close(); printReceipt(s, b.dataset.h, doc);
   }));
   $('#ps', m).onclick = () => { m.close(); printerSettings(); };
 }
 function printerSettings() {
-  const m = modal(`<h3>🖨️ Pengaturan printer</h3><label><small class="mu">Cara cetak utama</small><select id="pm">${sysPrint() ? '<option value="tw">Thermal USB / Bluetooth (printer Windows)</option>' : '<option value="rawbt">Thermal via RawBT (Bluetooth klasik / USB / LAN)</option><option value="ble">Thermal Bluetooth BLE langsung</option>'}<option value="a4">Faktur A4 · printer tinta/laser</option><option value="a5">Faktur A5 · printer tinta/laser</option><option value="cf">Faktur dot matrix 9½×11" (continuous form)</option><option value="cf2">Faktur dot matrix ½ (9½×5½")</option><option value="text">Bagikan teks</option></select></label>
-<div class="cd info" style="padding:10px"><small><b>Printer tinta / laser / dot matrix di laptop</b>: pasang driver printer di Windows (mis. Epson LX-310 / LQ-2190), lalu pilih format faktur di atas — dialog printer langsung terbuka. Untuk dot matrix pilih ukuran kertas <i>Fanfold 9½ × 11 in</i> di pengaturan printer Windows.<br><b>Di HP</b>: faktur A4/A5/dot matrix dibuat PDF, lalu bagikan ke aplikasi printer (mis. aplikasi bawaan printer Epson/Canon/HP) atau pilih <i>Cetak</i>.</small></div>
-<label><small class="mu">Lebar kertas thermal</small><select id="pp"><option value="58">58 mm (32 karakter)</option><option value="80">80 mm (48 karakter)</option></select></label>
+  const m = modal(`<h3>🖨️ Pengaturan printer</h3><small class="mu">Pilih sekali, lalu struk/faktur langsung cetak ke printer ini — tidak perlu pilih ulang setiap transaksi.</small>
+<label><small class="mu">Cara cetak utama</small><select id="pm">${sysPrint() ? '<option value="tw">Thermal USB / Bluetooth (printer Windows)</option>' : '<option value="rawbt">Thermal via RawBT (Bluetooth klasik / USB / LAN)</option><option value="ble">Thermal Bluetooth BLE langsung</option>'}<option value="a4">Faktur A4 · printer tinta/laser</option><option value="a5">Faktur A5 · printer tinta/laser</option><option value="cf">Faktur dot matrix 9½×11" (continuous form)</option><option value="cf2">Faktur dot matrix ½ (9½×5½")</option><option value="text">Bagikan teks</option></select></label>
+<div class="cd info" style="padding:10px"><small><b>Printer tinta / laser / dot matrix di laptop</b>: pasang driver printer di Windows (mis. Epson LX-310 / LQ-2190), lalu pilih format faktur di atas — dialog printer langsung terbuka. Untuk dot matrix pilih ukuran kertas <i>Fanfold 9½ × 11 in</i> di pengaturan printer Windows.<br><b>Di HP</b>: faktur A4/A5/dot matrix dibuat PDF, lalu bagikan ke aplikasi printer (mis. aplikasi bawaan printer Epson/Canon/HP) atau pilih <i>Cetak</i>.<br><b>Printer thermal Bluetooth biasa</b>: pasang aplikasi gratis RawBT dari Play Store, sambungkan printer di RawBT sekali, lalu pilih mode RawBT di atas.</small></div>
+<label id="ppw"><small class="mu">Lebar kertas thermal</small><select id="pp"><option value="58">58 mm (32 karakter)</option><option value="80">80 mm (48 karakter)</option></select></label>
+<details><summary style="cursor:pointer;padding:6px 0"><small class="mu">⚙️ Pengaturan lanjutan (opsional)</small></summary>
 <label><small class="mu">Jumlah salinan</small><input id="pc" type="number" min="1" max="5" value="${PRN.copies}"></label>
 <label><small class="mu">Kalimat penutup struk</small><input id="pf" value="${esc(PRN.foot)}"></label>
 <label class="row"><span>Cetak otomatis setelah transaksi</span><input type="checkbox" id="pa" ${PRN.auto ? 'checked' : ''}></label>
-<div class="cd info" style="padding:10px"><small><b>Printer Bluetooth biasa (kebanyakan printer thermal murah)</b>: pasang aplikasi gratis <b>RawBT</b> dari Play Store, sambungkan printer di RawBT sekali, lalu pilih mode RawBT. RawBT juga mendukung printer USB (OTG) dan Wi-Fi/LAN.<br><b>Printer BLE</b>: tekan tombol di bawah untuk memilih printer.</small></div>
 <button class="gh" id="pb">📶 Pilih printer BLE ${PRN.ble ? '(' + esc(PRN.ble.name) + ')' : ''}</button><a class="gh" target="_blank" href="https://play.google.com/store/apps/details?id=ru.a402d.rawbtprinter">⬇ RawBT di Play Store</a>
-<b style="font-size:12px">🧪 Cetak tes</b><div class="wrap">${(sysPrint() ? [['tw', 'Thermal']] : [['rawbt', 'Thermal RawBT'], ['ble', 'Thermal BLE']]).concat([['a4', 'A4'], ['cf', 'Dot matrix']]).map((x) => `<button class="gh" data-t="${x[0]}">${x[1]}</button>`).join('')}</div><button class="pr" id="ok">Simpan</button>`);
+<b style="font-size:12px">🧪 Cetak tes</b><div class="wrap">${(sysPrint() ? [['tw', 'Thermal']] : [['rawbt', 'Thermal RawBT'], ['ble', 'Thermal BLE']]).concat([['a4', 'A4'], ['cf', 'Dot matrix']]).map((x) => `<button class="gh" data-t="${x[0]}">${x[1]}</button>`).join('')}</div>
+</details><button class="pr" id="ok">Simpan</button>`);
   $('#pm', m).value = PRN.mode; $('#pp', m).value = String(PRN.paper);
-  const read = () => { PRN.mode = $('#pm', m).value; PRN.paper = +$('#pp', m).value; PRN.copies = Math.max(1, Math.min(5, num($('#pc', m).value) || 1)); PRN.foot = $('#pf', m).value; PRN.auto = $('#pa', m).checked; prnSave(); };
-  $('#pb', m).onclick = async () => { try { const p = await blePick(); toast('Printer terhubung: ' + p.name); $('#pb', m).textContent = '📶 ' + p.name; $('#pm', m).value = 'ble'; } catch (e) { toast(e.message || 'Gagal memilih printer', 5000); } };
+  const thermalModes = ['tw', 'rawbt', 'ble'];
+  const syncPaper = () => { $('#ppw', m).style.display = thermalModes.includes($('#pm', m).value) ? '' : 'none'; };
+  syncPaper(); $('#pm', m).onchange = syncPaper;
+  const read = () => { PRN.mode = $('#pm', m).value; PRN.paper = +$('#pp', m).value; PRN.copies = Math.max(1, Math.min(5, num($('#pc', m).value) || 1)); PRN.foot = $('#pf', m).value; PRN.auto = $('#pa', m).checked; PRN.set = true; prnSave(); };
+  $('#pb', m).onclick = async () => { try { const p = await blePick(); toast('Printer terhubung: ' + p.name); $('#pb', m).textContent = '📶 ' + p.name; $('#pm', m).value = 'ble'; syncPaper(); } catch (e) { toast(e.message || 'Gagal memilih printer', 5000); } };
   const TES = () => ({ no: 'TES-001', t: Date.now(), u: U ? U.n : 'Kasir', cn: 'Toko Contoh', L: [{ id: '-', n: 'Produk contoh panjang namanya', q: 2, p: 15000, dd: 1500, tier: '5' }, { id: '-', n: 'Barang kedua', q: 10, p: 4500, dd: 0 }], sub: 75000, disc: 1500, tax: 0, tot: 73500, pay: 'Tunai', pa: 73500, pays: [] });
   $$('[data-t]', m).forEach((b) => (b.onclick = () => { read(); printReceipt(TES(), b.dataset.t); }));
-  $('#ok', m).onclick = () => { read(); m.close(); toast('Pengaturan printer disimpan'); };
+  $('#ok', m).onclick = () => { read(); m.close(); toast('Pengaturan printer disimpan — struk berikutnya langsung cetak ke sini'); };
 }

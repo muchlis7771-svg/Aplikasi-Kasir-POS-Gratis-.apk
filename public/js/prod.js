@@ -132,10 +132,20 @@ function stkForm(id) {
     }
   };
 }
+// satu kali scan = isi 1 (bukan ditambah terus tiap kali ter-scan ulang). Kalau produk itu sudah pernah discan di sesi
+// opname ini, scan ulang cuma kasih tahu nilainya sekarang — jumlah fisik yang sebenarnya diisi/diubah manual di kolom
+// angkanya. Dipakai baik oleh kamera (scanCode) maupun scanner eksternal USB/Bluetooth (lihat hidDispatch di native.js).
+function opnameScanHandle(v) {
+  const p = bySku(v); if (!p) { toast('SKU tidak dikenal: ' + v); return false; }
+  const el = document.getElementById('o' + p.id); if (!el) return false;
+  el.scrollIntoView({ block: 'center' });
+  if (el.value !== '') return p.n + ' sudah discan · nilai sekarang ' + el.value + ' — ubah manual jika perlu';
+  el.value = 1; return p.n + ': 1 (ubah manual jika perlu)';
+}
 function opnameForm(isIng) {
   const L = (isIng ? ingProds() : actProds()).sort((a, b) => a.n.localeCompare(b.n));
   const m = modal(`<h3>Opname stok${isIng ? ' bahan baku' : ''}</h3><small class="mu">Isi jumlah fisik hasil hitung. Kosongkan jika tidak dihitung. Selisih otomatis dijurnal (Selisih Stok).</small><button class="gh" id="osc">▣ Scan untuk mengisi</button><div class="ov" style="max-height:48vh"><table>${L.map((p) => `<tr data-id="${p.id}"><td>${esc(p.n)}<br><small>${esc(p.sku || '')}</small><td class="n">${p.st}<td><input type="number" id="o${p.id}" style="width:80px" placeholder="fisik"></tr>`).join('')}</table></div><button class="pr" id="ok">Simpan selisih</button>`, 'w');
-  $('#osc', m).onclick = () => scanCode((v) => { const p = bySku(v); if (!p) return toast('SKU tidak dikenal: ' + v); const el = $('#o' + p.id, m); el.scrollIntoView({ block: 'center' }); el.value = (num(el.value) || 0) + 1; toast(p.n + ': ' + el.value, 1200); }, { multi: true });
+  $('#osc', m).onclick = () => scanCode(opnameScanHandle, { multi: true });
   $('#ok', m).onclick = () => { let n = 0; for (const p of L) { const el = $('#o' + p.id, m); if (!el || el.value === '') continue; const d = num(el.value) - p.st; if (d) { emit('opn', { p: p.id, delta: d }); n++; } } m.close(); R(); toast(n ? n + ' produk disesuaikan' : 'Tidak ada selisih'); };
 }
 /* ---------- promo: bundling / bonus barang / diskon — admin ajukan (butuh persetujuan pemilik), pemilik langsung aktif; otomatis terdeteksi & diterapkan di kasir ---------- */

@@ -81,6 +81,52 @@ async function scanCode(onCode, opt = {}) {
   }
   openWebScanner(onCode, opt);
 }
+
+/* ============ scanner barcode eksternal (mesin USB / Bluetooth) ============ */
+// Hampir SEMUA mesin scan barcode (USB maupun Bluetooth, segala merek) punya mode bawaan "HID keyboard wedge": begitu
+// memindai, kodenya langsung "diketik" + Enter ke kolom yang sedang aktif — persis seperti keyboard. Karena itu kolom
+// pencarian produk, kolom SKU, dsb di J-POS SUDAH otomatis bisa menerima scan dari mesin seperti itu tanpa pengaturan
+// apa pun, selama kolomnya sedang disentuh/fokus. Listener di bawah ini menutup satu celah: saat TIDAK ada kolom yang
+// fokus (mis. kasir sedang lihat daftar produk, belum tap kolom cari) — mendeteksi ketikan sangat cepat khas mesin
+// scan (jauh lebih cepat dari manusia mengetik) lalu arahkan otomatis ke aksi yang tepat sesuai layar yang sedang dibuka.
+let SCN = Object.assign({ hid: false }, LS.get('jpos:scn', {}));
+const scnSave = () => LS.set('jpos:scn', SCN);
+let HIDBUF = '', HIDT = 0, HIDCB = null; // HIDCB: dipasang sementara oleh scannerTest() untuk menangkap 1 kode ke field tes
+document.addEventListener('keydown', (e) => {
+  if (!SCN.hid && !HIDCB) return;
+  const ae = document.activeElement, tag = ae && ae.tagName;
+  if (tag == 'INPUT' || tag == 'TEXTAREA' || (ae && ae.isContentEditable)) return; // kolom sudah fokus — biarkan mengetik alami (sudah otomatis bekerja), tidak perlu ditangkap di sini
+  const now = Date.now();
+  if (now - HIDT > 80) HIDBUF = ''; // jeda >80ms antar tombol = ketikan manusia biasa (bukan mesin scan) — buang, mulai kode baru
+  HIDT = now;
+  if (e.key == 'Enter' || e.key == 'Tab') {
+    const v = HIDBUF; HIDBUF = '';
+    if (v.length < 3) return;
+    e.preventDefault();
+    if (HIDCB) { const cb = HIDCB; HIDCB = null; cb(v); } else hidDispatch(v);
+    return;
+  }
+  if (e.key.length == 1) HIDBUF += e.key;
+});
+// arahkan kode yang ditangkap scanner eksternal ke aksi yang tepat sesuai layar yang sedang dibuka saat ini
+function hidDispatch(v) {
+  if (typeof V != 'undefined' && V == 'pos' && document.getElementById('pg') && typeof scanHandle == 'function') { const r = scanHandle(v); if (typeof r == 'string') toast('✓ ' + r, 2200); return; }
+  if (document.getElementById('osc') && typeof opnameScanHandle == 'function') { const r = opnameScanHandle(v); if (typeof r == 'string') toast('✓ ' + r, 2200); return; }
+  if (document.getElementById('ppq') && typeof poScanHandle == 'function') { const r = poScanHandle(v); if (typeof r == 'string') toast('✓ ' + r, 2200); return; }
+  const p = typeof bySku == 'function' ? bySku(v) : null;
+  if (p) toast(p.n + ' · ' + (typeof rp == 'function' ? rp(p.pr) : p.pr) + (p.st != null ? ' · stok ' + p.st : ''), 2800);
+  else toast('Kode terbaca dari scanner: ' + v, 2800);
+}
+// pengaturan: aktifkan/matikan mode scanner eksternal + uji coba satu kali scan
+function scannerSettings() {
+  const m = modal(`<h3>🔌 Scanner barcode eksternal</h3><small class="mu">Pakai mesin scan barcode USB atau Bluetooth (semua merek) selain kamera HP. Cocokkan dulu mesinnya ke HP ini:</small>
+<div class="cd info" style="padding:10px;margin-top:8px"><small><b>Bluetooth:</b> nyalakan mode pairing di mesin scan (lihat manualnya), lalu sambungkan lewat Pengaturan Bluetooth bawaan HP Android (bukan di dalam J-POS) — pilih sebagai perangkat biasa.<br><b>USB:</b> colok langsung lewat kabel OTG ke HP.<br>Pastikan mesin scan dalam mode <b>"USB/Bluetooth HID Keyboard"</b> (biasanya mode bawaan/default — cek manual mesin kalau belum, biasanya dengan memindai satu barcode konfigurasi khusus dari manualnya).</small></div>
+<label class="row" style="margin-top:10px"><span>Aktifkan mode scanner eksternal<br><small class="mu">Supaya scan langsung tertangkap walau belum tap kolom cari (mis. kasir sedang lihat daftar produk)</small></span><input type="checkbox" id="sch" ${SCN.hid ? 'checked' : ''} style="width:24px;height:24px"></label>
+<b style="font-size:12px;display:block;margin-top:10px">🧪 Tes scan</b><small class="mu">Arahkan mesin scan ke sembarang barcode, lalu tembak/tekan tombolnya. Hasilnya muncul di bawah ini.</small>
+<input id="scti" placeholder="Hasil scan akan muncul di sini…" readonly style="margin-top:6px"><button class="pr" id="ok" style="margin-top:10px">Simpan</button>`);
+  HIDCB = (v) => { if (!document.body.contains(m)) { HIDCB = null; return; } const i = $('#scti', m); if (i) { i.value = v; i.style.color = 'var(--gr,#2ecc71)'; } toast('Terbaca: ' + v, 2000); };
+  $('#ok', m).onclick = () => { SCN.hid = $('#sch', m).checked; scnSave(); HIDCB = null; m.close(); toast('Pengaturan scanner disimpan'); };
+}
 function openWebScanner(onCode, opt = {}) {
   const el = document.createElement('div'); el.className = 'scan';
   el.innerHTML = `<video playsinline muted></video><div class="bx"></div><div class="scanlbl" id="sl"></div><div class="bar"><input placeholder="…atau ketik kode lalu Enter" inputmode="numeric"><button class="gh" id="sx">Tutup</button></div>`;
