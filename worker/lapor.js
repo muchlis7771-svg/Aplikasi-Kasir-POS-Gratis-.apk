@@ -70,6 +70,10 @@ export async function buildDaily(env, sid, sname, tz, R, upto) {
     if (S.low && S.low.length) { L.push('Stok menipis (' + S.nlow + ' item):'); for (const x of S.low.slice(0, 10)) L.push('• ' + x[0] + ': ' + x[1] + (x[2] != null ? ' (min ' + x[2] + ')' : '')); }
     if (S.kas != null) L.push('Kas: ' + rp(S.kas) + ' · Bank/QRIS: ' + rp(S.bank));
     if (S.ar != null) L.push('Piutang outlet: ' + rp(S.ar) + (S.od ? ' (jatuh tempo ' + rp(S.od) + ')' : ''));
+    if (S.arL && S.arL.length) {
+      L.push('Rincian piutang' + (S.arN > S.arL.length ? ' (' + S.arL.length + ' dari ' + S.arN + ', diurutkan jatuh tempo terdekat)' : ' (diurutkan jatuh tempo terdekat)') + ':');
+      for (const x of S.arL) { const d = Math.ceil((x.due - Date.now()) / 864e5), dt = d < 0 ? 'Lewat ' + (-d) + ' hari' : d == 0 ? 'Jatuh tempo hari ini' : d + ' hari lagi'; L.push('• ' + x.cn + ': ' + rp(x.amt) + ' · ' + dt); }
+    }
   }
   L.push('', '_Dikirim otomatis oleh J-POS_');
   return L.join('\n');
