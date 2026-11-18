@@ -57,7 +57,7 @@ const DEFPERM = {
   barista: 'dash pos his prod abs chat set onl tgt meja',
   pelayan: 'dash pos his meja abs chat set onl tgt',
 };
-const PKGHI = 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana jur kirim cek terima anti aud tgt tgtAll tgtSet shiftSet kiosMap dnet kanvas gaji gps meja';
+const PKGHI = 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana jur kirim cek terima anti aud tgt tgtAll tgtSet shiftSet kiosMap dnet kanvas gaji gps meja tg';
 // fitur baru per versi ikut aktif pada hak akses yang sudah disesuaikan sebelumnya (server memakai aturan yang sama)
 const NEWR = [[25, { admin: 'tgt tgtAll tgtSet', akuntan: 'tgt tgtAll', kasir: 'tgt', sales: 'tgt' }], [30, { admin: 'shiftSet' }], [31, { admin: 'kiosMap', sales: 'kiosMap' }], [32, { admin: 'dnet' }], [37, { admin: 'kanvas' }], [39, { admin: 'gps' }], [40, { admin: 'dnet' }], [41, { akuntan: 'kiosMap', kasir: 'prod kiosMap', sales: 'prod', dropping: 'kiosMap', spg: 'kiosMap', kanvas: 'prod' }], [89, { admin: 'meja' }]];
 const pmRole = (ov, r) => (typeof ov[r] == 'string' ? ov[r] + ' ' + NEWR.filter(([v]) => !(ov._v >= v)).map(([, m]) => m[r] || '').join(' ') : DEFPERM[r] || '');
@@ -65,7 +65,7 @@ const FEAT = {
   dash: 'Beranda', pos: 'Kasir / Order', his: 'Riwayat transaksi', hisAll: 'Lihat transaksi semua orang', prod: 'Lihat produk & stok', prodEdit: 'Ubah produk & stok', outlet: 'Outlet / pelanggan',
   onl: 'Toko Online', ana: 'Analisa', lap: 'Laporan', keu: 'Keuangan & utang piutang', jur: 'Jurnal & biaya', abs: 'Absensi sendiri', absAll: 'Lihat absensi semua', chat: 'Chat', usr: 'Kelola pengguna',
   retur: 'Retur barang', backup: 'Backup & restore', set: 'Pengaturan', beli: 'Pembelian ke supplier', xls: 'Import / export Excel', kas: 'Buku kas', perm: 'Atur hak akses (owner)',
-  kirim: 'Pengantaran / dropping', cek: 'Check-in / out outlet', terima: 'Terima pembayaran di lapangan', tgt: 'Target & insentif (milik sendiri)', tgtAll: 'Lihat target & insentif semua karyawan', tgtSet: 'Atur target, insentif & kalender kerja', shiftSet: 'Atur shift kasir & jadwal karyawan', kiosMap: 'Peta kios terdaftar (tawarkan produk)', dnet: 'Jaringan mitra: stok & SKU toko mitra', gaji: 'Gaji, lembur & izin jam kerja', gps: 'Pantau GPS tim lapangan (langsung)', kanvas: 'Sales kanvas: muat, jual dari mobil & balik barang', anti: 'Absensi anti-curang (selfie & jam server)', aud: 'Audit lapangan', meja: 'Meja & QR pesan sendiri (coffee shop)',
+  kirim: 'Pengantaran / dropping', cek: 'Check-in / out outlet', terima: 'Terima pembayaran di lapangan', tgt: 'Target & insentif (milik sendiri)', tgtAll: 'Lihat target & insentif semua karyawan', tgtSet: 'Atur target, insentif & kalender kerja', shiftSet: 'Atur shift kasir & jadwal karyawan', kiosMap: 'Peta kios terdaftar (tawarkan produk)', dnet: 'Jaringan mitra: stok & SKU toko mitra', gaji: 'Gaji, lembur & izin jam kerja', gps: 'Pantau GPS tim lapangan (langsung)', kanvas: 'Sales kanvas: muat, jual dari mobil & balik barang', anti: 'Absensi anti-curang (selfie & jam server)', aud: 'Audit lapangan', meja: 'Meja & QR pesan sendiri (coffee shop)', tg: 'Notifikasi laporan via Telegram',
 };
 const FEATMEMO = {};
 function featSet(r) {
