@@ -276,7 +276,7 @@ export default {
         }
         if (p == '/api/admin/stats' && M == 'GET') {
           const tz = (+u.searchParams.get('tz') || 0) * 60, now = Date.now(), since = now - 14 * DAY, m30 = now - 30 * DAY;
-          const [tt, dd, ns, top] = await Promise.all([
+          const [tt, dd, ns, top, tier] = await Promise.all([
             env.DB.prepare(`SELECT (SELECT COUNT(*) FROM stores) stores,(SELECT COUNT(*) FROM stores WHERE status='active') active,(SELECT COUNT(*) FROM staff) users,
               (SELECT COUNT(*) FROM stores WHERE exp<?1) expired,(SELECT COUNT(*) FROM stores WHERE exp>=?1 AND exp<?2) soon,(SELECT COUNT(*) FROM stores WHERE plan='trial' AND exp>=?1) trial,
               (SELECT COUNT(*) FROM stores WHERE plan!='trial' AND exp>=?1) paid,
@@ -284,9 +284,10 @@ export default {
               (SELECT COUNT(*) FROM buyers) buyers,(SELECT COUNT(*) FROM orders) orders,COALESCE((SELECT SUM(tot) FROM orders WHERE status='selesai'),0) gmv,(SELECT COUNT(*) FROM shop WHERE open=1) shops`).bind(now, now + 7 * DAY).first(),
             env.DB.prepare(`SELECT strftime('%Y-%m-%d',(t/1000)+?,'unixepoch') d,SUM(tot) v FROM ev WHERE k IN('sale','retur') AND t>? GROUP BY d ORDER BY d`).bind(tz, since).all(),
             env.DB.prepare(`SELECT strftime('%Y-%m-%d',(created/1000)+?,'unixepoch') d,COUNT(*) v FROM stores WHERE created>? GROUP BY d ORDER BY d`).bind(tz, since).all(),
-            env.DB.prepare(`SELECT s.name,SUM(e.tot) v FROM ev e JOIN stores s ON s.id=e.store_id WHERE e.t>? GROUP BY e.store_id ORDER BY v DESC LIMIT 5`).bind(m30).all(),
+            env.DB.prepare(`SELECT s.id,s.name,s.tier,SUM(e.tot) v FROM ev e JOIN stores s ON s.id=e.store_id WHERE e.t>? GROUP BY e.store_id ORDER BY v DESC LIMIT 15`).bind(m30).all(),
+            env.DB.prepare(`SELECT COALESCE(tier,'high') tier,COUNT(*) n FROM stores WHERE status='active' GROUP BY tier`).all(), // distribusi paket toko aktif (biasa/standar/high)
           ]);
-          return J({ totals: tt, daily: dd.results, signups: ns.results, top: top.results });
+          return J({ totals: tt, daily: dd.results, signups: ns.results, top: top.results, tier: tier.results });
         }
         if (p == '/api/admin/cfg') {
           if (M == 'PUT') {
