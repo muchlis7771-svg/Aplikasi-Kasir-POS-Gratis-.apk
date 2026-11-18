@@ -4,7 +4,7 @@
    disalin dari versi yang sedang berjalan, semua disimpan di memori aplikasi, lalu WebView Capacitor diarahkan ke folder
    itu (origin tetap https://localhost → data, login & antrian offline tidak hilang). Diterapkan saat aplikasi dibuka
    berikutnya, atau langsung lewat tombol "Perbarui sekarang". Bila versi baru gagal terbuka 2×, otomatis kembali. */
-const APPV = 124;
+const APPV = 125;
 const OTAK = 'jpos:ota', OTAT = 'jpos:otaTry';
 const otaFS = () => plug('Filesystem'), otaWV = () => plug('WebView');
 const otaOk = () => isNative() && otaFS() && otaWV() && otaFS().downloadFile && otaWV().setServerBasePath;
@@ -62,6 +62,21 @@ async function otaCheck(force) {
     if (force && confirm('Pembaruan otomatis gagal (' + (e && e.message || 'kesalahan jaringan') + '). Buka halaman unduh APK terbaru di GitHub sebagai gantinya?')) otaGhOpen();
   } finally { OTAW = false; }
 }
+// ============ paksa update (hanya untuk rilis kritis yang menyertakan "min" di ota.json) ============
+// Beda dengan otaBar (tawaran update, bisa ditutup): ini layar penuh yang TIDAK BISA ditutup sampai
+// pengguna memperbarui — dipakai sewaktu-waktu saja oleh pemilik aplikasi untuk pembaruan keamanan/bug fatal.
+async function otaMinCheck() {
+  if (!canNet() || $('#otaf')) return;
+  try {
+    const src = otaSrc() || '', man = await (await fetch((src || '.') + '/ota.json?t=' + Date.now(), { cache: 'no-store' })).json();
+    if (!(man && man.min > APPV)) return;
+    const f = document.createElement('div'); f.id = 'otaf'; f.className = 'otaf';
+    f.innerHTML = `<div class="otafc"><h2>🚨 Update wajib</h2><p>Versi aplikasi ini (v${APPV}) sudah tidak didukung — ada pembaruan penting (keamanan/perbaikan) yang harus dipasang dulu sebelum lanjut memakai J-POS.</p><p class="mu">${esc(man.note || '')}</p><button class="pr" id="otafu" style="font-size:16px;padding:14px">⬇️ Perbarui sekarang</button><button class="gh" id="otafr">Sudah update? Coba lagi</button></div>`;
+    document.body.appendChild(f);
+    $('#otafu', f).onclick = async () => { $('#otafu', f).textContent = 'Memproses…'; if (otaOk()) { await otaCheck(true); const st = LS.get(OTAK, {}) || {}; if (st.ready >= man.min) return otaApply(true); } otaGhOpen(); };
+    $('#otafr', f).onclick = () => location.reload();
+  } catch (e) { /* offline/gagal — jangan kunci aplikasi karena tidak bisa cek */ }
+}
 function otaBar() {
   const st = LS.get(OTAK, {}) || {}; if (!(st.ready > APPV) || $('#otab')) return;
   const b = document.createElement('div'); b.id = 'otab'; b.className = 'otab';
@@ -76,6 +91,10 @@ async function otaApply(now) {
 }
 // saat aplikasi dibuka
 (function otaBoot() {
+  // cek update wajib jalan di SEMUA platform (APK maupun web/desktop), terlepas dari apakah OTA tanpa-instal-ulang
+  // tersedia di perangkat ini — kalau tidak tersedia, tombol di layar paksa akan arahkan unduh APK penuh dari GitHub.
+  otaMinCheck(); setInterval(otaMinCheck, 10 * 6e4);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState == 'visible') otaMinCheck(); });
   if (!otaOk()) return; const st = LS.get(OTAK, {}) || {}, t = LS.get(OTAT, {}) || {};
   if (st.ready == APPV) { // versi baru berhasil terbuka → kunci agar dipakai seterusnya
     setTimeout(async () => { try { await otaWV().persistServerBasePath(); LS.set(OTAT, {}); LS.set(OTAK, { ...st, ready: 0, v: APPV }); } catch (e) { } }, 6000);

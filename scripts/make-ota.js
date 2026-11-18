@@ -6,6 +6,11 @@ const v = +fs.readFileSync(path.join(root, 'sw.js'), 'utf8').match(/jpos-v(\d+)/
 const op = path.join(root, 'js', 'ota.js'); fs.writeFileSync(op, fs.readFileSync(op, 'utf8').replace(/const APPV = \d+;/, `const APPV = ${v};`));
 const files = [];
 (function walk(d) { for (const n of fs.readdirSync(d).sort()) { const f = path.join(d, n), r = path.relative(root, f).split(path.sep).join('/'); if (fs.statSync(f).isDirectory()) walk(f); else if (!SKIP.has(r) && !n.startsWith('.')) { const b = fs.readFileSync(f); files.push({ p: r, h: crypto.createHash('sha256').update(b).digest('hex').slice(0, 20), s: b.length }); } } })(root);
-const note = process.argv.slice(2).join(' ');
-fs.writeFileSync(path.join(root, 'ota.json'), JSON.stringify({ v, t: Date.now(), note, files }));
-console.log('ota.json v' + v + ':', files.length, 'file,', Math.round(files.reduce((a, f) => a + f.s, 0) / 1024), 'KB');
+// --min=N (opsional): paksa semua pengguna yang versinya < N untuk update sebelum bisa memakai aplikasi lagi.
+// Hanya pakai untuk pembaruan kritis (keamanan/bug fatal) — jangan dipakai di rilis biasa.
+const argv = process.argv.slice(2).filter((a) => !a.startsWith('--min='));
+const minArg = process.argv.slice(2).find((a) => a.startsWith('--min='));
+const min = minArg ? +minArg.slice(6) : undefined;
+const note = argv.join(' ');
+fs.writeFileSync(path.join(root, 'ota.json'), JSON.stringify({ v, t: Date.now(), note, ...(min ? { min } : {}), files }));
+console.log('ota.json v' + v + ':', files.length, 'file,', Math.round(files.reduce((a, f) => a + f.s, 0) / 1024), 'KB' + (min ? ' · WAJIB update ke v' + min : ''));
