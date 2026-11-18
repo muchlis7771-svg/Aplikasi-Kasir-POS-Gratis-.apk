@@ -89,6 +89,7 @@ async function ensureTables(db) {
     db.prepare("CREATE TABLE IF NOT EXISTS programs(profile TEXT NOT NULL, id TEXT NOT NULL, name TEXT, type TEXT, from_d TEXT, to_d TEXT, sku TEXT, outlets INTEGER DEFAULT 0, target REAL DEFAULT 0, actual REAL DEFAULT 0, achieved INTEGER DEFAULT 0, def TEXT, daily TEXT, updated INTEGER, PRIMARY KEY(profile, id))"),
     db.prepare("CREATE TABLE IF NOT EXISTS stock(profile TEXT PRIMARY KEY, data TEXT, updated INTEGER)"),
     db.prepare("CREATE TABLE IF NOT EXISTS perms(kind TEXT NOT NULL, name TEXT NOT NULL, data TEXT, updated INTEGER, PRIMARY KEY(kind, name))"),
+    db.prepare("CREATE TABLE IF NOT EXISTS teams(member TEXT PRIMARY KEY, owner TEXT NOT NULL, ns TEXT NOT NULL DEFAULT '', perms TEXT, created INTEGER)"),
     db.prepare("CREATE TABLE IF NOT EXISTS licenses(username TEXT PRIMARY KEY, type TEXT DEFAULT 'trial', trial_start INTEGER, trial_days INTEGER DEFAULT 30, seats INTEGER DEFAULT 1, paid_until TEXT, note TEXT)"),
   ]);
   ready = true;
@@ -137,13 +138,50 @@ async function usageRoutes(url, req, env) {
     return J({ ok: true, ...st });
   }
   // ---- HAK AKSES FITUR: dibaca tiap pengguna (token harus valid) ----
-  if (url.pathname === "/usage/perm") {
+  // identitas dari sesi yang valid (username dari server login bila ada)
+  const whoami = async () => {
     const v = await authPost("/api/verify", { token: s(b.token), device_id: s(b.device_id) });
-    if (!v.ok || v.j.valid === false) return J({ ok: false, error: "sesi tidak valid" }, 401);
-    const rows = (await db.prepare("SELECT kind,name,data FROM perms WHERE (kind='role' AND name=?) OR (kind='user' AND name=?)").bind(s(b.role) || "sales", s(b.username)).all()).results || [];
-    let role = {}, user = {};
-    for (const r of rows) { let d = {}; try { d = JSON.parse(r.data || "{}"); } catch (e) {} if (r.kind === "role") role = d; else user = d; }
-    return J({ perms: { ...role, ...user }, role_default: role, user });
+    if (!v.ok || v.j.valid === false) return null;
+    return s(v.j.username || b.username).trim().toLowerCase().slice(0, 60) || null;
+  };
+  if (url.pathname === "/usage/perm") {
+    const me = await whoami();
+    if (!me) return J({ ok: false, error: "sesi tidak valid" }, 401);
+    const mem = await db.prepare("SELECT owner,perms FROM teams WHERE member=?").bind(me).first();
+    const ur = await db.prepare("SELECT data FROM perms WHERE kind='user' AND name IN (?,?)").bind(s(b.username), me).first();
+    let user = {}; try { user = JSON.parse((ur && ur.data) || "{}"); } catch (e) {}
+    if (mem) { let tp = {}; try { tp = JSON.parse(mem.perms || "{}"); } catch (e) {} return J({ perms: { ...tp, ...user, team: false }, team: true, owner: mem.owner }); }
+    // pemilik/pendaftar: semua fitur terbuka kecuali dibatasi admin per-user
+    const roleRow = (s(b.role) === "admin") ? await db.prepare("SELECT data FROM perms WHERE kind='role' AND name='admin'").first() : null;
+    let role = {}; try { role = JSON.parse((roleRow && roleRow.data) || "{}"); } catch (e) {}
+    return J({ perms: { ...role, ...user }, team: false });
+  }
+  // ---- TIM: pemilik menambah akun sales/supervisor yang boleh melihat datanya ----
+  if (url.pathname.startsWith("/usage/team-")) {
+    const me = await whoami();
+    if (!me) return J({ error: "sesi tidak valid" }, 401);
+    if (await db.prepare("SELECT 1 x FROM teams WHERE member=?").bind(me).first()) return J({ error: "akun tim tidak bisa mengelola tim" }, 403);
+    const clean = (o) => { const r = {}; for (const [k, v] of Object.entries(o || {})) r[String(k).slice(0, 40)] = !!v; return JSON.stringify(r); };
+    const mem = s(b.member).trim().toLowerCase().slice(0, 60);
+    if (url.pathname === "/usage/team-list") {
+      const r = (await db.prepare("SELECT member,perms,created FROM teams WHERE owner=? ORDER BY member").bind(me).all()).results || [];
+      return J({ members: r.map((x) => { let p = {}; try { p = JSON.parse(x.perms || "{}"); } catch (e) {} return { member: x.member, perms: p, created: x.created }; }) });
+    }
+    if (!mem) return J({ error: "username anggota wajib" }, 400);
+    if (url.pathname === "/usage/team-add") {
+      if (mem === me) return J({ error: "tidak bisa menambah diri sendiri" }, 400);
+      const ex = await db.prepare("SELECT owner FROM teams WHERE member=?").bind(mem).first();
+      if (ex && ex.owner !== me) return J({ error: "akun itu sudah menjadi tim pemilik lain" }, 409);
+      if (await db.prepare("SELECT 1 x FROM teams WHERE owner=?").bind(mem).first()) return J({ error: "akun itu pemilik tim sendiri" }, 409);
+      const cnt = await db.prepare("SELECT COUNT(*) c FROM teams WHERE owner=?").bind(me).first();
+      if (!ex && cnt.c >= 30) return J({ error: "batas 30 anggota tim" }, 400);
+      const ns = (await isAdmin(s(b.token))) ? "" : "u:" + me + ":";
+      await db.prepare("INSERT INTO teams(member,owner,ns,perms,created) VALUES(?,?,?,?,?) ON CONFLICT(member) DO UPDATE SET perms=excluded.perms").bind(mem, me, ns, clean(b.perms), Date.now()).run();
+      return J({ ok: true });
+    }
+    if (url.pathname === "/usage/team-perm") { await db.prepare("UPDATE teams SET perms=? WHERE member=? AND owner=?").bind(clean(b.perms), mem, me).run(); return J({ ok: true }); }
+    if (url.pathname === "/usage/team-remove") { await db.prepare("DELETE FROM teams WHERE member=? AND owner=?").bind(mem, me).run(); return J({ ok: true }); }
+    return J({ error: "tidak dikenal" }, 404);
   }
   // ---- khusus admin ----
   if (!(await isAdmin(s(b.token)))) return J({ error: "khusus admin" }, 403);
@@ -193,21 +231,36 @@ const REPORT_HTML = "<!doctype html>\n<html lang=\"id\"><head><meta charset=\"ut
 export default {
   async fetch(req, env) {
     const url = new URL(req.url);
-    if (req.method === "OPTIONS") return new Response(null, { headers: { "access-control-allow-origin": "*", "access-control-allow-headers": "authorization,content-type,x-auth-token,x-device-id", "access-control-allow-methods": "GET,POST" } });
+    if (req.method === "OPTIONS") return new Response(null, { headers: { "access-control-allow-origin": "*", "access-control-allow-headers": "authorization,content-type,x-auth-token,x-device-id,x-username", "access-control-allow-methods": "GET,POST" } });
     if (url.pathname === "/health") return J({ ok: true });
     if ((url.pathname === "/report" || url.pathname === "/report/") && req.method === "GET") return new Response(REPORT_HTML, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
     if (url.pathname === "/dash" && req.method === "GET") return new Response(DASH_HTML, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
     if (req.method === "POST" && (url.pathname.startsWith("/usage/") || url.pathname.startsWith("/admin/"))) {
       try { return await usageRoutes(url, req, env); } catch (e) { return J({ error: String(e && e.message || e) }, 500); }
     }
-    // Akun tim (sales/supervisor): baca-saja lewat sesi login yang valid (data milik admin).
-    let teamOk = false;
+    // Pengguna terdaftar (pemilik) memakai sesi login: data dipisah per pemilik (namespace). Anggota tim: baca-saja data pemiliknya.
+    let ns = "";
     const xt = req.headers.get("x-auth-token");
-    if (xt && req.method === "GET" && url.pathname.startsWith("/sync/") && url.pathname !== "/sync/status") {
-      const v = await authPost("/api/verify", { token: xt, device_id: req.headers.get("x-device-id") || "" });
-      teamOk = v.ok && v.j.valid !== false;
-    }
-    if (!teamOk) {
+    if (xt && url.pathname.startsWith("/sync/")) {
+      try {
+        const v = await authPost("/api/verify", { token: xt, device_id: req.headers.get("x-device-id") || "" });
+        if (!v.ok || v.j.valid === false) return J({ error: "sesi tidak valid" }, 401);
+        const uname = s(v.j.username || req.headers.get("x-username")).trim().toLowerCase().slice(0, 60);
+        if (!uname) return J({ error: "username wajib" }, 400);
+        await ensureTables(env.DB);
+        const m = await env.DB.prepare("SELECT ns FROM teams WHERE member=?").bind(uname).first();
+        if (m) { ns = m.ns; if (req.method !== "GET") return J({ error: "akun tim hanya bisa membaca data" }, 403); }
+        else ns = (await isAdmin(xt)) ? "" : "u:" + uname + ":";
+        if (ns) {
+          if (url.searchParams.has("profile")) url.searchParams.set("profile", ns + url.searchParams.get("profile"));
+          if (req.method === "POST") {
+            const bb = await req.json().catch(() => ({}));
+            if (bb && bb.profile != null) bb.profile = ns + s(bb.profile);
+            req = new Request(req.url, { method: "POST", headers: req.headers, body: JSON.stringify(bb) });
+          }
+        }
+      } catch (e) { return J({ error: String(e && e.message || e) }, 500); }
+    } else {
       if (!env.SYNC_TOKEN) return J({ error: "SYNC_TOKEN belum diatur di Worker" }, 500);
       if (req.headers.get("authorization") !== "Bearer " + env.SYNC_TOKEN) return J({ error: "unauthorized" }, 401);
     }
@@ -322,7 +375,7 @@ export default {
       }
       if (url.pathname === "/sync/profiles") {
         const r = await db.prepare("SELECT profile FROM sales UNION SELECT profile FROM ro").all();
-        return J({ profiles: (r.results || []).map((x) => x.profile) });
+        return J({ profiles: (r.results || []).map((x) => x.profile).filter((p) => ns ? p.startsWith(ns) : !p.startsWith("u:")).map((p) => p.slice(ns.length)) });
       }
       // ---- DASHBOARD WEB (read-only, tanpa baca baris mentah ke klien) ----
       if (url.pathname === "/dash/data") {
