@@ -2,7 +2,7 @@ import { MSCHEMA, buyerRoutes, shopRoutes, shipCfg } from './market.js';
 import { SSCHEMA, SALTER, logAct, heartbeat, adminActivity } from './social.js';
 import { MSCH2, mitraRoutes } from './mitra.js';
 import { HSCHEMA, payHook, hqStore, hqAdmin, leadPost, trailStmt, trailGet, pruneTrail, pruneVisits, tunnelPost, tunnelRedirect, apkPublic, apkPubOf, apkChunkGet, apkDlCount, siteOf, siteHit, appHit, adminPulse, webPublic, mediaPublic, webExport, trkIssue, trkOff, trkLoc, ghApkHit, GH_APK_URL } from './hq.js';
-import { RSCHEMA, RALTER, rptCfg, cleanCfg, dayRange, buildDaily, sendOut, cronDaily, notifNewAR, dueNotify } from './lapor.js';
+import { RSCHEMA, RALTER, rptCfg, cleanCfg, dayRange, buildDaily, sendOut, cronDaily, notifNewAR, dueNotify, dueCronCheck } from './lapor.js';
 import { TGSCHEMA, tgHook, tgLinkCode, tgSetWebhook } from './tg.js';
 // J-POS API v4 — Cloudflare Worker + D1 (SQLite)
 // Multi-tenant: 1 toko = 1 tenant. Data bisnis = LOG KEJADIAN (tabel ev) yang diputar ulang tiap perangkat (offline-first).
@@ -631,5 +631,5 @@ export default {
     } catch (x) { console.error(x && x.stack || x); return J({ e: 'Server error' }, 500); }
   },
   // Cron Trigger (tiap jam): laporan harian otomatis ke WA & email pemilik toko
-  async scheduled(ev, env, ctx) { await ready(env); ctx.waitUntil(Promise.all([cronDaily(env, await cfgAll(env), ev.scheduledTime || Date.now()), pruneTrail(env, Date.now()).catch(() => { }), pruneVisits(env, Date.now()).catch(() => { })])); }, // tiap jam: laporan harian + hapus riwayat > 30 hari
+  async scheduled(ev, env, ctx) { await ready(env); const now = ev.scheduledTime || Date.now(), CFG = await cfgAll(env); ctx.waitUntil(Promise.all([cronDaily(env, CFG, now), dueCronCheck(env, CFG, now).catch((e) => console.error('dueCronCheck', e && e.stack || e)), pruneTrail(env, Date.now()).catch(() => { }), pruneVisits(env, Date.now()).catch(() => { })])); }, // tiap jam: laporan harian + pengingat piutang/stok cadangan (kalau HP tidak aktif) + hapus riwayat > 30 hari
 };

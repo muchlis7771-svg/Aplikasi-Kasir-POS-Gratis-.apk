@@ -19,7 +19,10 @@ function snapData() {
 function snapMore() {
   const P = S.p.filter((p) => !p.x), m0 = new Date(); m0.setDate(1); m0.setHours(0, 0, 0, 0); let lm = 0;
   for (const j of S.j || []) if (j.t >= m0.getTime()) for (const l of j.l || []) if (/^[4-9]/.test(String(l[0]))) lm += (l[2] || 0) - (l[1] || 0);
-  return { nsku: P.length, qty: Math.round(P.reduce((a, p) => a + Math.max(0, p.st), 0)), ap: Math.round((S.ap || []).reduce((a, x) => a + apOut(x), 0)), lm: Math.round(lm), om: Math.round(S.sales.filter((s) => s.t >= m0.getTime()).reduce((a, s) => a + netSale(s), 0)) };
+  // rincian utang per supplier (diurutkan jatuh tempo terdekat) — dipakai Cron Trigger server sbg cadangan
+  // pengingat piutang/utang kalau HP pemilik/admin tidak aktif pas jam kirim (lihat dueCronCheck di worker)
+  const apL = (S.ap || []).filter((a) => apOut(a) > 0 && a.due).map((a) => ({ sup: a.sup || '-', due: a.due, amt: Math.round(apOut(a)) })).sort((a, b) => a.due - b.due).slice(0, 15);
+  return { nsku: P.length, qty: Math.round(P.reduce((a, p) => a + Math.max(0, p.st), 0)), ap: Math.round((S.ap || []).reduce((a, x) => a + apOut(x), 0)), apL, lm: Math.round(lm), om: Math.round(S.sales.filter((s) => s.t >= m0.getTime()).reduce((a, s) => a + netSale(s), 0)) };
 }
 async function snapPost(force) {
   try {
