@@ -124,29 +124,35 @@ export async function notifNewAR(env, CFG, sid, sname, sale) {
     await sendOut(env, CFG, rc, text, 'Piutang baru · ' + (sale.cn || ''));
   } catch (e) { }
 }
-// Pengingat piutang/utang jatuh tempo besok: dipicu HP pemilik/admin (yang sudah punya angka SISA tagihan
-// yang BENAR dari replay transaksi di aplikasi — retur, cicilan, dll sudah terhitung), bukan dihitung ulang
-// di server (supplier/piutang punya banyak sumber kejadian berbeda, rawan salah hitung bila direplikasi di sini).
-// Server hanya menyaring & meneruskan ke WA/email/Telegram, dengan jatah kirim 1×/hari per toko (anti-spam
-// walau beberapa HP pemilik mengirim bersamaan).
+// Pengingat piutang/utang (jatuh tempo ≤2 hari lagi, hari ini, atau sudah lewat) + stok menipis: dipicu HP
+// pemilik/admin (yang sudah punya angka SISA tagihan yang BENAR dari replay transaksi di aplikasi — retur,
+// cicilan, dll sudah terhitung), bukan dihitung ulang di server (supplier/piutang punya banyak sumber
+// kejadian berbeda, rawan salah hitung bila direplikasi di sini). Server hanya menyaring & meneruskan ke
+// WA/email/Telegram, dengan jatah kirim maks 2×/hari per toko (pagi & siang stlh istirahat — b.part menandai
+// sesi yang mana, dijatah terpisah per sesi lewat kind 'due_am'/'due_pm' agar tidak dobel walau beberapa HP
+// pemilik mengirim bersamaan).
+const dueLabel = (due) => { const d = Math.ceil((due - Date.now()) / 864e5); return d < 0 ? 'Lewat ' + (-d) + ' hari' : d == 0 ? 'Jatuh tempo hari ini' : d + ' hari lagi'; };
 export async function dueNotify(env, CFG, sid, sname, b, J) {
   const clip = (arr, n) => (Array.isArray(arr) ? arr : []).slice(0, n);
-  const ar = clip(b.ar, 20).map((x) => ({ cn: String(x.cn || '-').slice(0, 60), no: String(x.no || '').slice(0, 30), amt: Math.max(0, Math.round(+x.amt) || 0), due: +x.due || 0 })).filter((x) => x.amt > 0);
-  const ap = clip(b.ap, 20).map((x) => ({ sup: String(x.sup || '-').slice(0, 60), amt: Math.max(0, Math.round(+x.amt) || 0), due: +x.due || 0 })).filter((x) => x.amt > 0);
-  if (!ar.length && !ap.length) return J({ ok: 1, sent: 0 });
+  const ar = clip(b.ar, 30).map((x) => ({ cn: String(x.cn || '-').slice(0, 60), no: String(x.no || '').slice(0, 30), amt: Math.max(0, Math.round(+x.amt) || 0), due: +x.due || 0 })).filter((x) => x.amt > 0).sort((a, c) => a.due - c.due);
+  const ap = clip(b.ap, 30).map((x) => ({ sup: String(x.sup || '-').slice(0, 60), amt: Math.max(0, Math.round(+x.amt) || 0), due: +x.due || 0 })).filter((x) => x.amt > 0).sort((a, c) => a.due - c.due);
+  const low = clip(b.low, 40).map((x) => ({ n: String(x.n || '-').slice(0, 60), st: Math.round(+x.st) || 0, min: Math.round(+x.min) || 0 }));
+  if (!ar.length && !ap.length && !low.length) return J({ ok: 1, sent: 0 });
   const s = await env.DB.prepare('SELECT rpt FROM stores WHERE id=?').bind(sid).first(); const rc = rptCfg(s || {});
   if (rc.due === false) return J({ ok: 1, sent: 0 });
   if (!((rc.wa || []).length || (rc.em || []).length || (rc.tg || []).length)) return J({ ok: 1, sent: 0 });
+  const kind = 'due_' + (b.part == 'pm' ? 'pm' : 'am');
   const day = new Date(Date.now() + (rc.tz || 8) * 36e5).toISOString().slice(0, 10);
-  const done = await env.DB.prepare('SELECT 1 FROM rptlog WHERE store_id=? AND day=? AND kind=?').bind(sid, day, 'due').first();
+  const done = await env.DB.prepare('SELECT 1 FROM rptlog WHERE store_id=? AND day=? AND kind=?').bind(sid, day, kind).first();
   if (done) return J({ ok: 1, sent: 0, already: 1 });
-  await env.DB.prepare('INSERT OR IGNORE INTO rptlog(store_id,day,kind,t,res) VALUES(?,?,?,?,?)').bind(sid, day, 'due', Date.now(), 'kirim').run();
-  const L = ['*⏰ PENGINGAT JATUH TEMPO (besok) — ' + String(sname || '').toUpperCase() + '*', ''];
-  if (ar.length) { L.push('*📥 Piutang dari outlet (' + ar.length + '):*'); for (const x of ar) L.push('• ' + x.cn + ' · ' + rpn(x.amt) + (x.no ? ' (nota ' + x.no + ')' : '')); L.push(''); }
-  if (ap.length) { L.push('*📤 Utang ke supplier (' + ap.length + '):*'); for (const x of ap) L.push('• ' + x.sup + ' · ' + rpn(x.amt)); L.push(''); }
+  await env.DB.prepare('INSERT OR IGNORE INTO rptlog(store_id,day,kind,t,res) VALUES(?,?,?,?,?)').bind(sid, day, kind, Date.now(), 'kirim').run();
+  const L = ['*⏰ PENGINGAT PIUTANG & STOK — ' + String(sname || '').toUpperCase() + '*', ''];
+  if (ar.length) { L.push('*📥 Piutang dari outlet (' + ar.length + '):*'); for (const x of ar) L.push('• ' + x.cn + ' · ' + rpn(x.amt) + (x.no ? ' (nota ' + x.no + ')' : '') + ' · ' + dueLabel(x.due)); L.push(''); }
+  if (ap.length) { L.push('*📤 Utang ke supplier (' + ap.length + '):*'); for (const x of ap) L.push('• ' + x.sup + ' · ' + rpn(x.amt) + ' · ' + dueLabel(x.due)); L.push(''); }
+  if (low.length) { L.push('*📦 Stok menipis (' + low.length + ' SKU):*'); for (const x of low) L.push('• ' + x.n + ': sisa ' + x.st + ' (min ' + x.min + ')'); L.push(''); }
   L.push('_Dikirim otomatis oleh J-POS_');
-  const res = await sendOut(env, CFG, rc, L.join('\n'), 'Jatuh tempo besok · ' + sname);
-  await env.DB.prepare('UPDATE rptlog SET res=? WHERE store_id=? AND day=? AND kind=?').bind(JSON.stringify(res), sid, day, 'due').run();
+  const res = await sendOut(env, CFG, rc, L.join('\n'), 'Pengingat piutang & stok · ' + sname);
+  await env.DB.prepare('UPDATE rptlog SET res=? WHERE store_id=? AND day=? AND kind=?').bind(JSON.stringify(res), sid, day, kind).run();
   return J({ ok: 1, sent: 1, res });
 }
 

@@ -30,22 +30,26 @@ async function snapPost(force) {
 }
 setInterval(() => snapPost(), 6e4);
 
-// pengingat piutang/utang jatuh tempo besok: HP pemilik/admin menghitung sendiri (angka SISA yang benar dari
-// replay transaksi, sudah memperhitungkan retur/cicilan), lalu kirim ke server untuk diteruskan ke WA/email/Telegram.
-// Server hanya menjatah 1×/hari per toko agar tidak dobel walau beberapa HP mengecek bersamaan.
+// pengingat piutang/utang (jatuh tempo ≤2 hari lagi, hari ini, atau sudah lewat) + stok menipis: HP
+// pemilik/admin menghitung sendiri (angka SISA yang benar dari replay transaksi, sudah memperhitungkan
+// retur/cicilan), lalu kirim ke server untuk diteruskan ke WA/email/Telegram. Dikirim maks 2×/hari —
+// sesi "pagi" (sebelum jam 13:00 waktu lokal toko) & sesi "siang" (jam 13:00 ke atas, setelah istirahat
+// siang) — server menjatah terpisah per sesi agar tidak dobel walau beberapa HP mengecek bersamaan.
 function dueNotifCheck() {
   try {
     if (!S || !U || !['owner', 'admin'].includes(U.r) || !S.srv || !canNet() || isExp() || !TK()) return;
-    const today = new Date().toISOString().slice(0, 10), k = 'jpos:dueT:' + SID;
-    if (LS.get(k, '') === today) return; // sudah dicek hari ini
     const tz = ((RPTX && RPTX.cfg) || rptC().cfg || {}).tz || 8;
-    const now = Date.now() + tz * 36e5, d0 = new Date(now); d0.setUTCHours(0, 0, 0, 0);
-    const t0 = d0.getTime() - tz * 36e5 + 864e5, t1 = t0 + 864e5; // rentang "besok" (00:00–24:00 waktu lokal toko)
-    const ar = S.sales.filter((s) => sOut(s) > 0 && s.due >= t0 && s.due < t1).map((s) => ({ cn: s.cn || '-', no: s.no, amt: Math.round(sOut(s)), due: s.due }));
-    const ap = (S.ap || []).filter((a) => apOut(a) > 0 && a.due >= t0 && a.due < t1).map((a) => ({ sup: a.sup || '-', amt: Math.round(apOut(a)), due: a.due }));
-    LS.set(k, today); // dicatat duluan: baik hasilnya kosong atau gagal kirim, tak perlu dicoba berulang hari ini
-    if (!ar.length && !ap.length) return;
-    api('/api/notif/due', { method: 'POST', body: JSON.stringify({ ar, ap }) }).catch(() => { });
+    const now = Date.now() + tz * 36e5, lh = new Date(now).getUTCHours(), part = lh < 13 ? 'am' : 'pm';
+    const today = new Date().toISOString().slice(0, 10), k = 'jpos:dueT:' + SID, sess = today + ':' + part;
+    if (LS.get(k, '') === sess) return; // sesi ini (pagi/siang) sudah dicek hari ini
+    const d0 = new Date(now); d0.setUTCHours(0, 0, 0, 0);
+    const t2 = d0.getTime() - tz * 36e5 + 3 * 864e5; // batas atas: akhir hari ini + 2 hari (tanpa batas bawah → termasuk yg sudah lewat tempo)
+    const ar = S.sales.filter((s) => sOut(s) > 0 && s.due && s.due < t2).map((s) => ({ cn: s.cn || '-', no: s.no, amt: Math.round(sOut(s)), due: s.due }));
+    const ap = (S.ap || []).filter((a) => apOut(a) > 0 && a.due && a.due < t2).map((a) => ({ sup: a.sup || '-', amt: Math.round(apOut(a)), due: a.due }));
+    const low = S.p.filter((p) => !p.x && p.st <= (p.min ?? 10)).map((p) => ({ n: p.n, st: p.st, min: p.min ?? 10 }));
+    LS.set(k, sess); // dicatat duluan: baik hasilnya kosong atau gagal kirim, tak perlu dicoba berulang sesi ini
+    if (!ar.length && !ap.length && !low.length) return;
+    api('/api/notif/due', { method: 'POST', body: JSON.stringify({ ar, ap, low, part }) }).catch(() => { });
   } catch (e) { }
 }
 setInterval(dueNotifCheck, 3e5);
@@ -56,7 +60,7 @@ function rptCard() {
   const c = (RPTX && RPTX.cfg) || rptC().cfg || {}, gw = (RPTX && RPTX.gw) || rptC().gw || {}, tgN = (RPTX && RPTX.tgN) || rptC().tgN || 0, hpWa = LS.get('jpos:info', { wa: '' }).wa, ownBot = (RPTX && RPTX.ownBot) || rptC().ownBot || '';
   if (!RPTX && S.srv && canNet()) rptLoad().then((r) => { if (r) { RPTX = r; if (V == 'set' && !uiTyping()) R(); } });
   const H = Array.from({ length: 24 }, (_, h) => h);
-  return `<div class="cd"><h3>📤 Laporan otomatis ke WA, email & Telegram</h3><small class="mu">Absen, penjualan per karyawan, closing kasir, stok menipis, kas & piutang — dikirim ke Anda setiap pergantian hari dan setiap kasir closing. Plus notifikasi langsung piutang baru & pengingat jatuh tempo besok.</small>
+  return `<div class="cd"><h3>📤 Laporan otomatis ke WA, email & Telegram</h3><small class="mu">Absen, penjualan per karyawan, closing kasir, stok menipis, kas & piutang — dikirim ke Anda setiap pergantian hari dan setiap kasir closing. Plus notifikasi langsung piutang baru & pengingat piutang/stok menipis 2×/hari (pagi & siang).</small>
 ${!S.srv ? '<div class="warnbox">Butuh toko online (terdaftar di server).</div>' : ''}
 <div class="fm" style="margin-top:8px"><label><small class="mu">No. WhatsApp pemilik (boleh 2–3, pisahkan koma)</small><input id="rwa" inputmode="tel" placeholder="0813xxxxxxx" value="${esc((c.wa || []).join(', '))}"></label>
 <label><small class="mu">Email pemilik (boleh 2–3)</small><input id="rem" type="email" placeholder="nama@email.com" value="${esc((c.em || []).join(', '))}"></label>
@@ -67,7 +71,7 @@ ${pkgHas('tg') ? `<details><summary class="mu" style="cursor:pointer">Bot Telegr
 <div class="fm2"><label><small class="mu">Jam kirim</small><select id="rh">${H.map((h) => `<option value="${h}" ${(c.h || 0) == h ? 'selected' : ''}>${String(h).padStart(2, '0')}:05${h == 0 ? ' (pergantian hari)' : h < 12 ? ' · lap. kemarin' : ' · lap. hari ini'}</option>`).join('')}</select></label>
 <label><small class="mu">Zona waktu toko</small><select id="rtz">${[[7, 'WIB'], [8, 'WITA'], [9, 'WIT']].map(([v, n]) => `<option value="${v}" ${(c.tz || 8) == v ? 'selected' : ''}>${n}</option>`).join('')}</select></label></div>
 <label class="row" style="margin:4px 0"><span>Kirim laporan setiap <b>closing kasir</b></span><input id="rcl" type="checkbox" style="width:24px;height:24px" ${c.close !== false ? 'checked' : ''}></label>
-<label class="row" style="margin:4px 0"><span>Pengingat piutang/utang jatuh tempo besok</span><input id="rdue" type="checkbox" style="width:24px;height:24px" ${c.due !== false ? 'checked' : ''}></label>
+<label class="row" style="margin:4px 0"><span>Pengingat piutang/utang & stok menipis (2×/hari: pagi & siang)</span><input id="rdue" type="checkbox" style="width:24px;height:24px" ${c.due !== false ? 'checked' : ''}></label>
 <details><summary class="mu" style="cursor:pointer">Gerbang WhatsApp sendiri (opsional)</summary><small class="mu">Isi token Fonnte milik toko bila ingin laporan dikirim dari nomor WA toko sendiri.</small><input id="rtk" placeholder="Token Fonnte" value="${esc(c.tok || '')}" autocomplete="off"></details>
 <small>Status pengiriman: WhatsApp ${gw.wa ? '<b class="gr">siap</b>' : '<b class="or">belum aktif</b>'} · Email ${gw.mail ? '<b class="gr">siap</b>' : '<b class="or">belum aktif</b>'} · Telegram ${gw.tg ? '<b class="gr">siap</b>' : '<b class="or">belum aktif</b>'}${gw.wa && gw.mail && gw.tg ? '' : ' <span class="mu">— gerbang diaktifkan pemilik aplikasi (Head Admin). Sementara itu gunakan tombol kirim manual.</span>'}</small>
 <div class="wrap"><button class="pr" onclick="rptSave()">Simpan</button><button class="gh" onclick="rptTest()">Kirim tes sekarang</button><button class="gh" onclick="rptManual()">📲 Kirim manual via WA</button></div></div></div>`;
