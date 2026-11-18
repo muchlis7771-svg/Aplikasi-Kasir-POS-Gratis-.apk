@@ -10,6 +10,25 @@ function focusSet() {
 }
 const resetCart = () => { cart = []; cCd = ''; cCdRp = 0; cPay = 'Tunai'; cCu = ''; cDp = 0; cDpm = 'Tunai'; cNote = ''; cKr = null; cAs = ''; };
 const cartItems = () => cart.map((i) => ({ id: i.id, q: i.q, ld: i.ld, pp: i.pp, free: i.free }));
+// cek ringan stok terkini sebelum bayar: tanya server apakah SKU yg mau dijual sudah berkurang sejak HP ini
+// terakhir sinkron (S.ec) — krn kasir/perangkat lain mungkin sudah menjual duluan sebelum HP ini sempat tahu.
+// BUKAN kunci atom: replay stok penuh (termasuk resep/BOM, bad stock, kanvas) tetap HANYA dihitung di HP spt
+// biasa (lihat catatan serupa di lapor.js utk piutang/utang) — ini cuma peringatan dini, kasir tetap bisa lanjut.
+async function stkLiveWarn(items) {
+  try {
+    if (!S || !S.srv || !canNet() || !TK()) return true;
+    const ids = [...new Set((items || []).map((i) => i.id).filter((id) => { const p = prod(id); return p && !(Array.isArray(p.rcp) && p.rcp.length); }))];
+    if (!ids.length) return true;
+    const r = await api('/api/stk/check', { method: 'POST', body: JSON.stringify({ since: S.ec, items: ids }) });
+    const warn = [];
+    for (const i of items) {
+      const p = prod(i.id); if (!p) continue; const d = (r.delta || {})[i.id] || 0; if (!d) continue;
+      const eff = p.st + d; if (eff < i.q) warn.push(p.n + ': diminta ' + i.q + ', kemungkinan tersisa ' + Math.max(0, eff) + ' (ada kejadian stok lain sejak HP ini terakhir sinkron)');
+    }
+    if (!warn.length) return true;
+    return confirm('⚠️ Stok mungkin sudah berubah (kasir/perangkat lain):\n\n' + warn.join('\n') + '\n\nTetap lanjutkan transaksi?');
+  } catch (e) { return true; } // gagal cek (server timeout dll) → jangan blokir transaksi
+}
 // order sales otomatis diantar tim dropping (bisa dimatikan per order, atau oleh pemilik di Pengaturan)
 const krAuto = () => !!(U && S && U.r == 'sales' && pkgHas('kirim') && S.srv && S.set.autoKirim !== false);
 const krOn = () => U && U.r != 'kanvas' && (cKr == null ? krAuto() : cKr) && !!cCu && pkgHas('kirim') && !!S.srv;
@@ -156,6 +175,7 @@ async function pbayar() {
     // bayar langsung QRIS / Transfer → tampilkan QRIS / rekening toko ke pelanggan dulu
     const now = !(U.r == 'sales' || krOn() || cPay == 'Piutang');
     if (now && (cPay == 'QRIS' || cPay == 'Transfer') && typeof payShow == 'function') { const t = calc(cartItems(), cCd, cCdRp).tot; if (!(await payShow(cPay, t, (cCu && cust(cCu) ? cust(cCu).n + ' · ' : '') + 'Pembayaran ' + cPay))) return; }
+    if (!(await stkLiveWarn(cartItems()))) return;
     const s = mkSale({ items: cartItems(), cd: cCd, cdRp: cCdRp, pay: cPay, cu: cCu, dpay: cDp, dpm: cDpm, note: cNote, kirim: krOn(), asu: cAs });
     const asTxt = s.asu ? ' · omzet untuk ' + s.asu : ''; const ord = U.r == 'sales' || s.kirim || s.pay == 'Piutang'; resetCart(); R(); if (ord) orderDone(s); else receipt(s); if (PRN.auto) printReceipt(s, null, 'faktur'); if (asTxt) toast('Transaksi tersimpan' + asTxt, 4000);
   } catch (e) { if (e.message != 'Dibatalkan') toast(e.message, 5000); }
