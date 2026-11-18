@@ -333,11 +333,30 @@ ${L.map((s) => `<div class="sc"><div class="row" style="margin:0"><span><b>${esc
     + (() => { const sc = (HA.cfg && HA.cfg.ship) || {}; const f = (id, lb, v, st) => `<label><small class="mu">${lb}</small><input id="${id}" type="number" step="${st || 1}" value="${v ?? ''}"></label>`; const ex = (km) => Math.ceil(Math.max(sc.min || 0, (sc.base || 0) + km * 1000 * (sc.road || 1) * (sc.per_m || 0)) / (sc.round || 1)) * (sc.round || 1);
       return `<div class="cd"><h3>🚚 Ongkir pasar online (kurir instan)</h3><small class="mu">Rumus: tarif dasar + (jarak lurus × faktor jalan) × tarif per meter, minimal & dibulatkan. Dipakai untuk Kurir toko, GoSend & GrabExpress.</small><div class="fm2" style="margin-top:8px">${f('s1', 'Tarif dasar (Rp)', sc.base)}${f('s2', 'Tarif per meter (Rp)', sc.per_m, 0.1)}${f('s3', 'Faktor jalan (×)', sc.road, 0.05)}${f('s4', 'Ongkir minimal (Rp)', sc.min)}${f('s5', 'Jarak maksimal (km)', sc.max_km)}${f('s6', 'Pembulatan (Rp)', sc.round)}</div><small class="mu">Contoh: 1 km ≈ ${rp(ex(1))} · 3 km ≈ ${rp(ex(3))} · 10 km ≈ ${rp(ex(10))}</small><button class="pr" style="margin-top:8px" onclick="haShip()">Simpan tarif ongkir</button></div>`; })()
     + `<div class="cd"><h3>📣 Siaran ke semua toko</h3><textarea id="an" maxlength="500" rows="2" placeholder="Pengumuman (tampil di chat 'Semua toko')"></textarea><button class="pr" style="margin-top:8px" onclick="haAnn()">Kirim pengumuman</button></div>`
+    + `<div class="cd"><h3>🗄️ Backup otomatis (R2)</h3><small class="mu">Tiap toko aktif dibackup otomatis 1×/hari (seluruh log kejadian — jaring pengaman bila ada data terhapus tak sengaja / bug), disimpan 14 hari terakhir. Lihat & unduh backup per toko lewat tombol "Kelola" pada toko tersebut. Perlu bucket R2 sudah dibuat & diikat di wrangler.toml (binding <code>BACKUP</code>).</small><button class="gh" style="margin-top:8px" onclick="haBackupRun()">Jalankan backup sekarang</button></div>`
     + `<div class="cd"><h3>🔐 Akun Head Admin</h3><div class="fm"><small class="mu">Username saat ini: <b>${esc(HA.cfg ? HA.cfg.user : '')}</b></small><input id="pu" placeholder="Username baru (opsional)" autocapitalize="none"><input id="po" type="password" placeholder="Password lama"><input id="pn" type="password" placeholder="Password baru (min 10 karakter)"><button class="gh a" onclick="haPass()">Ganti password</button></div></div>`
     + `</details>`;
 }
 async function haPatch(id, body, msg) { try { await haApi('/api/admin/stores/' + id, { method: 'PATCH', body: JSON.stringify(body) }); toast(msg || 'Tersimpan'); await haLoad(); return true; } catch (e) { toast(e.message); } }
 const haExt = (id, d) => haPatch(id, { add_days: d }, 'Masa aktif diperpanjang ' + d + ' hari');
+// backup harian ke R2 (lihat backup.js) — daftar & unduh manual per toko, jaring pengaman bencana
+async function haBackupLoad(sid, el) {
+  try {
+    const r = await haApi('/api/admin/backup?sid=' + encodeURIComponent(sid));
+    el.innerHTML = r.list.length ? r.list.map((x) => `<div class="row" style="margin:4px 0"><span>${esc(x.day)} <small class="mu">· ${Math.round(x.size / 1024)} KB</small></span><button class="gh" data-dl="${esc(x.day)}">⬇️ Unduh</button></div>`).join('') : '<p class="mu">Belum ada backup toko ini (backup berjalan otomatis tiap jam, 1× per hari per toko).</p>';
+    $$('[data-dl]', el).forEach((b) => (b.onclick = () => haBackupDl(sid, b.dataset.dl)));
+  } catch (e) { el.innerHTML = '<p class="rd">' + esc(e.message) + '</p>'; }
+}
+async function haBackupDl(sid, day) {
+  try {
+    const r = await fetch(AP + '/api/admin/backup/dl?sid=' + encodeURIComponent(sid) + '&day=' + encodeURIComponent(day), { headers: { Authorization: 'Bearer ' + HT } });
+    if (!r.ok) throw new Error('Gagal mengunduh (' + r.status + ')');
+    await saveFile(sid + '-' + day + '.json', await r.blob(), 'application/json');
+  } catch (e) { toast(e.message); }
+}
+async function haBackupRun() {
+  try { const r = await haApi('/api/admin/backup/run', { method: 'POST' }); toast(r.e ? r.e : 'Backup selesai: ' + r.n + ' toko baru dibackup (dari ' + r.total + ' toko aktif)' + (r.err ? ', ' + r.err + ' gagal' : '')); } catch (e) { toast(e.message); }
+}
 async function haCfg() { try { HA.cfg = await haApi('/api/admin/cfg', { method: 'PUT', body: JSON.stringify({ wa: $('#cw').value, price: $('#cp').value, trial_days: num($('#ctd').value) }) }); toast('Pengaturan disimpan'); } catch (e) { toast(e.message); } }
 async function haPass() { try { await haApi('/api/admin/password', { method: 'POST', body: JSON.stringify({ user: $('#pu').value.trim(), old: $('#po').value, pass: $('#pn').value }) }); toast('Password diganti. Login ulang.'); haOut(); MODE = 'ha'; R(); } catch (e) { toast(e.message); } }
 async function haAnn() { const tx = $('#an').value.trim(); if (!tx) return; try { await haApi('/api/admin/announce', { method: 'POST', body: JSON.stringify({ text: tx }) }); $('#an').value = ''; toast('Pengumuman terkirim'); } catch (e) { toast(e.message); } }
@@ -351,6 +370,7 @@ async function haStore(id) {
 <label><small class="mu">Tingkat paket aplikasi (fitur yang dipakai toko)</small><select id="xt">${['biasa', 'standar', 'high'].map((t) => `<option value="${t}" ${(s.tier || 'high') == t ? 'selected' : ''}>${tierName(t)}</option>`).join('')}</select></label>
 <input id="xn" placeholder="Catatan (mis. sudah bayar 1 bulan)" value="${esc(s.note || '')}"><button class="pr" id="xs">Simpan tanggal, paket & catatan</button>
 <b>Pengguna toko</b><div class="ov"><table>${st.map((u) => `<tr><td>${esc(u.name)}<td>${esc(ROLE[u.role] || u.role)}<td class="n"><button class="gh" data-n="${esc(u.name)}">Reset PIN</button></tr>`).join('')}</table></div>
+<details id="bkd"><summary>🗄️ Backup toko ini (jaring pengaman, diperbarui otomatis 1×/hari)</summary><div id="bku" style="margin-top:6px"><p class="mu">Memuat…</p></div></details>
 <div class="wrap"><button class="gh ${s.status == 'active' ? 'd' : 'a'}" id="tg">${s.status == 'active' ? 'Suspend toko' : 'Aktifkan toko'}</button><button class="gh d" id="dl">Hapus permanen</button><button class="gh" id="cx">Tutup</button></div>`, 'w');
   $$('[data-d]', m).forEach((b) => (b.onclick = async () => { if (await haExt(id, +b.dataset.d)) m.close(); }));
   $('#xs', m).onclick = async () => { const v = $('#xd', m).value, body = { plan: $('#xp', m).value, tier: $('#xt', m).value, note: $('#xn', m).value }; if (v) body.exp = new Date(v + 'T23:59:59').getTime(); if (await haPatch(id, body)) m.close(); };
@@ -358,6 +378,7 @@ async function haStore(id) {
   $('#tg', m).onclick = async () => { if (await haPatch(id, { status: s.status == 'active' ? 'suspended' : 'active' })) m.close(); };
   $('#dl', m).onclick = async () => { if (prompt('Ketik kode toko "' + id + '" untuk menghapus PERMANEN semua data toko ini:') != id) return; try { await haApi('/api/admin/stores/' + id, { method: 'DELETE' }); m.close(); toast('Toko dihapus'); haLoad(); } catch (e) { toast(e.message); } };
   $('#cx', m).onclick = () => m.close();
+  const bkd = $('#bkd', m); bkd.ontoggle = () => { if (bkd.open) haBackupLoad(id, $('#bku', m)); };
 }
 
 async function haShip() { const v = (i) => +$('#' + i).value; try { HA.cfg = await haApi('/api/admin/cfg', { method: 'PUT', body: JSON.stringify({ ship_base: v('s1'), ship_per_m: v('s2'), ship_road: v('s3'), ship_min: v('s4'), ship_max_km: v('s5'), ship_round: v('s6') }) }); toast('Tarif ongkir disimpan'); R(); } catch (e) { toast(e.message); } }

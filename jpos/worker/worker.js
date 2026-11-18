@@ -2,8 +2,9 @@ import { MSCHEMA, buyerRoutes, shopRoutes, shipCfg } from './market.js';
 import { SSCHEMA, SALTER, logAct, heartbeat, adminActivity } from './social.js';
 import { MSCH2, mitraRoutes } from './mitra.js';
 import { HSCHEMA, payHook, hqStore, hqAdmin, leadPost, trailStmt, trailGet, pruneTrail, pruneVisits, tunnelPost, tunnelRedirect, apkPublic, apkPubOf, apkChunkGet, apkDlCount, siteOf, siteHit, appHit, adminPulse, webPublic, mediaPublic, webExport, trkIssue, trkOff, trkLoc, ghApkHit, GH_APK_URL, jdataHit, JDATA_APK_URL, dlLead, dlAdmin } from './hq.js';
-import { RSCHEMA, RALTER, rptCfg, cleanCfg, dayRange, buildDaily, sendOut, cronDaily, notifNewAR, dueNotify, dueCronCheck } from './lapor.js';
+import { RSCHEMA, RALTER, rptCfg, cleanCfg, dayRange, buildDaily, sendOut, cronDaily, notifNewAR, dueNotify, dueCronCheck, notifRetryRun } from './lapor.js';
 import { TGSCHEMA, tgHook, tgLinkCode, tgSetWebhook } from './tg.js';
+import { backupDaily, backupList, backupGet } from './backup.js';
 // J-POS API v4 — Cloudflare Worker + D1 (SQLite)
 // Multi-tenant: 1 toko = 1 tenant. Data bisnis = LOG KEJADIAN (tabel ev) yang diputar ulang tiap perangkat (offline-first).
 // v4: peran owner/admin/akuntan/kasir/sales, masa aktif toko (trial 30 hari + perpanjangan oleh Head Admin),
@@ -264,6 +265,14 @@ export default {
         if (p == '/api/admin/activity' && M == 'GET') return J(await adminActivity(env, u));
         if (p == '/api/admin/pulse' && M == 'GET') return adminPulse(env, J);
         if (p == '/api/admin/dl' && M == 'GET') return dlAdmin(env, J);
+        // backup harian tiap toko ke R2 (lihat backup.js) — daftar & unduh manual (jaring pengaman bencana, bukan restore otomatis)
+        if (p == '/api/admin/backup' && M == 'GET') { const sid = String(u.searchParams.get('sid') || ''); if (!sid) return J({ e: 'sid wajib diisi' }, 400); return J({ list: await backupList(env, sid) }); }
+        if (p == '/api/admin/backup/dl' && M == 'GET') {
+          const sid = String(u.searchParams.get('sid') || ''), day = String(u.searchParams.get('day') || '');
+          const obj = await backupGet(env, sid, day); if (!obj) return J({ e: 'Backup tidak ditemukan' }, 404);
+          return new Response(obj.body, { headers: { 'Content-Type': 'application/json', 'Content-Disposition': `attachment; filename="${sid}-${day}.json"` } });
+        }
+        if (p == '/api/admin/backup/run' && M == 'POST') return J(await backupDaily(env, Date.now())); // jalankan manual (tombol "Backup sekarang")
         if (p == '/api/admin/stores' && M == 'GET') {
           const r = await env.DB.prepare(`SELECT s.id,s.name,s.owner,s.email,s.phone,s.status,s.created,s.exp,s.plan,s.tier,s.note,s.ref_by,
               (SELECT COUNT(*) FROM staff WHERE store_id=s.id) users, COALESCE(e.n,0) tx, COALESCE(e.o,0) omzet, COALESCE(e.n30,0) tx30, COALESCE(e.o30,0) om30, e.last,
@@ -658,5 +667,5 @@ export default {
     } catch (x) { console.error(x && x.stack || x); return J({ e: 'Server error' }, 500); }
   },
   // Cron Trigger (tiap jam): laporan harian otomatis ke WA & email pemilik toko
-  async scheduled(ev, env, ctx) { await ready(env); const now = ev.scheduledTime || Date.now(), CFG = await cfgAll(env); ctx.waitUntil(Promise.all([cronDaily(env, CFG, now), dueCronCheck(env, CFG, now).catch((e) => console.error('dueCronCheck', e && e.stack || e)), pruneTrail(env, Date.now()).catch(() => { }), pruneVisits(env, Date.now()).catch(() => { })])); }, // tiap jam: laporan harian + pengingat piutang/stok cadangan (kalau HP tidak aktif) + hapus riwayat > 30 hari
+  async scheduled(ev, env, ctx) { await ready(env); const now = ev.scheduledTime || Date.now(), CFG = await cfgAll(env); ctx.waitUntil(Promise.all([cronDaily(env, CFG, now), dueCronCheck(env, CFG, now).catch((e) => console.error('dueCronCheck', e && e.stack || e)), backupDaily(env, now).catch((e) => console.error('backupDaily', e && e.stack || e)), notifRetryRun(env, now).catch((e) => console.error('notifRetryRun', e && e.stack || e)), pruneTrail(env, Date.now()).catch(() => { }), pruneVisits(env, Date.now()).catch(() => { })])); }, // tiap jam: laporan harian + pengingat piutang/stok cadangan (kalau HP tidak aktif) + backup harian ke R2 (1×/hari per toko) + retry notifikasi gagal + hapus riwayat > 30 hari
 };
