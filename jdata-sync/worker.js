@@ -87,6 +87,7 @@ async function ensureTables(db) {
     db.prepare("CREATE TABLE IF NOT EXISTS app_users(username TEXT PRIMARY KEY, role TEXT, first_seen INTEGER, last_seen INTEGER, opens INTEGER DEFAULT 0, app_version TEXT, model TEXT, last_event TEXT)"),
     db.prepare("CREATE TABLE IF NOT EXISTS app_devices(username TEXT, device_id TEXT, model TEXT, first_seen INTEGER, last_seen INTEGER, PRIMARY KEY(username, device_id))"),
     db.prepare("CREATE TABLE IF NOT EXISTS programs(profile TEXT NOT NULL, id TEXT NOT NULL, name TEXT, type TEXT, from_d TEXT, to_d TEXT, sku TEXT, outlets INTEGER DEFAULT 0, target REAL DEFAULT 0, actual REAL DEFAULT 0, achieved INTEGER DEFAULT 0, def TEXT, daily TEXT, updated INTEGER, PRIMARY KEY(profile, id))"),
+    db.prepare("CREATE TABLE IF NOT EXISTS stock(profile TEXT PRIMARY KEY, data TEXT, updated INTEGER)"),
     db.prepare("CREATE TABLE IF NOT EXISTS licenses(username TEXT PRIMARY KEY, type TEXT DEFAULT 'trial', trial_start INTEGER, trial_days INTEGER DEFAULT 30, seats INTEGER DEFAULT 1, paid_until TEXT, note TEXT)"),
   ]);
   ready = true;
@@ -244,6 +245,42 @@ export default {
         await ensureTables(db);
         const r = await db.prepare("SELECT id,name,type,from_d,to_d,sku,outlets,target,actual,achieved,def,daily,updated FROM programs WHERE profile=?").bind(profile).all();
         return J({ programs: r.results || [] });
+      }
+      // ---- GANTI NAMA SALESMAN / GABUNG SKU langsung di cloud (tanpa kirim ulang baris) ----
+      if (url.pathname === "/sync/rename" && req.method === "POST") {
+        await ensureTables(db);
+        const b = await req.json(); const p = s(b.profile);
+        if (!p) return J({ error: "profile wajib" }, 400);
+        const st = [];
+        if (b.kind === "salesman") {
+          const to = s(b.to).trim();
+          for (const f of (Array.isArray(b.froms) ? b.froms : [])) {
+            const fu = s(f).trim().toUpperCase().replace(/\s+/g, " ");
+            if (!fu || !to) continue;
+            for (const t of ["sales", "ro"]) st.push(db.prepare("UPDATE " + t + " SET salesman=? WHERE profile=? AND UPPER(TRIM(salesman))=?").bind(to, p, fu));
+            st.push(db.prepare("DELETE FROM targets WHERE profile=? AND UPPER(TRIM(salesman))=? AND EXISTS(SELECT 1 FROM targets x WHERE x.profile=? AND UPPER(TRIM(x.salesman))=?)").bind(p, fu, p, to.toUpperCase()));
+            st.push(db.prepare("UPDATE targets SET salesman=? WHERE profile=? AND UPPER(TRIM(salesman))=?").bind(to, p, fu));
+          }
+        } else if (b.kind === "sku") {
+          for (const it of (Array.isArray(b.items) ? b.items : []))
+            st.push(db.prepare("UPDATE sales SET sku_code=?, sku_name=? WHERE profile=? AND sku_code=? AND sku_name=?").bind(s(it.tc), s(it.tn), p, s(it.fc), s(it.fn)));
+        } else return J({ error: "kind tidak dikenal" }, 400);
+        await batch(db, st);
+        return J({ ok: true, ops: st.length });
+      }
+      // ---- STOK SKU ----
+      if (url.pathname === "/sync/stock" && req.method === "POST") {
+        await ensureTables(db);
+        const b = await req.json(); const p = s(b.profile);
+        if (!p) return J({ error: "profile wajib" }, 400);
+        await db.prepare("INSERT OR REPLACE INTO stock VALUES(?,?,?)").bind(p, JSON.stringify(Array.isArray(b.items) ? b.items : []), Date.now()).run();
+        return J({ ok: true });
+      }
+      if (url.pathname === "/sync/stock" && req.method === "GET") {
+        await ensureTables(db);
+        const r = await db.prepare("SELECT data FROM stock WHERE profile=?").bind(profile).first();
+        let items = []; try { items = JSON.parse((r && r.data) || "[]"); } catch (e) {}
+        return J({ items });
       }
       if (url.pathname === "/sync/profiles") {
         const r = await db.prepare("SELECT profile FROM sales UNION SELECT profile FROM ro").all();
