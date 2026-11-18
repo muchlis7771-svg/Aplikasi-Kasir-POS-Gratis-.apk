@@ -88,6 +88,7 @@ async function ensureTables(db) {
     db.prepare("CREATE TABLE IF NOT EXISTS app_devices(username TEXT, device_id TEXT, model TEXT, first_seen INTEGER, last_seen INTEGER, PRIMARY KEY(username, device_id))"),
     db.prepare("CREATE TABLE IF NOT EXISTS programs(profile TEXT NOT NULL, id TEXT NOT NULL, name TEXT, type TEXT, from_d TEXT, to_d TEXT, sku TEXT, outlets INTEGER DEFAULT 0, target REAL DEFAULT 0, actual REAL DEFAULT 0, achieved INTEGER DEFAULT 0, def TEXT, daily TEXT, updated INTEGER, PRIMARY KEY(profile, id))"),
     db.prepare("CREATE TABLE IF NOT EXISTS stock(profile TEXT PRIMARY KEY, data TEXT, updated INTEGER)"),
+    db.prepare("CREATE TABLE IF NOT EXISTS perms(kind TEXT NOT NULL, name TEXT NOT NULL, data TEXT, updated INTEGER, PRIMARY KEY(kind, name))"),
     db.prepare("CREATE TABLE IF NOT EXISTS licenses(username TEXT PRIMARY KEY, type TEXT DEFAULT 'trial', trial_start INTEGER, trial_days INTEGER DEFAULT 30, seats INTEGER DEFAULT 1, paid_until TEXT, note TEXT)"),
   ]);
   ready = true;
@@ -135,8 +136,31 @@ async function usageRoutes(url, req, env) {
     st.devices = devs.length;
     return J({ ok: true, ...st });
   }
+  // ---- HAK AKSES FITUR: dibaca tiap pengguna (token harus valid) ----
+  if (url.pathname === "/usage/perm") {
+    const v = await authPost("/api/verify", { token: s(b.token), device_id: s(b.device_id) });
+    if (!v.ok || v.j.valid === false) return J({ ok: false, error: "sesi tidak valid" }, 401);
+    const rows = (await db.prepare("SELECT kind,name,data FROM perms WHERE (kind='role' AND name=?) OR (kind='user' AND name=?)").bind(s(b.role) || "sales", s(b.username)).all()).results || [];
+    let role = {}, user = {};
+    for (const r of rows) { let d = {}; try { d = JSON.parse(r.data || "{}"); } catch (e) {} if (r.kind === "role") role = d; else user = d; }
+    return J({ perms: { ...role, ...user }, role_default: role, user });
+  }
   // ---- khusus admin ----
   if (!(await isAdmin(s(b.token)))) return J({ error: "khusus admin" }, 403);
+  if (url.pathname === "/admin/perm-list") {
+    const rows = (await db.prepare("SELECT kind,name,data FROM perms").all()).results || [];
+    return J({ rows: rows.map(r => { let d = {}; try { d = JSON.parse(r.data || "{}"); } catch (e) {} return { kind: r.kind, name: r.name, perms: d }; }) });
+  }
+  if (url.pathname === "/admin/perm-set") {
+    const kind = s(b.kind), name = s(b.name).trim();
+    if (!["role", "user"].includes(kind) || !name) return J({ error: "kind/name tidak valid" }, 400);
+    if (b.perms == null) await db.prepare("DELETE FROM perms WHERE kind=? AND name=?").bind(kind, name).run();
+    else {
+      const clean = {}; for (const k of Object.keys(b.perms)) clean[String(k).slice(0, 40)] = !!b.perms[k];
+      await db.prepare("INSERT OR REPLACE INTO perms VALUES(?,?,?,?)").bind(kind, name, JSON.stringify(clean), Date.now()).run();
+    }
+    return J({ ok: true });
+  }
   if (url.pathname === "/admin/overview") {
     const us = (await db.prepare("SELECT u.*, l.type, l.trial_start, l.trial_days, l.seats, l.paid_until, l.note, (SELECT COUNT(*) FROM app_devices d WHERE d.username=u.username) AS devices FROM app_users u LEFT JOIN licenses l ON l.username=u.username ORDER BY u.last_seen DESC").all()).results || [];
     return J({ now: Date.now(), users: us });
