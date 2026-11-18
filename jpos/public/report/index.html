@@ -77,7 +77,10 @@ function ft(el,head,rows,o={}){
       l.sort((a,b)=>{const x=n(a[1][c]),y=n(b[1][c]);return x!=null&&y!=null?x-y:String(a[1][c]).localeCompare(String(b[1][c]))});if(!st.asc)l.reverse();}
     if(head[0]==='No')l=l.map(([i,r],n)=>[i,[n+1,...r.slice(1)]]);return l;}
   function draw(){const l=view();const act=st.sort>=0||Object.values(st.ex).some(s=>s.size)||Object.values(st.tx).some(v=>v);
-    el.innerHTML=`<div class="mut">${l.length} dari ${rows.length} baris${act?' (filter aktif)':''} - klik judul kolom untuk filter</div><div class="wrap"><table><tr>${head.map((h,i)=>`<th data-c="${i}">${esc(h)} ${st.ex[i]?.size||st.tx[i]?'●':'▾'}</th>`).join('')}</tr>${l.slice(0,500).map(([i,r])=>`<tr class="${o.onRow?'click':''}" data-i="${i}">${r.map((v,c)=>`<td class="${left.has(head[c])?'':'r'} ${v==='Belum TRX'?'red':''}">${esc(v)}</td>`).join('')}</tr>`).join('')}</table></div>${l.length>500?'<div class="mut">Menampilkan 500 baris pertama; persempit dengan filter.</div>':''}<div class="row"><button class="sec" data-csv>Download CSV</button></div>`;
+    let tr='';if(o.totals){const nn=s=>{const x=parseFloat(String(s).replace(/\./g,'').replace(',','.'));return isNaN(x)||!/^[\d.,-]+$/.test(String(s))?null:x};
+      tr='<tr>'+head.map((h,c)=>{if(c===0)return'<td><b>TOTAL</b></td>';if(h==='No'||h==='Kode')return'<td></td>';const vs=l.map(x=>x[1][c]).filter(v=>v!==''&&v!=='-');const ns=vs.map(nn);
+        return'<td class="r"><b>'+(vs.length&&ns.every(v=>v!==null)?nf.format(ns.reduce((a,b)=>a+b,0)):'')+'</b></td>'}).join('')+'</tr>';}
+    el.innerHTML=`<div class="mut">${l.length} dari ${rows.length} baris${act?' (filter aktif)':''} - klik judul kolom untuk filter</div><div class="wrap"><table><tr>${head.map((h,i)=>`<th data-c="${i}">${esc(h)} ${st.ex[i]?.size||st.tx[i]?'●':'▾'}</th>`).join('')}</tr>${tr.replace(/<td/g,'<td style="background:#fff3c4"')}${l.slice(0,500).map(([i,r])=>`<tr class="${o.onRow?'click':''}" data-i="${i}">${r.map((v,c)=>`<td class="${left.has(head[c])?'':'r'} ${v==='Belum TRX'?'red':''}">${esc(v)}</td>`).join('')}</tr>`).join('')}</table></div>${l.length>500?'<div class="mut">Menampilkan 500 baris pertama; persempit dengan filter.</div>':''}<div class="row"><button class="sec" data-csv>Download CSV</button></div>`;
     el.querySelectorAll('th').forEach(th=>th.onclick=e=>{e.stopPropagation();menu(th,+th.dataset.c)});
     if(o.onRow)el.querySelectorAll('tr.click').forEach(tr=>tr.onclick=()=>o.onRow(+tr.dataset.i));
     el.querySelector('[data-csv]').onclick=()=>{const csv=[head,...view().map(x=>x[1])].map(r=>r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')).join('\n');
@@ -132,7 +135,7 @@ function ideas(o){
     return [i+1,name,ket,...q.map(x=>nf.format(Math.round(x))),nf.format(Math.round(q3)),nf.format(Math.round(q3/3)),...om.map(x=>nf.format(Math.round(x))),nf.format(Math.round(o3)),nf.format(Math.round(o3/3)),last||'-',st==null?'-':nf.format(st)];});
   const head=['No','SKU','Ket',...X.mlab.map(m=>'Qty '+m),'Qty 3 bln','AVG Qty L3M',...X.mlab.map(m=>'Omset '+m),'Omset 3 bln','AVG Omset L3M','Terakhir','Stok'];
   modal(`<div class="card"><h3 style="margin:0">${esc(o.name)}</h3><div class="mut">${esc(o.id||o.key)} - ${esc(o.s)} - ${esc(wk(o))} | data s/d ${X.latest}</div><div class="mut">20 SKU terlaris 3 bulan terakhir (semua outlet) + SKU outlet ini yang sudah ≥2 bulan tidak transaksi. Qty dalam pcs (1 karton = 24 pcs). Sudah TRX = beli dalam 2 bulan terakhir.</div><div id="t2"></div></div>`);
-  ft($('t2'),head,rows,{left:['No','SKU','Ket','Terakhir','Stok'],title:'potensi-'+o.name});}
+  ft($('t2'),head,rows,{left:['No','SKU','Ket','Terakhir','Stok'],title:'potensi-'+o.name,totals:true});}
 /* ---------- RO belum beli ---------- */
 function vBelum(){
   const sm=[...new Set(D.ro.map(o=>o.s).filter(Boolean))].sort();const skuMap=new Map();
@@ -146,7 +149,7 @@ function vBelum(){
   const rows=outs.map(o=>{const e=per.get(o.key)||{q:{},last:''};const q=X.months.map(m=>Math.max(0,e.q[m]||0)*PCS);return{o,q,last:e.last};})
     .filter(x=>x.q[2]<=0).sort((a,b)=>b.q.reduce((s,v)=>s+v,0)-a.q.reduce((s,v)=>s+v,0))
     .map(x=>[x.o.id||x.o.key,x.o.name,wk(x.o)||'-',...x.q.map(v=>nf.format(Math.round(v))),nf.format(Math.round(x.q.reduce((s,v)=>s+v,0))),x.last||'-']);
-  ft($('t'),['Kode','Nama Outlet','Hari',...X.mlab.map(m=>'Qty '+m+' (pcs)'),'Qty 3 bln','Terakhir beli'],rows,{left:['Kode','Nama Outlet','Hari','Terakhir beli'],title:'ro-belum-beli'});
+  ft($('t'),['Kode','Nama Outlet','Hari',...X.mlab.map(m=>'Qty '+m+' (pcs)'),'Qty 3 bln','Terakhir beli'],rows,{left:['Kode','Nama Outlet','Hari','Terakhir beli'],title:'ro-belum-beli',totals:true});
   $('t').insertAdjacentHTML('beforebegin',`<div class="mut">${rows.length} dari ${outs.length} outlet RO ${esc(X.bs)} belum membeli SKU ini di bulan ${X.cur}.</div>`);}
 /* ---------- gabung nama (salesman & SKU) ---------- */
 const lev=(a,b)=>{const d=Array.from({length:b.length+1},(_,i)=>i);for(let i=1;i<=a.length;i++){let p=d[0];d[0]=i;for(let j=1;j<=b.length;j++){const t=d[j];d[j]=Math.min(d[j]+1,d[j-1]+1,p+(a[i-1]===b[j-1]?0:1));p=t}}return d[b.length]};
