@@ -75,8 +75,10 @@ const n = (v) => (Number.isFinite(+v) ? +v : 0);
 // ---- LISENSI & MONITORING PENGGUNA (identitas diverifikasi ke Worker login jdata-report-auth) ----
 const AUTH_URL = "https://jdata-report-auth.muchlis7771.workers.dev";
 const DAY = 86400000;
+let AUTH_BIND = null;
 async function authPost(path, body, token) {
-  const r = await fetch(AUTH_URL + path, { method: "POST", headers: { "content-type": "application/json", ...(token ? { "x-auth-token": token } : {}) }, body: JSON.stringify(body || {}) });
+  const init = { method: "POST", headers: { "content-type": "application/json", ...(token ? { "x-auth-token": token } : {}) }, body: JSON.stringify(body || {}) };
+  const r = AUTH_BIND ? await AUTH_BIND.fetch(AUTH_URL + path, init) : await fetch(AUTH_URL + path, init);
   let j = {}; try { j = await r.json(); } catch (e) {}
   return { ok: r.ok, j, status: r.status };
 }
@@ -245,6 +247,7 @@ const REPORT_HTML = "<!doctype html>\n<html lang=\"id\"><head><meta charset=\"ut
 
 export default {
   async fetch(req, env) {
+    if (env.AUTH) AUTH_BIND = env.AUTH;
     const url = new URL(req.url);
     if (req.method === "OPTIONS") return new Response(null, { headers: { "access-control-allow-origin": "*", "access-control-allow-headers": "authorization,content-type,x-auth-token,x-device-id,x-username", "access-control-allow-methods": "GET,POST" } });
     if (url.pathname === "/health") return J({ ok: true });
