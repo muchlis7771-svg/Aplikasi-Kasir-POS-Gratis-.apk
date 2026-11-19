@@ -208,8 +208,9 @@ async function pwaInstall() { if (!PWAIP) return; try { PWAIP.prompt(); await PW
   // Pelanggan scan QR di meja (coffee shop) → langsung ke tampilan pesan-sendiri toko ini, TANPA perlu instal app:
   // cukup buka link di browser HP (kamera → link https://.../?s=<kode toko>&meja=<nomor meja>). Memakai jalur
   // belanja online yang sudah ada (bOpenStore + metode "Ambil sendiri") — bukan endpoint publik baru.
+  let qDemo = false;
   try {
-    const qp = new URLSearchParams(location.search), qSid = qp.get('s'), qMeja = qp.get('meja'), qRef = qp.get('ref');
+    const qp = new URLSearchParams(location.search), qSid = qp.get('s'), qMeja = qp.get('meja'), qRef = qp.get('ref'), qM = qp.get('m');
     if (qSid) {
       history.replaceState(null, '', location.pathname);
       startBuyer(); bOpenStore(qSid);
@@ -218,9 +219,15 @@ async function pwaInstall() { if (!PWAIP) return; try { PWAIP.prompt(); await PW
       // link referral (?ref=kodetoko) dari toko lain yang mengajak → langsung buka form daftar, kode referral terisi otomatis
       history.replaceState(null, '', location.pathname);
       REFQ = qRef; MODE = 'reg';
+    } else if (qM && /^(login|reg|ha|demo)$/.test(qM) && !U) {
+      // deep-link dari halaman promo HomeTech (?m=login|reg|ha|demo) → langsung ke layar yang dituju,
+      // tanpa perlu melewati layar peluncur aplikasi J-POS yang terpisah
+      history.replaceState(null, '', location.pathname);
+      if (qM == 'demo') qDemo = true; else MODE = qM;
     }
   } catch (e) { }
   if (HT) { MODE = 'ha'; R(); haLoad(); }
+  else if (qDemo) { R(); startDemo(); }
   else if (!U && MODE != 'buyer' && MODE != 'reg' && typeof tryResume == 'function' && tryResume()) { R(); chatPoll(true); kick(); window.scrollTo(0, 0); }
   else R();
   if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol) && !(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) navigator.serviceWorker.register('sw.js').catch(() => { });
