@@ -162,6 +162,13 @@ export default {
     if (p == '/gh' || p == '/apk' || p == '/dl') { try { await ready(env); ghApkHit(env, ip, limited).catch(() => { }); } catch (e) { } return Response.redirect(GH_APK_URL, 302); } // link APK langsung terlacak (dipakai di flyer / caption FB-marketplace, di luar website promo)
     if (p == '/jdata') { try { await ready(env); jdataHit(env, ip, limited).catch(() => { }); } catch (e) { } return Response.redirect(JDATA_APK_URL, 302); } // APK J-DATA Report (terlacak)
     { const g = p.match(/^\/google([a-f0-9]{16})\.html$/); if (g) { try { await ready(env); if (siteOf(await cfgAll(env)).gsv == g[1]) return new Response('google-site-verification: google' + g[1] + '.html', { headers: { 'Content-Type': 'text/html; charset=utf-8' } }); } catch (e) { } return new Response('Not found', { status: 404 }); } } // verifikasi Google Search Console
+    // root "/" → halaman promo HomeTech. Pakai redirect 302 biasa (satu arah saja, TIDAK ada rute lain yang
+    // redirect balik dari /promo/ ke "/") — supaya tidak terulang redirect loop seperti percobaan sebelumnya
+    // (waktu itu "/" langsung me-render isi /promo/index.html lewat ASSETS.fetch, dan ternyata Cloudflare
+    // sendiri me-redirect /promo/index.html → /promo/, yang lalu dipantulkan lagi ke "/" oleh kode lama → loop).
+    // Aplikasi Capacitor aman: WebView-nya jalan dari origin lokal https://localhost, tidak pernah membuka
+    // root domain production secara langsung.
+    if (p == '/') return Response.redirect(new URL('/promo/', req.url).href, 302);
     if (!p.startsWith('/api/')) return env.ASSETS.fetch(req);
     const cors = { 'Access-Control-Allow-Origin': env.ORIGIN || '*', 'Access-Control-Allow-Headers': 'Authorization,Content-Type', 'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS' };
     const J = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
