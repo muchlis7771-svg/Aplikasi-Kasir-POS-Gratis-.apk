@@ -46,7 +46,7 @@ export async function invPay(env, id, via, ref) {
   await env.DB.batch([
     env.DB.prepare("UPDATE inv SET status='lunas',paid_t=?,via=?,ref=? WHERE id=? AND status='tunggu'").bind(now, clip(via, 30), clip(ref, 80), id),
     env.DB.prepare("UPDATE stores SET exp=?,plan=?,tier=?,status='active' WHERE id=?").bind(exp, 'Langganan ' + v.months + ' bln', v.tier || s.tier || 'high', v.store_id),
-    env.DB.prepare('INSERT INTO wchat(room,sid,sn,un,tx,t) VALUES(?,?,?,?,?,?)').bind('tk:' + v.store_id, 'hq', 'Pemilik Aplikasi', 'Head Admin', `✅ Pembayaran Rp${v.amount.toLocaleString('id-ID')} diterima. Paket diperpanjang ${v.months} bulan s/d ${new Date(exp + 8 * 36e5).toISOString().slice(0, 10)}. Terima kasih!`, now),
+    env.DB.prepare('INSERT INTO chat(room,sid,sn,un,tx,t) VALUES(?,?,?,?,?,?)').bind('tk:' + v.store_id, 'hq', 'Pemilik Aplikasi', 'Head Admin', `✅ Pembayaran Rp${v.amount.toLocaleString('id-ID')} diterima. Paket diperpanjang ${v.months} bulan s/d ${new Date(exp + 8 * 36e5).toISOString().slice(0, 10)}. Terima kasih!`, now),
   ]);
   return { ...v, exp };
 }
@@ -195,7 +195,7 @@ export async function hqStore(x) {
 // rute Head Admin
 export async function hqAdmin(x) {
   const { env, p, M, b, J, C, cfgSet, origin } = x, now = Date.now();
-  { const ar = (await apkAdmin(x)) || (await siteAdmin(x)) || (await chatAdmin(x)) || (await mediaAdmin(x)); if (ar) return ar; }
+  { const ar = (await apkAdmin(x)) || (await siteAdmin(x)) || (await chatAdmin(x)) || (await storeChatAdmin(x)) || (await mediaAdmin(x)); if (ar) return ar; }
   if (p == '/api/admin/pay') {
     if (M == 'PUT') {
       if (b.bank != null) await cfgSet(env, 'pay_bank', clip(b.bank, 400).trim());
@@ -510,6 +510,32 @@ async function chatAdmin(x) {
     return J({ list: (await env.DB.prepare('SELECT id,name,store,stars,txt,t,ok FROM wulasan ORDER BY ok,t DESC LIMIT 100').all()).results });
   }
   return null;
+}
+
+/* ============ HEAD ADMIN ↔ TOKO: chat langsung per toko (ruang 'tk:<store_id>', sama dgn yg dipakai toko di menu Tim/Chat) ============ */
+async function storeChatAdmin(x) {
+  const { env, p, M, b, J, u } = x;
+  if (p != '/api/admin/storechat') return null;
+  const sid = String(u.searchParams.get('sid') || '');
+  if (!sid) {
+    const r = (await env.DB.prepare(`SELECT c.room,s.name sname,MAX(c.seq) lseq,MAX(c.t) t,
+        (SELECT x.tx FROM chat x WHERE x.room=c.room ORDER BY x.seq DESC LIMIT 1) last,
+        (SELECT x.sid FROM chat x WHERE x.room=c.room ORDER BY x.seq DESC LIMIT 1) lastSid
+      FROM chat c LEFT JOIN stores s ON s.id=substr(c.room,4)
+      WHERE c.room LIKE 'tk:%' GROUP BY c.room ORDER BY lseq DESC LIMIT 100`).all()).results
+      .map((r2) => ({ sid: r2.room.slice(3), sname: r2.sname, t: r2.t, last: r2.last, needReply: r2.lastSid != 'hq' ? 1 : 0 }));
+    return J({ list: r, needReply: r.reduce((a, x2) => a + x2.needReply, 0) });
+  }
+  if (!/^[a-z0-9]{1,24}$/i.test(sid)) return J({ e: 'Kode toko tidak valid' }, 400);
+  const room = 'tk:' + sid;
+  if (M == 'GET') return J({ m: (await env.DB.prepare('SELECT seq,sid,sn,un,tx,t FROM chat WHERE room=? ORDER BY seq DESC LIMIT 200').bind(room).all()).results.reverse() });
+  if (M == 'POST') {
+    const tx = String(b.text || '').trim().slice(0, 800); if (!tx) return J({ e: 'Pesan kosong' }, 400);
+    if (!(await env.DB.prepare('SELECT 1 FROM stores WHERE id=?').bind(sid).first())) return J({ e: 'Toko tidak ditemukan' }, 404);
+    await env.DB.prepare('INSERT INTO chat(room,sid,sn,un,tx,t) VALUES(?,?,?,?,?,?)').bind(room, 'hq', 'Pemilik Aplikasi', 'Head Admin', tx, Date.now()).run();
+    return J({ ok: 1 });
+  }
+  return J({ e: 'Not found' }, 404);
 }
 
 /* ============ MEDIA IKLAN (gambar & video) untuk website — disimpan per potongan base64 di D1, dirakit di browser ============ */

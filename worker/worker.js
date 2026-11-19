@@ -275,9 +275,10 @@ export default {
           const r = await env.DB.prepare(`SELECT s.id,s.name,s.owner,s.email,s.phone,s.status,s.created,s.exp,s.plan,s.tier,s.note,s.ref_by,
               (SELECT COUNT(*) FROM staff WHERE store_id=s.id) users, COALESCE(e.n,0) tx, COALESCE(e.o,0) omzet, COALESCE(e.n30,0) tx30, COALESCE(e.o30,0) om30, e.last,
               sn.t snt, json_extract(sn.data,'$.sv') sv, json_extract(sn.data,'$.nsku') nsku, json_extract(sn.data,'$.qty') qty, json_extract(sn.data,'$.nlow') nlow, json_extract(sn.data,'$.ar') ar, json_extract(sn.data,'$.od') od,
-              json_extract(sn.data,'$.ap') ap, json_extract(sn.data,'$.lm') lm, json_extract(sn.data,'$.om') om, json_extract(sn.data,'$.kas') kas, json_extract(sn.data,'$.bank') bank
+              json_extract(sn.data,'$.ap') ap, json_extract(sn.data,'$.lm') lm, json_extract(sn.data,'$.om') om, json_extract(sn.data,'$.kas') kas, json_extract(sn.data,'$.bank') bank, COALESCE(sh.open,0) shop_open
             FROM stores s LEFT JOIN (SELECT store_id,SUM(CASE WHEN k='sale' THEN 1 ELSE 0 END) n,SUM(tot) o,SUM(CASE WHEN k='sale' AND t>?1 THEN 1 ELSE 0 END) n30,SUM(CASE WHEN t>?1 THEN tot ELSE 0 END) o30,MAX(t) last FROM ev GROUP BY store_id) e ON e.store_id=s.id
             LEFT JOIN snap sn ON sn.store_id=s.id
+            LEFT JOIN shop sh ON sh.store_id=s.id
             ORDER BY s.created DESC LIMIT 2000`).bind(Date.now() - 30 * DAY).all();
           return J({ stores: r.results, now: Date.now() });
         }
@@ -288,13 +289,27 @@ export default {
               (SELECT COUNT(*) FROM stores WHERE exp<?1) expired,(SELECT COUNT(*) FROM stores WHERE exp>=?1 AND exp<?2) soon,(SELECT COUNT(*) FROM stores WHERE plan='trial' AND exp>=?1) trial,
               (SELECT COUNT(*) FROM stores WHERE plan!='trial' AND exp>=?1) paid,
               COALESCE((SELECT SUM(tot) FROM ev),0) omzet,(SELECT COUNT(*) FROM ev WHERE k='sale') tx,
-              (SELECT COUNT(*) FROM buyers) buyers,(SELECT COUNT(*) FROM orders) orders,COALESCE((SELECT SUM(tot) FROM orders WHERE status='selesai'),0) gmv,(SELECT COUNT(*) FROM shop WHERE open=1) shops`).bind(now, now + 7 * DAY).first(),
+              (SELECT COUNT(*) FROM buyers) buyers,(SELECT COUNT(*) FROM orders) orders,COALESCE((SELECT SUM(tot) FROM orders WHERE status='selesai'),0) gmv,(SELECT COUNT(*) FROM shop WHERE open=1) shops,
+              (SELECT COUNT(*) FROM inv WHERE status='tunggu') invWait,COALESCE((SELECT SUM(amount) FROM inv WHERE status='tunggu'),0) invWaitAmt`).bind(now, now + 7 * DAY).first(),
             env.DB.prepare(`SELECT strftime('%Y-%m-%d',(t/1000)+?,'unixepoch') d,SUM(tot) v FROM ev WHERE k IN('sale','retur') AND t>? GROUP BY d ORDER BY d`).bind(tz, since).all(),
             env.DB.prepare(`SELECT strftime('%Y-%m-%d',(created/1000)+?,'unixepoch') d,COUNT(*) v FROM stores WHERE created>? GROUP BY d ORDER BY d`).bind(tz, since).all(),
             env.DB.prepare(`SELECT s.id,s.name,s.tier,SUM(e.tot) v FROM ev e JOIN stores s ON s.id=e.store_id WHERE e.t>? GROUP BY e.store_id ORDER BY v DESC LIMIT 15`).bind(m30).all(),
             env.DB.prepare(`SELECT COALESCE(tier,'high') tier,COUNT(*) n FROM stores WHERE status='active' GROUP BY tier`).all(), // distribusi paket toko aktif (biasa/standar/high)
           ]);
           return J({ totals: tt, daily: dd.results, signups: ns.results, top: top.results, tier: tier.results });
+        }
+        // daftar pesanan pasar online (toko ↔ pembeli) lintas semua toko — buat pengawasan Head Admin (lihat/telusuri saja,
+        // status pesanan diubah oleh toko/pembeli sendiri lewat aksi mereka masing-masing, bukan oleh Head Admin)
+        if (p == '/api/admin/orders' && M == 'GET') {
+          const st = String(u.searchParams.get('st') || ''), q = String(u.searchParams.get('q') || '').trim().slice(0, 60);
+          let sql = `SELECT o.id,o.store_id,s.name sname,o.buyer_id,b.name bn,b.phone bp,o.tot,o.status,o.pay,o.method,o.t,o.upd
+            FROM orders o LEFT JOIN stores s ON s.id=o.store_id LEFT JOIN buyers b ON b.id=o.buyer_id WHERE 1=1`;
+          const args = [];
+          if (st) { sql += ' AND o.status=?'; args.push(st); }
+          if (q) { sql += ' AND (s.name LIKE ? OR b.name LIKE ? OR o.store_id LIKE ?)'; args.push('%' + q + '%', '%' + q + '%', '%' + q + '%'); }
+          sql += ' ORDER BY o.id DESC LIMIT 200';
+          const r = await env.DB.prepare(sql).bind(...args).all();
+          return J({ list: r.results });
         }
         if (p == '/api/admin/cfg') {
           if (M == 'PUT') {

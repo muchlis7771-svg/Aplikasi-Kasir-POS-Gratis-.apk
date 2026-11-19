@@ -13,6 +13,7 @@ const HAL = {
   tx: ['🧾 Transaksi per toko', (s) => +s.tx || 0, (s) => s.tx > 0, (s) => `<b>${(+s.tx).toLocaleString('id-ID')} nota</b><small>30 hari ${(+s.tx30 || 0).toLocaleString('id-ID')}</small>`],
   users: ['👥 Pengguna per toko', (s) => +s.users || 0, () => 1, (s) => `<b>${s.users} orang</b><small>maks ${(HA.cfg && HA.cfg.pkg && HA.cfg.pkg[s.tier || 'high'] || {}).max || '-'}</small>`],
   all: ['🏪 Semua toko terdaftar', (s) => s.created || 0, () => 1, (s) => `<b>${esc(TIERNM(s.tier))}</b><small>daftar ${dstr(s.created)}</small>`],
+  online: ['🛍️ Toko buka pasar online', (s) => s.created || 0, (s) => +s.shop_open == 1, (s) => `<b>Buka</b><small>${esc(TIERNM(s.tier))}</small>`],
 };
 function haListRender(k, m) {
   const H = HAL[k], L = (HA.stores || []).filter(H[2]).sort((a, b) => H[1](b) - H[1](a)), tot = L.reduce((a, s) => a + H[1](s), 0);
@@ -58,6 +59,30 @@ async function haSum(id) {
     const el = $('#hsr', m); if (el) el.textContent = Object.entries(by).map(([k, v]) => v + ' ' + (ROLE[k] || k).split(' ')[0]).join(' · ');
     const f = $('#hstf', m); if (f) f.innerHTML = r.staff.map((u) => `<span class="chip">${esc(u.name)} <small class="mu">${esc((ROLE[u.role] || u.role).split(' (')[0])}</small></span>`).join('');
   } catch (e) { }
+}
+
+/* ---------- Head Admin: pesanan pasar online lintas toko (lihat & telusuri — status diubah toko/pembeli sendiri) ---------- */
+const HAO = { list: null, st: '', q: '' };
+async function haOrders(st) {
+  HAO.st = st || ''; HAO.q = '';
+  const m = modal(`<div class="row" style="margin:0"><h3 style="margin:0">🛍️ Pesanan pasar online</h3><button class="gh" id="x">✕</button></div>
+<div class="seg" style="margin-top:6px">${[['', 'Semua'], ['baru', 'Baru'], ['diproses', 'Diproses'], ['dikirim', 'Dikirim'], ['selesai', 'Selesai'], ['batal', 'Batal'], ['ditolak', 'Ditolak']].map((x) => `<button class="${HAO.st == x[0] ? 'a' : ''}" data-st="${x[0]}">${x[1]}</button>`).join('')}</div>
+<input id="oq" placeholder="Cari nama toko / pembeli…" style="margin-top:6px">
+<div class="halwrap" style="margin-top:6px"><small class="mu">Memuat…</small></div>`, 'w');
+  $('#x', m).onclick = () => m.close();
+  $$('[data-st]', m).forEach((b) => (b.onclick = () => { HAO.st = b.dataset.st; haOrdersLoad(m); }));
+  $('#oq', m).onkeydown = (e) => { if (e.key == 'Enter') { HAO.q = e.target.value.trim(); haOrdersLoad(m); } };
+  haOrdersLoad(m);
+}
+async function haOrdersLoad(m) {
+  const body = m.querySelector('.halwrap'); body.innerHTML = '<small class="mu">Memuat…</small>';
+  $$('[data-st]', m).forEach((b) => b.classList.toggle('a', b.dataset.st == HAO.st));
+  try {
+    HAO.list = (await haApi('/api/admin/orders?st=' + encodeURIComponent(HAO.st) + '&q=' + encodeURIComponent(HAO.q))).list;
+    const tot = HAO.list.reduce((a, o) => a + (o.tot || 0), 0);
+    body.innerHTML = `<small class="mu">${HAO.list.length} pesanan${HAO.list.length ? ' · total ' + rp(tot) : ''}</small>
+<div class="hal">${HAO.list.map((o) => `<div class="halr" style="cursor:default"><em>#${o.id}</em><span><b>${esc(o.sname || o.store_id)}</b><small>dari ${esc(o.bn || 'pembeli #' + o.buyer_id)}${o.bp ? ' · ' + esc(o.bp) : ''} · ${dstr(o.t)} ${hm(o.t)}</small></span><span class="r"><b>${rp(o.tot)}</b><small><span class="chip ${(BST[o.status] || ['', ''])[1]}">${esc((BST[o.status] || [o.status])[0])}</span></small></span></div>`).join('') || '<p class="mu">Tidak ada pesanan.</p>'}</div>`;
+  } catch (e) { body.innerHTML = `<p class="rd">${esc(e.message)}</p>`; }
 }
 
 /* ---------- Head Admin: pembayaran langganan ---------- */
