@@ -1,7 +1,7 @@
 import { MSCHEMA, buyerRoutes, shopRoutes, shipCfg } from './market.js';
 import { SSCHEMA, SALTER, logAct, heartbeat, adminActivity } from './social.js';
 import { MSCH2, mitraRoutes } from './mitra.js';
-import { HSCHEMA, payHook, hqStore, hqAdmin, leadPost, trailStmt, trailGet, pruneTrail, pruneVisits, tunnelPost, tunnelRedirect, apkPublic, apkPubOf, apkChunkGet, apkDlCount, siteOf, siteHit, appHit, adminPulse, webPublic, mediaPublic, webExport, trkIssue, trkOff, trkLoc, ghApkHit, GH_APK_URL } from './hq.js';
+import { HSCHEMA, payHook, hqStore, hqAdmin, leadPost, trailStmt, trailGet, pruneTrail, pruneVisits, tunnelPost, tunnelRedirect, apkPublic, apkPubOf, apkChunkGet, apkDlCount, siteOf, siteHit, appHit, adminPulse, webPublic, mediaPublic, webExport, trkIssue, trkOff, trkLoc, ghApkHit, GH_APK_URL, projPost } from './hq.js';
 import { RSCHEMA, RALTER, rptCfg, cleanCfg, dayRange, buildDaily, sendOut, cronDaily, notifNewAR, dueNotify, dueCronCheck, notifRetryRun } from './lapor.js';
 import { TGSCHEMA, tgHook, tgLinkCode, tgSetWebhook } from './tg.js';
 import { backupDaily, backupList, backupGet } from './backup.js';
@@ -181,6 +181,7 @@ export default {
       if (p == '/api/apk/chunk' && M == 'GET') return apkChunkGet(env, u, ip, J, await cfgAll(env), limited);
       if (p == '/api/apk/dl' && M == 'POST') return apkDlCount(env, ip, J, limited);
       if (p == '/api/pesan' && M == 'POST') return leadPost(env, b, ip, J, await cfgAll(env), pkgAll, limited); // pemesanan dari website promo
+      if (p == '/api/projek' && M == 'POST') return projPost(env, b, ip, J, limited, await cfgAll(env)); // permintaan projek custom (app/web/bot) dari website HomeTech
       if (p.startsWith('/api/chat/') || p == '/api/ulasan') { const r = await webPublic({ env, p, M, b, u, ip, J, limited, pkgAll }); if (r) return r; }
       if (p == '/api/media' || p == '/api/media/chunk') { const r = await mediaPublic({ env, p, M, u, ip, J, limited }); if (r) return r; }
       if (p == '/api/tunnel/export' && M == 'GET') return webExport(env, u, ip, J, await cfgAll(env), limited);

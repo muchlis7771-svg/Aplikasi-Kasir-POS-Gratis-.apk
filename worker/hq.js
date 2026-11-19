@@ -26,6 +26,10 @@ export const HSCHEMA = [
   // tercatat otomatis saat pendaftaran valid (toko pengundang memang ada), tanpa perlu persetujuan manual Head Admin
   'CREATE TABLE IF NOT EXISTS referrals(id INTEGER PRIMARY KEY AUTOINCREMENT,store_id TEXT NOT NULL,new_store_id TEXT NOT NULL,new_name TEXT,t INTEGER)',
   'CREATE INDEX IF NOT EXISTS referrals_store ON referrals(store_id,t)', 'CREATE INDEX IF NOT EXISTS referrals_new ON referrals(new_store_id)',
+  // HomeTech: permintaan projek custom (aplikasi Android, website, bot Telegram, atau lainnya) — pelanggan jelaskan
+  // kebutuhannya lewat form di website, Head Admin tindak lanjuti lewat WhatsApp lalu ubah statusnya di sini
+  "CREATE TABLE IF NOT EXISTS projreq(id INTEGER PRIMARY KEY AUTOINCREMENT,name TEXT,phone TEXT,kind TEXT,budget TEXT,note TEXT NOT NULL,st TEXT DEFAULT 'baru',hnote TEXT,t INTEGER,upd INTEGER)",
+  'CREATE INDEX IF NOT EXISTS projreq_t ON projreq(st,t)',
 ];
 const VIS_DAYS = 31, DAY = 864e5, INV_TTL = 3 * DAY, MONTHS = [1, 3, 6, 12];
 const pj = (s, d) => { try { return JSON.parse(s); } catch (e) { return d; } };
@@ -79,6 +83,25 @@ export async function leadPost(env, b, ip, J, C, pkgAll, limited) {
   const dup = await env.DB.prepare("SELECT id FROM leads WHERE phone=? AND tier=? AND t>? AND st='baru'").bind(phone, tier, now - 864e5).first();
   const id = dup ? dup.id : (await env.DB.prepare('INSERT INTO leads(name,store,phone,city,tier,months,note,src,st,t,upd) VALUES(?,?,?,?,?,?,?,?,?,?,?) RETURNING id').bind(name, store, phone, city, tier, mo, note, clean(b.src, 20) || 'web', 'baru', now, now).first()).id;
   return J({ ok: 1, id, wa: C.wa || '', total: (pk[tier].pr || 0) * mo, tn: pk[tier].n });
+}
+
+// POST /api/projek — permintaan pembuatan aplikasi Android/website/bot Telegram/lainnya dari website
+// promo HomeTech (publik, dibatasi per IP, ada perangkap bot). Pelanggan jelaskan kebutuhannya sendiri
+// di kolom catatan; Head Admin yang menindaklanjuti manual lewat WhatsApp (bukan dikerjakan otomatis).
+const PROJ_KIND = { android: 'Aplikasi Android', web: 'Website', bot: 'Bot Telegram', lain: 'Lainnya' };
+export async function projPost(env, b, ip, J, limited, C) {
+  if (b.website) return J({ ok: 1 }); // kolom jebakan terisi = bot; pura-pura sukses
+  if (await limited(env, 'proj:' + ip, 4, 36e5)) return J({ e: 'Terlalu banyak permintaan dari jaringan ini. Coba lagi nanti atau hubungi lewat WhatsApp.' }, 429);
+  if (!(await tsVerify(C.ts_secret, b['cf-turnstile-response'], ip))) return J({ e: 'Verifikasi anti-bot gagal. Muat ulang halaman dan coba lagi.' }, 400);
+  const clean = (v, n) => clip(String(v == null ? '' : v).replace(/[\u0000-\u001f<>]/g, ' '), n).trim();
+  const name = clean(b.name, 60), note = clean(b.note, 800), budget = clean(b.budget, 60), phone = String(b.phone || '').replace(/[^\d+]/g, '').replace(/^\+?62/, '0').slice(0, 16);
+  const kind = PROJ_KIND[b.kind] ? b.kind : 'lain';
+  if (name.length < 2) return J({ e: 'Isi nama Anda' }, 400);
+  if (!/^0\d{8,14}$/.test(phone)) return J({ e: 'Isi nomor WhatsApp yang benar (mis. 0812…)' }, 400);
+  if (note.length < 10) return J({ e: 'Ceritakan dulu kebutuhan projek Anda (minimal beberapa kata)' }, 400);
+  const now = Date.now();
+  const id = (await env.DB.prepare('INSERT INTO projreq(name,phone,kind,budget,note,st,t,upd) VALUES(?,?,?,?,?,?,?,?) RETURNING id').bind(name, phone, kind, budget, note, 'baru', now, now).first()).id;
+  return J({ ok: 1, id, wa: C.wa || '' });
 }
 
 // POST /api/pay/hook?key=…  (body mentah; Moota: header Signature = HMAC-SHA256(secret, body))
@@ -224,6 +247,16 @@ export async function hqAdmin(x) {
   if (m && M == 'POST') {
     const st = ['baru', 'dihubungi', 'deal', 'batal'].includes(b.st) ? b.st : null;
     await env.DB.prepare('UPDATE leads SET st=COALESCE(?,st),hnote=COALESCE(?,hnote),upd=? WHERE id=?').bind(st, b.hnote != null ? clip(b.hnote, 300) : null, now, +m[1]).run();
+    return J({ ok: 1 });
+  }
+  if (p == '/api/admin/projreq') {
+    const L = (await env.DB.prepare("SELECT * FROM projreq ORDER BY CASE st WHEN 'baru' THEN 0 WHEN 'diproses' THEN 1 ELSE 2 END, id DESC LIMIT 300").all()).results, n = await env.DB.prepare("SELECT SUM(CASE WHEN st='baru' THEN 1 ELSE 0 END) baru,SUM(CASE WHEN st='diproses' THEN 1 ELSE 0 END) proses,SUM(CASE WHEN st='selesai' THEN 1 ELSE 0 END) selesai FROM projreq").first();
+    return J({ list: L, kinds: PROJ_KIND, baru: n.baru || 0, proses: n.proses || 0, selesai: n.selesai || 0 });
+  }
+  m = p.match(/^\/api\/admin\/projreq\/(\d+)$/);
+  if (m && M == 'POST') {
+    const st = ['baru', 'diproses', 'selesai', 'batal'].includes(b.st) ? b.st : null;
+    await env.DB.prepare('UPDATE projreq SET st=COALESCE(?,st),hnote=COALESCE(?,hnote),upd=? WHERE id=?').bind(st, b.hnote != null ? clip(b.hnote, 300) : null, now, +m[1]).run();
     return J({ ok: 1 });
   }
   if (p == '/api/admin/referrals') {
