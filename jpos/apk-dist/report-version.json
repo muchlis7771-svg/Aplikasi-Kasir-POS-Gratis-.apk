@@ -1,7 +1,7 @@
 {
- "versionCode": 210,
+ "versionCode": 211,
  "versionName": "1.0",
  "force": true,
  "url": "https://github.com/muchlis7771-svg/Aplikasi-Kasir-POS-Gratis-.apk/raw/main/jpos/apk-dist/JDATA-Report-latest.apk",
- "notes": "Download tabel: nama item tidak terpotong, tabel panjang dipecah."
+ "notes": "Daftar Outlet RO: kolom Tgl Transaksi."
 }
