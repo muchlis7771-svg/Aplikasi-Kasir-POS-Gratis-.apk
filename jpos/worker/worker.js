@@ -157,22 +157,11 @@ export default {
   async fetch(req, env, ctx) {
     const u = new URL(req.url), p = u.pathname, M = req.method, ip = req.headers.get('CF-Connecting-IP') || 'x';
     if (p == '/ota.json') { const r = await env.ASSETS.fetch(req), h = new Headers(r.headers); h.set('Access-Control-Allow-Origin', '*'); h.set('Cache-Control', 'no-store'); return new Response(r.body, { status: r.status, headers: h }); } // manifest pembaruan otomatis aplikasi Android
-    if (p == '/termux') { try { await ready(env); return await tunnelRedirect(env, await cfgAll(env), req); } catch (e) { return Response.redirect(new URL('/', req.url).href, 302); } } // link tetap → server Termux (bila aktif)
-    { const m = p.match(/^\/(?:p|w|web|promo)(?:\/([a-z0-9]{1,12}))?\/?$/); if (m) return Response.redirect(new URL('/' + (m[1] ? '?src=' + m[1] : ''), req.url).href, 302); } // link pendek & /promo lama → root: /p  /p/wa  /p/fb …
+    if (p == '/termux') { try { await ready(env); return await tunnelRedirect(env, await cfgAll(env), req); } catch (e) { return Response.redirect(new URL('/promo/', req.url).href, 302); } } // link tetap → server Termux (bila aktif)
+    { const m = p.match(/^\/(?:p|w|web|promo)(?:\/([a-z0-9]{1,12}))?\/?$/); if (m && (m[1] || p != '/promo/')) return Response.redirect(new URL('/promo/' + (m[1] ? '?src=' + m[1] : ''), req.url).href, 302); } // link pendek: /p  /p/wa  /p/fb …
     if (p == '/gh' || p == '/apk' || p == '/dl') { try { await ready(env); ghApkHit(env, ip, limited).catch(() => { }); } catch (e) { } return Response.redirect(GH_APK_URL, 302); } // link APK langsung terlacak (dipakai di flyer / caption FB-marketplace, di luar website promo)
     if (p == '/jdata') { try { await ready(env); jdataHit(env, ip, limited).catch(() => { }); } catch (e) { } return Response.redirect(JDATA_APK_URL, 302); } // APK J-DATA Report (terlacak)
     { const g = p.match(/^\/google([a-f0-9]{16})\.html$/); if (g) { try { await ready(env); if (siteOf(await cfgAll(env)).gsv == g[1]) return new Response('google-site-verification: google' + g[1] + '.html', { headers: { 'Content-Type': 'text/html; charset=utf-8' } }); } catch (e) { } return new Response('Not found', { status: 404 }); } } // verifikasi Google Search Console
-    // root "/" = halaman promo HomeTech (bukan redirect, biar URL tetap bersih). Aplikasi Capacitor TIDAK PERNAH
-    // memuat root domain production langsung (origin-nya https://localhost, file diambil lewat nama eksplisit via OTA/
-    // ota.js) jadi perubahan ini aman untuk APK yang sudah terpasang. Yang terdampak cuma PWA (manifest start_url
-    // sudah diarahkan ke /index.html) & pengunjung browser biasa.
-    if (p == '/' && env.ASSETS) {
-      const r = await env.ASSETS.fetch(new Request(new URL('/promo/index.html', req.url), req));
-      if ((r.headers.get('content-type') || '').includes('text/html')) {
-        return new HTMLRewriter().on('head', { element(el) { el.prepend('<base href="/promo/">', { html: true }); } }).transform(r);
-      }
-      return r;
-    }
     if (!p.startsWith('/api/')) return env.ASSETS.fetch(req);
     const cors = { 'Access-Control-Allow-Origin': env.ORIGIN || '*', 'Access-Control-Allow-Headers': 'Authorization,Content-Type', 'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS' };
     const J = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
