@@ -206,7 +206,7 @@ export async function hqAdmin(x) {
   }
   if (p == '/api/admin/inv') {
     await expireOld(env);
-    const L = (await env.DB.prepare("SELECT i.*,s.name sname FROM inv i LEFT JOIN stores s ON s.id=i.store_id WHERE i.t>? ORDER BY CASE WHEN i.status='tunggu' THEN 0 ELSE 1 END, i.id DESC LIMIT 200").bind(now - 120 * DAY).all()).results;
+    const L = (await env.DB.prepare("SELECT i.*,s.name sname,s.phone sphone FROM inv i LEFT JOIN stores s ON s.id=i.store_id WHERE i.t>? ORDER BY CASE WHEN i.status='tunggu' THEN 0 ELSE 1 END, i.id DESC LIMIT 200").bind(now - 120 * DAY).all()).results;
     return J({ list: L });
   }
   let m = p.match(/^\/api\/admin\/inv\/(\d+)$/);
