@@ -240,7 +240,9 @@ async function pwaInstall() { if (!PWAIP) return; try { PWAIP.prompt(); await PW
   } catch (e) { }
   if (HT) { MODE = 'ha'; R(); haLoad(); }
   else if (qDemo) { R(); startDemo(); }
-  else if (!U && MODE != 'buyer' && MODE != 'reg' && typeof tryResume == 'function' && tryResume()) { R(); chatPoll(true); kick(); window.scrollTo(0, 0); }
+  // auto-resume sesi tersimpan HANYA kalau MODE masih default ('home') — kalau sudah diarahkan ke layar tertentu
+  // (login/reg/ha lewat deep-link ?m=..., atau buyer lewat ?s=...), jangan ditimpa diam-diam oleh sesi lama.
+  else if (!U && MODE == 'home' && typeof tryResume == 'function' && tryResume()) { R(); chatPoll(true); kick(); window.scrollTo(0, 0); }
   else R();
   if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol) && !(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform())) navigator.serviceWorker.register('sw.js').catch(() => { });
   // tombol kembali Android: tutup dialog dulu, lalu kembali ke beranda
