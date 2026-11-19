@@ -1,7 +1,7 @@
 {
- "versionCode": 216,
+ "versionCode": 217,
  "versionName": "1.0",
  "force": true,
  "url": "https://github.com/muchlis7771-svg/Aplikasi-Kasir-POS-Gratis-.apk/raw/main/jpos/apk-dist/JDATA-Report-latest.apk",
- "notes": "Rekap WA: status pencapaian vs time gone (on track 100% / 80% / 70%)."
+ "notes": "Rekap WA: pilihan sumber Acv MTD (otomatis/manual/persen target)."
 }
