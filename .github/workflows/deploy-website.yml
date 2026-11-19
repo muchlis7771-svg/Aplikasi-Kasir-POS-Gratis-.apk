@@ -1,0 +1,39 @@
+name: Deploy Website
+# Deploy worker "aplikasi-kasir-pos-gratis--apk" (situs HomeTech + API yang sama dipakai aplikasi J-POS
+# terpasang). Sebelumnya website HANYA mengandalkan integrasi Git Cloudflare (dashboard) yang ternyata
+# tidak bisa dipantau/diverifikasi dari sini — beberapa perbaikan sempat tidak pernah tayang karena field
+# "name" di wrangler.toml sempat tidak cocok dengan worker yang live. Alur GitHub Actions ini jalan di
+# server GitHub (bukan sandbox agen), jadi hasilnya selalu bisa dicek lewat riwayat run di tab Actions.
+#
+# AMAN untuk data toko yang sudah ada: database_id dicari dari D1 bernama "jpos" yang SUDAH ADA (dibuat &
+# dipakai worker "jpos-api"), bukan dibuat baru — jadi ini mengarahkan worker yang benar ke data yang sama,
+# tidak pernah membuat/menimpa database kosong.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['jpos/worker/**', 'jpos/public/**', 'wrangler.toml', '.github/workflows/deploy-website.yml']
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Token Cloudflare sudah diisi?
+        run: '[ -n "$CLOUDFLARE_API_TOKEN" ] || { echo "::error::Secret CLOUDFLARE_API_TOKEN belum diisi di repo ini"; exit 1; }'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      - name: Cari database_id D1 "jpos" yang sudah ada (tidak membuat baru)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          ID=$(npx --yes wrangler@4 d1 list --json 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const a=JSON.parse(s).find(x=>x.name==="jpos");console.log(a?a.uuid:"")}catch(e){console.log("")}})')
+          [ -n "$ID" ] || { echo "::error::Database D1 'jpos' tidak ditemukan di akun Cloudflare ini — dibatalkan (tidak membuat database baru supaya tidak menimpa data toko yang sudah ada)."; exit 1; }
+          grep -q database_id wrangler.toml || sed -i "s/database_name = \"jpos\"/database_name = \"jpos\"\ndatabase_id = \"$ID\"/" wrangler.toml
+      - name: Deploy worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx --yes wrangler@4 deploy
+      - name: Tes situs hidup & sudah versi terbaru
+        run: sleep 8; curl -fsS https://aplikasi-kasir-pos-gratis--apk.muchlis7771.workers.dev/api/ping
