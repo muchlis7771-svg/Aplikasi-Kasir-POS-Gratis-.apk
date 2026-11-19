@@ -144,25 +144,41 @@ dialog#vd{border:1px solid #b6842a4a;border-radius:22px;background:#ffffff;color
 <body>
 <script>
 // Link HomeTech dibuka lewat browser bawaan TikTok/FB/Instagram/dll (in-app webview) kadang bikin pembayaran/unduhan
-// bermasalah. Android: coba alihkan otomatis ke Chrome lewat skema intent. Semua (termasuk iOS, yang tak bisa
-// dialihkan otomatis oleh JS): tampilkan pita kecil dgn tombol salin link, supaya pengunjung bisa buka manual di browser.
+// bermasalah. Android: langsung dialihkan otomatis ke Chrome lewat skema intent (biasanya berhasil). iOS & lainnya:
+// Apple sengaja memblokir alih-browser otomatis lewat JavaScript dari dalam in-app browser (tak ada cara 100% otomatis
+// yang aman) — jadi dicoba trik tab-baru (kadang berhasil di sebagian versi IG/FB), lalu ditampilkan layar penuh yang
+// tidak bisa dilewati begitu saja, memandu pengunjung ketuk ⋯/share lalu "Buka di Safari/Browser".
 (function () {
   var ua = navigator.userAgent || '';
   if (!/FBAN|FBAV|Instagram|TikTok|musical_ly|BytedanceWebview|Line\/|MicroMessenger|Twitter|GSA\//i.test(ua)) return;
-  if (/Android/i.test(ua)) { try { location.href = 'intent://' + location.href.replace(/^https?:\/\//, '') + '#Intent;scheme=https;package=com.android.chrome;end'; } catch (e) { } }
-  var show = function () {
-    var b = document.createElement('div');
-    b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#1c1607;color:#f2d27d;font:600 13px system-ui,sans-serif;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;box-shadow:0 2px 10px #0006';
-    b.innerHTML = '<span>Untuk pengalaman terbaik &amp; aman, buka link ini di browser (Chrome/Safari).</span><button type="button" style="background:#f0d88f;color:#1c1607;border:0;border-radius:8px;padding:7px 11px;font:700 12px system-ui,sans-serif;white-space:nowrap;cursor:pointer">Salin link</button>';
-    document.body.prepend(b);
-    b.querySelector('button').onclick = function () {
-      var btn = this, url = location.href.split('#')[0];
-      var done = function () { btn.textContent = 'Tersalin! Tempel di browser'; };
-      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done).catch(done);
-      else { var ta = document.createElement('textarea'); ta.value = url; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) { } ta.remove(); done(); }
-    };
-  };
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', show); else show();
+  var isAndroid = /Android/i.test(ua), url = location.href;
+  var appName = /TikTok|musical_ly|BytedanceWebview/i.test(ua) ? 'TikTok' : /Instagram/i.test(ua) ? 'Instagram' : /FBAN|FBAV/i.test(ua) ? 'Facebook' : /Line\//i.test(ua) ? 'LINE' : /MicroMessenger/i.test(ua) ? 'WeChat' : 'media sosial';
+  function tryEscape() {
+    if (isAndroid) { try { location.href = 'intent://' + url.replace(/^https?:\/\//, '') + '#Intent;scheme=https;package=com.android.chrome;end'; } catch (e) { } }
+    else { try { var a = document.createElement('a'); a.href = url; a.target = '_blank'; a.rel = 'noopener'; document.body.appendChild(a); a.click(); a.remove(); } catch (e) { } }
+  }
+  function copyLink(btn) {
+    var done = function () { btn.textContent = '✅ Tersalin! Tempel di browser'; };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done).catch(done);
+    else { var ta = document.createElement('textarea'); ta.value = url; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) { } ta.remove(); done(); }
+  }
+  function showOverlay() {
+    var ov = document.createElement('div');
+    ov.style.cssText = 'position:fixed;inset:0;z-index:99999;background:#0b1330f2;backdrop-filter:blur(2px);color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:28px;font:600 15px/1.5 system-ui,sans-serif';
+    ov.innerHTML = '<div style="font-size:42px;margin-bottom:10px">🌐</div>'
+      + '<h2 style="margin:0 0 8px;font-size:19px;color:#fff">Buka di browser, ya</h2>'
+      + '<p style="margin:0 0 20px;color:#cdd6ef;max-width:320px;font-weight:500">Supaya proses daftar, demo, dan pembayaran lancar &amp; aman, buka link ini lewat Chrome / Safari — bukan lewat browser bawaan ' + appName + '.</p>'
+      + '<button id="iabGo" type="button" style="background:linear-gradient(135deg,#f0d88f,#c9a24a 60%,#a5802f);color:#1c1607;border:0;border-radius:12px;padding:14px 28px;font:800 15px system-ui,sans-serif;cursor:pointer;margin-bottom:10px;width:min(280px,80vw)">🚀 Buka di Browser</button>'
+      + '<button id="iabCp" type="button" style="background:transparent;color:#f2d27d;border:1px solid #f2d27d66;border-radius:12px;padding:11px 22px;font:700 13px system-ui,sans-serif;cursor:pointer;margin-bottom:18px;width:min(280px,80vw)">📋 Salin link</button>'
+      + '<small style="color:#9aa6c7;max-width:300px;display:block;margin-bottom:14px">Tidak terbuka otomatis? Ketuk ⋯ atau ikon share di pojok layar ' + appName + ', lalu pilih "Buka di Browser/Safari".</small>'
+      + '<a id="iabSkip" href="#" style="color:#7d8bb0;font-size:12px;text-decoration:underline">Lanjutkan di sini saja →</a>';
+    document.documentElement.appendChild(ov);
+    document.getElementById('iabGo').onclick = tryEscape;
+    document.getElementById('iabCp').onclick = function () { copyLink(this); };
+    document.getElementById('iabSkip').onclick = function (e) { e.preventDefault(); ov.remove(); };
+  }
+  tryEscape();
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', showOverlay); else showOverlay();
 })();
 </script>
 <a href="/promo/" style="position:fixed;z-index:50;top:8px;left:8px;background:#ffffffe3;color:#121a2e;border:1px solid #0b1a3a1c;border-radius:999px;padding:6px 12px;font:600 12px system-ui,sans-serif;text-decoration:none;backdrop-filter:blur(6px)">← HomeTech</a>
