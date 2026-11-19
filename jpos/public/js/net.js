@@ -34,6 +34,10 @@ let syncing = false, kt = null;
 function kick() { clearTimeout(kt); kt = setTimeout(sync, 700); }
 async function sync() {
   if (syncing || !S || !S.srv || !canNet() || !TK() || S.locked) return;
+  // numpang tiap sync (kejadian: buka app, selesai transaksi, dll) utk kirim snapshot kalau sudah
+  // lama (>20 menit) — supaya data yg dibalas bot Telegram tidak basi berjam-jam kalau app dibuka
+  // hanya sebentar-sebentar (lihat snapPost di lapor.js; sudah ada pengaman 20 menit sendiri).
+  if (typeof snapPost == 'function') snapPost().catch(() => {});
   syncing = true; SY.state = 'sync'; updBadge(); let n = 0;
   try {
     while (S.eq.length && !isExp()) {
