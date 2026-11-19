@@ -1,6 +1,11 @@
 # Server J-POS (Cloudflare Worker). Dipasang otomatis oleh Cloudflare setiap ada perubahan di branch main.
 # Kode server: jpos/worker/worker.js · aplikasi web: jpos/public · database D1 "jpos" dibuat otomatis.
-name = "sistem-penjualan--apk"
+# PENTING: "name" di bawah ini HARUS "aplikasi-kasir-pos-gratis--apk" — itu nama worker yang sebenarnya
+# sudah live & dipakai pengguna (aplikasi-kasir-pos-gratis--apk.muchlis7771.workers.dev). Riwayat git
+# menunjukkan nama ini pernah diganti-ganti ("j-data-mucus", lalu "sistem-penjualan--apk") oleh sesi
+# sebelumnya — kemungkinan besar itu sebabnya auto-deploy Cloudflare berhenti menimpa worker yang benar
+# (malah membuat/memperbarui worker lain yang tidak pernah dibuka siapa pun). JANGAN diganti lagi.
+name = "aplikasi-kasir-pos-gratis--apk"
 main = "jpos/worker/worker.js"
 compatibility_date = "2025-01-01"
 workers_dev = true
