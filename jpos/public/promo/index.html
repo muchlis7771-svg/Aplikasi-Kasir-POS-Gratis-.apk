@@ -74,6 +74,11 @@ footer{border-top:1px solid var(--line);padding:26px 0 40px;color:var(--mu);font
 dialog{border:0;border-radius:20px;background:#ffffff;color:var(--ink);width:min(420px,92vw);padding:24px;border:1px solid #e3e8f3;box-shadow:0 30px 60px -20px #0b1a3a40}dialog::backdrop{background:#000b;backdrop-filter:blur(3px)}
 dialog h3{font-size:20px;margin-bottom:4px}dialog p{color:var(--mu);font-size:14px;margin-bottom:14px}
 dialog label{display:block;font-size:12.5px;color:var(--mu);margin:10px 0 4px}dialog input{width:100%;padding:13px 14px;border-radius:12px;border:1px solid #d7deee;background:#fbfcfe;color:var(--ink);font:600 15px system-ui,sans-serif}dialog input:focus{outline:2px solid var(--gold);border-color:transparent}
+/* #emDlg memakai <div> biasa (bukan <dialog>/showModal) — beberapa browser bawaan (mis. "Browser web" MIUI) punya dukungan <dialog> yang tidak sempurna: tombol di dalamnya jadi tidak merespons sentuhan. <div> fixed+flex ini selalu tampil di tengah layar dan didukung semua browser. */
+.xdlg{position:fixed;inset:0;z-index:50;background:#000b;backdrop-filter:blur(3px);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box}
+.xdlg[hidden]{display:none}
+.xdlg .xbox{border:0;border-radius:20px;background:#ffffff;color:var(--ink);width:min(420px,92vw);max-height:88vh;overflow:auto;padding:24px;box-sizing:border-box;border:1px solid #e3e8f3;box-shadow:0 30px 60px -20px #0b1a3a40}
+.xdlg .xbox h3{font-size:20px;margin-bottom:4px}.xdlg .xbox p{color:var(--mu);font-size:14px;margin-bottom:14px}
 .err{color:#d1484d;font-size:13px;min-height:18px;margin-top:8px}.row{display:flex;gap:9px;margin-top:14px}.row .btn{flex:1}
 .emg{display:flex;flex-direction:column;gap:10px;margin-top:4px}.emg a.btn{flex-direction:column;align-items:flex-start;gap:2px;width:100%;padding:14px 18px;box-sizing:border-box}.emg a.btn small{font-weight:500;font-size:12.5px;opacity:.7}
 .note{font-size:12px;color:var(--mu);margin-top:10px}
@@ -252,7 +257,8 @@ dialog label{display:block;font-size:12.5px;color:var(--mu);margin:10px 0 4px}di
   </form>
 </dialog>
 
-<dialog id="emDlg">
+<div id="emDlg" class="xdlg" hidden>
+  <div class="xbox">
   <h3>Masuk / Daftar</h3><p>Kelola toko atau coba demo — langsung dari sini.</p>
   <div class="emg">
     <a class="btn o" href="/index.html?m=login"><b>🔑 Masuk toko</b><small>Sudah punya akun toko</small></a>
@@ -260,7 +266,8 @@ dialog label{display:block;font-size:12.5px;color:var(--mu);margin:10px 0 4px}di
     <a class="btn o" href="/index.html?m=demo"><b>▶️ Coba demo</b><small>Langsung pakai, tanpa perlu daftar</small></a>
   </div>
   <div class="row"><button type="button" class="btn o" id="emC">Tutup</button></div>
-</dialog>
+  </div>
+</div>
 
 <button id="chBtn" type="button" aria-label="Chat dengan Admin"><span class="ic">💬</span><b hidden id="chN">0</b></button>
 <div id="chP">
@@ -304,8 +311,10 @@ const tsReset = (id) => { try { if (window.turnstile && TS_WIDGETS[id] != null) 
   // unduh: isi nama & WA dulu (tercatat untuk Head Admin), lalu unduhan dimulai
   // Masuk/Daftar: dialog pilihan (masuk toko / daftar / demo / Head Admin) — semua tujuan langsung lewat website ini
   const emDlg = $('#emDlg');
-  $$('#emBtn1,#emBtn2').forEach(function (b) { b.onclick = function () { emDlg.showModal(); }; });
-  $('#emC').onclick = function () { emDlg.close(); };
+  const emOpen = function () { emDlg.hidden = false; }, emClose = function () { emDlg.hidden = true; };
+  $$('#emBtn1,#emBtn2').forEach(function (b) { b.onclick = emOpen; });
+  $('#emC').onclick = emClose;
+  emDlg.addEventListener('click', function (e) { if (e.target === emDlg) emClose(); });
 
   const dlg = $('#dlg'); let app = 'jpos';
   const NAMES = { jpos: 'J-POS', jdata: 'J-DATA Report' }, URLS = { jpos: '/gh', jdata: '/jdata' };
