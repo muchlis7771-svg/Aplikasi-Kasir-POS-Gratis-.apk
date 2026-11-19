@@ -1,7 +1,9 @@
 User-agent: *
+Allow: /$
 Allow: /promo/
 Allow: /privasi
 Disallow: /api/
 Disallow: /promo/admin.html
+Disallow: /index.html
 
 Sitemap: https://aplikasi-kasir-pos-gratis--apk.muchlis7771.workers.dev/sitemap.xml
