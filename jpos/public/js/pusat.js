@@ -212,3 +212,18 @@ function haLeadView() {
 <div class="wrap" style="margin-top:8px"><a class="gh pri" target="_blank" rel="noopener" href="${esc(waLink(x.phone, 'Halo ' + x.name + ', terima kasih sudah memesan J-POS paket ' + (t.n || x.tier) + '. Saya dari tim J-POS, boleh kami bantu aktivasi?'))}">💬 WhatsApp ${esc(x.phone)}</a>${['baru', 'dihubungi', 'deal', 'batal'].filter((s) => s != x.st).map((s) => `<button class="gh ${s == 'batal' ? 'd' : ''}" onclick="haLeadSet(${x.id},'${s}')">→ ${LDST[s][0]}</button>`).join('')}</div></div>`; }).join('') || '<div class="cd mu c">Belum ada pesanan 🎯</div>');
 }
 async function haLeadSet(id, st) { try { await haApi('/api/admin/leads/' + id, { method: 'POST', body: JSON.stringify({ st }) }); HAL2 = null; R(); } catch (e) { toast(e.message); } }
+
+/* ---------- Head Admin: permintaan projek custom (app/website/bot) dari website HomeTech ---------- */
+let HAP2 = null, HAPF = '';
+async function haProjLoad() { try { HAP2 = await haApi('/api/admin/projreq'); } catch (e) { HAP2 = { err: e.message, list: [], kinds: {} }; } if (MODE == 'ha' && HA.tab == 'projreq') R(); }
+const PJST = { baru: ['Baru', 'o'], diproses: ['Diproses', ''], selesai: ['Selesai', 'g'], batal: ['Batal', ''] };
+function haProjView() {
+  if (!HAP2) { haProjLoad(); return '<div class="cd mu">Memuat…</div>'; } if (HAP2.err) return `<div class="cd rd">${esc(HAP2.err)}</div>`;
+  const L = HAP2.list.filter((x) => !HAPF || x.st == HAPF), K = HAP2.kinds || {};
+  return kpi([['Permintaan baru', HAP2.baru, 'belum dihubungi'], ['Sedang diproses', HAP2.proses], ['Selesai', HAP2.selesai]])
+    + `<div class="cd"><div class="seg" style="margin:0">${[['', 'Semua'], ['baru', 'Baru'], ['diproses', 'Diproses'], ['selesai', 'Selesai'], ['batal', 'Batal']].map((x) => `<button class="${HAPF == x[0] ? 'a' : ''}" onclick="HAPF='${x[0]}';R()">${x[1]}</button>`).join('')}</div><small class="mu">Permintaan pembuatan aplikasi/website/bot dari website promo HomeTech. Hubungi lewat WhatsApp, lalu ubah statusnya.</small></div>`
+    + (L.map((x) => `<div class="cd ${x.st == 'baru' ? 'tkc nw' : ''}"><div class="row" style="margin:0"><b>${esc(x.name)}</b><span class="chip ${PJST[x.st][1]}">${PJST[x.st][0]}</span></div>
+<small class="mu">${esc(K[x.kind] || x.kind)}${x.budget ? ' · budget ' + esc(x.budget) : ''} · ${dstr(x.t)} ${hm(x.t)}</small><small style="display:block;margin-top:4px">“${esc(x.note)}”</small>${x.hnote ? `<small class="mu" style="display:block;margin-top:4px">📝 ${esc(x.hnote)}</small>` : ''}
+<div class="wrap" style="margin-top:8px"><a class="gh pri" target="_blank" rel="noopener" href="${esc(waLink(x.phone, 'Halo ' + x.name + ', terima kasih sudah mengirim permintaan projek (' + (K[x.kind] || x.kind) + ') ke HomeTech. Saya dari tim HomeTech, boleh dibahas lebih lanjut kebutuhannya?'))}">💬 WhatsApp ${esc(x.phone)}</a>${['baru', 'diproses', 'selesai', 'batal'].filter((s) => s != x.st).map((s) => `<button class="gh ${s == 'batal' ? 'd' : ''}" onclick="haProjSet(${x.id},'${s}')">→ ${PJST[s][0]}</button>`).join('')}</div></div>`).join('') || '<div class="cd mu c">Belum ada permintaan projek 🧩</div>');
+}
+async function haProjSet(id, st) { try { await haApi('/api/admin/projreq/' + id, { method: 'POST', body: JSON.stringify({ st }) }); HAP2 = null; R(); } catch (e) { toast(e.message); } }

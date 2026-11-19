@@ -76,6 +76,14 @@ dialog h3{font-size:20px;margin-bottom:4px}dialog p{color:var(--mu);font-size:14
 dialog label{display:block;font-size:12.5px;color:var(--mu);margin:10px 0 4px}dialog input{width:100%;padding:13px 14px;border-radius:12px;border:1px solid #d7deee;background:#fbfcfe;color:var(--ink);font:600 15px system-ui,sans-serif}dialog input:focus{outline:2px solid var(--gold);border-color:transparent}
 .err{color:#d1484d;font-size:13px;min-height:18px;margin-top:8px}.row{display:flex;gap:9px;margin-top:14px}.row .btn{flex:1}
 .note{font-size:12px;color:var(--mu);margin-top:10px}
+/* pesan projek custom */
+.pjform{background:linear-gradient(180deg,var(--card),#fafcff);border:1px solid var(--line);border-radius:24px;padding:26px;max-width:560px;margin:0 auto;box-shadow:0 1px 2px #0b1a3a08,0 16px 34px -24px #0b1a3a30}
+.pjform label{display:block;font-size:12.5px;color:var(--mu);margin:14px 0 4px}
+.pjform input,.pjform select,.pjform textarea{width:100%;padding:13px 14px;border-radius:12px;border:1px solid #d7deee;background:#fbfcfe;color:var(--ink);font:600 15px system-ui,sans-serif}
+.pjform textarea{font-weight:500;resize:vertical;min-height:100px;line-height:1.5}
+.pjform input:focus,.pjform select:focus,.pjform textarea:focus{outline:2px solid var(--gold);border-color:transparent}
+.pjform .hp{position:absolute;left:-9999px;opacity:0;height:0;overflow:hidden}
+.pjok{text-align:center;padding:10px 0}.pjok .big{font-size:44px;margin-bottom:8px}
 /* chat ke Head Admin */
 #chBtn{position:fixed;right:18px;bottom:18px;z-index:31;border:0;cursor:pointer;width:58px;height:58px;border-radius:50%;background:linear-gradient(135deg,#f6e7b4,#c9a24a 55%,#a5802f);box-shadow:0 14px 28px -8px #b6842a70,0 6px 14px -4px #0b1a3a40;display:grid;place-items:center;transition:transform .2s}
 #chBtn:hover{transform:scale(1.08) rotate(-4deg)}#chBtn .ic{font-size:25px;line-height:1}
@@ -92,7 +100,7 @@ dialog label{display:block;font-size:12.5px;color:var(--mu);margin:10px 0 4px}di
 <body>
 <header><div class="wrap nav">
   <a class="brand" href="#top" aria-label="HomeTech"><svg viewBox="0 0 32 32" fill="none"><path d="M16 3 3 14h4v13h18V14h4L16 3Z" fill="url(#g)"/><rect x="12" y="15" width="8" height="8" rx="1.6" fill="#0b1330"/><path d="M14 18h4M14 20.5h4" stroke="#d4ae52" stroke-width="1.4" stroke-linecap="round"/><defs><linearGradient id="g" x1="3" y1="3" x2="29" y2="27"><stop stop-color="#f2d27d"/><stop offset="1" stop-color="#c9a24a"/></linearGradient></defs></svg><span>Home<b>Tech</b></span></a>
-  <nav><a href="#aplikasi">Aplikasi</a><a href="#keunggulan">Keunggulan</a><a href="#cara">Cara Mulai</a><a href="#faq">FAQ</a></nav>
+  <nav><a href="#aplikasi">Aplikasi</a><a href="#keunggulan">Keunggulan</a><a href="#projek">Projek Custom</a><a href="#cara">Cara Mulai</a><a href="#faq">FAQ</a></nav>
   <a class="btn o s" href="/">Masuk / Daftar</a><a class="btn g s dlnav" href="#aplikasi">⬇ Unduh</a>
 </div></header>
 
@@ -168,6 +176,27 @@ dialog label{display:block;font-size:12.5px;color:var(--mu);margin:10px 0 4px}di
   </div>
 </div></section>
 
+<section id="projek"><div class="wrap">
+  <div class="sh"><span class="eyebrow">Butuh sesuatu yang lain?</span><h2>Pesan <span class="gold">projek custom</span></h2><p>Butuh aplikasi Android, website, bot Telegram, atau sistem lain sesuai kebutuhan usaha Anda? Ceritakan kebutuhannya di bawah, tim kami akan hubungi lewat WhatsApp untuk membahas detail dan penawaran.</p></div>
+  <form class="pjform" id="pjForm" novalidate>
+    <div class="hp" aria-hidden="true"><label>Website<input name="website" tabindex="-1" autocomplete="off"></label></div>
+    <label for="pjN">Nama</label><input id="pjN" name="name" required minlength="2" maxlength="60" placeholder="Nama Anda" autocomplete="name">
+    <label for="pjP">Nomor WhatsApp</label><input id="pjP" name="phone" type="tel" inputmode="tel" required placeholder="08xxxxxxxxxx" autocomplete="tel">
+    <label for="pjK">Jenis projek</label>
+    <select id="pjK" name="kind"><option value="android">Aplikasi Android</option><option value="web">Website</option><option value="bot">Bot Telegram</option><option value="lain">Lainnya</option></select>
+    <label for="pjBd">Perkiraan budget (opsional)</label><input id="pjBd" name="budget" maxlength="60" placeholder="mis. 2–5 juta, atau belum tahu">
+    <label for="pjD">Ceritakan kebutuhan Anda</label><textarea id="pjD" name="note" required minlength="10" maxlength="800" placeholder="Jelaskan aplikasi/website/bot yang Anda butuhkan: fiturnya apa, untuk siapa, dan target selesainya kapan (jika ada)."></textarea>
+    <div id="pjTs" class="tsw" style="margin-top:14px"></div>
+    <div class="err" id="pjE" role="alert"></div>
+    <button class="btn g" style="width:100%;margin-top:6px" type="submit" id="pjSub">Kirim permintaan</button>
+    <p class="note">Mengirim bukan berarti langsung dikerjakan — tim kami akan membahas detail, waktu, dan biaya lewat WhatsApp terlebih dulu.</p>
+  </form>
+  <div class="pjform pjok" id="pjOk" style="display:none">
+    <div class="big">✅</div><h3>Permintaan terkirim!</h3><p style="color:var(--mu);margin:8px 0 16px">Tim HomeTech akan menghubungi Anda lewat WhatsApp untuk membahas kebutuhan projek ini lebih lanjut.</p>
+    <a class="btn g" id="pjWa" href="#" target="_blank" rel="noopener" style="width:100%">💬 Lanjut ngobrol di WhatsApp</a>
+  </div>
+</div></section>
+
 <section id="faq" style="background:var(--bg2)"><div class="wrap" style="max-width:760px">
   <div class="sh"><span class="eyebrow">FAQ</span><h2>Pertanyaan yang sering diajukan</h2></div>
   <details><summary>Apakah benar gratis 30 hari?</summary><p>Ya. Setelah mendaftar, semua fitur bisa dipakai selama masa coba. Untuk melanjutkan, pilih paket langganan yang sesuai.</p></details>
@@ -180,7 +209,7 @@ dialog label{display:block;font-size:12.5px;color:var(--mu);margin:10px 0 4px}di
 
 <footer><div class="wrap">
   <b style="color:var(--ink)">HomeTech</b> · J-POS &amp; J-DATA Report<br>
-  <a id="wa" href="#" target="_blank" rel="noopener">💬 Hubungi kami di WhatsApp</a> · <a href="jpos.html">Detail J-POS</a> · <a href="/privasi">Kebijakan privasi</a><br>
+  <a id="wa" href="#" target="_blank" rel="noopener">💬 Hubungi kami di WhatsApp</a> · <a href="jpos.html">Detail J-POS</a> · <a href="#projek">Pesan projek custom</a> · <a href="/privasi">Kebijakan privasi</a><br>
   <span style="display:block;margin-top:8px">© <span id="yr"></span> HomeTech. Semua hak dilindungi.</span>
 </div></footer>
 
@@ -189,7 +218,7 @@ dialog label{display:block;font-size:12.5px;color:var(--mu);margin:10px 0 4px}di
   <form id="dF" autocomplete="on">
     <label for="dn">Nama</label><input id="dn" name="name" autocomplete="name" required minlength="2" maxlength="60" placeholder="Nama Anda">
     <label for="dp">Nomor WhatsApp</label><input id="dp" name="phone" type="tel" inputmode="tel" autocomplete="tel" required placeholder="08xxxxxxxxxx">
-    <div id="dTs"></div>
+    <div id="dTs" class="tsw"></div>
     <div class="err" id="dE" role="alert"></div>
     <a id="dPdf" href="/promo/Panduan-JDATA-Report.pdf" target="_blank" rel="noopener" style="display:none;margin:6px 0;font-weight:700">📄 Unduh juga: Panduan Cara Pakai J-DATA (PDF)</a>
     <div class="row"><button type="button" class="btn o" id="dC">Batal</button><button class="btn g" id="dB">Mulai Unduh</button></div>
@@ -208,9 +237,15 @@ dialog label{display:block;font-size:12.5px;color:var(--mu);margin:10px 0 4px}di
 <script src="config.js"></script>
 <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=tsOnload" defer></script>
 <script>
-let TS_SITE = '', TS_READY = false, TS_W = null;
+let TS_SITE = '', TS_READY = false, TS_WIDGETS = {};
 window.tsOnload = () => { TS_READY = true; tsTryRender(); };
-function tsTryRender() { if (TS_READY && TS_SITE && window.turnstile && !TS_W) TS_W = turnstile.render('#dTs', { sitekey: TS_SITE }); }
+// render tiap widget Turnstile yang ada di halaman (bisa lebih dari satu form) — ditandai class "tsw"
+function tsTryRender() {
+  if (!TS_READY || !TS_SITE || !window.turnstile) return;
+  document.querySelectorAll('.tsw').forEach((el) => { if (!el.dataset.r) { el.dataset.r = '1'; TS_WIDGETS[el.id] = turnstile.render('#' + el.id, { sitekey: TS_SITE }); } });
+}
+const tsTok = (id) => (window.turnstile && TS_WIDGETS[id] != null ? turnstile.getResponse(TS_WIDGETS[id]) : '');
+const tsReset = (id) => { try { if (window.turnstile && TS_WIDGETS[id] != null) turnstile.reset(TS_WIDGETS[id]); } catch (e) { } };
 (function () {
   const $ = (s, r) => (r || document).querySelector(s), $$ = (s, r) => [...(r || document).querySelectorAll(s)];
   $('#yr').textContent = new Date().getFullYear();
@@ -238,10 +273,29 @@ function tsTryRender() { if (TS_READY && TS_SITE && window.turnstile && !TS_W) T
   $('#dF').onsubmit = async function (e) {
     e.preventDefault(); const n = $('#dn').value.trim(), p = $('#dp').value.trim(), B = $('#dB'); $('#dE').textContent = ''; B.disabled = true; B.textContent = 'Memproses…';
     let url = URLS[app];
-    const tsTok = window.turnstile && TS_W != null ? turnstile.getResponse(TS_W) : '';
-    try { const r = await fetch('/api/dl/lead', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ app: app, name: n, phone: p, 'cf-turnstile-response': tsTok }) }); const j = await r.json().catch(function () { return {}; }); if (!r.ok) { $('#dE').textContent = j.e || 'Gagal, coba lagi.'; B.disabled = false; B.textContent = 'Mulai Unduh'; try { if (window.turnstile && TS_W != null) turnstile.reset(TS_W); } catch (e3) { } return; } if (j.url) url = j.url; try { localStorage.setItem('ht:me', JSON.stringify({ n: n, p: p })); } catch (e2) { } } catch (err) { /* jaringan bermasalah: unduhan tetap dilanjutkan */ }
+    try { const r = await fetch('/api/dl/lead', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ app: app, name: n, phone: p, 'cf-turnstile-response': tsTok('dTs') }) }); const j = await r.json().catch(function () { return {}; }); if (!r.ok) { $('#dE').textContent = j.e || 'Gagal, coba lagi.'; B.disabled = false; B.textContent = 'Mulai Unduh'; tsReset('dTs'); return; } if (j.url) url = j.url; try { localStorage.setItem('ht:me', JSON.stringify({ n: n, p: p })); } catch (e2) { } } catch (err) { /* jaringan bermasalah: unduhan tetap dilanjutkan */ }
     B.disabled = false; B.textContent = 'Mulai Unduh'; if (app == 'jdata') { $('#dE').textContent = 'Unduhan APK dimulai. Jangan lupa unduh panduan PDF di bawah ini.'; $('#dE').style.color = '#0a7'; location.href = url; return; } dlg.close(); location.href = url;
   };
+
+  // pesan projek custom (aplikasi Android / website / bot Telegram / lainnya)
+  const pjF = $('#pjForm'), PJK = { android: 'Aplikasi Android', web: 'Website', bot: 'Bot Telegram', lain: 'Lainnya' };
+  if (pjF) pjF.addEventListener('submit', async (e) => {
+    e.preventDefault(); const v = Object.fromEntries(new FormData(pjF)), er = $('#pjE'), B = $('#pjSub');
+    er.textContent = ''; er.style.color = '';
+    if (String(v.name || '').trim().length < 2) return (er.textContent = 'Isi nama Anda.');
+    if (!/^(\+?62|0)\d{8,13}$/.test(String(v.phone || '').replace(/[\s-]/g, ''))) return (er.textContent = 'Isi nomor WhatsApp yang benar, contoh 0812xxxxxxxx.');
+    if (String(v.note || '').trim().length < 10) return (er.textContent = 'Ceritakan dulu kebutuhan projek Anda.');
+    B.disabled = true; B.textContent = 'Mengirim…';
+    const msg = 'Halo HomeTech, saya ' + v.name + ' ingin pesan projek custom (' + (PJK[v.kind] || v.kind) + '): ' + v.note + (v.budget ? '. Perkiraan budget: ' + v.budget : '') + '. Mohon dibantu.';
+    try {
+      const r = await fetch('/api/projek', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ...v, 'cf-turnstile-response': tsTok('pjTs') }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.ok) { er.textContent = j.e || 'Permintaan belum terkirim, coba lagi.'; B.disabled = false; B.textContent = 'Kirim permintaan'; tsReset('pjTs'); return; }
+      const wa = j.wa || window.PROMO_WA || '6281340641730';
+      $('#pjWa').href = 'https://wa.me/' + String(wa).replace(/^0/, '62').replace(/\D/g, '') + '?text=' + encodeURIComponent(msg);
+      pjF.style.display = 'none'; $('#pjOk').style.display = '';
+    } catch (x) { er.textContent = 'Koneksi bermasalah. Coba lagi atau hubungi langsung lewat WhatsApp.'; B.disabled = false; B.textContent = 'Kirim permintaan'; tsReset('pjTs'); }
+  });
 
   // chat ke Head Admin
   const ls = { g(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }, s(k, v) { try { localStorage.setItem(k, v); } catch (e) { } } };
