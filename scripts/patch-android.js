@@ -17,3 +17,21 @@ if (!/android:usesCleartextTraffic/.test(x)) x = x.replace('<application', '<app
 x = x.replace(/android:allowBackup="true"/, 'android:allowBackup="false"');
 fs.writeFileSync(mf, x);
 console.log('Manifest dipatch:', add.trim().split('\n').length, 'baris ditambahkan');
+
+// Tanda tangan debug APK TETAP (bukan keystore acak bawaan AGP) — supaya APK dari tiap build CI bisa
+// saling meng-update di HP pengguna ("Aplikasi tidak terinstal" kalau tanda tangan beda tiap rilis).
+// Sebelumnya keystore tetap cuma dicopy ke ~/.android/debug.keystore, tapi di runner GitHub Actions lokasi
+// default AGP untuk debug.keystore ternyata TIDAK selalu di situ (tergantung ANDROID_SDK_HOME/ANDROID_USER_HOME
+// di image runner) — jadi APK tetap dapat keystore acak. Sekarang signingConfig debug diarahkan eksplisit ke
+// android/app/debug.keystore (file ini disalin dari ci/debug.keystore oleh workflow sebelum build), jadi tidak
+// bergantung pada lokasi default yang bisa berubah-ubah.
+const bg = path.join('android', 'app', 'build.gradle');
+let g = fs.readFileSync(bg, 'utf8');
+if (!g.includes('signingConfigs')) {
+  g = g.replace(
+    /buildTypes\s*{\s*release\s*{/,
+    `signingConfigs {\n        debug {\n            storeFile file('debug.keystore')\n            storePassword 'android'\n            keyAlias 'androiddebugkey'\n            keyPassword 'android'\n        }\n    }\n    buildTypes {\n        debug {\n            signingConfig signingConfigs.debug\n        }\n        release {`
+  );
+  fs.writeFileSync(bg, g);
+  console.log('build.gradle dipatch: signingConfig debug tetap ditambahkan');
+}
