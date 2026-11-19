@@ -142,6 +142,29 @@ dialog#vd{border:1px solid #b6842a4a;border-radius:22px;background:#ffffff;color
 </style>
 </head>
 <body>
+<script>
+// Link HomeTech dibuka lewat browser bawaan TikTok/FB/Instagram/dll (in-app webview) kadang bikin pembayaran/unduhan
+// bermasalah. Android: coba alihkan otomatis ke Chrome lewat skema intent. Semua (termasuk iOS, yang tak bisa
+// dialihkan otomatis oleh JS): tampilkan pita kecil dgn tombol salin link, supaya pengunjung bisa buka manual di browser.
+(function () {
+  var ua = navigator.userAgent || '';
+  if (!/FBAN|FBAV|Instagram|TikTok|musical_ly|BytedanceWebview|Line\/|MicroMessenger|Twitter|GSA\//i.test(ua)) return;
+  if (/Android/i.test(ua)) { try { location.href = 'intent://' + location.href.replace(/^https?:\/\//, '') + '#Intent;scheme=https;package=com.android.chrome;end'; } catch (e) { } }
+  var show = function () {
+    var b = document.createElement('div');
+    b.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#1c1607;color:#f2d27d;font:600 13px system-ui,sans-serif;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;box-shadow:0 2px 10px #0006';
+    b.innerHTML = '<span>Untuk pengalaman terbaik &amp; aman, buka link ini di browser (Chrome/Safari).</span><button type="button" style="background:#f0d88f;color:#1c1607;border:0;border-radius:8px;padding:7px 11px;font:700 12px system-ui,sans-serif;white-space:nowrap;cursor:pointer">Salin link</button>';
+    document.body.prepend(b);
+    b.querySelector('button').onclick = function () {
+      var btn = this, url = location.href.split('#')[0];
+      var done = function () { btn.textContent = 'Tersalin! Tempel di browser'; };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(url).then(done).catch(done);
+      else { var ta = document.createElement('textarea'); ta.value = url; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); } catch (e) { } ta.remove(); done(); }
+    };
+  };
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', show); else show();
+})();
+</script>
 <a href="/promo/" style="position:fixed;z-index:50;top:8px;left:8px;background:#ffffffe3;color:#121a2e;border:1px solid #0b1a3a1c;border-radius:999px;padding:6px 12px;font:600 12px system-ui,sans-serif;text-decoration:none;backdrop-filter:blur(6px)">← HomeTech</a>
 <div id="bn" hidden></div>
 <div id="iab" hidden></div>

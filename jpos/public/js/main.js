@@ -11,7 +11,7 @@ const ORDER = ['dash', 'kanvas', 'kirim', 'pos', 'onl', 'his', 'retur', 'prod', 
 const TABS = { owner: ['dash', 'pos', 'onl', 'prod'], admin: ['dash', 'pos', 'onl', 'prod'], akuntan: ['dash', 'keu', 'lap', 'jur'], kasir: ['pos', 'dash', 'his', 'abs'], spg: ['dash', 'pos', 'tgt', 'abs'], kanvas: ['dash', 'kanvas', 'pos', 'outlet'], sales: ['dash', 'outlet', 'ana', 'pos'], dropping: ['dash', 'abs', 'chat'], barista: ['dash', 'pos', 'onl', 'prod'], pelayan: ['dash', 'pos', 'onl', 'meja'] };
 const pages = () => ORDER.filter((k) => can(k));
 const pgName = (k) => (k == 'pos' && U && U.r == 'sales' ? 'Order' : k == 'pos' && U && U.r == 'kanvas' ? 'Jual' : PAGES[k][1]);
-let MODE = 'home', SRV = '', SRVOK = false;
+let MODE = 'home', SRV = '', SRVOK = false, FROM_PROMO = false;
 // kunci alamat server: hanya pemilik toko (diverifikasi PIN) yang bisa mengganti; kembali ke server bawaan selalu boleh
 async function ownerCheck(id, name, pin) {
   id = String(id || '').trim().toLowerCase(); name = String(name || '').trim(); if (!id || !name || !pin) throw new Error('Isi kode toko, nama pemilik, dan PIN');
@@ -51,6 +51,14 @@ async function locPing(force) {
 }
 setInterval(() => locPing(), 60000);
 function mode(m) { if (m != 'srv') SRVOK = false; MODE = m; R(); }
+// Head Admin tidak lagi ditampilkan sebagai tombol publik (mengurangi target serangan) — pemilik aplikasi
+// membuka layar masuk Head Admin dengan ketuk teks footer 7× dalam 2.5 detik. Login tetap butuh
+// username+password (dibatasi 8x percobaan/15menit di server), ini hanya mengurangi keterlihatan tombolnya.
+let haTapN = 0, haTapT = 0;
+function haSecretTap() {
+  const now = Date.now(); if (now - haTapT > 2500) haTapN = 0; haTapT = now; haTapN++;
+  if (haTapN >= 7) { haTapN = 0; mode('ha'); }
+}
 const expTxt = () => { if (S.plan == 'lifetime') return '🔑 Lisensi sekali bayar · berlaku selamanya'; const d = daysLeft(); return d == null ? '-' : (S.plan == 'trial' ? 'Masa coba · ' : (S.plan ? S.plan + ' · ' : '')) + (d < 0 ? '<b class="rd">habis ' + dstr(S.exp) + '</b>' : 's/d ' + dstr(S.exp) + ' (' + (d == 0 ? 'berakhir hari ini' : d + ' hari lagi') + ')'); };
 
 function expBanner() {
@@ -135,7 +143,8 @@ function homeView() {
   const reg = REG(), last = LS.get('jpos:last', null), info = LS.get('jpos:info', {}) || {};
   const splash = `<div class="splash lx"><div class="lxlogo"><img src="icons/icon-512.png" alt="J-POS" width="84" height="84"></div><h1>J-POS</h1><span class="lxrule"></span></div>`;
   const head = `<div class="lo">${splash}`;
-  const back = `<button class="gh big" onclick="mode('home')">← Kembali</button>`;
+  // masuk lewat deep-link dari website HomeTech (?m=...) → "Kembali" harus balik ke website, bukan ke layar peluncur J-POS
+  const back = `<button class="gh big" onclick="${FROM_PROMO ? "location.href='/promo/'" : "mode('home')"}">← Kembali</button>`;
   if (MODE == 'login') return head + `<div class="cd fm" style="text-align:left"><h3>Masuk ke toko</h3><label><small class="mu">Kode toko (dari pemilik toko)</small><input id="lid" placeholder="mis. tokomaju" autocapitalize="none" autocomplete="off" value="${esc(last ? last.id : '')}"></label><label><small class="mu">Nama pengguna</small><input id="lnm" placeholder="Nama Anda" autocomplete="off" value="${esc(last ? last.name : '')}"></label><label><small class="mu">PIN</small><input id="lpn" type="password" inputmode="numeric" placeholder="••••" onkeydown="if(event.key=='Enter')doLoginUi()"></label><button class="pr" onclick="doLoginUi()">Masuk</button>${last && typeof bioBtn == 'function' ? bioBtn(last.id, last.name) : ''}${back}<small class="mu">Login pertama di HP baru butuh internet. Setelah itu bisa dipakai offline.</small></div></div>`;
   if (MODE == 'reg') return head + `<div class="cd fm" style="text-align:left"><h3>Daftarkan toko baru</h3><div class="info cd" style="padding:10px"><b>🎁 Gratis ${info.trial || 30} hari</b><br><small>Setelah masa coba, perpanjang langganan lewat pemilik aplikasi.</small></div><input id="rn" placeholder="Nama toko / distributor *"><input id="ro" placeholder="Nama Anda (pemilik) *"><input id="rh" type="tel" inputmode="tel" placeholder="No. WhatsApp (untuk info perpanjangan)"><input id="re" type="email" placeholder="Email (opsional)"><input id="rp" type="password" inputmode="numeric" maxlength="8" placeholder="Buat PIN 4–8 angka *"><input id="rc" placeholder="Kode toko (opsional, 6–20 huruf/angka)" autocapitalize="none"><input id="rf" placeholder="Kode referral (opsional)" autocapitalize="none" value="${esc(REFQ)}">${REFQ ? '<small class="gr">🎉 Diajak lewat link referral — kode sudah terisi otomatis.</small>' : '<small class="mu">Punya kode referral dari toko lain yang sudah pakai J-POS? Isi di sini.</small>'}<h3 style="margin:8px 0 0">Jenis usaha</h3><div class="tiers" id="bizc">${bizCards()}</div><h3 style="margin:8px 0 0">Pilih paket</h3><div class="tiers" id="tiers">${tierCards()}</div><button class="pr" onclick="doRegUi()">Daftar & mulai</button>${back}</div></div>`;
   if (MODE == 'ha') return head + `<div class="cd fm" style="text-align:left"><h3>🛠 Head Admin (pemilik aplikasi)</h3><input id="hu" placeholder="Username" autocapitalize="none" autocomplete="off"><input id="hp" type="password" placeholder="Password" onkeydown="if(event.key=='Enter')doHaUi()"><button class="pr" onclick="doHaUi()">Masuk</button>${back}<small class="mu" id="srvst">${srvTxt()}</small></div></div>`;
@@ -146,7 +155,8 @@ ${apiCustom() || LS.get('jpos:apiAuto', '') ? '<button class="gh" onclick="srvRe
 <div class="lxbtn"><button class="pr lxmain" onclick="mode('login')"><span>${ico('key')}</span><b>Masuk toko<small>Pemilik &amp; karyawan</small></b>›</button>
 <button class="pr shop lxalt" onclick="startBuyer()"><span>${ico('bag')}</span><b>Belanja<small>Untuk kios &amp; pembeli</small></b>›</button></div>
 <div class="lxsub"><button onclick="mode('reg')">${ico('plus')}<b>Daftarkan toko</b><small>gratis ${info.trial || 30} hari</small></button><button onclick="startDemo()">${ico('play')}<b>Coba demo</b><small>tanpa daftar</small></button></div>${pwaReady() ? `<button class="gh big" style="margin-top:10px" onclick="pwaInstall()">📲 Install aplikasi ke HP (tanpa Play Store)</button>` : ''}</div>
-<div class="lxfoot"><span class="srvpill" id="srvst">${srvTxt()}</span><div class="lnk"><button class="gh" onclick="mode('srv')">${ico('srv')}Server</button><button class="gh" onclick="mode('ha')">${ico('crown')}Head Admin</button><a class="gh" href="privasi.html" target="_blank" rel="noopener">${ico('lock')}Privasi</a></div><small>© J-POS · Kasir &amp; distribusi</small></div></div>`;
+
+<div class="lxfoot"><span class="srvpill" id="srvst">${srvTxt()}</span><div class="lnk"><button class="gh" onclick="mode('srv')">${ico('srv')}Server</button><a class="gh" href="privasi.html" target="_blank" rel="noopener">${ico('lock')}Privasi</a></div><small onclick="haSecretTap()" style="cursor:default">© J-POS · Kasir &amp; distribusi</small></div></div>`;
 }
 /* ---------- pilihan paket saat daftar ---------- */
 const PKGDEF = { biasa: { n: 'Standar · Kios', max: 3, pr: 25000, f: 'dash pos his prod prodEdit outlet abs chat set usr retur kas lap xls backup shiftSet gaji meja' }, standar: { n: 'Medium · Grosir', max: 15, pr: 50000, f: 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana cek kirim terima tgt tgtAll tgtSet shiftSet kiosMap kanvas gaji gps meja' }, high: { n: 'High · Distributor', max: 100, pr: 100000, f: 'dash pos his hisAll prod prodEdit outlet abs absAll chat set usr retur lap keu kas beli xls onl backup perm ana jur kirim cek terima anti aud tgt tgtAll tgtSet shiftSet kiosMap dnet kanvas gaji gps meja' } };
@@ -224,6 +234,7 @@ async function pwaInstall() { if (!PWAIP) return; try { PWAIP.prompt(); await PW
       // deep-link dari halaman promo HomeTech (?m=login|reg|ha|demo) → langsung ke layar yang dituju,
       // tanpa perlu melewati layar peluncur aplikasi J-POS yang terpisah
       history.replaceState(null, '', location.pathname);
+      FROM_PROMO = true;
       if (qM == 'demo') qDemo = true; else MODE = qM;
     }
   } catch (e) { }
