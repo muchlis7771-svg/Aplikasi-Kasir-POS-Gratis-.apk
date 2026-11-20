@@ -169,7 +169,14 @@ export default {
     // Aplikasi Capacitor aman: WebView-nya jalan dari origin lokal https://localhost, tidak pernah membuka
     // root domain production secara langsung.
     if (p == '/') return Response.redirect(new URL('/promo/', req.url).href, 302);
-    if (!p.startsWith('/api/')) return env.ASSETS.fetch(req);
+    // html_handling="none" (dimatikan sengaja supaya ?m=... pada /index.html tidak terpotong oleh
+    // redirect otomatis Cloudflare) juga mematikan auto-index Cloudflare untuk folder (mis. /promo/
+    // dulunya otomatis me-render /promo/index.html, sekarang jadi 404). Jadi di sini kita tangani
+    // sendiri: URL yang berakhiran "/" diarahkan secara eksplisit ke index.html di folder itu.
+    if (!p.startsWith('/api/')) {
+      if (p.endsWith('/')) { const u2 = new URL(req.url); u2.pathname = p + 'index.html'; return env.ASSETS.fetch(new Request(u2, req)); }
+      return env.ASSETS.fetch(req);
+    }
     const cors = { 'Access-Control-Allow-Origin': env.ORIGIN || '*', 'Access-Control-Allow-Headers': 'Authorization,Content-Type', 'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS' };
     const J = (o, s = 200) => new Response(JSON.stringify(o), { status: s, headers: { ...cors, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' } });
     if (M == 'OPTIONS') return new Response(null, { headers: cors });
