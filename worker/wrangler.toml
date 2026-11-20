@@ -9,6 +9,9 @@ workers_dev = true
 directory = "../public"
 binding = "ASSETS"
 run_worker_first = true
+# html_handling default Cloudflare ("auto-trailing-slash") otomatis mengalihkan /index.html -> / dan
+# membuang query string (?m=...) di tengah jalan — disamakan dengan worker website supaya konsisten.
+html_handling = "none"
 
 [vars]
 # Login Head Admin (pemilik aplikasi). Password disimpan sebagai hash; bisa diganti dari panel Head Admin.
