@@ -41,3 +41,17 @@ jobs:
           curl -fsS https://aplikasi-kasir-pos-gratis--apk.muchlis7771.workers.dev/api/ping
           curl -fsS https://aplikasi-kasir-pos-gratis--apk.muchlis7771.workers.dev/promo/ | grep -q "HomeTech" || { echo "::error::Halaman /promo/ tidak termuat normal (mungkin html_handling memutus index.html otomatis utk folder)"; exit 1; }
           curl -fsS "https://aplikasi-kasir-pos-gratis--apk.muchlis7771.workers.dev/index.html?m=login" | grep -q "emDlg\|Masuk ke toko\|J-POS" || { echo "::error::/index.html?m=login tidak termuat normal"; exit 1; }
+      - name: DIAGNOSA SEMENTARA - tangkap log error /api/login (akan dihapus setelah ketemu akar masalahnya)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          (timeout 20 npx --yes wrangler@4 tail --format json > /tmp/tail.log 2>/tmp/tail.err &)
+          sleep 6
+          echo "--- respons /api/login (kredensial acak, sengaja tidak valid) ---"
+          curl -sS -i -X POST https://aplikasi-kasir-pos-gratis--apk.muchlis7771.workers.dev/api/login -H "Content-Type: application/json" -d '{"id":"__diag_probe__","name":"probe","pin":"0000"}'
+          echo
+          sleep 8
+          echo "--- isi tail.log ---"
+          cat /tmp/tail.log || true
+          echo "--- isi tail.err ---"
+          cat /tmp/tail.err || true
