@@ -320,6 +320,28 @@ const Ap = {
     S.lastRst = e.t; S.lastRstAll = e.t;
     notif(e, 'reset', '🧹 RESET TOTAL DATA oleh ' + e.u + ' — stok, penjualan, retur, piutang/utang, jurnal, kas & mutasi kanvas semua dimulai dari nol. Produk, pelanggan & pengguna tetap ada.');
   },
+  // reset data PILIHAN (owner memilih bagian mana yang dinolkan): akun | stok | piutang | utang | penjualan | po | kanvas.
+  // Bagian yang tidak dipilih tidak disentuh. Urutan: transaksi dulu, baru stok, terakhir jurnal (agar saldo awal persediaan memakai stok terbaru).
+  rstSel(e) {
+    const OK = ['akun', 'stok', 'piutang', 'utang', 'penjualan', 'po', 'kanvas'], P = new Set((Array.isArray(e.parts) ? e.parts : []).filter((x) => OK.includes(x)));
+    if (!P.size) return;
+    if (P.has('penjualan')) { S.sales = []; S.rtr = []; }
+    else if (P.has('piutang')) for (const s of S.sales) { const out = sOut(s); if (out > 0) { s.pa = (s.pa || 0) + out; (s.pays = s.pays || []).push({ t: e.t, amt: out, m: 'Reset piutang', u: e.u }); } }
+    if (P.has('utang')) S.ap = [];
+    if (P.has('po')) S.po = [];
+    if (P.has('kanvas')) { S.kv = []; S.kvq = []; S.van = {}; }
+    if (P.has('stok')) { for (const p of S.p) { p.st = 0; p.bad = 0; p.bv = 0; } S.bst = []; }
+    if (P.has('akun')) {
+      S.j = []; S.kn = [];
+      const invVal = stockValue(), badVal = badValue(), open = [];
+      if (invVal > 0) open.push(['1201', invVal, 0]); if (badVal > 0) open.push(['1202', badVal, 0]);
+      if (open.length) { const eq = open.reduce((a, x) => a + x[1], 0); S.j.push({ id: 1, t: e.t, d: 'Saldo awal persediaan (reset data)', l: [...open, ['3101', 0, eq]], k: e.k, sr: e.no, u: e.u }); }
+      S.lastRst = e.t;
+    }
+    S.lastRstSel = e.t;
+    const NM = { akun: 'laporan akuntansi & kas', stok: 'stok', piutang: 'piutang', utang: 'utang', penjualan: 'histori penjualan & retur', po: 'PO/restok', kanvas: 'mutasi kanvas' };
+    notif(e, 'reset', '🔄 Reset data oleh ' + e.u + ': ' + [...P].map((x) => NM[x]).join(', ') + ' dinolkan ulang.');
+  },
   pu(e) {
     const q = e.p || {}; if (!/^[\w-]{1,40}$/.test(String(q.id))) return; let p = prod(q.id);
     const isNew = !p, prevPr = p ? p.pr : null;
@@ -516,7 +538,7 @@ function trailAdd(e) {
 function apply(e) {
   if (!e || S.done[e.no]) return false;
   S.done[e.no] = 1;
-  if ((e.k == 'cap' || e.k == 'set' || e.k == 'rst' || e.k == 'rstAll') && e.r && e.r != 'owner') return false; // reset buku (rst) & reset total (rstAll) hanya boleh oleh pemilik
+  if ((e.k == 'cap' || e.k == 'set' || e.k == 'rst' || e.k == 'rstAll' || e.k == 'rstSel') && e.r && e.r != 'owner') return false; // reset buku (rst) & reset total (rstAll) hanya boleh oleh pemilik
   if (e.k == 'gji' && e.r && ((['cfg', 'paid'].includes(e.op) && e.r != 'owner') || (['ok', 'tolak'].includes(e.op) && e.r != 'owner' && e.r != 'admin'))) return false;
   if ((e.k == 'kvl' || e.k == 'kvb') && e.r && e.r != 'owner' && e.r != 'admin') return false; // muat / balik kanvas wajib lewat persetujuan admin // kejadian lain sudah divalidasi server saat diterima
   try { (Ap[e.k] || (() => { }))(e); } catch (x) { console.error('apply gagal', e && e.no, x); }
