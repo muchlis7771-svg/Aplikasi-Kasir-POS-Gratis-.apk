@@ -177,7 +177,7 @@ ${can('backup') ? `<div class="cd"><h3>Data</h3><div class="wrap"><button class=
 ${adm ? `<div class="cd warn" style="border:2px solid #e74c3c"><h3 style="margin:0">🔄 Reset data</h3><small class="mu">Pilih sendiri data yang mau dinolkan: laporan akuntansi &amp; kas, stok, piutang, utang, histori penjualan, PO/restok, atau mutasi kanvas — satu, dua, tiga, atau semuanya. Produk, pelanggan/outlet, pengguna &amp; pengaturan toko tidak dihapus.${S.lastRstSel || S.lastRstAll ? '<br>Terakhir reset: ' + tstr(Math.max(S.lastRstSel || 0, S.lastRstAll || 0)) : ''}</small><div class="wrap" style="margin-top:8px"><button class="pr d" onclick="resetOpen()">🔄 Pilih data &amp; reset</button></div></div>` : ''}`;
 };
 const RSTL = [
-  ['akun', '📒 Laporan akuntansi & kas', () => S.j.length + ' jurnal · ' + (S.kn || []).length + ' catatan kas', 'Jurnal umum, buku kas, laba rugi & neraca mulai dari nol (nilai stok yang masih ada diposting ulang sebagai saldo awal).'],
+  ['akun', '📒 Laporan akuntansi & kas', () => S.j.length + ' jurnal · ' + (S.kn || []).length + ' catatan kas', 'Jurnal umum, buku kas, laba rugi & neraca mulai dari nol. Stok, piutang & utang yang tidak ikut dicentang tidak diubah, dan nilainya otomatis dimasukkan ke laporan baru sebagai saldo awal.'],
   ['stok', '📦 Data stok', () => S.p.length + ' produk', 'Stok semua produk jadi 0 dan catatan stok rusak dihapus. Produk (nama/harga) tetap ada.'],
   ['piutang', '💳 Piutang usaha', () => rp(S.sales.reduce((a, s) => a + sOut(s), 0)) + ' berjalan', 'Semua tagihan nota kredit ditandai lunas. Nota tetap ada.'],
   ['utang', '🧾 Utang usaha', () => rp(S.ap.reduce((a, x) => a + apOut(x), 0)) + ' berjalan', 'Seluruh daftar utang ke pemasok dihapus.'],
@@ -196,7 +196,6 @@ ${RSTL.map(([k, n, c, d]) => `<label class="cd" style="display:flex;gap:10px;ali
   const upd = () => {
     const P = pick(), h = [];
     if (!P.includes('akun') && P.some((x) => ['stok', 'piutang', 'utang', 'penjualan'].includes(x))) h.push('Jurnal & neraca tidak ikut berubah kecuali "Laporan akuntansi" juga dicentang.');
-    if (P.includes('akun') && !(P.includes('piutang') || P.includes('penjualan') || P.includes('utang'))) h.push('Piutang/utang yang masih berjalan tetap ada; pelunasannya nanti dicatat di jurnal baru tanpa saldo awal.');
     $('#rsh', m).textContent = h.join(' '); $('#rok', m).textContent = 'Reset terpilih (' + P.length + ')'; $('#rok', m).disabled = !P.length;
   };
   m.addEventListener('change', upd); upd();
@@ -222,7 +221,7 @@ async function resetSelFlow(P) {
     try { rtk = (await post('/api/reset/auth', { pin })).tok; } catch (e) { const m = e.message || ''; return toast(/PIN|percobaan|pemilik/i.test(m) ? m : (m || 'Gagal') + ' — server J-POS mungkin belum diperbarui, hubungi admin.', 5000); }
   }
   try { expBackup(); } catch (e) { }
-  emit('rstSel', { parts: P, rtk });
+  emit('rstSel', { parts: P, rtk, rv: 2 });
   toast('Reset data selesai ✓ (' + P.length + ' bagian)', 4500);
   R();
 }

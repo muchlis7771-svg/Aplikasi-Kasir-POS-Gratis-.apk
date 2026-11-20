@@ -332,10 +332,17 @@ const Ap = {
     if (P.has('kanvas')) { S.kv = []; S.kvq = []; S.van = {}; }
     if (P.has('stok')) { for (const p of S.p) { p.st = 0; p.bad = 0; p.bv = 0; } S.bst = []; }
     if (P.has('akun')) {
+      // jurnal & kas dimulai dari nol; stok, piutang & utang yang MASIH ADA (tidak ikut direset) dilaporkan sebagai saldo awal
+      // supaya neraca tetap mencerminkan kenyataan; selisihnya masuk Modal Pemilik.
       S.j = []; S.kn = [];
-      const invVal = stockValue(), badVal = badValue(), open = [];
-      if (invVal > 0) open.push(['1201', invVal, 0]); if (badVal > 0) open.push(['1202', badVal, 0]);
-      if (open.length) { const eq = open.reduce((a, x) => a + x[1], 0); S.j.push({ id: 1, t: e.t, d: 'Saldo awal persediaan (reset data)', l: [...open, ['3101', 0, eq]], k: e.k, sr: e.no, u: e.u }); }
+      const invVal = stockValue(), badVal = badValue(), ar = e.rv >= 2 ? S.sales.reduce((a, x) => a + sOut(x), 0) : 0, ap = e.rv >= 2 ? S.ap.reduce((a, x) => a + apOut(x), 0) : 0, open = []; // rv>=2: piutang & utang ikut saldo awal (kejadian lama tanpa rv tetap diputar ulang seperti dulu agar semua perangkat sama)
+      if (ar > 0) open.push(['1103', Math.round(ar), 0]); if (invVal > 0) open.push(['1201', Math.round(invVal), 0]); if (badVal > 0) open.push(['1202', Math.round(badVal), 0]);
+      if (ap > 0) open.push(['2102', 0, Math.round(ap)]);
+      if (open.length) {
+        const dr = open.reduce((a, x) => a + x[1], 0), cr = open.reduce((a, x) => a + x[2], 0), eq = dr - cr;
+        open.push(eq >= 0 ? ['3101', 0, eq] : ['3101', -eq, 0]);
+        S.j.push({ id: 1, t: e.t, d: 'Saldo awal (reset laporan akuntansi): persediaan, piutang & utang berjalan', l: open, k: e.k, sr: e.no, u: e.u });
+      }
       S.lastRst = e.t;
     }
     S.lastRstSel = e.t;
