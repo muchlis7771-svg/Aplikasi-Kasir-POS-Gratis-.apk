@@ -22,5 +22,6 @@ const argv = process.argv.slice(2).filter((a) => !a.startsWith('--min='));
 const minArg = process.argv.slice(2).find((a) => a.startsWith('--min='));
 const min = minArg ? +minArg.slice(6) : undefined;
 const note = argv.join(' ');
+if (min && min > v) { console.error('GAGAL: --min=' + min + ' lebih besar dari versi sw.js (v' + v + ') — semua pengguna akan terkunci tanpa jalan keluar. Naikkan jpos-vNN di public/sw.js dulu.'); process.exit(1); }
 fs.writeFileSync(path.join(root, 'ota.json'), JSON.stringify({ v, t: Date.now(), note, ...(min ? { min } : {}), files }));
 console.log('ota.json v' + v + ':', files.length, 'file,', Math.round(files.reduce((a, f) => a + f.s, 0) / 1024), 'KB' + (min ? ' · WAJIB update ke v' + min : ''));

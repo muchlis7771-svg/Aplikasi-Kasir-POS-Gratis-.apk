@@ -219,7 +219,7 @@ async function resetSelFlow(P) {
   let rtk;
   if (S.srv) { // toko online: PIN dikonfirmasi ke server (token 10 menit) — tanpa ini server menolak kejadian reset
     if (!canNet()) return toast('Butuh internet untuk reset data toko online', 4500);
-    try { rtk = (await post('/api/reset/auth', { pin })).tok; } catch (e) { return toast(e.message || 'PIN ditolak server', 4500); }
+    try { rtk = (await post('/api/reset/auth', { pin })).tok; } catch (e) { const m = e.message || ''; return toast(/PIN|percobaan|pemilik/i.test(m) ? m : (m || 'Gagal') + ' — server J-POS mungkin belum diperbarui, hubungi admin.', 5000); }
   }
   try { expBackup(); } catch (e) { }
   emit('rstSel', { parts: P, rtk });
