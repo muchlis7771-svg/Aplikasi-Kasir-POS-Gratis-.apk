@@ -216,24 +216,14 @@ async function resetSelFlow(P) {
   const me = S.users.find((x) => x.n.toLowerCase() == U.n.toLowerCase());
   if (!me || !me.h) return toast('Tidak bisa memverifikasi PIN. Keluar lalu masuk ulang dengan PIN, lalu coba lagi.', 5000);
   if (me.h != (await sha(SID + ':' + U.n.toLowerCase() + ':' + pin))) return toast('PIN salah — reset dibatalkan');
+  let rtk;
+  if (S.srv) { // toko online: PIN dikonfirmasi ke server (token 10 menit) — tanpa ini server menolak kejadian reset
+    if (!canNet()) return toast('Butuh internet untuk reset data toko online', 4500);
+    try { rtk = (await post('/api/reset/auth', { pin })).tok; } catch (e) { return toast(e.message || 'PIN ditolak server', 4500); }
+  }
   try { expBackup(); } catch (e) { }
-  emit('rstSel', { parts: P });
+  emit('rstSel', { parts: P, rtk });
   toast('Reset data selesai ✓ (' + P.length + ' bagian)', 4500);
-  R();
-}
-async function rstAllFlow() {
-  if (U.r != 'owner') return toast('Hanya pemilik yang bisa reset total data');
-  if (!confirm('⚠️ RESET TOTAL DATA?\n\nSemua stok produk akan DINOLKAN, dan SELURUH histori penjualan, retur, jurnal, kas, piutang/utang usaha, PO/restok, serta mutasi kanvas akan DIHAPUS BERSIH — tidak bisa dikembalikan.\n\nProduk, pelanggan/outlet, pengguna & pengaturan toko TIDAK dihapus.\n\nBackup JSON akan diunduh otomatis sebelum reset. Lanjutkan?')) return;
-  const sure = prompt('Ketik HAPUS untuk melanjutkan:');
-  if ((sure || '').trim().toUpperCase() != 'HAPUS') return toast('Dibatalkan');
-  const pin = prompt('Masukkan PIN pemilik (' + U.n + ') untuk konfirmasi:');
-  if (!pin) return;
-  const me = S.users.find((x) => x.n.toLowerCase() == U.n.toLowerCase());
-  if (!me || !me.h) return toast('Tidak bisa memverifikasi PIN. Keluar lalu masuk ulang dengan PIN, lalu coba lagi.', 5000);
-  if (me.h != (await sha(SID + ':' + U.n.toLowerCase() + ':' + pin))) return toast('PIN salah — reset dibatalkan');
-  try { expBackup(); } catch (e) { }
-  emit('rstAll', {});
-  toast('Reset total data selesai ✓ — stok & histori dimulai dari nol', 5000);
   R();
 }
 async function referralOpen() {

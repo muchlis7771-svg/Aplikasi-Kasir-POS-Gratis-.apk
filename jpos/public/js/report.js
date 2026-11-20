@@ -207,19 +207,6 @@ ${U.r == 'owner' ? `<div class="cd"><h3>Modal / prive</h3><div class="fm"><selec
 <div class="cd"><div class="wrap"><button class="gh a" onclick="manualJournal()">+ Jurnal manual (debit/kredit)</button><button class="gh" onclick="expXlsx('jurnal')">⬇ Jurnal Excel</button><button class="gh" onclick="expPdf('jurnal')">Jurnal PDF</button></div><input style="margin-top:10px" placeholder="Cari keterangan / akun" value="${esc(jQ)}" onchange="jQ=this.value;R()"></div>
 <div class="cd"><h3>Jurnal umum (${L.length} terbaru)</h3>${L.map((e) => `<div class="je"><small>#${e.id} · ${tstr(e.t)} · ${esc(e.d)}</small>${e.l.map((x) => `<p class="${x[2] ? 'ind' : ''}"><span>${x[0]} ${AC[x[0]]}</span><b>${rp(x[1] || x[2])}</b></p>`).join('')}</div>`).join('') || '<small class="mu">Tidak ada jurnal pada periode ini</small>'}</div>`;
 };
-async function acctResetFlow() {
-  if (U.r != 'owner') return toast('Hanya pemilik yang bisa reset buku');
-  if (!confirm('Reset buku akuntansi & kas?\n\nJurnal umum, buku kas, laba rugi, neraca, piutang usaha & utang usaha akan DINOLKAN ULANG (seperti tutup buku untuk mulai periode baru).\n\nProduk, stok, pelanggan/outlet, dan histori NOTA PENJUALAN TETAP ADA — tidak dihapus.\n\nBackup JSON akan diunduh otomatis sebelum reset. Lanjutkan?')) return;
-  const pin = prompt('Masukkan PIN pemilik (' + U.n + ') untuk konfirmasi reset:');
-  if (!pin) return;
-  const me = S.users.find((x) => x.n.toLowerCase() == U.n.toLowerCase());
-  if (!me || !me.h) return toast('Tidak bisa memverifikasi PIN. Keluar lalu masuk ulang dengan PIN, lalu coba lagi.', 5000);
-  if (me.h != (await sha(SID + ':' + U.n.toLowerCase() + ':' + pin))) return toast('PIN salah — reset dibatalkan');
-  try { expBackup(); } catch (e) { }
-  emit('rst', {});
-  toast('Buku akuntansi & kas sudah direset ✓', 4000);
-  R();
-}
 const addExp = () => { const a = $('#ja').value, n = num($('#jn').value); if (n <= 0) return toast('Isi jumlah'); emit('exp', { a, amt: n, d: $('#jk').value.trim() || AC[a], m: $('#jm').value }); toast('Beban dicatat'); R(); };
 const addCap = () => { const n = num($('#cn').value); if (n <= 0) return toast('Isi jumlah'); emit('cap', { t2: $('#ct').value, amt: n, d: $('#ck').value.trim(), m: $('#cm').value }); toast('Tersimpan'); R(); };
 function manualJournal() {

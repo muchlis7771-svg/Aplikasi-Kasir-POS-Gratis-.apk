@@ -547,6 +547,16 @@ export default {
         return J({ ok: 1 });
       }
 
+      // konfirmasi PIN pemilik ke SERVER sebelum reset data: PIN diperiksa (PBKDF2, dibatasi 5x/10 menit) lalu server
+      // menerbitkan token 10 menit yang wajib menyertai kejadian rst/rstSel — sesi pemilik yang dicuri tanpa PIN tidak bisa mereset.
+      if (p == '/api/reset/auth' && M == 'POST') {
+        if (role != 'owner') return J({ e: 'Hanya pemilik yang bisa reset data' }, 403);
+        if (await limited(env, 'rstpin:' + sid + ':' + uname.toLowerCase(), 5, 6e5)) return J({ e: 'Terlalu banyak percobaan, coba lagi nanti' }, 429);
+        const cur = await env.DB.prepare('SELECT pin_hash FROM staff WHERE store_id=? AND name=?').bind(sid, uname).first();
+        if (!cur || !(await same(cur.pin_hash, await hp(String(b.pin || ''), sid, uname)))) return J({ e: 'PIN salah' }, 400);
+        return J({ tok: await sign(env, { k: 'rst', sid, u: uname, exp: Date.now() + 10 * 6e4 }) });
+      }
+
       if (p == '/api/ev') {
         if (M == 'POST') {
           if (EXP) return RO();
@@ -555,6 +565,11 @@ export default {
             if (!x || typeof x != 'object' || !NO.test(x.no || '') || !KINDS.has(x.k) || !Number.isFinite(x.t)) { rej.push({ no: x && x.no, e: 'format' }); if (x && x.no) done.push(x.no); continue; }
             done.push(x.no);
             if (!kindOk(feats, role, x.k) && !(x.k == 'dlv' && x.st == 'baru' && feats.includes('pos'))) { rej.push({ no: x.no, e: 'peran ' + role + ' tidak boleh ' + x.k + ' (hak akses / paket)' }); continue; }
+            if (x.k == 'rst' || x.k == 'rstSel') {
+              const v = await verify(env, x.rtk);
+              if (!v || v.k != 'rst' || v.sid != sid || v.u != uname) { rej.push({ no: x.no, e: 'reset data wajib konfirmasi PIN pemilik ke server' }); continue; }
+              if (ctx) ctx.waitUntil(logAct(env, 'staff', uname, uname, sid, 'reset data: ' + (Array.isArray(x.parts) ? x.parts.join(',') : x.k), ip).catch(() => {}));
+            }
             if (x.k == 'face' && role != 'owner') {
               if (x.fu != uname || x.x) { rej.push({ no: x.no, e: 'wajah acuan hanya bisa diatur pemilik' }); continue; }
               const last = await env.DB.prepare("SELECT data FROM ev WHERE store_id=? AND k='face' AND json_extract(data,'$.fu')=? ORDER BY seq DESC LIMIT 1").bind(sid, uname).first();
@@ -565,7 +580,7 @@ export default {
             if (x.k == 'bst' && role != 'owner' && role != 'admin') { rej.push({ no: x.no, e: 'bad stock & pemusnahan hanya oleh pemilik / admin' }); continue; }
             if (role != 'owner' && ((x.k == 'pu' && x.p && x.p.x) || (x.k == 'cu' && x.c && x.c.x) || (x.k == 'sup' && x.s && x.s.x))) { rej.push({ no: x.no, e: 'hapus/arsip data hanya oleh pemilik' }); continue; }
             if (x.k == 'sale' && role != 'owner' && (x.asu || x.asr)) { rej.push({ no: x.no, e: 'memberikan omzet ke karyawan lain hanya oleh pemilik' }); continue; }
-            const ev = { ...x, u: uname, r: role, rt }; if (x.t > rt + 3e5 || (x.on && Math.abs(x.t - rt) > 3e5)) ev.fl = 'jam';
+            const ev = { ...x, u: uname, r: role, rt }; delete ev.rtk; if (x.t > rt + 3e5 || (x.on && Math.abs(x.t - rt) > 3e5)) ev.fl = 'jam';
             const d = JSON.stringify(ev);
             if (d.length > 150000) { rej.push({ no: x.no, e: 'terlalu besar' }); continue; }
             const tot = x.k == 'sale' ? Math.round(+x.tot) || 0 : x.k == 'retur' ? -Math.abs(Math.round(+x.tot) || 0) : 0;
