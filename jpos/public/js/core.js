@@ -63,7 +63,7 @@ const NEWR = [[25, { admin: 'tgt tgtAll tgtSet', akuntan: 'tgt tgtAll', kasir: '
 const pmRole = (ov, r) => (typeof ov[r] == 'string' ? ov[r] + ' ' + NEWR.filter(([v]) => !(ov._v >= v)).map(([, m]) => m[r] || '').join(' ') : DEFPERM[r] || '');
 const FEAT = {
   dash: 'Beranda', pos: 'Kasir / Order', his: 'Riwayat transaksi', hisAll: 'Lihat transaksi semua orang', prod: 'Lihat produk & stok', prodEdit: 'Ubah produk & stok', outlet: 'Outlet / pelanggan',
-  onl: 'Toko Online', ana: 'Analisa', lap: 'Laporan', keu: 'Keuangan & utang piutang', jur: 'Jurnal & biaya', abs: 'Absensi sendiri', absAll: 'Lihat absensi semua', chat: 'Chat', usr: 'Kelola pengguna',
+  onl: 'Pesanan Meja (QR)', ana: 'Analisa', lap: 'Laporan', keu: 'Keuangan & utang piutang', jur: 'Jurnal & biaya', abs: 'Absensi sendiri', absAll: 'Lihat absensi semua', chat: 'Chat', usr: 'Kelola pengguna',
   retur: 'Retur barang', backup: 'Backup & restore', set: 'Pengaturan', beli: 'Pembelian ke supplier', xls: 'Import / export Excel', kas: 'Buku kas', perm: 'Atur hak akses (owner)',
   kirim: 'Pengantaran / dropping', cek: 'Check-in / out outlet', terima: 'Terima pembayaran di lapangan', tgt: 'Target & insentif (milik sendiri)', tgtAll: 'Lihat target & insentif semua karyawan', tgtSet: 'Atur target, insentif & kalender kerja', shiftSet: 'Atur shift kasir & jadwal karyawan', kiosMap: 'Peta kios terdaftar (tawarkan produk)', dnet: 'Jaringan mitra: stok & SKU toko mitra', gaji: 'Gaji, lembur & izin jam kerja', gps: 'Pantau GPS tim lapangan (langsung)', kanvas: 'Sales kanvas: muat, jual dari mobil & balik barang', anti: 'Absensi anti-curang (selfie & jam server)', aud: 'Audit lapangan', meja: 'Meja & QR pesan sendiri (coffee shop)', tg: 'Notifikasi laporan via Telegram',
 };

@@ -114,7 +114,7 @@ function cartUp() { applyAutoPromos(); const el = $('#ct'); if (!el) return; el.
 const cartOpen = (o) => { const el = $('#ct'); if (el) el.classList.toggle('open', o); };
 VW.pos = () => {
   if ((U.r == 'sales' || U.r == 'kanvas') && !S.c.length && !cCu) { /* sales boleh tambah outlet langsung dari keranjang */ }
-  return (typeof shBar == 'function' ? shBar() : '') + `<div class="pos"><section><div class="srch"><input id="pq" placeholder="Cari nama / SKU — Enter menambah" value="${esc(pQ)}" oninput="pQ=this.value;$('#pg').innerHTML=gridH()" onkeydown="pkey(event)"><button class="gh" onclick="scanAdd()" title="Scan barcode">▣</button></div><div id="pfilt">${pfiltH()}</div><div id="pcats">${catsH()}</div><div class="grid" id="pg">${gridH()}</div></section><aside class="cd" id="ct">${cartH()}</aside></div><div class="cartbar" id="cb" onclick="cartOpen(true)">${cbarH()}</div>`;
+  return (typeof shBar == 'function' ? shBar() : '') + `<div class="pos"><section><div class="srch"><input id="pq" placeholder="Cari nama / SKU — Enter menambah" value="${esc(pQ)}" oninput="pQ=this.value;$('#pg').innerHTML=gridH()" onkeydown="pkey(event)"><button class="gh" onclick="scanAdd()" title="Scan barcode / kamera">${ico('scan')}</button></div><div id="pfilt">${pfiltH()}</div><div id="pcats">${catsH()}</div><div class="grid" id="pg">${gridH()}</div></section><aside class="cd" id="ct">${cartH()}</aside></div><div class="cartbar" id="cb" onclick="cartOpen(true)">${cbarH()}</div>`;
 };
 VW.pos.after = () => { if (applyAutoPromos()) cartUp(); };
 function pkey(e) {

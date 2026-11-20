@@ -43,6 +43,7 @@ const ICP = {
   play: '<circle class="a" cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="8.5"/><path d="m10 8.5 5 3.5-5 3.5z"/>',
   shield: '<path class="a" d="M12 3 4.5 6v5.5c0 4.6 3.2 8 7.5 9.5 4.3-1.5 7.5-4.9 7.5-9.5V6z"/><path d="M12 3 4.5 6v5.5c0 4.6 3.2 8 7.5 9.5 4.3-1.5 7.5-4.9 7.5-9.5V6z"/>',
   wifi: '<path d="M4 9.5a12 12 0 0 1 16 0M6.8 12.7a8 8 0 0 1 10.4 0M9.6 15.9a4 4 0 0 1 4.8 0"/><circle cx="12" cy="19" r="1"/>',
+  scan: '<rect class="a" x="7" y="7" width="10" height="10" rx="1.5"/><path d="M4 8.5V6.5A2.5 2.5 0 0 1 6.5 4h2M4 15.5v2A2.5 2.5 0 0 0 6.5 20h2M20 8.5V6.5A2.5 2.5 0 0 0 17.5 4h-2M20 15.5v2a2.5 2.5 0 0 1-2.5 2.5h-2M8.5 9v6M11 9v6M13.5 9v6M16 9v6"/>',
 };
 const ico = (n) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${ICP[n] || ICP.dash}</svg>`;
 const pIco = (k) => (ICP[k] ? ico(k) : (PAGES[k] || ['•'])[0]);

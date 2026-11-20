@@ -4,7 +4,7 @@ const PAGES = {
   dash: ['🏠', 'Beranda', 'Ringkasan hari ini'], pos: ['🛒', 'Kasir', 'Jual & cetak struk'], his: ['🧾', 'Riwayat', 'Transaksi & pelunasan'],
   prod: ['📦', 'Produk', 'Stok, harga, barcode'], outlet: ['📍', 'Outlet', 'Pelanggan, peta, kredit'], meja: ['🪑', 'Meja', 'Nomor meja & QR pesan sendiri'], lap: ['📊', 'Laporan', 'Penjualan & keuangan'],
   keu: ['💰', 'Keuangan', 'Kas, piutang, utang'], jur: ['📒', 'Jurnal', 'Biaya & jurnal manual'], abs: ['🕒', 'Absensi', 'Masuk / pulang'],
-  chat: ['💬', 'Chat', 'Tim & antar toko'], onl: ['🛍️', 'Toko Online', 'Pesanan pembeli online'], ana: ['🎯', 'Analisa', 'Saran order & kredit'], usr: ['👥', 'Pengguna', 'Karyawan & PIN'], set: ['⚙️', 'Pengaturan', 'Toko, akun, data'],
+  chat: ['💬', 'Chat', 'Tim & antar toko'], onl: ['🛎️', 'Pesanan Meja', 'Pesanan lewat scan QR meja'], ana: ['🎯', 'Analisa', 'Saran order & kredit'], usr: ['👥', 'Pengguna', 'Karyawan & PIN'], set: ['⚙️', 'Pengaturan', 'Toko, akun, data'],
   beli: ['📥', 'Pembelian', 'PO ke supplier & pabrik'], kas: ['📘', 'Buku Kas', 'Uang masuk & keluar'], kirim: ['🚚', 'Pengantaran', 'Antar order & tagih'], perm: ['🔐', 'Hak Akses', 'Peran, paket, keamanan'], aud: ['🛡️', 'Audit', 'Check-in, jam & lokasi'], retur: ['↩️', 'Retur Outlet', 'Expired, rusak, kelebihan order'], tgt: ['🏆', 'Target & Insentif', 'Pencapaian bulanan'], gps: ['🛰️', 'Pantau GPS', 'Posisi tim lapangan langsung'], gaji: ['💼', 'Gaji & Lembur', 'Gaji, potongan absen, lembur'], kiosMap: ['🗺️', 'Peta Kios', 'Kios terdaftar di sekitar'], dnet: ['🤝', 'Jaringan Mitra', 'Stok & SKU toko mitra'], kanvas: ['🚚', 'Kanvas', 'Muat, jual & balik barang'], shiftSet: ['🔐', 'Shift & Jadwal', 'Jadwal per minggu, tugas SPG, closing kasir'],
 };
 const ORDER = ['dash', 'kanvas', 'kirim', 'pos', 'onl', 'his', 'retur', 'prod', 'beli', 'outlet', 'meja', 'gps', 'kiosMap', 'dnet', 'ana', 'tgt', 'lap', 'keu', 'kas', 'jur', 'aud', 'abs', 'shiftSet', 'gaji', 'chat', 'usr', 'perm', 'set'];
@@ -152,8 +152,7 @@ function homeView() {
 ${SRVOK ? `<input id="sv" placeholder="https://…workers.dev" value="${esc(AP)}" autocapitalize="none"><button class="pr" onclick="saveApi().then(()=>{checkSrv.t=0;R()})">Simpan & tes koneksi</button>` : `<small class="mu">Alamat server dikunci. Hanya <b>pemilik toko</b> yang bisa mengubahnya — masukkan data pemilik:</small><input id="ovi" placeholder="Kode toko" autocapitalize="none" autocomplete="off" value="${esc((LS.get('jpos:last', null) || {}).id || '')}"><input id="ovn" placeholder="Nama pemilik" autocomplete="off" readonly onfocus="this.removeAttribute('readonly')"><input id="ovp" type="password" inputmode="numeric" placeholder="PIN pemilik" autocomplete="new-password" readonly onfocus="this.removeAttribute('readonly')"><button class="pr" onclick="srvUnlock()">Buka kunci</button>`}
 ${apiCustom() || LS.get('jpos:apiAuto', '') ? '<button class="gh" onclick="srvReset()">↺ Kembalikan ke server bawaan</button>' : ''}${back}</div></div>`;
   return head + `<div class="fm" style="text-align:left">${reg.length ? '<small class="mu">Toko di HP ini — ketuk untuk masuk</small>' : ''}${typeof bioList == 'function' && BIOP() ? bioList().filter((b) => reg.some((r) => r.id == b.id)).map((b) => `<button class="pr bio" onclick="bioLogin('${esc(b.id)}','${esc(b.n)}')">👆 ${esc(b.n)} · ${esc((reg.find((r) => r.id == b.id) || {}).n || b.id)}</button>`).join('') : ''}${reg.map((r) => `<button class="us2" onclick="quickLogin('${esc(r.id)}')"><em>${esc((r.n || '?')[0].toUpperCase())}</em><span>${esc(r.n)}<br><small class="mu">${esc(r.id)}${r.demo ? ' · demo' : ''}</small></span><span class="sp"></span>›</button>`).join('')}
-<div class="lxbtn"><button class="pr lxmain" onclick="mode('login')"><span>${ico('key')}</span><b>Masuk toko<small>Pemilik &amp; karyawan</small></b>›</button>
-<button class="pr shop lxalt" onclick="startBuyer()"><span>${ico('bag')}</span><b>Belanja<small>Untuk kios &amp; pembeli</small></b>›</button></div>
+<div class="lxbtn"><button class="pr lxmain" onclick="mode('login')"><span>${ico('key')}</span><b>Masuk toko<small>Pemilik &amp; karyawan</small></b>›</button></div>
 <div class="lxsub"><button onclick="mode('reg')">${ico('plus')}<b>Daftarkan toko</b><small>gratis ${info.trial || 30} hari</small></button><button onclick="startDemo()">${ico('play')}<b>Coba demo</b><small>tanpa daftar</small></button></div>${pwaReady() ? `<button class="gh big" style="margin-top:10px" onclick="pwaInstall()">📲 Install aplikasi ke HP (tanpa Play Store)</button>` : ''}</div>
 
 <div class="lxfoot"><span class="srvpill" id="srvst">${srvTxt()}</span><div class="lnk"><button class="gh" onclick="mode('srv')">${ico('srv')}Server</button><a class="gh" href="privasi.html" target="_blank" rel="noopener">${ico('lock')}Privasi</a></div><small onclick="haSecretTap()" style="cursor:default">© J-POS · Kasir &amp; distribusi</small></div></div>`;
@@ -216,16 +215,16 @@ const pwaReady = () => !isNative() && !!PWAIP && !window.matchMedia('(display-mo
 async function pwaInstall() { if (!PWAIP) return; try { PWAIP.prompt(); await PWAIP.userChoice; } catch (e) { } PWAIP = null; R(); }
 (function boot() {
   initApi(); applyTheme();
-  // Pelanggan scan QR di meja (coffee shop) → langsung ke tampilan pesan-sendiri toko ini, TANPA perlu instal app:
-  // cukup buka link di browser HP (kamera → link https://.../?s=<kode toko>&meja=<nomor meja>). Memakai jalur
-  // belanja online yang sudah ada (bOpenStore + metode "Ambil sendiri") — bukan endpoint publik baru.
+  // Pelanggan scan QR di meja → langsung ke tampilan menu toko ini untuk pesan sendiri, TANPA perlu instal app
+  // dan TANPA layar login: cukup buka link di browser HP (kamera → link https://.../?s=<kode toko>&meja=<nomor meja>).
+  // Sesi pemesan dibuat diam-diam (bEnsureGuest di buyer.js) saat pesanan dikirim.
   let qDemo = false;
   try {
     const qp = new URLSearchParams(location.search), qSid = qp.get('s'), qMeja = qp.get('meja'), qRef = qp.get('ref'), qM = qp.get('m');
     if (qSid) {
       history.replaceState(null, '', location.pathname);
+      if (qMeja) BY.meja = 'Meja ' + qMeja;
       startBuyer(); bOpenStore(qSid);
-      if (qMeja) BY.co[qSid] = { m: 'ambil', vc: '', vd: 0, q: null, note: 'Meja ' + qMeja };
     } else if (qRef && /^[a-z0-9]{6,20}$/.test(qRef) && !U) {
       // link referral (?ref=kodetoko) dari toko lain yang mengajak → langsung buka form daftar, kode referral terisi otomatis
       history.replaceState(null, '', location.pathname);
