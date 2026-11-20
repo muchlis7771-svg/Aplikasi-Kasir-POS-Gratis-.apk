@@ -36,4 +36,8 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: npx --yes wrangler@4 deploy
       - name: Tes situs hidup & sudah versi terbaru
-        run: sleep 8; curl -fsS https://aplikasi-kasir-pos-gratis--apk.muchlis7771.workers.dev/api/ping
+        run: |
+          sleep 8
+          curl -fsS https://aplikasi-kasir-pos-gratis--apk.muchlis7771.workers.dev/api/ping
+          curl -fsS https://aplikasi-kasir-pos-gratis--apk.muchlis7771.workers.dev/promo/ | grep -q "HomeTech" || { echo "::error::Halaman /promo/ tidak termuat normal (mungkin html_handling memutus index.html otomatis utk folder)"; exit 1; }
+          curl -fsS "https://aplikasi-kasir-pos-gratis--apk.muchlis7771.workers.dev/index.html?m=login" | grep -q "emDlg\|Masuk ke toko\|J-POS" || { echo "::error::/index.html?m=login tidak termuat normal"; exit 1; }
