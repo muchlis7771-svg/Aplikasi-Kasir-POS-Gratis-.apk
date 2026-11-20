@@ -99,7 +99,7 @@ function chatPoll(start) {
 const bubH = (m) => { const me = m.sid == SID && m.un == U.n, hq = m.sid == 'hq'; return `<div class="bub ${me ? 'me' : ''} ${hq ? 'hq' : ''}"><small>${me ? 'Saya' : esc(m.un) + (m.sid != SID ? ' · ' + esc(m.sn) : '')} · ${hm(m.t)}${m.pending ? ' ⏳' : ''}</small>${esc(m.tx)}</div>`; };
 VW.chat = () => {
   if (!S.srv) return `<div class="cd"><h3>Chat</h3><p class="mu">Chat memerlukan toko yang terdaftar di server. Daftarkan toko dengan koneksi internet.</p></div>`;
-  return `<div class="cd"><div class="seg" style="margin-top:0"><button class="${CH.room == 'tk' ? 'a' : ''}" onclick="chatRoom('tk')">Tim toko</button><button class="${CH.room == 'net' ? 'a' : ''}" onclick="chatRoom('net')">Semua toko</button><button class="${CH.room.startsWith('dm:') ? 'a' : ''}" onclick="chatDm()">Pesan toko lain</button></div>
+  return `<div class="cd"><div class="seg" style="margin-top:0"><button class="${CH.room == 'tk' ? 'a' : ''}" onclick="chatRoom('tk')">Tim toko & Admin</button><button class="${CH.room == 'net' ? 'a' : ''}" onclick="chatRoom('net')">Semua toko</button><button class="${CH.room.startsWith('dm:') ? 'a' : ''}" onclick="chatDm()">Pesan toko lain</button></div>
 <small class="mu" id="chh"></small><div class="chat" id="chm"></div><div class="cin"><input id="chi" placeholder="Tulis pesan…" maxlength="500" onkeydown="if(event.key=='Enter')chatSend()"><button onclick="chatSend()">Kirim</button></div></div>`;
 };
 VW.chat.after = () => { if (!S.srv) return; chatLoad(true); clearInterval(CH.timer); CH.timer = setInterval(() => { if (V == 'chat') chatLoad(false); else clearInterval(CH.timer); }, 4000); };
@@ -120,7 +120,7 @@ async function chatLoad(first) {
     if (first) CH.msgs = []; r.m.forEach((m) => { CH.msgs.push(m); CH.last = Math.max(CH.last, m.seq); }); if (r.peer) CH.peer = r.peer;
     const el = $('#chm'); if (!el) return; const near = el.scrollHeight - el.scrollTop - el.clientHeight < 80;
     if (first || r.m.length) { el.innerHTML = CH.msgs.map(bubH).join('') + (S.cq || []).filter((x) => x.room == room).map((x) => bubH({ sid: SID, un: U.n, sn: S.name, t: x.t, tx: x.text, pending: 1 })).join('') || '<small class="mu">Belum ada pesan. Mulai percakapan!</small>'; if (first || near) el.scrollTop = el.scrollHeight; }
-    const h = $('#chh'); if (h) h.textContent = room == 'tk' ? 'Percakapan tim ' + (S.name || '') : room == 'net' ? 'Percakapan terbuka seluruh toko pengguna J-POS — jaga etika, jangan bagikan data rahasia' : 'Percakapan pribadi dengan ' + (CH.peer ? CH.peer.name : room.slice(3));
+    const h = $('#chh'); if (h) h.textContent = room == 'tk' ? 'Percakapan tim ' + (S.name || '') + ' · juga dibaca & dibalas Head Admin (follow up perpanjangan paket bisa di sini)' : room == 'net' ? 'Percakapan terbuka seluruh toko pengguna J-POS — jaga etika, jangan bagikan data rahasia' : 'Percakapan pribadi dengan ' + (CH.peer ? CH.peer.name : room.slice(3));
     if (CH.last) { S.cs[room] = CH.last; save(); } chatPoll();
   } catch (e) { const h = $('#chh'); if (h) h.textContent = e.message; }
 }
