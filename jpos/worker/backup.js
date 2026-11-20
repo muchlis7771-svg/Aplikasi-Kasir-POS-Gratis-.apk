@@ -35,6 +35,19 @@ export async function backupDaily(env, now) {
   }
   return { ok: 1, n, err, total: stores.length };
 }
+// titik pulih sebelum reset data: dipanggil saat pemilik mengonfirmasi PIN reset (sebelum kejadian reset diterima), jadi
+// selalu ada salinan seluruh log kejadian TEPAT sebelum data dinolkan — meski backup JSON di HP hilang. Tidak bergantung
+// pada backup harian; ikut terbuang bersama backup lama (key diawali tanggal, lihat pruning BK_KEEP_DAYS).
+export async function backupPreReset(env, sid, now) {
+  if (!env.BACKUP) return { ok: 0 };
+  const key = `store/${sid}/${dayKey(now)}-pre-${new Date(now).toISOString().slice(11, 19).replace(/:/g, '')}.json`;
+  const [ev, staff] = await Promise.all([
+    env.DB.prepare('SELECT seq,no,k,t,tot,data FROM ev WHERE store_id=? ORDER BY seq').bind(sid).all(),
+    env.DB.prepare('SELECT name,role,created FROM staff WHERE store_id=?').bind(sid).all(),
+  ]);
+  await env.BACKUP.put(key, JSON.stringify({ v: 1, t: now, pre: 'reset', store: { id: sid }, staff: staff.results, ev: ev.results }), { httpMetadata: { contentType: 'application/json' } });
+  return { ok: 1, key };
+}
 // daftar backup tersedia utk satu toko (Head Admin, utk diunduh manual bila diperlukan)
 export async function backupList(env, sid) {
   if (!env.BACKUP) return [];
@@ -43,6 +56,6 @@ export async function backupList(env, sid) {
 }
 // unduh satu file backup (dicek key harus benar2 milik toko yg diminta, jangan sampai bisa baca toko lain)
 export async function backupGet(env, sid, day) {
-  if (!env.BACKUP || !/^[\w-]{1,40}$/.test(sid) || !/^\d{4}-\d\d-\d\d$/.test(day)) return null;
+  if (!env.BACKUP || !/^[\w-]{1,40}$/.test(sid) || !/^\d{4}-\d\d-\d\d(-pre-\d{6})?$/.test(day)) return null;
   return await env.BACKUP.get(`store/${sid}/${day}.json`);
 }

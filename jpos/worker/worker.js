@@ -4,7 +4,7 @@ import { MSCH2, mitraRoutes } from './mitra.js';
 import { HSCHEMA, payHook, hqStore, hqAdmin, leadPost, trailStmt, trailGet, pruneTrail, pruneVisits, tunnelPost, tunnelRedirect, apkPublic, apkPubOf, apkChunkGet, apkDlCount, siteOf, siteHit, appHit, adminPulse, webPublic, mediaPublic, webExport, trkIssue, trkOff, trkLoc, ghApkHit, GH_APK_URL, jdataHit, JDATA_APK_URL, dlLead, dlAdmin, projPost } from './hq.js';
 import { RSCHEMA, RALTER, rptCfg, cleanCfg, dayRange, buildDaily, sendOut, cronDaily, notifNewAR, dueNotify, dueCronCheck, notifRetryRun } from './lapor.js';
 import { TGSCHEMA, tgHook, tgLinkCode, tgSetWebhook } from './tg.js';
-import { backupDaily, backupList, backupGet } from './backup.js';
+import { backupDaily, backupList, backupGet, backupPreReset } from './backup.js';
 // J-POS API v4 — Cloudflare Worker + D1 (SQLite)
 // Multi-tenant: 1 toko = 1 tenant. Data bisnis = LOG KEJADIAN (tabel ev) yang diputar ulang tiap perangkat (offline-first).
 // v4: peran owner/admin/akuntan/kasir/sales, masa aktif toko (trial 30 hari + perpanjangan oleh Head Admin),
@@ -554,6 +554,7 @@ export default {
         if (await limited(env, 'rstpin:' + sid + ':' + uname.toLowerCase(), 5, 6e5)) return J({ e: 'Terlalu banyak percobaan, coba lagi nanti' }, 429);
         const cur = await env.DB.prepare('SELECT pin_hash FROM staff WHERE store_id=? AND name=?').bind(sid, uname).first();
         if (!cur || !(await same(cur.pin_hash, await hp(String(b.pin || ''), sid, uname)))) return J({ e: 'PIN salah' }, 400);
+        if (ctx) ctx.waitUntil(backupPreReset(env, sid, Date.now()).catch((e) => console.error('backupPreReset', sid, e && e.stack || e))); // titik pulih tepat sebelum reset
         return J({ tok: await sign(env, { k: 'rst', sid, u: uname, exp: Date.now() + 10 * 6e4 }) });
       }
 
