@@ -14,6 +14,11 @@ workers_dev = true
 directory = "jpos/public"
 binding = "ASSETS"
 run_worker_first = true
+# html_handling default Cloudflare ("auto-trailing-slash") otomatis mengalihkan /index.html -> / lalu
+# kehilangan query string (?m=login/reg/ha/demo) di tengah jalan, sebelum worker sempat membacanya —
+# itu sebabnya tombol Masuk/Daftar/Demo selalu "balik ke halaman awal". Dimatikan supaya /index.html
+# (dan file lain) selalu dilayani apa adanya, persis URL yang diminta, tanpa pengalihan otomatis.
+html_handling = "none"
 
 [vars]
 ADMIN_USER = "headadmin"
