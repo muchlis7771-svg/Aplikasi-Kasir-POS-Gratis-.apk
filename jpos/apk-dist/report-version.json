@@ -1,7 +1,7 @@
 {
- "versionCode": 221,
+ "versionCode": 223,
  "versionName": "1.0",
  "force": true,
  "url": "https://github.com/muchlis7771-svg/Aplikasi-Kasir-POS-Gratis-.apk/raw/main/jpos/apk-dist/JDATA-Report-latest.apk",
- "notes": "Rekap WA: isian actual per salesman, total = jumlah."
+ "notes": "AO seragam di semua dashboard (RO diperbarui dari data penjualan), potensi Rp dihapus, tombol Cek Pembaruan di Home."
 }
