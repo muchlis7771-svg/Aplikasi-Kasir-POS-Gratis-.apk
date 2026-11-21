@@ -1,7 +1,7 @@
 {
- "versionCode": 223,
+ "versionCode": 224,
  "versionName": "1.0",
  "force": true,
  "url": "https://github.com/muchlis7771-svg/Aplikasi-Kasir-POS-Gratis-.apk/raw/main/jpos/apk-dist/JDATA-Report-latest.apk",
- "notes": "AO seragam di semua dashboard (RO diperbarui dari data penjualan), potensi Rp dihapus, tombol Cek Pembaruan di Home."
+ "notes": "RO otomatis dari data penjualan bila RO belum diupload; AO seragam di semua dashboard."
 }
