@@ -12,7 +12,7 @@ const otaOk = () => isNative() && otaFS() && otaWV() && otaFS().downloadFile && 
 const otaSrc = () => { const H = [window.JPOS_API, ...(window.JPOS_API_ALT || [])].filter(Boolean).map((u) => { try { return new URL(u).origin; } catch (e) { return ''; } }); let a = ''; try { a = new URL(AP).origin; } catch (e) { } return H.includes(a) ? a : H[0]; };
 let OTAW = false;
 // tautan unduh APK penuh di GitHub — jalan pintas kalau pembaruan tanpa-instal-ulang (OTA) tidak bisa dipakai
-const OTAGH = 'https://raw.githubusercontent.com/muchlis7771-svg/Aplikasi-Kasir-POS-Gratis-.apk/main/jpos/apk-dist/J-POS-latest.apk';
+const OTAGH = 'https://raw.githubusercontent.com/muchlis7771-svg/Aplikasi-Kasir-POS-Gratis-.apk/jpos/apk-dist/J-POS-latest.apk';
 async function otaGhOpen() { const AL = typeof plug == 'function' && plug('AppLauncher'); try { if (AL) { await AL.openUrl({ url: OTAGH }); return; } } catch (e) { } window.open(OTAGH, '_blank'); }
 async function otaB64Write(path, blob, first) {
   const FS = otaFS(), CH = 3 * 262144; // potongan kelipatan 3 byte agar base64 bisa disambung
