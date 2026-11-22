@@ -1,7 +1,7 @@
 {
- "versionCode": 225,
+ "versionCode": 227,
  "versionName": "1.0",
  "force": true,
  "url": "https://github.com/muchlis7771-svg/Aplikasi-Kasir-POS-Gratis-.apk/raw/main/jpos/apk-dist/JDATA-Report-latest.apk",
- "notes": "Gambar laporan memakai font tetap, tidak pecah; RO otomatis dari penjualan."
+ "notes": "Tekan lama tabel = download; avg IPT per salesman; IPT per outlet."
 }
