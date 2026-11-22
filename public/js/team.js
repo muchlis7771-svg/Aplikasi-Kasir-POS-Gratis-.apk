@@ -174,11 +174,40 @@ ${S.srv ? `<div class="cd"><div class="row" style="margin:0"><span><b>🤝 Refer
 ${adm ? rptCard() + mitraCard() + payCard() + uiOrgCard() + fontCard() + absSetCard() : ''}${adm ? `<div class="cd"><h3>Profil & pajak toko</h3><div class="fm"><input id="sn" placeholder="Nama toko" value="${esc(S.name)}"><input id="sa" placeholder="Alamat (tampil di struk)" value="${esc(S.set.addr || '')}"><input id="st" placeholder="Telepon" value="${esc(S.set.tel || '')}"><div class="fm2"><input id="sp" type="number" min="0" max="100" step="0.5" placeholder="PPN %" value="${S.set.ppn ?? 11}"><input id="sd" type="number" placeholder="Tempo kredit bawaan (hari)" value="${S.set.tempo || 30}"></div><div class="fm2"><input id="sj" type="time" value="${esc(S.set.jin || '08:00')}"><label class="row" style="margin:0"><span>Blokir kredit jika ada tagihan jatuh tempo</span><input type="checkbox" id="so" ${S.set.od ? 'checked' : ''}></label></div><label class="gh">Logo toko<input type="file" accept="image/*" onchange="setLogo(this)"></label><button class="gh" onclick="setGeo()">📍 Set lokasi toko untuk absensi (${S.set.glat != null ? 'sudah diatur' : 'belum'})</button><button class="pr" onclick="saveSet()">Simpan pengaturan</button></div></div>` : ''}
 <div class="cd"><h3>Server</h3><div class="fm"><input id="sv" placeholder="https://jpos-api.<akun>.workers.dev" value="${esc(AP)}"><button class="gh" onclick="if(confirm('Ubah alamat server? Alamat yang salah membuat HP ini tidak bisa sinkron.'))saveApi()">Simpan & tes koneksi</button>${apiCustom() ? '<button class="gh" onclick="srvReset()">↺ Kembalikan ke server bawaan</button>' : ''}</div><small class="mu">🔒 Hanya pemilik yang bisa mengubah. Karyawan tidak bisa mengubah alamat server, baik di dalam aplikasi maupun di layar awal.</small></div>
 ${can('backup') ? `<div class="cd"><h3>Data</h3><div class="wrap"><button class="gh" onclick="expBackup()">⬇ Backup JSON</button>${S.srv ? '' : '<label class="gh">Pulihkan backup<input type="file" accept=".json" onchange="restoreBackup(this)"></label>'}<button class="gh" onclick="expXlsx('all')">⬇ Laporan lengkap Excel</button></div><small class="mu">${S.srv ? 'Data toko tersimpan aman di server; backup ini hanya salinan.' : 'Toko lokal: backup berkala sangat disarankan.'}</small></div>` : ''}
-${adm ? `<div class="cd warn" style="border:2px solid #e74c3c"><h3 style="margin:0">☢️ Reset total data</h3><small class="mu">Nolkan SEMUA stok produk &amp; hapus bersih seluruh histori penjualan, retur, jurnal, kas, piutang/utang, PO/restok dan mutasi kanvas — toko mulai dari nol. Produk, pelanggan/outlet, pengguna &amp; pengaturan toko tetap ada.${S.lastRstAll ? '<br>Terakhir reset total: ' + tstr(S.lastRstAll) : ''}</small><div class="wrap" style="margin-top:8px"><button class="pr d" onclick="rstAllFlow()">☢️ Reset total data</button></div></div>` : ''}`;
+${adm ? `<div class="cd warn" style="border:2px solid #e74c3c"><h3 style="margin:0">🔄 Reset data</h3><small class="mu">Pilih sendiri data yang mau dinolkan: laporan akuntansi &amp; kas, stok, piutang, utang, histori penjualan, PO/restok, atau mutasi kanvas — satu, dua, tiga, atau semuanya. Produk, pelanggan/outlet, pengguna &amp; pengaturan toko tidak dihapus.${S.lastRstSel || S.lastRstAll ? '<br>Terakhir reset: ' + tstr(Math.max(S.lastRstSel || 0, S.lastRstAll || 0)) : ''}</small><div class="wrap" style="margin-top:8px"><button class="pr d" onclick="resetOpen()">🔄 Pilih data &amp; reset</button></div></div>` : ''}`;
 };
-async function rstAllFlow() {
-  if (U.r != 'owner') return toast('Hanya pemilik yang bisa reset total data');
-  if (!confirm('⚠️ RESET TOTAL DATA?\n\nSemua stok produk akan DINOLKAN, dan SELURUH histori penjualan, retur, jurnal, kas, piutang/utang usaha, PO/restok, serta mutasi kanvas akan DIHAPUS BERSIH — tidak bisa dikembalikan.\n\nProduk, pelanggan/outlet, pengguna & pengaturan toko TIDAK dihapus.\n\nBackup JSON akan diunduh otomatis sebelum reset. Lanjutkan?')) return;
+const RSTL = [
+  ['akun', '📒 Laporan akuntansi & kas', () => S.j.length + ' jurnal · ' + (S.kn || []).length + ' catatan kas', 'Jurnal umum, buku kas, laba rugi & neraca mulai dari nol. Stok, piutang & utang yang tidak ikut dicentang tidak diubah, dan nilainya otomatis dimasukkan ke laporan baru sebagai saldo awal.'],
+  ['stok', '📦 Data stok', () => S.p.length + ' produk', 'Stok semua produk jadi 0 dan catatan stok rusak dihapus. Produk (nama/harga) tetap ada.'],
+  ['piutang', '💳 Piutang usaha', () => rp(S.sales.reduce((a, s) => a + sOut(s), 0)) + ' berjalan', 'Semua tagihan nota kredit ditandai lunas. Nota tetap ada.'],
+  ['utang', '🧾 Utang usaha', () => rp(S.ap.reduce((a, x) => a + apOut(x), 0)) + ' berjalan', 'Seluruh daftar utang ke pemasok dihapus.'],
+  ['penjualan', '🛒 Histori penjualan & retur', () => S.sales.length + ' nota · ' + (S.rtr || []).length + ' retur', 'Semua nota penjualan dan retur dihapus (termasuk piutangnya).'],
+  ['po', '📥 PO / restok', () => (S.po || []).length + ' PO', 'Seluruh pesanan pembelian dihapus.'],
+  ['kanvas', '🚚 Mutasi kanvas', () => (S.kv || []).length + ' catatan', 'Muatan & setoran sales kanvas dihapus.'],
+];
+function resetOpen(pre) {
+  if (U.r != 'owner') return toast('Hanya pemilik yang bisa reset data');
+  const sel = new Set(typeof pre == 'string' ? pre.split(',') : []);
+  const m = modal(`<h3>🔄 Reset data</h3><small class="mu">Centang data yang mau dinolkan. Yang tidak dicentang tidak disentuh. Backup JSON diunduh otomatis sebelum reset.</small>
+<div class="wrap" style="margin:8px 0"><button class="gh" id="rsa">Pilih semua</button><button class="gh" id="rsn">Kosongkan</button></div>
+${RSTL.map(([k, n, c, d]) => `<label class="cd" style="display:flex;gap:10px;align-items:flex-start;margin:6px 0"><input type="checkbox" data-k="${k}" ${sel.has(k) ? 'checked' : ''} style="margin-top:4px"><span><b>${n}</b> <small class="mu">(${esc(c())})</small><br><small class="mu">${d}</small></span></label>`).join('')}
+<small class="rd" id="rsh"></small><button class="pr d" id="rok">Reset terpilih</button><button class="gh" id="rcl">Batal</button>`);
+  const cb = () => $$('[data-k]', m), pick = () => cb().filter((x) => x.checked).map((x) => x.dataset.k);
+  const upd = () => {
+    const P = pick(), h = [];
+    if (!P.includes('akun') && P.some((x) => ['stok', 'piutang', 'utang', 'penjualan'].includes(x))) h.push('Jurnal & neraca tidak ikut berubah kecuali "Laporan akuntansi" juga dicentang.');
+    $('#rsh', m).textContent = h.join(' '); $('#rok', m).textContent = 'Reset terpilih (' + P.length + ')'; $('#rok', m).disabled = !P.length;
+  };
+  m.addEventListener('change', upd); upd();
+  $('#rsa', m).onclick = () => { cb().forEach((x) => (x.checked = true)); upd(); };
+  $('#rsn', m).onclick = () => { cb().forEach((x) => (x.checked = false)); upd(); };
+  $('#rcl', m).onclick = () => m.close();
+  $('#rok', m).onclick = () => { const P = pick(); if (!P.length) return; m.close(); resetSelFlow(P); };
+}
+async function resetSelFlow(P) {
+  if (U.r != 'owner') return toast('Hanya pemilik yang bisa reset data');
+  const names = RSTL.filter((x) => P.includes(x[0])).map((x) => '• ' + x[1].replace(/^\S+\s/, '')).join('\n');
+  if (!confirm('⚠️ RESET DATA TERPILIH?\n\n' + names + '\n\nData di atas akan DINOLKAN dan tidak bisa dikembalikan.\nYang tidak dipilih tidak diubah.\n\nBackup JSON akan diunduh otomatis sebelum reset. Lanjutkan?')) return;
   const sure = prompt('Ketik HAPUS untuk melanjutkan:');
   if ((sure || '').trim().toUpperCase() != 'HAPUS') return toast('Dibatalkan');
   const pin = prompt('Masukkan PIN pemilik (' + U.n + ') untuk konfirmasi:');
@@ -186,9 +215,14 @@ async function rstAllFlow() {
   const me = S.users.find((x) => x.n.toLowerCase() == U.n.toLowerCase());
   if (!me || !me.h) return toast('Tidak bisa memverifikasi PIN. Keluar lalu masuk ulang dengan PIN, lalu coba lagi.', 5000);
   if (me.h != (await sha(SID + ':' + U.n.toLowerCase() + ':' + pin))) return toast('PIN salah — reset dibatalkan');
+  let rtk;
+  if (S.srv) { // toko online: PIN dikonfirmasi ke server (token 10 menit) — tanpa ini server menolak kejadian reset
+    if (!canNet()) return toast('Butuh internet untuk reset data toko online', 4500);
+    try { rtk = (await post('/api/reset/auth', { pin })).tok; } catch (e) { const m = e.message || ''; return toast(/PIN|percobaan|pemilik/i.test(m) ? m : (m || 'Gagal') + ' — server J-POS mungkin belum diperbarui, hubungi admin.', 5000); }
+  }
   try { expBackup(); } catch (e) { }
-  emit('rstAll', {});
-  toast('Reset total data selesai ✓ — stok & histori dimulai dari nol', 5000);
+  emit('rstSel', { parts: P, rtk, rv: 2 });
+  toast('Reset data selesai ✓ (' + P.length + ' bagian)', 4500);
   R();
 }
 async function referralOpen() {
