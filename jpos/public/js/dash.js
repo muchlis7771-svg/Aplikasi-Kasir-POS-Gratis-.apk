@@ -19,7 +19,7 @@ function dlayNow() {
   const p = ownOk() ? LS.get(dlKey(), '') : '', v = p && p != 'org' ? p : ((S.set.uiModel || {})[U.r] || 'auto');
   if (v != 'auto') return v; if (innerWidth >= 1000) return 'lengkap'; return ['owner', 'admin', 'akuntan'].includes(U.r) ? 'lengkap' : ['sales', 'kanvas', 'dropping'].includes(U.r) ? 'lapangan' : 'ringkas';
 }
-function applyUiTheme() { try { document.body.dataset.th = document.documentElement.dataset.th = U && S ? themeNow() : 'modern'; document.body.dataset.fn = document.documentElement.dataset.fn = U && S ? (S.set.uiFont || '') : ''; } catch (e) { } }
+function applyUiTheme() { try { document.body.dataset.th = document.documentElement.dataset.th = U && S ? themeNow() : (LS.get('jpos:info', {}).th || 'modern'); document.body.dataset.fn = document.documentElement.dataset.fn = U && S ? (S.set.uiFont || '') : ''; } catch (e) { } }
 // ---- gaya huruf modern (dipakai lewat Pengaturan → Gaya huruf, berlaku untuk semua karyawan seperti Tema) ----
 const FONTS = [['', 'Aa', 'Ikuti tema', 'Huruf bawaan tema yang dipilih'], ['inter', 'Aa', 'Modern Bersih', 'Inter — tegas, mudah dibaca di layar kecil'], ['poppins', 'Aa', 'Bulat Ramah', 'Poppins — lembut & hangat, pas untuk coffee/retail'], ['manrope', 'Aa', 'Elegan Rapi', 'Manrope — modern & profesional'], ['spacegrotesk', 'Aa', 'Tegas Digital', 'Space Grotesk — khas teknologi, berkarakter']];
 const FFAM = { inter: "Inter,sans-serif", poppins: "Poppins,sans-serif", manrope: "Manrope,sans-serif", spacegrotesk: "'Space Grotesk',sans-serif" };
@@ -329,6 +329,7 @@ ${L.map((s) => `<div class="sc"><div class="row" style="margin:0"><span><b>${esc
     + haRefCard()
     + `<details class="hamore"><summary>⚙️ Pengaturan lanjutan</summary>`
     + `<div class="cd"><h3>💳 Pengaturan langganan</h3><div class="fm"><label><small class="mu">No. WhatsApp Anda (tampil saat masa aktif toko habis)</small><input id="cw" inputmode="tel" placeholder="62812xxxx" value="${esc(HA.cfg ? HA.cfg.wa : '')}"></label><label><small class="mu">Info harga / cara bayar</small><textarea id="cp" rows="3" placeholder="Contoh: Rp99.000/bulan · Rp999.000/tahun. Transfer BCA 123… a.n. …">${esc(HA.cfg ? HA.cfg.price : '')}</textarea></label><label><small class="mu">Lama masa coba toko baru (hari)</small><input id="ctd" type="number" min="1" max="365" value="${HA.cfg ? HA.cfg.trial_days : 30}"></label><button class="pr" onclick="haCfg()">Simpan pengaturan</button></div></div>`
+    + haThemeCard()
     + haPkgCard() + (typeof haGwCard == 'function' ? haGwCard() : '')
     + (() => { const sc = (HA.cfg && HA.cfg.ship) || {}; const f = (id, lb, v, st) => `<label><small class="mu">${lb}</small><input id="${id}" type="number" step="${st || 1}" value="${v ?? ''}"></label>`; const ex = (km) => Math.ceil(Math.max(sc.min || 0, (sc.base || 0) + km * 1000 * (sc.road || 1) * (sc.per_m || 0)) / (sc.round || 1)) * (sc.round || 1);
       return `<div class="cd"><h3>🚚 Ongkir pasar online (kurir instan)</h3><small class="mu">Rumus: tarif dasar + (jarak lurus × faktor jalan) × tarif per meter, minimal & dibulatkan. Dipakai untuk Kurir toko, GoSend & GrabExpress.</small><div class="fm2" style="margin-top:8px">${f('s1', 'Tarif dasar (Rp)', sc.base)}${f('s2', 'Tarif per meter (Rp)', sc.per_m, 0.1)}${f('s3', 'Faktor jalan (×)', sc.road, 0.05)}${f('s4', 'Ongkir minimal (Rp)', sc.min)}${f('s5', 'Jarak maksimal (km)', sc.max_km)}${f('s6', 'Pembulatan (Rp)', sc.round)}</div><small class="mu">Contoh: 1 km ≈ ${rp(ex(1))} · 3 km ≈ ${rp(ex(3))} · 10 km ≈ ${rp(ex(10))}</small><button class="pr" style="margin-top:8px" onclick="haShip()">Simpan tarif ongkir</button></div>`; })()
@@ -358,6 +359,14 @@ async function haBackupRun() {
   try { const r = await haApi('/api/admin/backup/run', { method: 'POST' }); toast(r.e ? r.e : 'Backup selesai: ' + r.n + ' toko baru dibackup (dari ' + r.total + ' toko aktif)' + (r.err ? ', ' + r.err + ' gagal' : '')); } catch (e) { toast(e.message); }
 }
 async function haCfg() { try { HA.cfg = await haApi('/api/admin/cfg', { method: 'PUT', body: JSON.stringify({ wa: $('#cw').value, price: $('#cp').value, trial_days: num($('#ctd').value) }) }); toast('Pengaturan disimpan'); } catch (e) { toast(e.message); } }
+// tema layar login/registrasi (sebelum ada yang login) & tema bawaan toko baru — satu pilihan berlaku untuk SEMUA pengguna J-POS
+function haThemeCard() {
+  const cur = (HA.cfg && HA.cfg.loginTheme) || '';
+  return `<div class="cd"><h3>🎨 Tema layar login</h3><small class="mu">Tema tampilan layar masuk/daftar toko (sebelum ada yang login) untuk SEMUA pengguna J-POS di semua HP. Tema toko yang sudah login tidak ikut berubah — itu diatur masing-masing pemilik toko lewat Pengaturan → Tampilan semua karyawan.</small>
+<div class="mg pmg" style="margin-top:8px"><button data-ht="" class="${!cur ? 'a' : ''}"><i>💎</i><b>Bawaan</b><small>${esc(THEMES[0][2])}</small></button>${THEMES.map((x) => `<button data-ht="${x[0]}" class="${cur == x[0] ? 'a' : ''}"><i>${x[1]}</i><b>${x[2]}</b>${thSw(x)}</button>`).join('')}</div></div>`;
+}
+document.addEventListener('click', (e) => { const b = e.target.closest('[data-ht]'); if (!b || typeof HA == 'undefined' || !HA.cfg) return; haTheme(b.dataset.ht); });
+async function haTheme(key) { try { HA.cfg = await haApi('/api/admin/cfg', { method: 'PUT', body: JSON.stringify({ login_theme: key }) }); toast('Tema layar login disimpan'); R(); } catch (e) { toast(e.message); } }
 async function haPass() { try { await haApi('/api/admin/password', { method: 'POST', body: JSON.stringify({ user: $('#pu').value.trim(), old: $('#po').value, pass: $('#pn').value }) }); toast('Password diganti. Login ulang.'); haOut(); MODE = 'ha'; R(); } catch (e) { toast(e.message); } }
 async function haAnn() { const tx = $('#an').value.trim(); if (!tx) return; try { await haApi('/api/admin/announce', { method: 'POST', body: JSON.stringify({ text: tx }) }); $('#an').value = ''; toast('Pengumuman terkirim'); } catch (e) { toast(e.message); } }
 async function haStore(id) {

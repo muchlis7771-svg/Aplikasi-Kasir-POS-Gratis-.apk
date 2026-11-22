@@ -24,6 +24,8 @@ async function pbkdf2(pass, salt, it) {
 const hp = (pin, sid, name) => pbkdf2(String(pin), sid + ':' + name.toLowerCase(), 20000);
 const PIN = /^\d{4,8}$/, SID = /^[a-z0-9]{6,20}$/, NO = /^[A-Za-z0-9_-]{3,40}$/, NAME = /^[\p{L}\p{N} ._-]{2,40}$/u;
 const ROLES = ['owner', 'admin', 'akuntan', 'kasir', 'spg', 'sales', 'kanvas', 'dropping', 'barista', 'pelayan'];
+// kunci tema aplikasi yang valid (harus sama dengan THEMES di public/js/dash.js) — dipakai Head Admin utk tema layar login/registrasi semua pengguna
+const UI_THEMES = ['modern', 'klasik', 'robot', 'minimalis', 'mewah', 'ceria', 'alam', 'cafe', 'cahaya'];
 const KINDS = new Set(['sale', 'pay', 'retur', 'stk', 'apay', 'opn', 'exp', 'cap', 'jm', 'pu', 'cu', 'set', 'in', 'out', 'visit', 'loc', 'vout', 'sup', 'po', 'rcv', 'dlv', 'kas', 'sec', 'face', 'bst', 'tgt', 'shf', 'shs', 'tsk', 'kvl', 'kvb', 'kvr', 'gji', 'preq', 'bdl', 'rst', 'rstSel']);
 // ---- Hak akses: tiap kejadian butuh salah satu FITUR; fitur ditentukan paket toko (Head Admin) & matrix peran (Owner) ----
 const ALWAYS = 'dash set';
@@ -219,7 +221,7 @@ export default {
       }
       if (p == '/api/ping') return J({ ok: 1, v: 5 });
       if (p == '/api/time') return J({ t: Date.now() });
-      if (p == '/api/info') { const c = await cfgAll(env); const pk = pkgAll(), pkg = {}; for (const t of Object.keys(pk)) pkg[t] = { n: pk[t].n, max: pk[t].max, f: pk[t].f, pr: pk[t].pr }; return J({ wa: c.wa || '', price: c.price || '', trial: +(c.trial_days || 30), app: c.app_name || 'J-POS', pkg, ts: c.ts_secret ? (c.ts_site || '') : '' }); } // ts: site key Turnstile (publik), hanya dikirim bila server punya secret key (anti-bot aktif)
+      if (p == '/api/info') { const c = await cfgAll(env); const pk = pkgAll(), pkg = {}; for (const t of Object.keys(pk)) pkg[t] = { n: pk[t].n, max: pk[t].max, f: pk[t].f, pr: pk[t].pr }; return J({ wa: c.wa || '', price: c.price || '', trial: +(c.trial_days || 30), app: c.app_name || 'J-POS', pkg, ts: c.ts_secret ? (c.ts_site || '') : '', th: UI_THEMES.includes(c.login_theme) ? c.login_theme : '' }); } // ts: site key Turnstile (publik), hanya dikirim bila server punya secret key (anti-bot aktif); th: tema layar login/registrasi yang diatur Head Admin, berlaku utk semua pengguna sebelum login
       if (p == '/api/register' && M == 'POST') {
         if (await limited(env, 'reg:' + ip, 20, 36e5)) return J({ e: 'Terlalu banyak pendaftaran, coba lagi nanti' }, 429);
         const id = String(b.id || ''), store = String(b.store || '').trim().slice(0, 60), owner = String(b.owner || '').trim();
@@ -336,6 +338,8 @@ export default {
             if (b.pkg_reset) await cfgSet(env, 'pkg_feat', '');
             if (b.pkg && typeof b.pkg == 'object') { const cur = pkgAll(), o = {}; for (const t of Object.keys(PKG0)) { const x = b.pkg[t] || {}; o[t] = { n: String(x.n || cur[t].n).slice(0, 20), max: Math.max(1, Math.min(9999, Math.round(+x.max) || cur[t].max)), pr: Math.max(0, Math.round(+x.pr) || 0) || cur[t].pr || 0, f: String(x.f != null ? x.f : cur[t].f).split(' ').filter((f) => ALLF.includes(f)).join(' '), v: 41 }; } await cfgSet(env, 'pkg_feat', JSON.stringify(o)); }
             if (['biasa', 'standar', 'high'].includes(b.trial_tier)) await cfgSet(env, 'trial_tier', b.trial_tier);
+            // tema layar login/registrasi (sebelum ada yang login) utk SEMUA pengguna J-POS di semua HP — '' = kembali ke bawaan (Safir & Emas)
+            if (b.login_theme != null) await cfgSet(env, 'login_theme', UI_THEMES.includes(b.login_theme) ? b.login_theme : '');
             // gerbang laporan otomatis: token Fonnte (WhatsApp) & API key Resend (email). Kosongkan '-' untuk menghapus.
             for (const k of ['wa_tok', 'mail_key', 'mail_from']) if (b[k] != null && String(b[k]).trim() !== '') await cfgSet(env, k, String(b[k]).trim() == '-' ? '' : String(b[k]).trim().slice(0, 200));
             // Turnstile (anti-bot form publik: pemesanan & unduh APK) — site key boleh publik, secret key dipakai server utk verifikasi. Kosongkan '-' utk menghapus/matikan.
@@ -359,7 +363,7 @@ export default {
               }
             }
           }
-          const c = await cfgAll(env); return J({ wa: c.wa || '', price: c.price || '', trial_days: +(c.trial_days || 30), user: c.admin_user || env.ADMIN_USER || 'headadmin', ship: shipCfg(c), pkg: pkgAll(), allf: ALLF, trial_tier: c.trial_tier || 'high', gw: { wa: !!c.wa_tok, mail: !!c.mail_key, from: c.mail_from || '', tg: !!c.tg_tok, tgBot: c.tg_bot || '' }, tsSite: c.ts_site || '', tsOn: !!c.ts_secret });
+          const c = await cfgAll(env); return J({ wa: c.wa || '', price: c.price || '', trial_days: +(c.trial_days || 30), user: c.admin_user || env.ADMIN_USER || 'headadmin', ship: shipCfg(c), pkg: pkgAll(), allf: ALLF, trial_tier: c.trial_tier || 'high', gw: { wa: !!c.wa_tok, mail: !!c.mail_key, from: c.mail_from || '', tg: !!c.tg_tok, tgBot: c.tg_bot || '' }, tsSite: c.ts_site || '', tsOn: !!c.ts_secret, loginTheme: UI_THEMES.includes(c.login_theme) ? c.login_theme : '' });
         }
         if (p == '/api/admin/password' && M == 'POST') {
           const c = await cfgAll(env);
