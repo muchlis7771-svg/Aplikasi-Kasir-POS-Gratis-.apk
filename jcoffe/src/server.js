@@ -32,7 +32,13 @@ const SCHEMA = [
   `CREATE TABLE IF NOT EXISTS jd_tables (id INTEGER PRIMARY KEY AUTOINCREMENT, store_id INTEGER NOT NULL, name TEXT NOT NULL, token TEXT NOT NULL UNIQUE, active INTEGER NOT NULL DEFAULT 1, created_at TEXT)`,
   `CREATE TABLE IF NOT EXISTS jd_orders (id INTEGER PRIMARY KEY AUTOINCREMENT, store_id INTEGER NOT NULL, table_id INTEGER, table_name TEXT, customer TEXT, note TEXT, items TEXT, total INTEGER NOT NULL DEFAULT 0, status TEXT NOT NULL DEFAULT 'baru', trx_id INTEGER, created_at TEXT, updated_at TEXT)`,
   `CREATE TABLE IF NOT EXISTS jd_support (id INTEGER PRIMARY KEY AUTOINCREMENT, store_id INTEGER, user_id INTEGER, store_name TEXT, user_name TEXT, category TEXT, message TEXT, is_read INTEGER NOT NULL DEFAULT 0, created_at TEXT)`,
+  `CREATE TABLE IF NOT EXISTS jd_licenses (id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT NOT NULL UNIQUE, days INTEGER NOT NULL DEFAULT 90, batch TEXT, status TEXT NOT NULL DEFAULT 'baru', buyer_name TEXT, buyer_email TEXT, buyer_phone TEXT, order_ref TEXT, sold_at TEXT, store_id INTEGER, store_name TEXT, used_by TEXT, used_at TEXT, created_at TEXT)`,
+  `CREATE TABLE IF NOT EXISTS jd_lynk_orders (ref TEXT PRIMARY KEY, created_at TEXT)`,
+  `CREATE TABLE IF NOT EXISTS jd_lynk_log (id INTEGER PRIMARY KEY AUTOINCREMENT, ref TEXT, event TEXT, result TEXT, payload TEXT, created_at TEXT)`,
   `CREATE INDEX IF NOT EXISTS ix_orders_store ON jd_orders(store_id, status)`,
+  `CREATE INDEX IF NOT EXISTS ix_lic_status ON jd_licenses(status, days)`,
+  `CREATE INDEX IF NOT EXISTS ix_lic_email ON jd_licenses(buyer_email)`,
+  `CREATE INDEX IF NOT EXISTS ix_lic_store ON jd_licenses(store_id)`,
   `CREATE INDEX IF NOT EXISTS ix_tables_store ON jd_tables(store_id)`,
   `CREATE INDEX IF NOT EXISTS ix_trx_store_date ON jd_transactions(store_id, local_date)`,
   `CREATE INDEX IF NOT EXISTS ix_items_trx ON jd_transaction_items(trx_id)`,
@@ -422,7 +428,7 @@ async function adminApi(req, env, auth, path, method) {
     return json({ ok: true });
   }
   if (path === '/api/admin/run-daily' && method === 'POST') { await runDaily(env); return json({ ok: true }); }
-  const ext = await adminExtra(req, env, path, method);
+  const ext = (await licenseAdmin(req, env, path, method)) || (await adminExtra(req, env, path, method));
   if (ext) return ext;
   fail(404, 'Endpoint tidak ditemukan');
 }
@@ -817,8 +823,10 @@ async function register(req, env, ctx) {
   const u = await env.DB.prepare(`INSERT INTO jd_users (store_id, username, name, pass_hash, role, active, created_at, last_login) VALUES (?, ?, ?, ?, 'owner', 1, ?, ?) RETURNING id`).bind(s.id, username, ownerName, await hashPw(password), now, now).first();
   const token = randToken(40);
   await env.DB.prepare(`INSERT INTO jd_sessions (token, user_id, expires_at) VALUES (?, ?, ?)`).bind(token, u.id, addDays(now, SESSION_DAYS)).run();
+  let lic = null;
+  if (str(b.sn)) { try { const st = await env.DB.prepare(`SELECT * FROM jd_stores WHERE id = ?`).bind(s.id).first(); lic = await activateLicense(env, st, b.sn, ownerName); } catch (e) { lic = { ok: false, error: e.message }; } }
   ctx.waitUntil(notifyAdmin(env, `🆕 <b>Toko baru daftar</b>\n🏪 ${escHtml(storeName)}\n👤 ${escHtml(ownerName)} (@${escHtml(username)})\n📱 ${escHtml(phone)}\n⏳ Trial ${TRIAL_DAYS} hari s/d ${localDate(new Date(addDays(now, TRIAL_DAYS)))}`));
-  return json({ ok: true, redirect: '/app' }, 200, { 'set-cookie': sessionCookie(token, SESSION_DAYS * 86400) });
+  return json({ ok: true, redirect: '/app' + (lic && !lic.ok ? '?snerr=' + encodeURIComponent(lic.error) : lic ? '?sn_ok=1' : ''), license: lic }, 200, { 'set-cookie': sessionCookie(token, SESSION_DAYS * 86400) });
 }
 
 async function me(env, auth) {
@@ -831,6 +839,7 @@ async function me(env, auth) {
   out.admin_wa = (await getSetting(env, 'admin_wa', '')) || DEFAULT_ADMIN_WA;
   out.apk = await apkInfo(env);
   out.price_text = await getSetting(env, 'price_text', '');
+  out.lynk_url = await getSetting(env, 'lynk_url', '');
   out.bot_username = await botUsername(env);
   return json(out);
 }
@@ -887,7 +896,7 @@ async function route(req, env, ctx) {
     if (path === '/api/login' && method === 'POST') return await login(req, env);
     if (path === '/api/register' && method === 'POST') return await register(req, env, ctx);
     if (path === '/api/demo' && method === 'POST') return await createDemo(env);
-    const pub = await publicRoutes(req, env, ctx, path, method);
+    const pub = (await licensePublic(req, env, ctx, path, method)) || (await publicRoutes(req, env, ctx, path, method));
     if (pub) return pub;
 
     const auth = await getAuth(req, env);
@@ -899,6 +908,7 @@ async function route(req, env, ctx) {
     if (path === '/api/password' && method === 'POST') return await changePassword(req, env, auth);
     if (path.startsWith('/api/admin/')) return await adminApi(req, env, auth, path, method);
     if (path === '/api/support' && method === 'POST') return await supportPost(req, env, ctx, auth);
+    if (path.startsWith('/api/license')) return await licenseStoreApi(req, env, auth, path, method);
     if (path === '/api/store' && method === 'GET') { if (!auth?.store) fail(401, 'Silakan login'); return me(env, auth); }
     if (path.startsWith('/api/')) return await storeApi(req, env, ctx, requireStore(auth), path, method);
 

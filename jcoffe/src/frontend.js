@@ -66,6 +66,8 @@ function formData(root){var o={};$$('input,select,textarea',root).forEach(functi
 var B='px-4 py-2.5 rounded-xl font-bold text-sm active:scale-95 transition ';
 var BP=B+'bg-slate-900 text-white',BT=B+'bg-amber-700 text-white',BG=B+'bg-slate-100 text-slate-700',BR=B+'bg-red-50 text-red-600';
 function loadScript(src,globalName){return new Promise(function(res,rej){if(window[globalName])return res();var s=document.createElement('script');s.src=src;s.onload=res;s.onerror=function(){rej(new Error('Gagal memuat '+src))};document.head.appendChild(s)})}
+function copyText(t,msg){function ok(){toast(msg||'Disalin')}function fb(){var a=document.createElement('textarea');a.value=t;a.style.position='fixed';a.style.opacity='0';document.body.appendChild(a);a.select();try{document.execCommand('copy');ok()}catch(e){prompt('Salin manual:',t)}a.remove()}
+  if(navigator.clipboard&&window.isSecureContext)navigator.clipboard.writeText(t).then(ok,fb);else fb()}
 function openExternal(url){if(IS_APK){location.href=url+(url.indexOf('?')>=0?'&':'?')+'ext=1'}else{window.open(url,'_blank')}}
 function waOpen(url){if(IS_APK)location.href=url;else window.open(url,'_blank')}
 function pwModal(force){var b=openModal(force?'Ganti password default':'Ganti password',(force?'<p class="text-sm bg-amber-50 text-amber-800 rounded-xl p-3 mb-3">Kamu masih memakai password sementara. Ganti sekarang demi keamanan.</p>':'')+field('Password lama','old_password','','password')+field('Password baru','new_password','','password')+field('Ulangi password baru','new_password2','','password')+'<button id="pwSave" class="'+BP+' w-full">Simpan</button>');
@@ -203,7 +205,8 @@ const REGISTER_HTML = page('Daftar', `${AUTH_BG}
   <p class="text-center text-sm text-slate-500 mt-5 font-semibold">Sudah punya akun? <a href="/" class="text-amber-700 font-extrabold">MASUK</a></p>
  </form>
 </div>`, String.raw`
-$('#fields').innerHTML=field('Nama toko / usaha','store_name','','text','required placeholder="JCOFFE Cabang 1"')+field('Nama pemilik','owner_name','','text','required')+field('No. WhatsApp','phone','','tel','required placeholder="08xxxxxxxxxx"')+field('Username (untuk login)','username','','text','required autocapitalize="none" placeholder="huruf kecil tanpa spasi"')+field('Password (min 6)','password','','password','required');
+$('#fields').innerHTML=field('Nama toko / usaha','store_name','','text','required placeholder="JCOFFE Cabang 1"')+field('Nama pemilik','owner_name','','text','required')+field('No. WhatsApp','phone','','tel','required placeholder="08xxxxxxxxxx"')+field('Username (untuk login)','username','','text','required autocapitalize="none" placeholder="huruf kecil tanpa spasi"')+field('Password (min 6)','password','','password','required')+'<details id="snd" class="mb-3 bg-amber-50 rounded-2xl px-3 py-2"><summary class="text-sm font-bold text-amber-800 cursor-pointer">🔑 Punya serial number lisensi? (opsional)</summary><div class="pt-2">'+field('Serial number','sn','','text','autocapitalize="characters" autocomplete="off" placeholder="JCF-XXXX-XXXX-XXXX"')+'</div></details>';
+(function(){var q=new URLSearchParams(location.search).get('sn');if(q){$('[name=sn]').value=q;$('#snd').open=true}})();
 $('#f').addEventListener('submit',function(e){e.preventDefault();guard($('#btn'),async function(){
   $('#err').classList.add('hidden');
   try{var d=await api('/api/register','POST',formData($('#f')));location.href=d.redirect}
@@ -217,6 +220,29 @@ function can(p){return S.me.perms.indexOf(p)>=0}
 function isOwner(){return S.me.user.role==='owner'}
 function isMgr(){return ['owner','om','admin'].indexOf(S.me.user.role)>=0}
 function waAdmin(text){return 'https://wa.me/'+S.me.admin_wa+'?text='+encodeURIComponent(text)}
+function licenseModal(prefill){
+  if(S.me.access.label==='demo'){toast('Daftar toko dulu untuk aktivasi lisensi');return}
+  if(!isMgr()){toast('Minta owner/admin untuk aktivasi lisensi');return}
+  var a=S.me.access,lim=S.me.limited;
+  var st=lim?'<span class="text-red-600 font-extrabold">Masa aktif habis</span> — hanya transaksi yang aktif':a.label==='trial'?'Trial gratis, sisa <b>'+a.daysLeft+' hari</b>':'Lisensi aktif, sisa <b>'+a.daysLeft+' hari</b>';
+  var b=openModal('🔑 Lisensi JCOFFE','<div class="bg-slate-50 rounded-2xl p-3 text-sm mb-4">'+st+(a.end?'<div class="text-xs text-slate-500 mt-1">Berakhir '+fmtD(new Date(a.end).toISOString())+'</div>':'')+'</div>'+
+   '<label class="block mb-2"><span class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Serial number</span><input id="sn" value="'+esc(prefill||'')+'" autocapitalize="characters" autocomplete="off" spellcheck="false" placeholder="JCF-XXXX-XXXX-XXXX" class="mt-1 w-full border-2 border-amber-300 rounded-xl px-3 py-3 font-mono text-lg tracking-wider uppercase text-center"></label>'+
+   '<p class="text-xs text-slate-500 mb-3">Masa lisensi ditambahkan ke sisa trial/langganan, tidak ada hari yang hangus.</p>'+
+   '<button id="act" class="'+BP+' w-full mb-4">Aktifkan lisensi</button>'+
+   '<div class="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Belum punya serial number?</div>'+
+   (S.me.lynk_url?'<button id="buy" class="w-full bg-[#1c0f0a] text-amber-300 rounded-xl py-3 font-extrabold mb-2">🛒 Beli lisensi 3 bulan</button><button id="klm" class="w-full bg-white border rounded-xl py-2.5 font-bold text-sm mb-2">📩 Sudah beli? Ambil SN di sini</button>':'')+
+   '<button id="ask" class="w-full bg-green-600 text-white rounded-xl py-3 font-bold">💬 Chat Head Admin'+(a.label==='trial'&&!lim?' (minta perpanjang trial)':'')+'</button><div id="lh" class="mt-4"></div>');
+  var inp=$('#sn',b);
+  inp.oninput=function(){var v=this.value.toUpperCase().replace(/[^A-Z0-9]/g,'');if(v.indexOf('JCF')===0)v=v.slice(3);v=v.slice(0,12);this.value=v?'JCF-'+v.match(/.{1,4}/g).join('-'):''};
+  if(prefill)inp.oninput.call(inp);
+  $('#act',b).onclick=function(){if(inp.value.replace(/[^A-Z0-9]/g,'').length<15){toast('Lengkapi serial number',true);inp.focus();return}
+    guard(this,async function(){var d=await api('/api/license/activate','POST',{code:inp.value});closeModal();S.me=await api('/api/me');renderShell();go(S.tab||'kasir');
+     openModal('🎉 Lisensi aktif','<div class="text-center"><div class="text-6xl mb-2">✅</div><p class="font-extrabold text-lg">'+esc(d.note)+'</p><p class="text-sm text-slate-500 mt-2">Semua fitur JCOFFE sudah terbuka. Terima kasih!</p></div>')})};
+  if($('#buy',b))$('#buy',b).onclick=function(){openExternal(S.me.lynk_url)};
+  if($('#klm',b))$('#klm',b).onclick=function(){openExternal(location.origin+'/klaim')};
+  $('#ask',b).onclick=askExtend;
+  api('/api/license').then(function(d){if(d.history.length)$('#lh',b).innerHTML='<div class="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Riwayat aktivasi</div>'+d.history.map(function(h){return '<div class="flex justify-between text-xs py-1.5 border-b last:border-0"><span class="font-mono">'+esc(h.code)+'</span><span class="text-slate-500">'+h.days+' hr · '+fmtD(h.used_at)+'</span></div>'}).join('')}).catch(function(){});
+}
 function askExtend(){waOpen(waAdmin('Halo Head Admin JCOFFE, saya ingin memperpanjang masa '+(S.me.access.label==='trial'?'trial':'langganan')+' untuk toko "'+S.me.store.name+'" (username: '+S.me.user.username+'). Mohon dibantu, terima kasih.'))}
 
 async function init(){
@@ -228,6 +254,11 @@ async function init(){
   go(can('kasir')?'kasir':can('pesanan')?'pesanan':'trx');
   if(can('pesanan'))startOrderWatch();
   checkUpdate();
+  var qs=new URLSearchParams(location.search);
+  if(qs.get('sn_ok')){openModal('🎉 Lisensi aktif','<div class="text-center"><div class="text-6xl mb-2">✅</div><p class="font-extrabold">Toko kamu sudah aktif sampai '+fmtD(new Date(S.me.access.end).toISOString())+'.</p></div>')}
+  else if(qs.get('snerr')){toast(qs.get('snerr'),true);setTimeout(function(){licenseModal()},300)}
+  else if(qs.get('sn'))setTimeout(function(){licenseModal(qs.get('sn'))},300);
+  if(qs.toString())history.replaceState(null,'','/app');
 }
 
 function renderExpired(){
@@ -244,11 +275,11 @@ function navItems(){var n=[];if(can('kasir'))n.push(['kasir','Kasir','🛒']);if
 
 function renderShell(){
   var a=S.me.access,lim=S.me.limited;
-  var badge=a.label==='demo'?'<span class="text-[11px] font-extrabold bg-amber-400 text-slate-900 rounded-full px-2.5 py-1">DEMO</span>':lim?'<button id="bdg" class="text-[11px] font-extrabold bg-red-500 text-white rounded-full px-2.5 py-1">Trial habis ⟶</button>':a.label==='trial'?'<button id="bdg" class="text-[11px] font-bold bg-amber-400 text-slate-900 rounded-full px-2.5 py-1">Trial '+a.daysLeft+' hari ⟶</button>':'<button id="bdg" class="text-[11px] font-bold bg-emerald-500 text-white rounded-full px-2.5 py-1">Aktif '+a.daysLeft+' hari</button>';
+  var badge=a.label==='demo'?'<span class="text-[11px] font-extrabold bg-amber-400 text-slate-900 rounded-full px-2.5 py-1">DEMO</span>':lim?'<button id="bdg" class="text-[11px] font-extrabold bg-red-500 text-white rounded-full px-2.5 py-1">Habis · Aktivasi ⟶</button>':a.label==='trial'?'<button id="bdg" class="text-[11px] font-bold bg-amber-400 text-slate-900 rounded-full px-2.5 py-1">Trial '+a.daysLeft+' hari ⟶</button>':'<button id="bdg" class="text-[11px] font-bold bg-emerald-500 text-white rounded-full px-2.5 py-1">Aktif '+a.daysLeft+' hari</button>';
   $('#root').innerHTML='<header class="sticky top-0 z-30 bg-[#1c0f0a] text-white px-4 py-3 flex items-center gap-3 shadow">'+
     '<img src="/icon-192.png" class="w-9 h-9 rounded-xl"><div class="flex-1 min-w-0"><div class="font-extrabold truncate">'+esc(S.me.store.name)+'</div><div class="text-[11px] text-amber-200/70 truncate">'+esc(S.me.user.name||S.me.user.username)+' · '+esc(S.me.user.role_label)+'</div></div>'+badge+'</header>'+
     (a.label==='demo'?'<div class="bg-amber-100 text-amber-900 text-sm px-4 py-2.5 flex items-center gap-2"><span class="flex-1">🎮 <b>Mode demo</b> — data contoh, terhapus otomatis dalam 24 jam.</span><a href="/daftar" class="shrink-0 bg-slate-900 text-white font-bold text-xs rounded-lg px-3 py-2">Daftar gratis</a></div>':'')+
-    (lim?'<div class="bg-red-600 text-white text-sm px-4 py-2.5 flex items-center gap-2"><span class="flex-1">⏰ <b>Masa trial habis.</b> Kamu tetap bisa bertransaksi, fitur lain terkunci.</span><button id="ext2" class="shrink-0 bg-white text-red-700 font-bold text-xs rounded-lg px-3 py-2">Perpanjang</button></div>':'')+
+    (lim?'<div class="bg-red-600 text-white text-sm px-4 py-2.5 flex items-center gap-2"><span class="flex-1">⏰ <b>Masa aktif habis.</b> Kamu tetap bisa bertransaksi, fitur lain terkunci.</span><button id="ext2" class="shrink-0 bg-white text-red-700 font-bold text-xs rounded-lg px-3 py-2">🔑 Aktivasi</button></div>':'')+
     '<div id="sndBar" class="hidden bg-slate-800 text-amber-200 text-xs px-4 py-2 text-center">🔔 Ketuk di mana saja untuk mengaktifkan <b>suara notifikasi pesanan</b></div>'+
     '<div id="updBar"></div>'+
     '<main id="view" class="max-w-6xl mx-auto p-4 pb-40"></main>'+
@@ -257,8 +288,8 @@ function renderShell(){
     navItems().map(function(n){return '<button data-tab="'+n[0]+'" class="nav relative flex-1 pt-2 pb-1 flex flex-col items-center text-[10px] font-bold text-slate-400"><span class="text-xl leading-6">'+n[2]+'</span>'+n[1]+(n[0]==='pesanan'?'<span id="ordBadge" class="hidden absolute top-1 right-1/4 bg-red-600 text-white text-[10px] font-extrabold rounded-full min-w-[18px] h-[18px] px-1 flex items-center justify-center"></span>':'')+'</button>'}).join('')+
     '</div></nav>';
   $$('.nav').forEach(function(b){b.onclick=function(){go(b.dataset.tab)}});
-  if($('#bdg'))$('#bdg').onclick=function(){if(isMgr())askExtend();else toast('Minta owner/admin untuk memperpanjang')};
-  if($('#ext2'))$('#ext2').onclick=askExtend;
+  if($('#bdg'))$('#bdg').onclick=function(){licenseModal()};
+  if($('#ext2'))$('#ext2').onclick=function(){licenseModal()};
   $('#chatFab').onclick=supportModal;
 }
 
@@ -543,23 +574,27 @@ VIEWS.lainnya=async function(v){
   S.me=await api('/api/me');var a=S.me.access,demo=a.label==='demo',lim=S.me.limited;
   function item(icon,label,sub,attr,locked){return '<button '+attr+' class="w-full bg-white rounded-2xl p-4 mb-2 flex items-center gap-3 text-left '+(locked?'opacity-60':'')+'"><span class="text-2xl">'+icon+'</span><div class="flex-1"><div class="font-bold">'+label+(locked?' 🔒':'')+'</div>'+(sub?'<div class="text-xs text-slate-500">'+sub+'</div>':'')+'</div><span class="text-slate-300">›</span></button>'}
   var R=S.me.user.role,mgr=isMgr();
-  function feat(key,icon,label,sub,perm){var ok=perm===true||can(perm);var full=perm===true||(S.me.perms.indexOf(perm)>=0);if(lim&&!ok&&mgr)return item(icon,label,'Terkunci — perpanjang trial','data-lock="1"',true);if(!ok)return '';return item(icon,label,sub,'data-go="'+key+'"')}
+  function feat(key,icon,label,sub,perm){var ok=perm===true||can(perm);var full=perm===true||(S.me.perms.indexOf(perm)>=0);if(lim&&!ok&&mgr)return item(icon,label,'Terkunci — aktifkan lisensi','data-lock="1"',true);if(!ok)return '';return item(icon,label,sub,'data-go="'+key+'"')}
   v.innerHTML='<h2 class="text-xl font-extrabold mb-3">Lainnya</h2>'+
    (demo?'<div class="rounded-3xl p-5 mb-4 bg-gradient-to-br from-amber-400 to-orange-500 text-slate-900"><div class="text-xs font-bold uppercase tracking-widest opacity-80">Mode demo</div><div class="text-2xl font-extrabold mt-1">Toko contoh</div><div class="text-sm">Data ini terhapus dalam 24 jam. Daftar untuk <b>trial gratis 14 hari</b>.</div><a href="/daftar" class="inline-block mt-3 bg-slate-900 text-white font-bold text-sm rounded-xl px-4 py-2">Daftar gratis sekarang</a></div>':
-   '<div class="rounded-3xl p-5 mb-4 text-white '+(lim?'bg-gradient-to-br from-red-600 to-rose-700':a.label==='trial'?'bg-gradient-to-br from-amber-600 to-orange-700':'bg-gradient-to-br from-emerald-600 to-teal-700')+'"><div class="text-xs font-bold uppercase tracking-widest opacity-80">Status langganan</div><div class="text-2xl font-extrabold mt-1">'+(lim?'Trial habis':a.label==='trial'?'Trial gratis':'Aktif')+'</div><div class="text-sm opacity-90">'+(lim?'Hanya fitur transaksi yang aktif.':'Sisa <b>'+a.daysLeft+' hari</b> · berakhir '+fmtD(new Date(a.end).toISOString()))+'</div>'+(S.me.price_text?'<div class="text-xs mt-2 opacity-90 whitespace-pre-line">'+esc(S.me.price_text)+'</div>':'')+(mgr?'<button id="extB" class="inline-block mt-3 bg-white text-slate-900 font-bold text-sm rounded-xl px-4 py-2">💬 Minta perpanjang ke Head Admin</button>':'')+'</div>')+
+   '<div class="rounded-3xl p-5 mb-4 text-white '+(lim?'bg-gradient-to-br from-red-600 to-rose-700':a.label==='trial'?'bg-gradient-to-br from-amber-600 to-orange-700':'bg-gradient-to-br from-emerald-600 to-teal-700')+'"><div class="text-xs font-bold uppercase tracking-widest opacity-80">Status lisensi</div><div class="text-2xl font-extrabold mt-1">'+(lim?'Masa aktif habis':a.label==='trial'?'Trial gratis':'Lisensi aktif')+'</div><div class="text-sm opacity-90">'+(lim?'Hanya fitur transaksi yang aktif.':'Sisa <b>'+a.daysLeft+' hari</b> · berakhir '+fmtD(new Date(a.end).toISOString()))+'</div>'+(S.me.price_text?'<div class="text-xs mt-2 opacity-90 whitespace-pre-line">'+esc(S.me.price_text)+'</div>':'')+(mgr?'<div class="flex flex-wrap gap-2 mt-3"><button id="licB" class="bg-white text-slate-900 font-extrabold text-sm rounded-xl px-4 py-2">🔑 Masukkan serial number</button>'+(S.me.lynk_url?'<button id="buyB" class="bg-[#1c0f0a] text-amber-300 font-bold text-sm rounded-xl px-4 py-2">🛒 Beli lisensi</button>':'')+'<button id="extB" class="bg-white/20 text-white font-bold text-sm rounded-xl px-4 py-2">💬 Chat admin</button></div>':'')+'</div>')+
    feat('meja','🪑','Meja & QR code','Buat QR untuk ditempel di meja','meja')+
    feat('promo','🎟️','Promo & diskon','Promo persen / nominal','promo')+
    feat('users','👥','Pengguna & role','Owner, OM, Admin, SPV, Kasir','users')+
-   (R==='owner'?(lim?item('🛡️','Hak akses role','Terkunci — perpanjang trial','data-lock="1"',true):item('🛡️','Hak akses role','Atur fitur yang boleh dipakai tiap role','data-go="roles"')):'')+
+   (R==='owner'?(lim?item('🛡️','Hak akses role','Terkunci — aktifkan lisensi','data-lock="1"',true):item('🛡️','Hak akses role','Atur fitur yang boleh dipakai tiap role','data-go="roles"')):'')+
    item('🖨️','Printer & struk',PRN.set?(PRN_MODES.find(function(m){return m[0]===PRN.mode})||[0,0,''])[2]+' · '+PRN.paper+' mm':'Belum diatur','data-go="printer"')+
    feat('profil','🏪','Profil toko & struk','Nama, alamat, catatan bawah struk','toko')+
    feat('telegram','🤖','Bot Telegram',S.me.store.tg_connected?'✅ Terhubung':'Notifikasi transaksi & laporan harian','telegram')+
+   (mgr&&!demo?item('🔑','Lisensi & aktivasi','Masukkan serial number · riwayat','id="licI"'):'')+
    item('💬','Chat Head Admin','Keluhan, bantuan, perpanjang · WhatsApp','id="sup"')+
    (IS_APK?item('⬆️','Update aplikasi','Versi terpasang v'+(APK_V||1)+' · terbaru v'+S.me.apk.version,'id="upd"'):item('📲','Unduh aplikasi Android','JCOFFE POS untuk HP','id="inst"'))+
    (demo?'':item('🔑','Ganti password','','id="cpw"'))+item('🚪','Keluar','','id="lo"');
   $$('[data-go]').forEach(function(b){b.onclick=function(){go(b.dataset.go)}});
-  $$('[data-lock]').forEach(function(b){b.onclick=function(){if(confirm('Fitur ini terkunci karena masa trial habis. Minta perpanjang ke Head Admin via WhatsApp?'))askExtend()}});
+  $$('[data-lock]').forEach(function(b){b.onclick=function(){toast('Fitur terkunci — aktifkan lisensi untuk membuka');licenseModal()}});
   if($('#extB'))$('#extB').onclick=askExtend;
+  if($('#licB'))$('#licB').onclick=function(){licenseModal()};
+  if($('#licI'))$('#licI').onclick=function(){licenseModal()};
+  if($('#buyB'))$('#buyB').onclick=function(){openExternal(S.me.lynk_url)};
   $('#sup').onclick=supportModal;
   if($('#upd'))$('#upd').onclick=updateModal;if($('#inst'))$('#inst').onclick=installApp;
   if($('#cpw'))$('#cpw').onclick=function(){pwModal(false)};$('#lo').onclick=logout;
@@ -654,14 +689,14 @@ async function init(){
   $('#root').innerHTML='<header class="sticky top-0 z-30 bg-[#1c0f0a] text-white px-4 py-3 flex items-center gap-3 shadow"><img src="/icon-192.png" class="w-9 h-9 rounded-xl"><div class="flex-1"><div class="font-extrabold">JCOFFE Head Admin</div><div class="text-[11px] text-amber-200/70">@'+esc(A.me.user.username)+'</div></div><button onclick="logout()" class="text-sm font-bold bg-white/10 rounded-xl px-3 py-2">Keluar</button></header>'+
    (A.me.user.must_change?'<div class="bg-amber-400 text-slate-900 text-sm font-bold px-4 py-2 text-center">⚠️ Kamu masih memakai password default. <button onclick="pwModal(true)" class="underline">Ganti sekarang</button></div>':'')+
    '<main id="view" class="max-w-6xl mx-auto p-4 pb-32"></main><nav class="fixed bottom-0 inset-x-0 z-30 bg-white border-t pb-safe"><div class="max-w-md mx-auto flex">'+
-   [['ringkasan','Ringkasan','📊'],['toko','Toko & User','🏪'],['pesan','Pesan','📨'],['setting','Pengaturan','⚙️']].map(function(n){return '<button data-tab="'+n[0]+'" class="nav relative flex-1 pt-2 pb-1 flex flex-col items-center text-[11px] font-bold text-slate-400"><span class="text-xl">'+n[2]+'</span>'+n[1]+(n[0]==='pesan'?'<span id="msgBadge" class="hidden absolute top-1 right-1/4 bg-red-600 text-white text-[10px] font-extrabold rounded-full min-w-[18px] h-[18px] px-1 items-center justify-center"></span>':'')+'</button>'}).join('')+'</div></nav>';
+   [['ringkasan','Ringkasan','📊'],['toko','Toko','🏪'],['lisensi','Lisensi','🔑'],['pesan','Pesan','📨'],['setting','Atur','⚙️']].map(function(n){return '<button data-tab="'+n[0]+'" class="nav relative flex-1 pt-2 pb-1 flex flex-col items-center text-[11px] font-bold text-slate-400"><span class="text-xl">'+n[2]+'</span>'+n[1]+(n[0]==='pesan'?'<span id="msgBadge" class="hidden absolute top-1 right-1/4 bg-red-600 text-white text-[10px] font-extrabold rounded-full min-w-[18px] h-[18px] px-1 items-center justify-center"></span>':'')+'</button>'}).join('')+'</div></nav>';
   $$('.nav').forEach(function(b){b.onclick=function(){go(b.dataset.tab)}});
   if(A.me.user.must_change)setTimeout(function(){pwModal(true)},400);
   go('ringkasan');refreshBadge();setInterval(refreshBadge,30000);
 }
 async function refreshBadge(){try{var d=await api('/api/admin/support');var b=$('#msgBadge');b.textContent=d.unread;b.classList.toggle('hidden',!d.unread);b.classList.toggle('flex',!!d.unread)}catch(e){}}
 function go(t){A.tab=t;$$('.nav').forEach(function(b){var on=b.dataset.tab===t;b.classList.toggle('text-amber-700',on);b.classList.toggle('text-slate-400',!on)});var v=$('#view');v.innerHTML='<div class="text-center text-slate-400 py-10">Memuat…</div>';
-  Promise.resolve({ringkasan:vRing,toko:vToko,pesan:vPesan,setting:vSet}[t](v)).catch(function(e){v.innerHTML='<div class="bg-red-50 text-red-600 rounded-2xl p-4">'+esc(e.message)+'</div>'})}
+  Promise.resolve({ringkasan:vRing,toko:vToko,lisensi:vLis,pesan:vPesan,setting:vSet}[t](v)).catch(function(e){v.innerHTML='<div class="bg-red-50 text-red-600 rounded-2xl p-4">'+esc(e.message)+'</div>'})}
 function badge(l){return '<span class="text-[11px] font-extrabold px-2.5 py-1 rounded-full '+(LABEL[l]||'')+'">'+l.toUpperCase()+'</span>'}
 function waNum(p){return String(p||'').replace(/[^0-9]/g,'').replace(/^0/,'62')}
 
@@ -701,6 +736,55 @@ function storeModal(s){
   $$('.act',b).forEach(function(x){x.onclick=function(){if((x.dataset.a==='block'||x.dataset.a==='end_now')&&!confirm('Yakin?'))return;guard(x,async function(){var d=await api('/api/admin/stores/'+s.id,'PUT',{action:x.dataset.a,days:+x.dataset.d||0});closeModal();toast(d.note);go(A.tab)})}});
   $('#rst').onclick=function(){if(!confirm('Reset password owner toko ini?'))return;guard(this,async function(){var d=await api('/api/admin/stores/'+s.id+'/reset-owner','POST',{});$('#out').innerHTML='<div class="bg-amber-50 rounded-xl p-3 text-sm">Username: <b>'+esc(d.username)+'</b><br>Password baru: <b class="font-mono select-all">'+esc(d.password)+'</b><br><span class="text-xs text-slate-500">Kirim ke pemilik toko. Ia akan diminta ganti password.</span></div>'})};
   $('#del').onclick=function(){var n=prompt('Semua data toko akan DIHAPUS PERMANEN. Ketik nama toko persis untuk konfirmasi:\n'+s.name);if(n===null)return;guard(this,async function(){await api('/api/admin/stores/'+s.id,'DELETE',{confirm:n});closeModal();toast('Toko dihapus');go(A.tab)})};
+}
+var LIC_C={baru:'bg-sky-100 text-sky-800',terjual:'bg-amber-100 text-amber-800',terpakai:'bg-emerald-100 text-emerald-800',dicabut:'bg-red-100 text-red-700'};
+function dLabel(d){return d%365===0?(d/365)+' thn':d%30===0?(d/30)+' bln':d+' hr'}
+async function vLis(v){
+  A.lf=A.lf||'';A.lq=A.lq||'';
+  var r=await Promise.all([api('/api/admin/licenses?status='+A.lf+'&q='+encodeURIComponent(A.lq)),api('/api/admin/lynk')]);var d=r[0],L=r[1],c=d.counts;A.lic=d.licenses;
+  function card(l,val,cls){return '<div class="bg-white rounded-2xl p-3"><div class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">'+l+'</div><div class="text-2xl font-extrabold '+cls+'">'+(val||0)+'</div></div>'}
+  v.innerHTML='<h2 class="text-xl font-extrabold mb-3">Lisensi Serial Number</h2>'+
+   '<div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">'+card('Stok (belum terjual)',c.baru,'text-sky-700')+card('Terjual',c.terjual,'text-amber-700')+card('Sudah dipakai',c.terpakai,'text-emerald-700')+card('Dicabut',c.dicabut,'text-red-600')+'</div>'+
+   ((c.baru||0)<5?'<div class="bg-amber-50 border border-amber-200 text-amber-900 rounded-2xl p-3 text-sm mb-3">⚠️ Stok SN tinggal <b>'+(c.baru||0)+'</b>. Generate lagi (webhook Lynk tetap membuat SN otomatis bila stok habis).</div>':'')+
+   '<div class="grid lg:grid-cols-2 gap-3 mb-3"><div class="bg-white rounded-2xl p-4" id="gf"><div class="font-extrabold mb-3">➕ Generate serial number</div><div class="grid grid-cols-2 gap-2">'+field('Jumlah SN','count','10','number','min="1" max="500"')+selectField('Masa aktif','days',[['30','1 bulan'],['90','3 bulan'],['180','6 bulan'],['365','1 tahun']],'90')+'</div>'+field('Nama batch (opsional)','batch','','text','placeholder="mis. Lynk Desember"')+'<button id="gen" class="'+BP+' w-full">Generate</button></div>'+
+   '<div class="bg-white rounded-2xl p-4" id="lk"><div class="font-extrabold mb-1">🔗 Integrasi Lynk.id</div><p class="text-xs text-slate-500 mb-3">Setiap pembayaran sukses di Lynk.id otomatis mengambil 1 SN untuk pembeli, lalu kamu dapat notifikasi Telegram + tombol kirim WA.</p>'+
+   '<div class="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Webhook URL (tempel di Lynk.id)</div><div class="flex gap-2 mb-3 mt-1"><input readonly value="'+esc(L.webhook_url)+'" class="flex-1 min-w-0 border border-slate-200 rounded-xl px-3 py-2 text-xs font-mono bg-slate-50"><button id="cpw" class="'+BG+'">Salin</button></div>'+
+   field('Link produk lisensi di Lynk.id','lynk_url',L.lynk_url,'url','placeholder="https://lynk.id/namakamu/xxxx"')+'<div class="grid grid-cols-2 gap-2">'+field('Kata kunci produk','keyword',L.keyword,'text','placeholder="JCOFFE"')+selectField('Masa aktif default','days',[['30','1 bulan'],['90','3 bulan'],['180','6 bulan'],['365','1 tahun']],String(L.days))+'</div>'+
+   '<p class="text-xs text-slate-500 mb-3">Kata kunci: hanya produk Lynk yang judulnya mengandung kata ini yang diberi SN (kosongkan = semua produk). Judul berisi “6 bulan” / “1 tahun” otomatis memakai masa itu.</p>'+
+   '<div class="flex flex-wrap gap-2"><button id="svl" class="'+BP+'">Simpan</button><button id="cpk" class="'+BG+'">Salin link klaim</button><button id="cpb" class="'+BG+'">Salin link beli</button><button id="rtk" class="'+BG+'">Ganti token</button></div>'+
+   (L.logs.length?'<details class="mt-3"><summary class="text-sm font-bold cursor-pointer">Log webhook ('+L.logs.length+')</summary>'+L.logs.map(function(g){return '<button data-lg="'+g.id+'" class="block w-full text-left text-xs py-1.5 border-b"><b>'+fmtDT(g.created_at)+'</b> · '+esc(g.ref||'-')+'<br><span class="text-slate-500">'+esc(g.result)+'</span></button>'}).join('')+'</details>':'<p class="text-xs text-slate-400 mt-3">Belum ada panggilan webhook.</p>')+'</div></div>'+
+   '<div class="bg-white rounded-2xl p-4"><div class="flex flex-wrap gap-2 items-center mb-3"><input id="lq" value="'+esc(A.lq)+'" placeholder="🔍 Cari SN / pembeli / email / toko / batch" class="flex-1 min-w-[200px] border border-slate-200 rounded-xl px-3 py-2.5"><button id="cpa" class="'+BG+'">📋 Salin SN</button><a href="/api/admin/licenses?format=csv&status='+A.lf+'&q='+encodeURIComponent(A.lq)+'" class="'+BG+'">⬇️ CSV</a></div>'+
+   '<div class="flex gap-2 overflow-x-auto no-scrollbar mb-3">'+[['','Semua'],['baru','Stok'],['terjual','Terjual'],['terpakai','Terpakai'],['dicabut','Dicabut']].map(function(f){return '<button data-lf="'+f[0]+'" class="whitespace-nowrap px-4 py-2 rounded-full text-sm font-bold '+(A.lf===f[0]?'bg-slate-900 text-white':'bg-slate-100')+'">'+f[1]+'</button>'}).join('')+'</div>'+
+   (A.lic.length?'<div class="divide-y">'+A.lic.map(function(l){return '<button data-li="'+l.id+'" class="w-full text-left py-2.5 flex items-center gap-3"><div class="flex-1 min-w-0"><div class="font-mono font-bold tracking-wide">'+esc(l.code)+'</div><div class="text-xs text-slate-500 truncate">'+dLabel(l.days)+' · '+esc(l.store_name?'🏪 '+l.store_name:l.buyer_name||l.buyer_email?'👤 '+(l.buyer_name||'')+' '+(l.buyer_email||''):l.batch||'')+'</div></div><span class="text-[11px] font-extrabold px-2.5 py-1 rounded-full '+LIC_C[l.status]+'">'+l.status.toUpperCase()+'</span></button>'}).join('')+'</div>':'<div class="text-center text-slate-400 py-6">Belum ada serial number. Generate dulu di atas.</div>')+'</div>';
+  $('#gen').onclick=function(){guard(this,async function(){var r=await api('/api/admin/licenses','POST',formData($('#gf')));var t=r.codes.join('\n');
+    var b=openModal('✅ '+r.codes.length+' SN dibuat ('+dLabel(r.days)+')','<textarea readonly rows="10" class="w-full border rounded-xl p-3 font-mono text-sm mb-3">'+esc(t)+'</textarea><div class="grid grid-cols-2 gap-2"><button id="c1" class="'+BP+'">📋 Salin semua</button><button id="c2" class="'+BG+'">⬇️ Unduh .txt</button></div><p class="text-xs text-slate-500 mt-3">SN berstatus <b>Stok</b>. Saat ada pembelian di Lynk.id, webhook otomatis mengambil SN dari stok ini.</p>');
+    $('#c1',b).onclick=function(){copyText(t,r.codes.length+' SN disalin')};
+    $('#c2',b).onclick=function(){var a=document.createElement('a');a.href=URL.createObjectURL(new Blob([t],{type:'text/plain'}));a.download='SN-JCOFFE-'+r.batch.replace(/[^A-Za-z0-9-]+/g,'_')+'.txt';a.click()};
+    vLis(v)})};
+  $('#cpw').onclick=function(){copyText(L.webhook_url,'Webhook URL disalin')};
+  $('#cpk').onclick=function(){copyText(L.claim_url,'Link klaim disalin')};
+  $('#cpb').onclick=function(){copyText(L.buy_short,'Link beli disalin')};
+  $('#svl').onclick=function(){guard(this,async function(){await api('/api/admin/lynk','PUT',formData($('#lk')));toast('Pengaturan Lynk disimpan');vLis(v)})};
+  $('#rtk').onclick=function(){if(!confirm('Ganti token? URL webhook lama tidak berlaku lagi, perbarui di Lynk.id.'))return;guard(this,async function(){await api('/api/admin/lynk/token','POST',{});vLis(v)})};
+  $$('[data-lg]').forEach(function(b){b.onclick=function(){guard(b,async function(){var g=await api('/api/admin/lynk/log/'+b.dataset.lg);var pl=g.payload||'';try{pl=JSON.stringify(JSON.parse(pl),null,2)}catch(e){}openModal('Log webhook','<div class="text-sm mb-2"><b>'+esc(g.result||'')+'</b></div><pre class="text-[11px] bg-slate-50 rounded-xl p-3 overflow-auto max-h-[60vh] whitespace-pre-wrap">'+esc(pl)+'</pre>')})}});
+  var tq;$('#lq').oninput=function(){var val=this.value;clearTimeout(tq);tq=setTimeout(function(){A.lq=val;vLis(v).then(function(){var i=$('#lq');i.focus();i.setSelectionRange(val.length,val.length)})},450)};
+  $$('[data-lf]').forEach(function(b){b.onclick=function(){A.lf=b.dataset.lf;vLis(v)}});
+  $('#cpa').onclick=function(){if(!A.lic.length)return toast('Tidak ada SN');copyText(A.lic.map(function(l){return l.code}).join('\n'),A.lic.length+' SN disalin')};
+  $$('[data-li]').forEach(function(b){b.onclick=function(){licModal(A.lic.find(function(x){return String(x.id)===b.dataset.li}),v)}});
+}
+function licModal(l,v){
+  var info=[['Status','<span class="text-[11px] font-extrabold px-2.5 py-1 rounded-full '+LIC_C[l.status]+'">'+l.status.toUpperCase()+'</span>'],['Masa aktif',dLabel(l.days)],['Batch',esc(l.batch||'-')],['Dibuat',fmtDT(l.created_at)]];
+  if(l.sold_at)info.push(['Pembeli',esc((l.buyer_name||'-')+' · '+(l.buyer_phone||'-'))],['Email',esc(l.buyer_email||'-')],['Order Lynk',esc(l.order_ref||'-')],['Terjual',fmtDT(l.sold_at)]);
+  if(l.used_at)info.push(['Dipakai toko','<b>'+esc(l.store_name||'-')+'</b>'],['Oleh',esc(l.used_by||'-')],['Tanggal',fmtDT(l.used_at)]);
+  var canSell=l.status==='baru'||l.status==='terjual';
+  var b=openModal(l.code,'<div class="text-sm divide-y mb-4">'+info.map(function(i){return '<div class="flex justify-between gap-3 py-1.5"><span class="text-slate-500">'+i[0]+'</span><span class="text-right">'+i[1]+'</span></div>'}).join('')+'</div>'+
+   '<button id="cp" class="'+BG+' w-full mb-3">📋 Salin serial number</button>'+
+   (canSell?'<div id="sf" class="bg-amber-50 rounded-2xl p-3 mb-3"><div class="font-extrabold text-sm mb-2">📲 Kirim ke pembeli (manual)</div>'+field('Nama pembeli','buyer_name',l.buyer_name||'')+field('No. WhatsApp','buyer_phone',l.buyer_phone||'','tel','placeholder="08xxxxxxxxxx"')+field('Email (untuk halaman klaim)','buyer_email',l.buyer_email||'','email')+field('No. order Lynk (opsional)','order_ref',l.order_ref||'')+'<button id="sell" class="w-full bg-green-600 text-white rounded-xl py-3 font-bold">Tandai terjual & kirim WA</button></div>':'')+
+   '<div class="grid grid-cols-2 gap-2">'+(l.status==='terjual'?'<button data-x="unsell" class="'+BG+'">↩️ Kembalikan ke stok</button>':'')+(canSell?'<button data-x="revoke" class="'+BR+'">⛔ Cabut SN</button>':'')+(l.status==='dicabut'?'<button data-x="restore" class="'+BG+'">♻️ Pulihkan</button>':'')+'</div>');
+  $('#cp',b).onclick=function(){copyText(l.code,'SN disalin')};
+  if($('#sell',b))$('#sell',b).onclick=function(){var f=formData($('#sf',b));if(!f.buyer_phone&&!f.buyer_email){toast('Isi WA atau email pembeli',true);return}
+    guard(this,async function(){var d=await api('/api/admin/licenses/'+l.id,'PUT',Object.assign({action:'sell'},f));closeModal();toast('SN ditandai terjual');if(d.wa_link)window.open(d.wa_link,'_blank');else copyText(d.message,'Pesan untuk pembeli disalin');vLis(v)})};
+  $$('[data-x]',b).forEach(function(x){x.onclick=function(){if(x.dataset.x==='revoke'&&!confirm('Cabut SN ini? SN tidak bisa dipakai aktivasi.'))return;guard(x,async function(){await api('/api/admin/licenses/'+l.id,'PUT',{action:x.dataset.x});closeModal();toast('Berhasil');vLis(v)})}});
 }
 async function vPesan(v){
   var d=await api('/api/admin/support');
@@ -813,6 +897,7 @@ const PROMO_HTML = page('Aplikasi Kasir Coffee Shop & Warkop', `
    <h1 class="text-4xl sm:text-5xl font-extrabold leading-tight">Kasir pintar, stok terkendali, <span class="text-amber-400">pesanan meja otomatis.</span></h1>
    <p class="mt-4 text-amber-100/80 text-lg">JCOFFE POS: kasir cepat, resep potong stok otomatis, pesan lewat QR meja dengan alarm, struk Bluetooth, laporan laba rugi, dan notifikasi Telegram. Gratis trial 14 hari.</p>
    <div class="mt-7 flex flex-wrap gap-3"><a href="/jcoffe-pos.apk" class="px-6 py-4 rounded-2xl font-extrabold bg-amber-400 text-slate-900 shadow-xl">📲 Unduh APK Android</a><button id="demo" class="px-6 py-4 rounded-2xl font-extrabold bg-white text-slate-900">🎮 Coba demo</button><a href="/daftar" class="px-6 py-4 rounded-2xl font-extrabold border-2 border-white/40">Daftar gratis</a></div>
+   <div class="mt-3 flex flex-wrap gap-3 text-sm"><a href="/beli" class="px-5 py-3 rounded-2xl font-extrabold bg-[#2a160d] text-amber-300 border border-amber-400/40">🔑 Beli lisensi 3 bulan</a><a href="/klaim" class="px-5 py-3 rounded-2xl font-bold text-amber-100 underline">Sudah beli? Ambil serial number</a></div>
    <p class="mt-3 text-xs text-amber-100/60">Gratis 14 hari · tanpa kartu kredit · bisa dipakai di HP, tablet & laptop</p></div>
   <div class="relative mx-auto w-full max-w-sm"><div class="absolute -inset-6 bg-amber-500/20 blur-3xl rounded-full"></div>
    <div class="relative bg-white text-slate-800 rounded-[2rem] shadow-2xl p-4 border-8 border-slate-900">
@@ -841,7 +926,9 @@ const PROMO_HTML = page('Aplikasi Kasir Coffee Shop & Warkop', `
    ['3', 'Mulai jualan', 'Terima pesanan kasir & QR meja, pantau omzet dari HP kapan saja.'],
  ].map((s) => `<div><div class="mx-auto w-14 h-14 rounded-2xl bg-amber-700 text-white text-2xl font-extrabold flex items-center justify-center mb-3">${s[0]}</div><div class="font-extrabold text-lg">${s[1]}</div><p class="text-slate-500 text-sm mt-1">${s[2]}</p></div>`).join('')}</div></section>
 <section class="max-w-3xl mx-auto px-5 py-16"><h2 class="text-3xl font-extrabold text-center mb-8">Pertanyaan umum</h2>${[
-   ['Apakah benar gratis?', 'Ya, trial 14 hari penuh tanpa kartu kredit. Setelah trial, kamu tetap bisa bertransaksi; fitur lain dibuka dengan berlangganan.'],
+   ['Apakah benar gratis?', 'Ya, trial 14 hari penuh tanpa kartu kredit. Setelah trial, kamu tetap bisa bertransaksi; fitur lain dibuka dengan lisensi.'],
+   ['Bagaimana cara membeli lisensi?', 'Beli lisensi 3 bulan di toko Lynk.id kami (tombol Beli lisensi). Setiap pembelian mendapat 1 serial number. Buka aplikasi → tap badge Trial / menu Lainnya → Lisensi → masukkan serial number. Sisa trial tidak hangus.'],
+   ['Serial number belum saya terima?', 'Buka halaman Ambil Serial Number (/klaim), isi email & nomor WhatsApp yang dipakai saat membeli di Lynk.id. Atau chat admin di WhatsApp 0813-4064-173.'],
    ['Printer apa yang didukung?', 'Hampir semua printer thermal Bluetooth 58/80 mm (lewat aplikasi gratis RawBT), printer BLE, printer USB/PC, dan printer biasa untuk nota A4.'],
    ['Apakah data aman?', 'Data tersimpan di server cloud (Cloudflare), bukan di HP. Ganti HP pun data tetap ada.'],
    ['Bagaimana update aplikasi?', 'Tampilan & fitur ter-update otomatis dari server. Jika ada versi APK baru, aplikasi menampilkan tombol Update.'],
@@ -850,6 +937,29 @@ const PROMO_HTML = page('Aplikasi Kasir Coffee Shop & Warkop', `
  <p class="text-xs text-amber-100/50 mt-8">© 2026 JCOFFE POS · J-DATA Digital Solution</p></div></section>`, String.raw`
 $('#demo').onclick=function(){var b=this;guard(b,async function(){b.textContent='Menyiapkan demo…';try{var d=await api('/api/demo','POST',{});location.href=d.redirect}catch(e){b.textContent='🎮 Coba demo';toast(e.message,true)}})};
 `, { head: '<meta name="description" content="JCOFFE POS — aplikasi kasir coffee shop & warkop: pesan QR meja dengan alarm, resep potong stok otomatis, cetak struk Bluetooth, laporan laba rugi, bot Telegram. Gratis trial 14 hari."><meta property="og:title" content="JCOFFE POS — Aplikasi Kasir Coffee Shop"><meta property="og:description" content="Kasir, QR meja, stok & resep, struk Bluetooth, laporan. Gratis 14 hari."><meta property="og:image" content="/logo.png">' });
+
+// ---------------------------------------------------------------- KLAIM SERIAL NUMBER (pembeli Lynk.id)
+const CLAIM_HTML = page('Ambil Serial Number', `${AUTH_BG}
+<div class="min-h-screen flex items-center justify-center p-5">
+ <div class="w-full max-w-sm bg-white/95 rounded-[2rem] shadow-2xl px-7 py-8 border-t-4 border-amber-600">
+  ${LOGO}
+  <h1 class="text-2xl font-extrabold text-center text-slate-900">Ambil Serial Number</h1>
+  <p class="text-center text-sm text-slate-500 mt-1 mb-5">Untuk pembeli lisensi JCOFFE POS di Lynk.id</p>
+  <form id="f"><div id="fields"></div><div id="err" class="hidden mb-3 bg-red-50 border border-red-200 text-red-600 font-semibold text-center rounded-2xl py-3 px-3 text-sm"></div>
+  <button id="btn" class="w-full bg-amber-700 text-white rounded-2xl py-4 font-extrabold tracking-wider">TAMPILKAN SERIAL NUMBER</button></form>
+  <div id="res" class="hidden"></div>
+  <p class="text-center text-xs text-slate-500 mt-5">Belum beli? <a href="/beli" class="text-amber-700 font-extrabold">Beli lisensi</a> · Bantuan: <a href="https://wa.me/628134064173" class="text-green-700 font-extrabold">WhatsApp admin</a></p>
+ </div>
+</div>`, String.raw`
+$('#fields').innerHTML=field('Email saat membeli di Lynk.id','email','','email','required autocomplete="email" placeholder="nama@gmail.com"')+field('Nomor WhatsApp saat membeli','phone','','tel','required placeholder="08xxxxxxxxxx"');
+$('#f').addEventListener('submit',function(e){e.preventDefault();guard($('#btn'),async function(){$('#err').classList.add('hidden');
+  try{var d=await api('/api/public/klaim','POST',formData($('#f')));
+   $('#f').classList.add('hidden');var r=$('#res');r.classList.remove('hidden');
+   r.innerHTML='<div class="text-center text-5xl mb-2">🎉</div><p class="text-center font-extrabold mb-3">Serial number kamu</p>'+d.licenses.map(function(l){return '<div class="rounded-2xl p-4 mb-3 '+(l.used?'bg-slate-100':'bg-amber-50 ring-2 ring-amber-400')+'"><div class="font-mono text-lg font-extrabold text-center tracking-wider select-all">'+esc(l.code)+'</div><div class="text-center text-xs text-slate-500 mt-1">Masa aktif '+esc(l.label)+(l.used?' · <b>sudah dipakai</b>':'')+'</div>'+(l.used?'':'<div class="grid grid-cols-2 gap-2 mt-3"><button data-c="'+esc(l.code)+'" class="cp bg-white border rounded-xl py-2.5 font-bold text-sm">📋 Salin</button><a href="/app?sn='+encodeURIComponent(l.code)+'" class="text-center bg-slate-900 text-white rounded-xl py-2.5 font-bold text-sm">Aktifkan</a></div>')+'</div>'}).join('')+
+   '<div class="bg-slate-50 rounded-2xl p-4 text-sm"><b>Cara aktivasi</b><ol class="list-decimal ml-5 mt-1 space-y-1 text-slate-600"><li>Unduh aplikasi: <a href="/download" class="text-amber-700 font-bold">JCOFFE POS</a></li><li>Login, atau <a href="/daftar?sn='+encodeURIComponent((d.licenses.find(function(l){return !l.used})||{}).code||'')+'" class="text-amber-700 font-bold">daftar toko baru</a> (SN langsung terisi)</li><li>Tap badge <b>Trial</b> di kanan atas → masukkan SN → <b>Aktifkan</b></li></ol></div>';
+   $$('.cp').forEach(function(b){b.onclick=function(){copyText(b.dataset.c,'Serial number disalin')}});
+  }catch(err){$('#err').textContent=err.message;$('#err').classList.remove('hidden')}})});
+`);
 
 // ---------------------------------------------------------------- PWA
 const MANIFEST = {
