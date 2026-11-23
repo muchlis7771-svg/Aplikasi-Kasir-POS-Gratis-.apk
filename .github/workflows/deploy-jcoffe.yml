@@ -1,0 +1,36 @@
+name: Deploy JCOFFE POS
+# Deploy worker "warkop-rafli" (JCOFFE POS) dari folder jcoffe/ di branch jcoffe-pos.
+# Memakai secret CLOUDFLARE_API_TOKEN yang sama dengan workflow website. Database D1 "warkop_rafli_db"
+# dicari dari namanya — workflow TIDAK PERNAH membuat database baru, jadi data toko aman.
+on:
+  workflow_dispatch:
+  push:
+    branches: [jcoffe-pos]
+    paths: ['jcoffe/**', '.github/workflows/deploy-jcoffe.yml']
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: jcoffe } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Token Cloudflare tersedia?
+        run: '[ -n "$CLOUDFLARE_API_TOKEN" ] || { echo "::error::Secret CLOUDFLARE_API_TOKEN belum diisi"; exit 1; }'
+        env: { CLOUDFLARE_API_TOKEN: '${{ secrets.CLOUDFLARE_API_TOKEN }}' }
+      - name: Cari database_id D1 "warkop_rafli_db"
+        env: { CLOUDFLARE_API_TOKEN: '${{ secrets.CLOUDFLARE_API_TOKEN }}', CLOUDFLARE_ACCOUNT_ID: d4eedeb1211239791d8d1e4a2276231b }
+        run: |
+          ID=$(npx --yes wrangler@4 d1 list --json 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const a=JSON.parse(s).find(x=>x.name==="warkop_rafli_db");console.log(a?a.uuid:"")}catch(e){console.log("")}})')
+          [ -n "$ID" ] || { echo "::error::Database D1 'warkop_rafli_db' tidak ditemukan — dibatalkan."; exit 1; }
+          sed -i "s/^database_name = \"warkop_rafli_db\"/database_name = \"warkop_rafli_db\"\ndatabase_id = \"$ID\"/" wrangler.toml
+          grep -n database wrangler.toml
+      - name: Deploy worker
+        env: { CLOUDFLARE_API_TOKEN: '${{ secrets.CLOUDFLARE_API_TOKEN }}', CLOUDFLARE_ACCOUNT_ID: d4eedeb1211239791d8d1e4a2276231b }
+        run: npx --yes wrangler@4 deploy
+      - name: Tes situs hidup
+        run: |
+          sleep 8
+          curl -fsS https://warkop-rafli.muchlis7771.workers.dev/api/app-version
+          curl -fsS https://warkop-rafli.muchlis7771.workers.dev/ | grep -q "JCOFFE" || { echo "::error::Halaman login belum versi JCOFFE"; exit 1; }
+          curl -fsS -o /dev/null https://warkop-rafli.muchlis7771.workers.dev/promo

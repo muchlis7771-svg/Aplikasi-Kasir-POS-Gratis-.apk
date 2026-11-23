@@ -1,0 +1,16 @@
+# Worker JCOFFE POS (warkop-rafli.muchlis7771.workers.dev) — dideploy otomatis oleh GitHub Actions
+# (.github/workflows/deploy-jcoffe.yml) setiap ada perubahan di folder jcoffe/ pada branch jcoffe-pos.
+name = "warkop-rafli"
+main = "worker.js"
+compatibility_date = "2025-11-01"
+account_id = "d4eedeb1211239791d8d1e4a2276231b"
+workers_dev = true
+keep_vars = true   # jangan hapus variabel yang diisi lewat dashboard
+
+[[d1_databases]]
+binding = "DB"
+database_name = "warkop_rafli_db"
+# database_id diisi otomatis oleh workflow (dicari dari nama, tidak pernah membuat database baru)
+
+[triggers]
+crons = ["0 13 * * *"]   # 21:00 WITA — laporan harian Telegram
