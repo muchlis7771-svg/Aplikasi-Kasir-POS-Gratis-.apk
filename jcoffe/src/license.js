@@ -3,7 +3,7 @@
 // Alur: Head Admin generate SN → dijual di Lynk.id → pembeli dapat SN (otomatis via webhook / klaim / kirim manual)
 //       → owner masukkan SN di aplikasi → toko aktif sesuai masa SN (default 3 bulan = 90 hari).
 const LICENSE_DAYS = 90;
-const LIC_STATUS = ['baru', 'terjual', 'terpakai', 'dicabut'];
+const LIC_STATUS = ['baru', 'dipost', 'terjual', 'terpakai', 'dicabut']; // dipost = diposting manual di Lynk.id (tidak diambil webhook)
 
 function licFormat(raw) {
   let s = String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
@@ -30,7 +30,7 @@ async function activateLicense(env, store, rawCode, byName) {
   const code = licFormat(rawCode);
   const now = nowIso();
   const lic = code && await env.DB.prepare(
-    `UPDATE jd_licenses SET status='terpakai', store_id=?, store_name=?, used_by=?, used_at=? WHERE code=? AND status IN ('baru','terjual') RETURNING id, code, days`
+    `UPDATE jd_licenses SET status='terpakai', store_id=?, store_name=?, used_by=?, used_at=? WHERE code=? AND status IN ('baru','dipost','terjual') RETURNING id, code, days`
   ).bind(store.id, store.name, byName, now, code).first();
   if (!lic) {
     await lim.add();
@@ -86,20 +86,21 @@ async function licenseAdmin(req, env, path, method) {
   if (path === '/api/admin/licenses' && method === 'POST') {
     const b = await body(req);
     const n = Math.min(500, Math.max(1, int(b.count, 1))); const days = Math.min(3650, Math.max(1, int(b.days, LICENSE_DAYS)));
-    const batch = str(b.batch, 40) || 'Batch ' + localDate(); const now = nowIso(); const codes = new Set();
+    const batch = str(b.batch, 40) || (b.mode === 'stok' ? 'Stok ' : 'Lynk ') + localDate(); const now = nowIso(); const codes = new Set();
+    const status = b.mode === 'stok' ? 'baru' : 'dipost';
     while (codes.size < n) codes.add(licNew());
     const list = [...codes];
     for (let i = 0; i < list.length; i += 50) {
-      await DB.batch(list.slice(i, i + 50).map((c) => DB.prepare(`INSERT OR IGNORE INTO jd_licenses (code, days, batch, status, created_at) VALUES (?, ?, ?, 'baru', ?)`).bind(c, days, batch, now)));
+      await DB.batch(list.slice(i, i + 50).map((c) => DB.prepare(`INSERT OR IGNORE INTO jd_licenses (code, days, batch, status, created_at) VALUES (?, ?, ?, ?, ?)`).bind(c, days, batch, status, now)));
     }
-    return json({ ok: true, codes: list, days, batch });
+    return json({ ok: true, codes: list, days, batch, status });
   }
   if ((m = path.match(/^\/api\/admin\/licenses\/(\d+)$/)) && method === 'PUT') {
     const id = int(m[1]); const b = await body(req);
     const l = await DB.prepare(`SELECT * FROM jd_licenses WHERE id=?`).bind(id).first();
     if (!l) fail(404, 'SN tidak ditemukan');
     if (b.action === 'sell') {
-      if (!['baru', 'terjual'].includes(l.status)) fail(400, 'SN ini sudah ' + l.status);
+      if (!['baru', 'dipost', 'terjual'].includes(l.status)) fail(400, 'SN ini sudah ' + l.status);
       const name = str(b.buyer_name, 80); const phone = str(b.buyer_phone, 30); const email = str(b.buyer_email, 120).toLowerCase();
       await DB.prepare(`UPDATE jd_licenses SET status='terjual', buyer_name=?, buyer_phone=?, buyer_email=?, order_ref=COALESCE(NULLIF(?, ''), order_ref), sold_at=? WHERE id=?`).bind(name, phone, email, str(b.order_ref, 80), nowIso(), id).run();
       const origin = new URL(req.url).origin;
@@ -107,7 +108,7 @@ async function licenseAdmin(req, env, path, method) {
     }
     if (b.action === 'unsell') { if (l.status !== 'terjual') fail(400, 'Hanya SN berstatus terjual'); await DB.prepare(`UPDATE jd_licenses SET status='baru', buyer_name=NULL, buyer_phone=NULL, buyer_email=NULL, order_ref=NULL, sold_at=NULL WHERE id=?`).bind(id).run(); return json({ ok: true }); }
     if (b.action === 'revoke') { if (l.status === 'terpakai') fail(400, 'SN sudah dipakai toko. Untuk menghentikan, pakai menu toko → Hentikan masa aktif.'); await DB.prepare(`UPDATE jd_licenses SET status='dicabut' WHERE id=?`).bind(id).run(); return json({ ok: true }); }
-    if (b.action === 'restore') { if (l.status !== 'dicabut') fail(400, 'SN tidak dicabut'); await DB.prepare(`UPDATE jd_licenses SET status=CASE WHEN sold_at IS NULL THEN 'baru' ELSE 'terjual' END WHERE id=?`).bind(id).run(); return json({ ok: true }); }
+    if (b.action === 'restore') { if (l.status !== 'dicabut') fail(400, 'SN tidak dicabut'); await DB.prepare(`UPDATE jd_licenses SET status=CASE WHEN sold_at IS NOT NULL THEN 'terjual' WHEN batch LIKE 'Lynk %' THEN 'dipost' ELSE 'baru' END WHERE id=?`).bind(id).run(); return json({ ok: true }); }
     fail(400, 'Aksi tidak dikenal');
   }
   if (path === '/api/admin/lynk' && method === 'GET') {
