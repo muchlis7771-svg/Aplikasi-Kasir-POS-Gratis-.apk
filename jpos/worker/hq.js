@@ -355,14 +355,15 @@ export async function jdataHit(env, ip, limited) {
   try { if (!(await limited(env, 'jddl:' + ip, 20, 36e5))) await env.DB.prepare("INSERT INTO sitehits(k,n) VALUES(?,1) ON CONFLICT(k) DO UPDATE SET n=n+1").bind('j:' + new Date(Date.now() + 288e5).toISOString().slice(0, 10)).run(); } catch (e) { }
 }
 // pengunduh APK mengisi nama & WhatsApp (halaman HomeTech) → tercatat untuk Head Admin; hitungan unduhan dicatat oleh /gh dan /jdata
+const JCOFFE_APK = 'https://warkop-rafli.muchlis7771.workers.dev/jcoffe-pos.apk'; // APK JCOFFE POS (worker warkop-rafli)
 export async function dlLead(env, b, ip, J, limited, C) {
   if (await limited(env, 'dllead:' + ip, 10, 36e5)) return J({ e: 'Terlalu banyak percobaan, coba lagi nanti' }, 429);
   if (!(await tsVerify(C && C.ts_secret, b['cf-turnstile-response'], ip))) return J({ e: 'Verifikasi anti-bot gagal. Muat ulang halaman dan coba lagi.' }, 400);
-  const app = b.app == 'jdata' ? 'jdata' : 'jpos', name = clip(b.name, 60).trim(), phone = clip(b.phone, 20).replace(/[^\d+]/g, '');
+  const app = b.app == 'jdata' ? 'jdata' : b.app == 'jcoffe' ? 'jcoffe' : 'jpos', name = clip(b.name, 60).trim(), phone = clip(b.phone, 20).replace(/[^\d+]/g, '');
   if (name.length < 2) return J({ e: 'Isi nama Anda' }, 400);
   if (phone.replace(/\D/g, '').length < 9) return J({ e: 'Isi nomor WhatsApp yang benar' }, 400);
   await env.DB.prepare('INSERT INTO dlleads(app,name,phone,t) VALUES(?,?,?,?)').bind(app, name, phone, Date.now()).run();
-  return J({ ok: 1, url: app == 'jdata' ? '/jdata' : '/gh' });
+  return J({ ok: 1, url: app == 'jdata' ? '/jdata' : app == 'jcoffe' ? JCOFFE_APK : '/gh' });
 }
 // Head Admin: daftar pengunduh APK + hitungan unduhan harian (g:/d: = J-POS, j: = J-DATA Report)
 export async function dlAdmin(env, J) {

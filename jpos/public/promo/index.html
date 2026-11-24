@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>HomeTech · Aplikasi Kasir J-POS & Laporan Distributor J-DATA Report</title>
-<meta name="description" content="HomeTech menghadirkan dua aplikasi Android untuk usaha Anda: J-POS (kasir, stok, sales lapangan, laporan keuangan) dan J-DATA Report (olah laporan distributor otomatis). Coba gratis 30 hari.">
+<title>HomeTech · Aplikasi Kasir J-POS, JCOFFE POS & Laporan Distributor J-DATA Report</title>
+<meta name="description" content="HomeTech menghadirkan tiga aplikasi Android untuk usaha Anda: J-POS (kasir toko & usaha), JCOFFE POS (kasir coffee shop & warkop) dan J-DATA Report (laporan distributor otomatis). Bisa dicoba gratis.">
 <meta name="theme-color" content="#f6f9fd">
 <link rel="canonical" href="https://aplikasi-kasir-pos-gratis--apk.muchlis7771.workers.dev/promo/">
 <meta property="og:type" content="website"><meta property="og:locale" content="id_ID"><meta property="og:site_name" content="HomeTech">
 <meta property="og:title" content="HomeTech — J-POS & J-DATA Report">
-<meta property="og:description" content="Dua aplikasi Android untuk usaha yang lebih rapi: kasir J-POS dan laporan distributor J-DATA Report. Coba gratis 30 hari.">
+<meta property="og:description" content="Tiga aplikasi Android untuk usaha yang lebih rapi: kasir J-POS, kasir coffee shop JCOFFE POS, dan laporan distributor J-DATA Report.">
 <meta property="og:image" content="https://aplikasi-kasir-pos-gratis--apk.muchlis7771.workers.dev/promo/img/og.jpg">
 <link rel="icon" href="img/logo-192.png">
 <style>
@@ -58,7 +58,15 @@ section{padding:46px 0}.sh{text-align:center;margin-bottom:26px}.sh h2{font-size
 .app h3{font-size:22px}.app .sub{color:var(--mu);font-size:13.5px}
 .app ul{list-style:none;display:grid;gap:8px;font-size:14.5px;color:#2b3350;margin:4px 0}.app li:before{content:"✓";color:var(--teal);font-weight:800;margin-right:9px}
 .meta{display:flex;gap:8px;flex-wrap:wrap}.chip{font-size:12px;border:1px solid var(--line);border-radius:999px;padding:4px 10px;color:var(--mu)}
-.app .act{display:flex;gap:9px;flex-wrap:wrap;margin-top:auto;padding-top:6px}
+.app .act{display:flex;gap:9px;flex-wrap:wrap;margin-top:auto;padding-top:6px}.app .act .btn{flex:1 1 140px;text-align:center;text-decoration:none}
+.apps{grid-template-columns:repeat(3,1fr)}@media(max-width:1020px){.apps{grid-template-columns:1fr}}
+.app{transition:box-shadow .25s,transform .25s,border-color .25s;scroll-margin-top:90px}.app.hl{border-color:var(--gold);box-shadow:0 0 0 3px #b6842a40,0 20px 40px -24px #0b1a3a50;transform:translateY(-3px)}.app.dim{opacity:.55}
+.app .fit{font-size:13px;color:var(--gold2);background:#b6842a12;border-radius:10px;padding:7px 10px;font-weight:600}
+.app .new{font-size:10px;letter-spacing:1px;background:#e8532b;color:#fff;border-radius:6px;padding:2px 6px;vertical-align:middle;margin-left:4px}
+.app .how{border:1px dashed #b6842a55;border-radius:14px;padding:10px 12px;font-size:14px}.app .how summary{cursor:pointer;font-weight:700;color:var(--ink)}.app .how ol{margin:8px 0 2px 18px;display:grid;gap:6px;color:#2b3350}.app .how a{color:var(--gold2);font-weight:700}.app .how li:before{content:none}.st span b{display:inline;font-size:inherit;margin:0;color:var(--ink)}
+.btn.c{background:linear-gradient(135deg,#3b2417,#1c0f0a);color:#f5c96a}
+.pick{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center;margin:-6px 0 22px}.pick span{font-size:13.5px;color:var(--mu);font-weight:600}.pick button{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:9px 15px;font:600 14px system-ui,sans-serif;color:var(--ink);cursor:pointer;transition:.2s}.pick button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.tips{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:16px;font-size:14px;color:#2b3350}.tips div{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px 14px}@media(max-width:820px){.tips{grid-template-columns:1fr}}
 /* video demo */
 .vgrid{display:grid;grid-template-columns:1fr 1fr;gap:18px}@media(max-width:820px){.vgrid{grid-template-columns:1fr}}
 .vcard{background:var(--card);border:1px solid var(--line);border-radius:22px;overflow:hidden;box-shadow:0 1px 2px #0b1a3a08,0 16px 34px -24px #0b1a3a30}
@@ -131,16 +139,16 @@ dialog label{display:block;font-size:12.5px;color:var(--mu);margin:10px 0 4px}di
 </script>
 <header><div class="wrap nav">
   <a class="brand" href="#top" aria-label="HomeTech"><svg viewBox="0 0 32 32" fill="none"><path d="M16 3 3 14h4v13h18V14h4L16 3Z" fill="url(#g)"/><rect x="12" y="15" width="8" height="8" rx="1.6" fill="#0b1330"/><path d="M14 18h4M14 20.5h4" stroke="#d4ae52" stroke-width="1.4" stroke-linecap="round"/><defs><linearGradient id="g" x1="3" y1="3" x2="29" y2="27"><stop stop-color="#f2d27d"/><stop offset="1" stop-color="#c9a24a"/></linearGradient></defs></svg><span>Home<b>Tech</b></span></a>
-  <nav><a href="#aplikasi">Aplikasi</a><a href="#keunggulan">Keunggulan</a><a href="#projek">Projek Custom</a><a href="#cara">Cara Mulai</a><a href="#faq">FAQ</a></nav>
+  <nav><a href="#aplikasi">Aplikasi</a><a href="#cara">Cara Instal</a><a href="#keunggulan">Keunggulan</a><a href="#projek">Projek Custom</a><a href="#faq">FAQ</a></nav>
   <button type="button" class="btn o s" id="emBtn1">Masuk / Daftar</button><a class="btn g s dlnav" href="#aplikasi">⬇ Unduh</a>
 </div></header>
 
 <main id="top">
 <div class="hero"><div class="wrap">
   <span class="eyebrow">Solusi digital untuk usaha Indonesia</span>
-  <h1>Satu rumah, <span class="gold">dua aplikasi</span><br>untuk usaha yang lebih rapi</h1>
-  <p class="lead">Kelola kasir, stok, dan keuangan dengan <b>J-POS</b>. Olah laporan distributor jadi omset, outlet aktif, dan grafik otomatis dengan <b>J-DATA Report</b>. Coba gratis 30 hari.</p>
-  <div class="cta"><a class="btn g" href="#aplikasi">⬇ Unduh Aplikasi</a><a class="btn o" href="jpos.html">Lihat detail & harga J-POS</a><button type="button" class="btn o" id="emBtn2">Masuk / Daftar Akun</button></div>
+  <h1>Satu rumah, <span class="gold">tiga aplikasi</span><br>untuk usaha yang lebih rapi</h1>
+  <p class="lead">Kasir, stok &amp; keuangan toko dengan <b>J-POS</b>. Kasir coffee shop, warkop &amp; kafe lengkap QR meja dengan <b>JCOFFE POS</b>. Laporan distributor otomatis dengan <b>J-DATA Report</b>. Semua bisa dicoba gratis.</p>
+  <div class="cta"><a class="btn g" href="#aplikasi">⬇ Pilih &amp; Unduh Aplikasi</a><a class="btn o" href="#cara">📲 Cara instal</a><button type="button" class="btn o" id="emBtn2">Masuk / Daftar Akun</button></div>
   <div class="trust"><span>Gratis coba 30 hari</span><span>Data tersimpan aman</span><span>Tanpa biaya pemasangan</span><span>Dukungan lewat WhatsApp</span></div>
 
   <div class="slides" id="slides" aria-roledescription="carousel">
@@ -171,21 +179,50 @@ dialog label{display:block;font-size:12.5px;color:var(--mu);margin:10px 0 4px}di
 </div></section>
 
 <section id="aplikasi"><div class="wrap">
-  <div class="sh"><span class="eyebrow">Unduh aplikasi</span><h2>Pilih aplikasi untuk usaha Anda</h2><p>Keduanya untuk Android. Isi nama &amp; WhatsApp agar kami bisa membantu proses awal Anda.</p></div>
-  <div class="apps">
-    <div class="app"><div class="top"><div class="ic" style="background:linear-gradient(135deg,#f2d27d,#c9a24a)">🧾</div><div><h3>J-POS</h3><div class="sub">Kasir, stok &amp; laporan keuangan</div></div></div>
-      <ul><li>Kasir online-offline, tetap jalan tanpa internet</li><li>Stok, piutang, kanvas &amp; sales lapangan GPS</li><li>Pengantaran, absensi, gaji &amp; laporan laba rugi</li><li>Laporan harian otomatis ke WhatsApp pemilik</li></ul>
-      <div class="meta"><span class="chip">Android</span><span class="chip">±38 MB</span><span class="chip">Coba gratis 30 hari</span></div>
-      <div class="act"><button class="btn g" data-dl="jpos">⬇ Unduh J-POS</button><a class="btn o" href="jpos.html">Detail &amp; harga</a></div></div>
-    <div class="app"><div class="top"><div class="ic" style="background:linear-gradient(135deg,#34e0c4,#1ba58f)">📊</div><div><h3>J-DATA Report</h3><div class="sub">Laporan distributor otomatis</div></div></div>
-      <ul><li>Bagikan file Excel dari WhatsApp, laporan jadi otomatis</li><li>Omset, AO, Efektif Call, SKU &amp; RO vs Actual</li><li>Grafik batang &amp; tabel rapi, periode 1–12 bulan atau kalender</li><li>Unduh Excel + gambar, kirim ke grup WhatsApp</li></ul>
-      <div class="meta"><span class="chip">Android</span><span class="chip">±18 MB</span><span class="chip">Login akun · 1 perangkat</span></div>
-      <div class="act"><button class="btn t" data-dl="jdata">⬇ Unduh J-DATA Report</button><a class="btn o" href="/promo/Panduan-JDATA-Report.pdf" target="_blank" rel="noopener" style="text-decoration:none;display:inline-block;text-align:center">📄 Panduan Cara Pakai (PDF)</a></div></div>
+  <div class="sh"><span class="eyebrow">Unduh aplikasi</span><h2>Pilih aplikasi untuk usaha Anda</h2><p>Semua untuk HP Android. Belum yakin? Pilih jenis usaha Anda, kami tunjukkan aplikasi yang paling cocok.</p></div>
+  <div class="pick" role="group" aria-label="Jenis usaha"><span>Usaha saya:</span>
+    <button type="button" data-pick="jpos">🏪 Toko / retail / grosir</button>
+    <button type="button" data-pick="jcoffe">☕ Coffee shop / warkop / kafe</button>
+    <button type="button" data-pick="jdata">🚚 Distributor / sales</button>
   </div>
-  <p class="note" style="text-align:center;margin-top:14px">Android akan meminta izin “pasang dari sumber ini” saat membuka file APK. Itu normal untuk aplikasi di luar Play Store.</p>
+  <div class="apps">
+    <div class="app" id="app-jpos"><div class="top"><div class="ic" style="background:linear-gradient(135deg,#f2d27d,#c9a24a)">🧾</div><div><h3>J-POS</h3><div class="sub">Kasir, stok &amp; laporan keuangan</div></div></div>
+      <div class="fit">Cocok untuk: toko kelontong, minimarket, grosir, usaha dengan sales lapangan</div>
+      <ul><li>Kasir online-offline, tetap jalan tanpa internet</li><li>Stok, piutang, kanvas &amp; sales lapangan GPS</li><li>Pengantaran, absensi, gaji &amp; laporan laba rugi</li><li>Laporan harian otomatis ke WhatsApp pemilik</li></ul>
+      <div class="meta"><span class="chip">Android</span><span class="chip">±38 MB</span><span class="chip">Gratis 30 hari</span></div>
+      <details class="how"><summary>📲 Cara pasang &amp; mulai pakai</summary><ol><li>Tekan <b>Unduh J-POS</b>, isi nama &amp; WA, lalu pasang file APK.</li><li>Buka aplikasi → <b>Daftar</b> toko. Masa coba 30 hari langsung aktif.</li><li>Tambah <b>produk &amp; stok</b> (bisa scan barcode).</li><li>Mulai jualan di menu <b>Kasir</b>. Laporan harian dikirim otomatis ke WA Anda.</li></ol></details>
+      <div class="act"><button class="btn g" data-dl="jpos">⬇ Unduh J-POS</button><a class="btn o" href="jpos.html">Detail &amp; harga</a></div></div>
+    <div class="app" id="app-jcoffe"><div class="top"><div class="ic" style="background:#1c0f0a"><img src="img/jcoffe-192.png" alt="" width="58" height="58" style="border-radius:16px"></div><div><h3>JCOFFE POS <span class="new">BARU</span></h3><div class="sub">Kasir coffee shop, warkop &amp; kafe</div></div></div>
+      <div class="fit">Cocok untuk: coffee shop, warkop, kafe, kedai minuman</div>
+      <ul><li>Pengunjung pesan sendiri lewat <b>QR meja</b>, kasir dapat alarm keras</li><li>Resep potong stok bahan otomatis, HPP &amp; margin terlihat</li><li>Struk Bluetooth 58/80 mm, laporan laba &amp; menu terlaris</li><li>Role Owner, OM, SPV, Admin, Kasir dengan hak akses diatur</li></ul>
+      <div class="meta"><span class="chip">Android &amp; browser</span><span class="chip">Sangat ringan</span><span class="chip">Gratis 14 hari</span><span class="chip">Ada demo</span></div>
+      <details class="how"><summary>📲 Cara pasang &amp; mulai pakai</summary><ol><li>Tekan <b>Unduh JCOFFE</b>, isi nama &amp; WA, lalu pasang file APK. Bisa juga langsung <a href="https://warkop-rafli.muchlis7771.workers.dev/" target="_blank" rel="noopener">dibuka di browser</a>.</li><li>Tekan <b>Coba Toko Demo</b> untuk melihat isi, atau <b>Daftar</b> toko (trial 14 hari).</li><li>Isi <b>stok bahan</b>, lalu buat <b>menu + resep</b>. Buat <b>QR meja</b> dan tempel di meja.</li><li>Jualan di <b>Kasir</b>. Lanjut setelah trial: beli lisensi di Lynk.id, lalu masukkan <b>serial number</b> di aplikasi.</li></ol></details>
+      <div class="act"><button class="btn c" data-dl="jcoffe">⬇ Unduh JCOFFE</button><a class="btn o" href="https://warkop-rafli.muchlis7771.workers.dev/promo" target="_blank" rel="noopener">Detail &amp; demo</a></div></div>
+    <div class="app" id="app-jdata"><div class="top"><div class="ic" style="background:linear-gradient(135deg,#34e0c4,#1ba58f)">📊</div><div><h3>J-DATA Report</h3><div class="sub">Laporan distributor otomatis</div></div></div>
+      <div class="fit">Cocok untuk: distributor, supervisor &amp; tim sales</div>
+      <ul><li>Bagikan file Excel dari WhatsApp, laporan jadi otomatis</li><li>Omset, AO, Efektif Call, SKU &amp; RO vs Actual</li><li>Grafik batang &amp; tabel rapi, periode 1–12 bulan atau kalender</li><li>Unduh Excel + gambar, kirim ke grup WhatsApp</li></ul>
+      <div class="meta"><span class="chip">Android</span><span class="chip">±18 MB</span><span class="chip">1 akun · 1 HP</span></div>
+      <details class="how"><summary>📲 Cara pasang &amp; mulai pakai</summary><ol><li>Tekan <b>Unduh J-DATA Report</b>, isi nama &amp; WA, lalu pasang file APK.</li><li>Buka aplikasi lalu <b>login</b> dengan akun Anda (1 akun untuk 1 HP).</li><li>Di WhatsApp, buka file Excel penjualan → <b>Bagikan</b> → pilih J-DATA Report.</li><li>Pilih periode. Laporan &amp; grafik jadi, tinggal <b>unduh atau kirim</b> ke grup.</li></ol></details>
+      <div class="act"><button class="btn t" data-dl="jdata">⬇ Unduh J-DATA</button><a class="btn o" href="/promo/Panduan-JDATA-Report.pdf" target="_blank" rel="noopener">📄 Panduan PDF</a></div></div>
+  </div>
 </div></section>
 
-<section id="keunggulan" style="background:var(--bg2)"><div class="wrap">
+<section id="cara" style="background:var(--bg2)"><div class="wrap">
+  <div class="sh"><span class="eyebrow">Cara instal</span><h2>Pasang aplikasi di HP Android</h2><p>Aplikasi HomeTech dipasang dari file APK (di luar Play Store). Caranya sama untuk ketiga aplikasi, kurang dari 2 menit.</p></div>
+  <div class="steps">
+    <div class="st"><b>Unduh</b><span>Pilih aplikasi di atas, tekan <b>Unduh</b>, isi nama &amp; WA. File <i>.apk</i> tersimpan di folder Download.</span></div>
+    <div class="st"><b>Buka file</b><span>Tekan notifikasi unduhan, atau buka <b>File Manager → Download</b> lalu ketuk file APK.</span></div>
+    <div class="st"><b>Izinkan</b><span>Jika muncul “sumber tidak dikenal”, tekan <b>Setelan</b> → aktifkan <b>Izinkan dari sumber ini</b> → kembali.</span></div>
+    <div class="st"><b>Instal &amp; buka</b><span>Tekan <b>Instal</b>. Jika Play Protect bertanya, pilih <b>Tetap instal</b>. Lalu tekan <b>Buka</b>.</span></div>
+  </div>
+  <div class="tips">
+    <div>🔄 <b>Update versi baru:</b> unduh lagi dari halaman ini dan pasang menimpa yang lama. Data tidak hilang.</div>
+    <div>🛡️ <b>Aman:</b> unduh hanya dari halaman resmi ini. Peringatan Android itu normal untuk aplikasi di luar Play Store.</div>
+    <div>💬 <b>Gagal instal?</b> Pastikan ruang HP cukup dan Android minimal versi 7, atau chat kami di WhatsApp.</div>
+  </div>
+</div></section>
+
+<section id="keunggulan"><div class="wrap">
   <div class="sh"><span class="eyebrow">Keunggulan</span><h2>Kenapa memilih HomeTech</h2><p>Sederhana dipakai, serius soal keamanan.</p></div>
   <div class="three">
     <div class="tc"><i>⚡</i><h3>Cepat &amp; praktis</h3><p>Hemat jam kerja: laporan yang dulu dikerjakan manual kini selesai otomatis.</p></div>
@@ -194,16 +231,6 @@ dialog label{display:block;font-size:12.5px;color:var(--mu);margin:10px 0 4px}di
     <div class="tc"><i>📶</i><h3>Tetap jalan offline</h3><p>Data tersimpan di HP; hasil bisa dibuka lagi kapan saja tanpa koneksi.</p></div>
     <div class="tc"><i>💬</i><h3>Dukungan manusia</h3><p>Ada orang yang membalas lewat WhatsApp, bukan sekadar formulir.</p></div>
     <div class="tc"><i>♻️</i><h3>Selalu diperbarui</h3><p>Fitur baru dan perbaikan hadir rutin, aplikasi memberi tahu saat ada versi baru.</p></div>
-  </div>
-</div></section>
-
-<section id="cara"><div class="wrap">
-  <div class="sh"><span class="eyebrow">Cara mulai</span><h2>Empat langkah, kurang dari 5 menit</h2></div>
-  <div class="steps">
-    <div class="st"><b>Unduh APK</b><span>Pilih J-POS atau J-DATA Report di atas.</span></div>
-    <div class="st"><b>Pasang</b><span>Buka file hasil unduhan, izinkan pemasangan dari sumber ini.</span></div>
-    <div class="st"><b>Daftar akun</b><span>Isi data singkat, masa coba 30 hari langsung berjalan.</span></div>
-    <div class="st"><b>Mulai pakai</b><span>Butuh bantuan? Hubungi kami lewat WhatsApp.</span></div>
   </div>
 </div></section>
 
@@ -230,7 +257,9 @@ dialog label{display:block;font-size:12.5px;color:var(--mu);margin:10px 0 4px}di
 
 <section id="faq" style="background:var(--bg2)"><div class="wrap" style="max-width:760px">
   <div class="sh"><span class="eyebrow">FAQ</span><h2>Pertanyaan yang sering diajukan</h2></div>
-  <details><summary>Apakah benar gratis 30 hari?</summary><p>Ya. Setelah mendaftar, semua fitur bisa dipakai selama masa coba. Untuk melanjutkan, pilih paket langganan yang sesuai.</p></details>
+  <details><summary>Aplikasi mana yang cocok untuk saya?</summary><p><b>J-POS</b> untuk toko, minimarket, grosir &amp; usaha dengan sales lapangan. <b>JCOFFE POS</b> untuk coffee shop, warkop &amp; kafe (QR meja, resep, alarm pesanan). <b>J-DATA Report</b> untuk distributor yang mengolah laporan penjualan dari Excel.</p></details>
+  <details><summary>Apakah benar gratis dicoba?</summary><p>Ya. J-POS gratis 30 hari, JCOFFE POS gratis 14 hari, semua fitur terbuka selama masa coba. Untuk melanjutkan, pilih paket atau lisensi yang sesuai.</p></details>
+  <details><summary>Bagaimana membeli lisensi JCOFFE POS?</summary><p>Beli lisensi 3 bulan di toko Lynk.id kami. Anda mendapat 1 <b>serial number</b>. Di aplikasi, tekan badge Trial (atau menu Lainnya → Lisensi) → masukkan serial number → Aktifkan. Sisa trial tidak hangus.</p></details>
   <details><summary>Bisa dipakai di beberapa HP?</summary><p>Satu akun/lisensi dipakai di satu perangkat. Jika ganti HP, hubungi kami untuk memindahkan lisensi.</p></details>
   <details><summary>Apakah data saya aman?</summary><p>Akses dilindungi login. Data penjualan dan RO di J-DATA Report tersimpan di HP Anda sendiri, bukan di server kami.</p></details>
   <details><summary>Kenapa muncul peringatan saat memasang APK?</summary><p>Aplikasi dipasang di luar Play Store, jadi Android meminta izin tambahan. Pasang hanya dari halaman resmi ini.</p></details>
@@ -239,7 +268,7 @@ dialog label{display:block;font-size:12.5px;color:var(--mu);margin:10px 0 4px}di
 </main>
 
 <footer><div class="wrap">
-  <b style="color:var(--ink)">HomeTech</b> · J-POS &amp; J-DATA Report<br>
+  <b style="color:var(--ink)">HomeTech</b> · J-POS, JCOFFE POS &amp; J-DATA Report<br>
   <a id="wa" href="#" target="_blank" rel="noopener">💬 Hubungi kami di WhatsApp</a> · <a href="jpos.html">Detail J-POS</a> · <a href="#projek">Pesan projek custom</a> · <a href="/privasi">Kebijakan privasi</a><br>
   <span style="display:block;margin-top:8px">© <span id="yr"></span> HomeTech. Semua hak dilindungi.</span>
 </div></footer>
@@ -317,7 +346,8 @@ const tsReset = (id) => { try { if (window.turnstile && TS_WIDGETS[id] != null) 
   emDlg.addEventListener('click', function (e) { if (e.target === emDlg) emClose(); });
 
   const dlg = $('#dlg'); let app = 'jpos';
-  const NAMES = { jpos: 'J-POS', jdata: 'J-DATA Report' }, URLS = { jpos: '/gh', jdata: '/jdata' };
+  const NAMES = { jpos: 'J-POS', jdata: 'J-DATA Report', jcoffe: 'JCOFFE POS' }, URLS = { jpos: '/gh', jdata: '/jdata', jcoffe: 'https://warkop-rafli.muchlis7771.workers.dev/jcoffe-pos.apk' };
+  $$('[data-pick]').forEach(function (b) { b.onclick = function () { const k = b.dataset.pick; $$('[data-pick]').forEach(function (x) { x.classList.toggle('on', x === b); }); $$('.app').forEach(function (a) { a.classList.toggle('hl', a.id == 'app-' + k); a.classList.toggle('dim', a.id != 'app-' + k); }); const el = $('#app-' + k); const h = el.querySelector('.how'); if (h) h.open = true; el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }; });
   $$('[data-dl]').forEach(function (b) { b.onclick = function () { app = b.dataset.dl; $('#dT').textContent = 'Unduh ' + NAMES[app]; $('#dE').textContent = ''; $('#dPdf').style.display = app == 'jdata' ? 'block' : 'none'; try { const s = JSON.parse(localStorage.getItem('ht:me') || '{}'); if (s.n) $('#dn').value = s.n; if (s.p) $('#dp').value = s.p; } catch (e) { } dlg.showModal(); }; });
   $('#dC').onclick = function () { dlg.close(); };
   $('#dF').onsubmit = async function (e) {
