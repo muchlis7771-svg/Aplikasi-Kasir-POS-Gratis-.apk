@@ -15,7 +15,7 @@ import java.text.DecimalFormat
 
 /**
  * Layar pembuka berupa kalkulator sederhana yang berfungsi penuh.
- * Ketik 0000 lalu tekan "=" untuk membuka halaman login JKam (kunci privasi aplikasi).
+ * Ketik 1111 lalu tekan "=" untuk membuka halaman login JKam (kunci privasi aplikasi).
  * Catatan: ini hanya menyembunyikan halaman login — saat merekam, notifikasi JKam
  * dan indikator mikrofon Android tetap tampil dan tidak bisa disembunyikan.
  */
@@ -111,8 +111,8 @@ class CalculatorActivity : AppCompatActivity() {
     }
 
     private fun equals() {
-        // Pintu rahasia: ketik persis 0000 lalu "=" tanpa operator -> buka login
-        if (pendingOp == null && entry == "0000") { openGate(); return }
+        // Pintu rahasia: ketik persis 1111 lalu "=" tanpa operator -> buka login
+        if (pendingOp == null && entry == "1111") { openGate(); return }
         if (pendingOp != null) {
             compute()
             pendingOp = null
