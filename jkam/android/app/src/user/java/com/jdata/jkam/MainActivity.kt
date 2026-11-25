@@ -5,6 +5,7 @@ import android.annotation.SuppressLint
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.view.View
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -82,6 +83,14 @@ class MainActivity : AppCompatActivity() {
 
         recBtn.setOnClickListener { if (RecorderService.running) confirmStop() else startRec() }
         findViewById<android.view.View>(R.id.logout).setOnClickListener { confirmLogout() }
+        findViewById<ImageView>(R.id.refresh).setOnClickListener {
+            it.animate().rotationBy(360f).setDuration(600).start()
+            checkLicense(); checkUpdate(); UploadWorker.enqueueAll(this, replace = true)
+            Toast.makeText(this, "Diperbarui", Toast.LENGTH_SHORT).show()
+        }
+        findViewById<TextView>(R.id.updateBtn).setOnClickListener {
+            try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(p.serverUrl + "/download/jkam-user.apk"))) } catch (_: Exception) {}
+        }
 
         UploadWorker.enqueueAll(this) // pastikan sisa rekaman terkirim
     }
@@ -90,6 +99,7 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         ui.post(tick)
         checkLicense()
+        checkUpdate()
     }
 
     override fun onPause() {
@@ -148,6 +158,22 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
             }
+        }.start()
+    }
+
+    /** Angka build dari versionName "1.0.N" untuk membandingkan versi. */
+    private fun buildNum(v: String?) = v?.substringAfterLast('.')?.toIntOrNull() ?: 0
+
+    private fun checkUpdate() {
+        Thread {
+            val r = Api.call(p.serverUrl, "/api/public/apps")
+            val server = r.json.optString("version", "")
+            if (r.ok && buildNum(server) > buildNum(BuildConfig.VERSION_NAME)) {
+                runOnUiThread {
+                    findViewById<View>(R.id.updateBanner).visibility = View.VISIBLE
+                    findViewById<TextView>(R.id.updateText).text = "Versi baru JKam tersedia (v$server)"
+                }
+            } else runOnUiThread { findViewById<View>(R.id.updateBanner).visibility = View.GONE }
         }.start()
     }
 

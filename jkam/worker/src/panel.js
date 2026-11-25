@@ -79,6 +79,11 @@ label.f{display:block;margin-bottom:12px}label.f span{display:block;font-size:12
 .pk:hover{border-color:var(--pri-100)}
 .pk.sel{border-color:var(--pri);background:var(--pri-50);box-shadow:0 0 0 3px var(--pri-100)}
 .pk .pr{font-size:20px;font-weight:800;color:var(--tx);margin:2px 0}
+.pk.sm{padding:10px 12px;border-radius:12px}
+.pk.sm b{font-size:13px;color:var(--mut);font-weight:700}
+.pk.sm .pr{font-size:16px;margin:1px 0}
+.pk.sm .d{font-size:11px;color:var(--mut);line-height:1.35}
+.pkrow{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
 .sess{margin-top:12px;border-top:1px solid var(--line);padding-top:6px}.sess .rec{display:flex;align-items:center;gap:8px;padding:6px 0}
 .rec .tm{width:46px;font-size:12px;color:var(--mut);font-variant-numeric:tabular-nums;font-weight:600}
 audio{flex:1;min-width:0;height:38px}
@@ -162,6 +167,7 @@ const IC = {
   trend:'<path d="M22 7 13.5 15.5l-5-5L2 17M16 7h6v6"/>',
   search:'<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
   play:'<path d="m6 3 14 9-14 9z"/>',
+  refresh:'<path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/>',
 };
 const ic = (n, cls) => '<svg class="ico' + (cls ? " " + cls : "") + '" viewBox="0 0 24 24" aria-hidden="true">' + (IC[n] || "") + '</svg>';
 const ib = (n, c) => '<div class="ib ' + c + '">' + ic(n) + '</div>';
@@ -252,12 +258,19 @@ function renderLogin(mode) {
 // ===================== LAYOUT =====================
 function layout(tabs, render) {
   const roleLabel = ME.role === "headadmin" ? "Head Admin" : "Owner";
-  shell('<div class="top"><img src="/logo.svg" alt=""><div class="t"><b>JKam</b><span>' + esc(ME.name || ME.username) + '</span></div><div class="sp"></div><span class="badge">' + ic(ME.role === "headadmin" ? "shield" : "store") + roleLabel + '</span></div>' +
+  shell('<div class="top"><img src="/logo.svg" alt=""><div class="t"><b>JKam</b><span>' + esc(ME.name || ME.username) + '</span></div><div class="sp"></div>' +
+    '<button class="ic-btn" id="rf" title="Perbarui">' + ic("refresh") + '</button><span class="badge">' + ic(ME.role === "headadmin" ? "shield" : "store") + roleLabel + '</span></div>' +
     '<div class="wrap" id="pg"></div><nav class="nav">' + tabs.map((t) => '<button data-t="' + t[0] + '">' + ic(t[1]) + '<span>' + t[2] + '</span></button>').join("") + '</nav>');
   const go = (t) => { TAB = t; $("#pg").onclick = null; [...document.querySelectorAll(".nav button")].forEach((b) => b.classList.toggle("on", b.dataset.t === t)); $("#pg").innerHTML = '<div class="empty"><div class="spin"></div></div>'; render(t).catch(() => {}); scrollTo(0, 0); };
   $(".nav").onclick = (e) => { const b = e.target.closest("button"); if (b) go(b.dataset.t); };
-  go(TAB && tabs.some((t) => t[0] === TAB) ? TAB : tabs[0][0]);
   window.reload = () => go(TAB);
+  // Tombol perbarui manual (dengan animasi putar)
+  $("#rf").onclick = () => { const s = $("#rf .ico"); s.style.transition = "transform .6s"; s.style.transform = "rotate(360deg)"; setTimeout(() => { s.style.transition = ""; s.style.transform = ""; }, 600); go(TAB); };
+  // Perbarui otomatis tiap 30 dtk untuk tab ringkasan/langsung — dilewati saat ada dialog terbuka
+  const autoTabs = { dash: 1, home: 1 };
+  clearInterval(window._jkTimer);
+  window._jkTimer = setInterval(() => { if (autoTabs[TAB] && !document.querySelector(".modal") && document.visibilityState === "visible") go(TAB); }, 30000);
+  go(TAB && tabs.some((t) => t[0] === TAB) ? TAB : tabs[0][0]);
 }
 
 // ===================== REKAMAN (dipakai owner & admin) =====================
@@ -310,9 +323,9 @@ async function ownerTab(t) {
       '<div class="stat">' + ib("db", "c-a") + '<div class=\"v\">' + gb(s.usage.bytes) + '</div><div class="l">Terpakai</div></div></div>' +
       (L ? '<div class="card" style="margin-top:14px"><div class="row"><span class="fx">Penyimpanan</span><span class="mut">' + gb(s.usage.bytes) + ' / ' + L.storage_gb + ' GB</span></div><div class="bar"><i style="width:' + Math.min(100, s.usage.bytes / (L.storage_gb * 1e7)).toFixed(1) + '%"></i></div>' +
         '<div class="row" style="margin-top:10px"><span class="fx">User</span><span class="mut">' + s.users.total + ' / ' + L.max_users + '</span></div><div class="bar"><i style="width:' + Math.min(100, s.users.total * 100 / L.max_users) + '%"></i></div></div>' : "") +
-      '<div class="card" style="margin-top:14px"><div class="sec">' + ib("pkg", "c-v") + '<h2>' + (L ? "Perpanjang / Upgrade Paket" : "Pilih Paket") + '</h2></div><div class="grid g3" id="pks">' +
-      PACKAGES.map((p) => '<div class="pk" data-id="' + p.id + '"><b>' + esc(p.name) + '</b><div class="pr">' + rp(p.price) + '</div><div class="mut">' + p.max_users + ' user · ' + p.storage_gb + ' GB<br>' + p.duration_days + ' hari</div></div>').join("") +
-      '</div><p class="mut">Setelah mengajukan, lakukan pembayaran & hubungi Head Admin untuk aktivasi.</p></div>' +
+      '<div class="card" style="margin-top:14px"><div class="sec">' + ib("pkg", "c-v") + '<h2>' + (L ? "Perpanjang / Upgrade Paket" : "Pilih Paket") + '</h2></div><div class="pkrow" id="pks">' +
+      PACKAGES.map((p) => '<div class="pk sm" data-id="' + p.id + '"><b>' + esc(p.name) + '</b><div class="pr">' + rp(p.price) + '</div><div class="d">' + p.max_users + ' user · ' + p.storage_gb + ' GB · ' + p.duration_days + ' hari</div></div>').join("") +
+      '</div><p class="mut" style="margin:10px 0 0">Setelah mengajukan, lakukan pembayaran & hubungi Head Admin untuk aktivasi.</p></div>' +
       '<div class="card"><div class="sec">' + ib("ticket", "c-s") + '<h2>Riwayat Lisensi</h2></div><div class="list">' + (s.history.map((h) => '<div class="it"><div class="m"><b>' + esc(h.package_name) + ' · ' + rp(h.price) + '</b><span class="mut">' + dt(h.requested_at) + (h.expires_at ? " · s/d " + dshort(h.expires_at) : "") + '</span></div>' + statusPill(h) + '</div>').join("") || '<div class="mut">-</div>') + '</div></div>';
     $("#pks").onclick = async (e) => { const c = e.target.closest(".pk"); if (!c) return; const p = PACKAGES.find((x) => x.id == c.dataset.id);
       if (confirmBox("Ajukan paket " + p.name + " (" + rp(p.price) + ")?")) { await api("/api/owner/license", { method: "POST", body: { package_id: p.id } }); toast("Pengajuan terkirim"); reload(); } };
