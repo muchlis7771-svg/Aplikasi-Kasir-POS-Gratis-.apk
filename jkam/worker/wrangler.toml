@@ -1,0 +1,18 @@
+name = "jkam-api"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "jkam_db"
+database_id = "REPLACE_WITH_D1_ID"
+
+[[r2_buckets]]
+binding = "AUDIO"
+bucket_name = "jkam-audio"
+
+[vars]
+HEADADMIN_USER = "headadmin"
+# Hash PBKDF2 password Head Admin (password asli tidak disimpan di repo). Akun dibuat otomatis saat pertama dipakai.
+HEADADMIN_PASS_HASH = "pbkdf2$100000$c8f5a7dda934033f64b92d7095b8f4ed$610f0f0f7e9bb730314ed7f645a8c094524a888041237d539db82c740eba8d0e"

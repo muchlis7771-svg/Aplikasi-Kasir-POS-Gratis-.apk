@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent" android:layout_height="match_parent" android:background="@color/bg">
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical" android:padding="16dp">
+
+        <!-- Header -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="horizontal" android:gravity="center_vertical"
+            android:background="@drawable/bg_card" android:padding="12dp">
+            <ImageView android:layout_width="42dp" android:layout_height="42dp" android:src="@drawable/ic_logo" />
+            <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+                android:orientation="vertical" android:layout_marginStart="12dp">
+                <TextView android:id="@+id/name" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="JKam" android:textSize="18sp" android:textStyle="bold" android:textColor="@color/tx" />
+                <TextView android:id="@+id/license" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                    android:text="Memeriksa lisensi…" android:textSize="12sp" android:textColor="@color/mut"
+                    android:drawableStart="@drawable/ic_shield" android:drawablePadding="4dp" android:drawableTint="@color/mut"
+                    android:gravity="center_vertical" />
+            </LinearLayout>
+            <ImageView android:id="@+id/logout" android:layout_width="44dp" android:layout_height="44dp"
+                android:src="@drawable/ic_logout" android:tint="@color/mut" android:padding="10dp"
+                android:background="@drawable/bg_card" android:contentDescription="Keluar" />
+        </LinearLayout>
+
+        <!-- Recorder -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="vertical" android:gravity="center_horizontal"
+            android:background="@drawable/bg_card" android:padding="22dp" android:layout_marginTop="16dp">
+
+            <TextView android:id="@+id/status" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Siap merekam" android:textColor="@color/mut" android:textSize="14sp" />
+
+            <TextView android:id="@+id/timer" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="00:00:00" android:textSize="44sp" android:textStyle="bold" android:letterSpacing="0.02"
+                android:fontFamily="monospace" android:textColor="@color/tx" android:layout_marginTop="4dp" />
+
+            <FrameLayout android:id="@+id/recBtn" android:layout_width="168dp" android:layout_height="168dp"
+                android:layout_marginTop="18dp" android:background="@drawable/bg_rec_idle"
+                android:clickable="true" android:focusable="true" android:elevation="10dp">
+                <ImageView android:id="@+id/recIcon" android:layout_width="72dp" android:layout_height="72dp"
+                    android:layout_gravity="center" android:src="@drawable/ic_mic" />
+            </FrameLayout>
+
+            <TextView android:id="@+id/hint" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Ketuk untuk mulai merekam" android:textColor="@color/mut" android:layout_marginTop="14dp" />
+
+            <ProgressBar android:id="@+id/level" style="?android:attr/progressBarStyleHorizontal"
+                android:layout_width="match_parent" android:layout_height="10dp" android:max="100"
+                android:progressDrawable="@drawable/progress_level" android:layout_marginTop="16dp" />
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:orientation="horizontal" android:layout_marginTop="16dp">
+                <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+                    android:orientation="horizontal" android:gravity="center_vertical" android:background="@drawable/bg_tint"
+                    android:padding="10dp" android:layout_marginHorizontal="4dp">
+                    <ImageView android:layout_width="22dp" android:layout_height="22dp" android:src="@drawable/ic_layers" android:tint="@color/accent" />
+                    <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="vertical" android:layout_marginStart="10dp">
+                        <TextView android:id="@+id/chunks" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:text="0" android:textSize="18sp" android:textStyle="bold" android:textColor="@color/tx" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:text="potongan sesi ini" android:textSize="11sp" android:textColor="@color/mut" />
+                    </LinearLayout>
+                </LinearLayout>
+                <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+                    android:orientation="horizontal" android:gravity="center_vertical" android:background="@drawable/bg_tint"
+                    android:padding="10dp" android:layout_marginHorizontal="4dp">
+                    <ImageView android:layout_width="22dp" android:layout_height="22dp" android:src="@drawable/ic_upload" android:tint="@color/accent" />
+                    <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content" android:orientation="vertical" android:layout_marginStart="10dp">
+                        <TextView android:id="@+id/pending" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:text="0" android:textSize="18sp" android:textStyle="bold" android:textColor="@color/tx" />
+                        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                            android:text="antre dikirim" android:textSize="11sp" android:textColor="@color/mut" />
+                    </LinearLayout>
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Pengaturan -->
+        <LinearLayout android:id="@+id/settings" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:orientation="vertical" android:background="@drawable/bg_card" android:padding="18dp"
+            android:layout_marginTop="14dp">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:text="Pengaturan rekaman" android:textStyle="bold" android:textSize="16sp" android:textColor="@color/tx"
+                android:drawableStart="@drawable/ic_sliders" android:drawablePadding="8dp" android:drawableTint="@color/accent"
+                android:gravity="center_vertical" />
+
+            <TextView style="@style/JKam.Label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Kualitas audio" />
+            <Spinner android:id="@+id/quality" android:layout_width="match_parent" android:layout_height="48dp"
+                android:background="@drawable/bg_input" android:paddingStart="8dp" />
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+                <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+                    android:orientation="vertical" android:layout_marginEnd="6dp">
+                    <TextView style="@style/JKam.Label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Potongan (menit)" />
+                    <EditText android:id="@+id/chunk" style="@style/JKam.Input" android:layout_width="match_parent"
+                        android:layout_height="wrap_content" android:inputType="number" />
+                </LinearLayout>
+                <LinearLayout android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"
+                    android:orientation="vertical" android:layout_marginStart="6dp">
+                    <TextView style="@style/JKam.Label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Batas (jam, 0=tanpa)" />
+                    <EditText android:id="@+id/maxHours" style="@style/JKam.Input" android:layout_width="match_parent"
+                        android:layout_height="wrap_content" android:inputType="number" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <androidx.appcompat.widget.SwitchCompat android:id="@+id/enhance" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:layout_marginTop="14dp" android:textColor="@color/tx"
+                android:text="Penjernih suara (filter noise, EQ, penguat otomatis)" />
+            <androidx.appcompat.widget.SwitchCompat android:id="@+id/voiceMode" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:layout_marginTop="10dp" android:textColor="@color/tx"
+                android:text="Mode percakapan (peredam bising bawaan HP lebih kuat)" />
+            <androidx.appcompat.widget.SwitchCompat android:id="@+id/wifiOnly" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:layout_marginTop="10dp" android:textColor="@color/tx"
+                android:text="Kirim hanya lewat Wi-Fi" />
+
+            <Button android:id="@+id/battery" style="@style/JKam.Button" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:layout_marginTop="16dp"
+                android:text="Izinkan berjalan 24 jam (matikan optimasi baterai)"
+                app:icon="@drawable/ic_battery" app:iconTint="#FFFFFF" app:iconGravity="textStart" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="10dp"
+                android:textColor="@color/mut" android:textSize="12sp"
+                android:text="Rekaman disimpan per potongan dan otomatis dikirim ke server. Jika internet putus, rekaman disimpan di HP dan dikirim saat online lagi. Selama merekam, notifikasi JKam selalu tampil." />
+        </LinearLayout>
+    </LinearLayout>
+</ScrollView>

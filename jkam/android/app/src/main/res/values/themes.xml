@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<resources>
+    <style name="Theme.JKam" parent="Theme.Material3.Light.NoActionBar">
+        <item name="colorPrimary">@color/accent</item>
+        <item name="colorSecondary">#DB2777</item>
+        <item name="colorOnSurface">@color/tx</item>
+        <item name="android:windowBackground">@color/bg</item>
+        <item name="android:statusBarColor">@color/card</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowLightNavigationBar">true</item>
+        <item name="android:navigationBarColor">@color/card</item>
+        <item name="android:textColor">@color/tx</item>
+    </style>
+    <style name="JKam.Input">
+        <item name="android:background">@drawable/bg_input</item>
+        <item name="android:padding">14dp</item>
+        <item name="android:textColor">@color/tx</item>
+        <item name="android:textColorHint">@color/mut</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:singleLine">true</item>
+    </style>
+    <style name="JKam.Label">
+        <item name="android:textColor">@color/mut</item>
+        <item name="android:textSize">12sp</item>
+        <item name="android:layout_marginTop">12dp</item>
+        <item name="android:layout_marginBottom">5dp</item>
+    </style>
+    <style name="JKam.Button" parent="Widget.Material3.Button">
+        <item name="android:background">@drawable/bg_grad</item>
+        <item name="backgroundTint">@null</item>
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:minHeight">52dp</item>
+    </style>
+</resources>

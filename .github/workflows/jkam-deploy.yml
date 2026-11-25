@@ -1,0 +1,40 @@
+name: Deploy JKam API
+# Server JKam (worker "jkam-api"): akun Head Admin/Owner/User, lisensi, rekaman (D1 "jkam_db" + R2 "jkam-audio"),
+# panel web Head Admin & Owner, dan unduhan APK JKam untuk halaman promo HomeTech.
+# Database & bucket JKam terpisah total dari data J-POS.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['jkam/worker/**', '.github/workflows/jkam-deploy.yml']
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    defaults:
+      run:
+        working-directory: jkam/worker
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Siapkan D1 "jkam_db" (dibuat sekali bila belum ada)
+        run: |
+          find_id() { npx --yes wrangler@4 d1 list --json 2>/dev/null | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const a=JSON.parse(s).find(x=>x.name==="jkam_db");console.log(a?a.uuid:"")}catch(e){console.log("")}})'; }
+          ID=$(find_id)
+          if [ -z "$ID" ]; then npx --yes wrangler@4 d1 create jkam_db; ID=$(find_id); fi
+          [ -n "$ID" ] || { echo "::error::Gagal membuat/menemukan D1 jkam_db"; exit 1; }
+          sed -i "s/REPLACE_WITH_D1_ID/$ID/" wrangler.toml
+      - name: Siapkan R2 "jkam-audio"
+        run: |
+          npx --yes wrangler@4 r2 bucket list 2>/dev/null | grep -q "jkam-audio" || npx --yes wrangler@4 r2 bucket create jkam-audio
+      - name: Buat / perbarui tabel
+        run: npx --yes wrangler@4 d1 execute jkam_db --remote --file schema.sql --yes
+      - name: Deploy worker
+        run: npx --yes wrangler@4 deploy
+      - name: Tes server hidup
+        run: |
+          sleep 6
+          curl -fsS https://jkam-api.muchlis7771.workers.dev/api/health
+          curl -fsS https://jkam-api.muchlis7771.workers.dev/api/public/apps

@@ -1,0 +1,43 @@
+name: Build APK JKam
+# Build 3 APK (Head Admin, Owner, User) lalu unggah ke R2 supaya bisa diunduh dari
+# https://jkam-api.muchlis7771.workers.dev/download/jkam-*.apk (dipakai kartu JKam di promo HomeTech).
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['jkam/android/**', '.github/workflows/jkam-apk.yml']
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      JKAM_SERVER_URL: https://jkam-api.muchlis7771.workers.dev
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '17' }
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: '8.9' }
+      - name: Build 3 APK
+        working-directory: jkam/android
+        run: gradle --no-daemon assembleHeadadminRelease assembleOwnerRelease assembleUserRelease
+      - name: Kumpulkan APK
+        run: |
+          mkdir -p out
+          cp jkam/android/app/build/outputs/apk/headadmin/release/*.apk out/jkam-headadmin.apk
+          cp jkam/android/app/build/outputs/apk/owner/release/*.apk     out/jkam-owner.apk
+          cp jkam/android/app/build/outputs/apk/user/release/*.apk      out/jkam-user.apk
+          ls -la out
+      - uses: actions/upload-artifact@v4
+        with: { name: JKam-APK, path: out/*.apk }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Unggah APK ke R2 (jkam-audio/apk/)
+        run: |
+          npx --yes wrangler@4 r2 bucket list 2>/dev/null | grep -q "jkam-audio" || npx --yes wrangler@4 r2 bucket create jkam-audio
+          for f in jkam-headadmin jkam-owner jkam-user; do
+            npx --yes wrangler@4 r2 object put "jkam-audio/apk/$f.apk" --file "out/$f.apk" --content-type application/vnd.android.package-archive --remote
+          done
+          printf '{"version":"1.0.%s","built_at":"%s"}' "${{ github.run_number }}" "$(date -u +%FT%TZ)" > out/version.json
+          npx --yes wrangler@4 r2 object put "jkam-audio/apk/version.json" --file out/version.json --content-type application/json --remote
