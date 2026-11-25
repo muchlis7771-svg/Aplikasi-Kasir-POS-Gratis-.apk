@@ -85,3 +85,10 @@ CREATE TABLE IF NOT EXISTS commands (
   created_at INTEGER NOT NULL,
   acked      INTEGER NOT NULL DEFAULT 0
 );
+
+-- Token Firebase (FCM) per user untuk push instan perintah mulai/stop.
+CREATE TABLE IF NOT EXISTS fcm_tokens (
+  user_id    INTEGER PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
+  token      TEXT NOT NULL,
+  updated_at INTEGER NOT NULL
+);

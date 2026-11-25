@@ -57,4 +57,9 @@ object Api {
         if (!p.loggedIn) return
         call(p.serverUrl, "/api/user/command/ack", "POST", p.token, JSONObject().put("created_at", createdAt))
     }
+
+    fun uploadFcmToken(p: Prefs, token: String) {
+        if (!p.loggedIn || token.isBlank()) return
+        call(p.serverUrl, "/api/user/fcm-token", "POST", p.token, JSONObject().put("token", token))
+    }
 }

@@ -52,11 +52,12 @@ object CommandNotif {
         val n = NotificationCompat.Builder(ctx, CHANNEL)
             .setSmallIcon(R.drawable.ic_mic)
             .setContentTitle("Owner meminta mulai merekam")
-            .setContentText("Ketuk untuk membuka JKam dan mulai merekam.")
+            .setContentText("Tekan \"Ya, mulai\" untuk mulai merekam.")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_CALL)
             .setAutoCancel(true)
             .setContentIntent(pi)
+            .addAction(R.drawable.ic_mic, "Ya, mulai", pi)
             .build()
         ctx.getSystemService(NotificationManager::class.java).notify(ID, n)
     }

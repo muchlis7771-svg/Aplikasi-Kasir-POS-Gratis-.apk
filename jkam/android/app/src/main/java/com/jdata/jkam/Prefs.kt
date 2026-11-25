@@ -35,6 +35,12 @@ class Prefs(ctx: Context) {
     var remoteControl: Boolean
         get() = sp.getBoolean("remote", true)
         set(v) = sp.edit().putBoolean("remote", v).apply()
+    var autoUpdate: Boolean
+        get() = sp.getBoolean("autoupd", true)
+        set(v) = sp.edit().putBoolean("autoupd", v).apply()
+    var updateHandled: String  // versi yang sudah ditawarkan agar tidak berulang
+        get() = sp.getString("updver", "") ?: ""
+        set(v) = sp.edit().putString("updver", v).apply()
     /** 0 = hemat 32k, 1 = standar 48k, 2 = tinggi 96k */
     var quality: Int
         get() = sp.getInt("quality", 1)

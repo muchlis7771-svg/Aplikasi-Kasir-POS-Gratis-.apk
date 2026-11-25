@@ -20,6 +20,16 @@ jobs:
         run: echo "ANDROID_HOME=$ANDROID_HOME"; yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
       - uses: gradle/actions/setup-gradle@v4
         with: { gradle-version: '8.9' }
+      - name: Tulis google-services.json (jika Firebase diisi)
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+            printf '%s' "$GOOGLE_SERVICES_JSON" > jkam/android/app/google-services.json
+            echo "Firebase aktif di APK"
+          else
+            echo "::warning::GOOGLE_SERVICES_JSON belum diisi — APK dibangun tanpa Firebase (pakai polling)"
+          fi
       - name: Build 3 APK
         working-directory: jkam/android
         run: gradle --no-daemon assembleHeadadminRelease assembleOwnerRelease assembleUserRelease

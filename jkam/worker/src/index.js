@@ -2,6 +2,7 @@
 // File audio disimpan di R2, data akun/lisensi/rekaman di D1.
 import { PANEL_HTML } from "./panel.js";
 import { LOGO_SVG } from "./logo.js";
+import { sendPush } from "./fcm.js";
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -318,9 +319,26 @@ async function setCommand(req, env, acc, userId) {
   const b = await body(req);
   const action = b.action === "stop" ? "stop" : b.action === "start" ? "start" : null;
   if (!action) fail(400, "Perintah harus start atau stop");
+  const ts = Date.now();
   await env.DB.prepare(
     "INSERT OR REPLACE INTO commands (user_id, action, created_at, acked) VALUES (?1, ?2, ?3, 0)"
-  ).bind(u.id, action, Date.now()).run();
+  ).bind(u.id, action, ts).run();
+  // Push instan via Firebase (best-effort; jika tidak ada token/secret, user memakai polling)
+  let pushed = false;
+  try {
+    const t = await env.DB.prepare("SELECT token FROM fcm_tokens WHERE user_id = ?1").bind(u.id).first();
+    if (t && t.token) pushed = await sendPush(env, t.token, { type: "command", action, created_at: String(ts) });
+  } catch (_) {}
+  return json({ ok: true, pushed });
+}
+
+async function saveFcmToken(req, env, acc) {
+  need(acc, "user");
+  const b = await body(req);
+  const token = String(b.token || "").slice(0, 300);
+  if (token) await env.DB.prepare(
+    "INSERT OR REPLACE INTO fcm_tokens (user_id, token, updated_at) VALUES (?1, ?2, ?3)"
+  ).bind(acc.id, token, Date.now()).run();
   return json({ ok: true });
 }
 
@@ -569,6 +587,7 @@ async function route(req, env, url) {
   if (p === "/api/user/heartbeat" && M === "POST") return heartbeat(req, env, acc);
   if (p === "/api/user/command" && M === "GET") return getCommand(env, acc);
   if (p === "/api/user/command/ack" && M === "POST") return ackCommand(req, env, acc);
+  if (p === "/api/user/fcm-token" && M === "POST") return saveFcmToken(req, env, acc);
 
   // rekaman
   if ((m = /^\/api\/rec\/([A-Za-z0-9\-]+)\/audio$/.exec(p)) && M === "GET") return streamAudio(req, env, acc, m[1]);

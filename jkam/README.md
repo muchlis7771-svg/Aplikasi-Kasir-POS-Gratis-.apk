@@ -79,6 +79,21 @@ Kartu JKam di halaman promo HomeTech (`jpos/public/promo/index.html`) mengambil 
 ## Kendali jarak jauh (Owner → HP user)
 Owner/Head Admin bisa menekan **Minta mulai rekam** / **Minta stop rekam** pada tiap user. HP user menerima notifikasi; untuk mulai, user mengetuk notifikasi (aplikasi tampil ke depan lalu merekam — indikator rekam tetap terlihat). Perintah stop saat sedang merekam dijalankan otomatis dengan notifikasi pemberitahuan. User bisa mematikan lewat saklar **"Terima permintaan dari Owner"**. Pengiriman: instan saat aplikasi terbuka atau saat sedang merekam; saat aplikasi tertutup, dicek berkala (~15 menit) oleh WorkManager. Untuk push instan saat tertutup diperlukan Firebase (belum dipasang).
 
+## Push instan via Firebase (opsional)
+Tanpa Firebase, perintah mulai/stop tetap jalan (polling: instan saat app terbuka/merekam, ~15 menit saat tertutup). Untuk push **instan walau aplikasi tertutup**, aktifkan Firebase:
+
+1. Buat project di https://console.firebase.google.com (gratis).
+2. Tambahkan **tiga** aplikasi Android ke project itu (karena ada 3 APK), dengan package name:
+   `com.jdata.jkam.headadmin`, `com.jdata.jkam.owner`, `com.jdata.jkam.user`.
+3. Dari **Project settings → General**, unduh **google-services.json** (satu file berisi ketiga app). Salin seluruh isinya ke GitHub Secret **`GOOGLE_SERVICES_JSON`**.
+4. Di **Project settings → Service accounts → Generate new private key**, unduh JSON-nya. Pastikan **Firebase Cloud Messaging API (V1)** aktif. Salin seluruh isi JSON ke GitHub Secret **`FCM_SERVICE_ACCOUNT`**.
+5. Jalankan ulang **Deploy JKam API** dan **Build APK JKam**. Selesai — push jadi instan.
+
+Saat perintah "mulai" tiba, HP user menampilkan notifikasi **"Owner meminta mulai merekam — Ya, mulai"**. Rekaman hanya mulai setelah user menekannya, dan indikator rekam tetap tampil. Perintah "stop" saat merekam dijalankan otomatis dengan pemberitahuan.
+
+## Update otomatis APK
+APK User memeriksa versi terbaru di `/api/public/apps`. Bila ada versi baru dan izin "Pasang aplikasi tak dikenal" sudah diberikan, JKam **mengunduh sendiri lalu membuka pemasang** (user menekan "Pasang" — ini wajib di Android untuk APK di luar Play Store). Ada juga banner **Perbarui** manual. Head Admin & Owner (panel web) cukup muat ulang halaman karena selalu versi terbaru dari server.
+
 ## Hapus rekaman (hemat penyimpanan)
 Di tab **Rekaman** (Owner & Head Admin): hapus satu potongan (ikon tempat sampah), **Hapus sesi ini** (satu sesi penuh), mode **Pilih** untuk memilih beberapa sesi lalu **Hapus terpilih**, dan **Hapus lama…** untuk membuang rekaman yang lebih lama dari sekian hari. File dihapus dari R2 dan datanya dari D1 sekaligus. Owner hanya bisa menghapus rekaman miliknya sendiri.
 

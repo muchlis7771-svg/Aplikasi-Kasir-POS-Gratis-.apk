@@ -96,9 +96,7 @@ class MainActivity : AppCompatActivity() {
             checkLicense(); checkUpdate(); UploadWorker.enqueueAll(this, replace = true)
             Toast.makeText(this, "Diperbarui", Toast.LENGTH_SHORT).show()
         }
-        findViewById<TextView>(R.id.updateBtn).setOnClickListener {
-            try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(p.serverUrl + "/download/jkam-user.apk"))) } catch (_: Exception) {}
-        }
+        findViewById<TextView>(R.id.updateBtn).setOnClickListener { startUpdate() }
 
         UploadWorker.enqueueAll(this) // pastikan sisa rekaman terkirim
         if (p.remoteControl) CommandWorker.schedule(this)
@@ -110,6 +108,7 @@ class MainActivity : AppCompatActivity() {
         ui.post(tick)
         checkLicense()
         checkUpdate()
+        FirebaseMsgService.registerToken(this)
         if (p.remoteControl) ui.post(cmdTick)
     }
 
@@ -222,17 +221,37 @@ class MainActivity : AppCompatActivity() {
     /** Angka build dari versionName "1.0.N" untuk membandingkan versi. */
     private fun buildNum(v: String?) = v?.substringAfterLast('.')?.toIntOrNull() ?: 0
 
+    @Volatile private var serverVersion = ""
     private fun checkUpdate() {
         Thread {
             val r = Api.call(p.serverUrl, "/api/public/apps")
             val server = r.json.optString("version", "")
-            if (r.ok && buildNum(server) > buildNum(BuildConfig.VERSION_NAME)) {
-                runOnUiThread {
-                    findViewById<View>(R.id.updateBanner).visibility = View.VISIBLE
+            val newer = r.ok && buildNum(server) > buildNum(BuildConfig.VERSION_NAME)
+            runOnUiThread {
+                serverVersion = server
+                findViewById<View>(R.id.updateBanner).visibility = if (newer) View.VISIBLE else View.GONE
+                if (newer) {
                     findViewById<TextView>(R.id.updateText).text = "Versi baru JKam tersedia (v$server)"
+                    // Update otomatis: unduh & buka pemasang sekali per versi (bukan saat merekam)
+                    if (p.autoUpdate && p.updateHandled != server && !RecorderService.running && AppUpdater.canInstall(this)) {
+                        p.updateHandled = server
+                        AppUpdater.downloadAndInstall(this, p.serverUrl + "/download/jkam-user.apk") { s -> Toast.makeText(this, s, Toast.LENGTH_SHORT).show() }
+                    }
                 }
-            } else runOnUiThread { findViewById<View>(R.id.updateBanner).visibility = View.GONE }
+            }
         }.start()
+    }
+
+    private fun startUpdate() {
+        if (!AppUpdater.canInstall(this)) {
+            AlertDialog.Builder(this)
+                .setTitle("Izinkan pemasangan")
+                .setMessage("Agar JKam bisa memperbarui sendiri, izinkan \"Pasang aplikasi tak dikenal\" untuk JKam.")
+                .setPositiveButton("Buka pengaturan") { _, _ -> AppUpdater.openInstallSettings(this) }
+                .setNegativeButton("Batal", null).show()
+            return
+        }
+        AppUpdater.downloadAndInstall(this, p.serverUrl + "/download/jkam-user.apk") { s -> Toast.makeText(this, s, Toast.LENGTH_SHORT).show() }
     }
 
     private val permLauncher = registerForActivityResult(

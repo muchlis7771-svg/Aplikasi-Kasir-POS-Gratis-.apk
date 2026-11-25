@@ -33,6 +33,16 @@ jobs:
         run: npx --yes wrangler@4 d1 execute jkam_db --remote --file schema.sql --yes
       - name: Deploy worker
         run: npx --yes wrangler@4 deploy
+      - name: Simpan service account FCM (opsional, untuk push instan)
+        env:
+          FCM_SERVICE_ACCOUNT: ${{ secrets.FCM_SERVICE_ACCOUNT }}
+        run: |
+          if [ -n "$FCM_SERVICE_ACCOUNT" ]; then
+            printf '%s' "$FCM_SERVICE_ACCOUNT" | npx --yes wrangler@4 secret put FCM_SERVICE_ACCOUNT
+            echo "Push Firebase aktif"
+          else
+            echo "::warning::Secret FCM_SERVICE_ACCOUNT belum diisi — perintah tetap jalan via polling (tanpa push instan)"
+          fi
       - name: Tes server hidup
         run: |
           sleep 6

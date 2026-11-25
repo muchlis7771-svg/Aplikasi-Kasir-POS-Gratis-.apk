@@ -3,6 +3,13 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+// Firebase (push instan) aktif hanya bila google-services.json ada. Tanpa file ini,
+// APK tetap dibangun normal dan memakai polling sebagai cadangan.
+val hasFirebase = file("google-services.json").exists()
+if (hasFirebase) {
+    apply(plugin = "com.google.gms.google-services")
+}
+
 // Alamat server Worker, diisi dari GitHub Actions (variable JKAM_SERVER_URL). Boleh kosong:
 // aplikasi akan menanyakan alamat server saat pertama dibuka.
 val serverUrl = (System.getenv("JKAM_SERVER_URL") ?: "").trim().trimEnd('/')
@@ -69,4 +76,6 @@ dependencies {
     implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.work:work-runtime-ktx:2.9.1")
     implementation("androidx.webkit:webkit:1.11.0")
+    // Firebase Cloud Messaging hanya untuk flavor "user" (perekam)
+    "userImplementation"("com.google.firebase:firebase-messaging:24.0.0")
 }
