@@ -12,7 +12,7 @@
         <item name="android:navigationBarColor">@color/card</item>
         <item name="android:textColor">@color/tx</item>
     </style>
-    <style name="JKam.Input">
+    <style name="JKam.Input" parent="">
         <item name="android:background">@drawable/bg_input</item>
         <item name="android:padding">14dp</item>
         <item name="android:textColor">@color/tx</item>
@@ -20,7 +20,7 @@
         <item name="android:textSize">15sp</item>
         <item name="android:singleLine">true</item>
     </style>
-    <style name="JKam.Label">
+    <style name="JKam.Label" parent="">
         <item name="android:textColor">@color/mut</item>
         <item name="android:textSize">12sp</item>
         <item name="android:layout_marginTop">12dp</item>
