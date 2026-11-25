@@ -88,6 +88,8 @@ class MainActivity : AppCompatActivity() {
             }
         }
         findViewById<Button>(R.id.battery).setOnClickListener { askBattery() }
+        findViewById<TextView>(R.id.versionText).text = "Versi " + BuildConfig.VERSION_NAME
+        findViewById<Button>(R.id.btnUpdate).setOnClickListener { checkUpdateManual() }
 
         recBtn.setOnClickListener { if (RecorderService.running) confirmStop() else startRec() }
         findViewById<android.view.View>(R.id.logout).setOnClickListener { confirmLogout() }
@@ -237,6 +239,22 @@ class MainActivity : AppCompatActivity() {
                         p.updateHandled = server
                         AppUpdater.downloadAndInstall(this, p.serverUrl + "/download/jkam-user.apk") { s -> Toast.makeText(this, s, Toast.LENGTH_SHORT).show() }
                     }
+                }
+            }
+        }.start()
+    }
+
+    /** Tombol "Perbarui aplikasi": cek versi, kalau ada yang baru langsung unduh+pasang, kalau tidak beri tahu. */
+    private fun checkUpdateManual() {
+        Toast.makeText(this, "Memeriksa pembaruan…", Toast.LENGTH_SHORT).show()
+        Thread {
+            val r = Api.call(p.serverUrl, "/api/public/apps")
+            val server = r.json.optString("version", "")
+            runOnUiThread {
+                when {
+                    !r.ok -> Toast.makeText(this, "Tidak bisa cek pembaruan (offline?)", Toast.LENGTH_SHORT).show()
+                    buildNum(server) > buildNum(BuildConfig.VERSION_NAME) -> { p.updateHandled = server; startUpdate() }
+                    else -> Toast.makeText(this, "Sudah versi terbaru (v" + BuildConfig.VERSION_NAME + ")", Toast.LENGTH_SHORT).show()
                 }
             }
         }.start()
