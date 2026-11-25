@@ -109,6 +109,10 @@ audio{flex:1;min-width:0;height:38px}
 .empty .e .ico{width:26px;height:26px}
 .spin{width:28px;height:28px;border:3px solid var(--pri-100);border-top-color:var(--pri);border-radius:50%;margin:auto;animation:sp 1s linear infinite}@keyframes sp{to{transform:rotate(360deg)}}
 a.lnk{color:var(--pri);font-weight:650;text-decoration:none}
+.sgroup.selected{outline:2px solid var(--pri);outline-offset:-2px}
+.sgroup .schk{width:20px;height:20px;flex:none;accent-color:var(--pri);pointer-events:none}
+.selbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:12px;background:var(--pri-50);border:1px solid var(--pri-100);border-radius:12px;padding:10px 12px}
+.selbar .c{flex:1;font-weight:700;color:var(--pri);min-width:90px}
 .hide{display:none!important}
 </style></head><body>
 <div id="app"></div>
@@ -276,8 +280,27 @@ function layout(tabs, render) {
 // ===================== REKAMAN (dipakai owner & admin) =====================
 async function recordingsView(base, filters) {
   const pg = $("#pg");
+  const delUrl = base + "/delete";
+  let selecting = false;
   pg.innerHTML = '<div class="card"><div class="row">' + filters + '<input type="date" id="fd" class="fx" value="' + (window._fd || today()) + '"></div>' +
-    '<label class="mut" style="display:flex;gap:8px;align-items:center;margin-top:10px"><input type="checkbox" id="ap" checked style="width:auto"> Putar berurutan otomatis</label></div><div id="rl"></div>';
+    '<div class="row" style="margin-top:10px">' +
+      '<label class="mut" style="display:flex;gap:8px;align-items:center;flex:1 1 150px"><input type="checkbox" id="ap" checked style="width:auto"> Putar berurutan otomatis</label>' +
+      '<button class="btn o s" id="selMode">' + ic("check") + 'Pilih</button>' +
+      '<button class="btn o s" id="delOld">' + ic("trash") + 'Hapus lama…</button>' +
+    '</div></div>' +
+    '<div class="selbar hide" id="selbar"><span class="c" id="selc">0 dipilih</span><button class="btn o s" id="selAll">Pilih semua</button><button class="btn r s" id="delSel">' + ic("trash") + 'Hapus terpilih</button></div>' +
+    '<div id="rl"></div>';
+
+  const count = () => {
+    const n = pg.querySelectorAll(".sgroup.selected").length;
+    $("#selc").textContent = n + " dipilih";
+  };
+  const selectedIds = () => {
+    const ids = [];
+    pg.querySelectorAll(".sgroup.selected").forEach((g) => ids.push(...g.dataset.ids.split(",")));
+    return ids;
+  };
+
   const load = async () => {
     window._fd = $("#fd").value;
     const q = new URLSearchParams({ date: $("#fd").value });
@@ -286,20 +309,57 @@ async function recordingsView(base, filters) {
     const groups = {};
     recordings.slice().reverse().forEach((r) => { const k = r.user_id + "|" + r.session_id; (groups[k] = groups[k] || []).push(r); });
     const arr = Object.values(groups).sort((a, b) => b[0].started_at - a[0].started_at);
-    if (!arr.length) { $("#rl").innerHTML = '<div class="card">' + emptyBox("mic", "Belum ada rekaman di tanggal ini") + '</div>'; return; }
+    if (!arr.length) { $("#rl").innerHTML = '<div class="card">' + emptyBox("mic", "Belum ada rekaman di tanggal ini") + '</div>'; count(); return; }
     $("#rl").innerHTML = arr.map((g) => {
       const tot = g.reduce((a, r) => a + r.duration_ms, 0);
-      return '<div class="card"><div class="row"><div class="av">' + initials(g[0].user_name) + '</div><div class="fx"><h3>' + esc(g[0].user_name || g[0].user_username || "User") + '</h3><div class="mut">' +
-        (ME.role === "headadmin" ? esc(g[0].owner_name) + " · " : "") + hm(g[0].started_at) + ' – ' + hm(g[g.length - 1].started_at + g[g.length - 1].duration_ms) + ' · ' + dur(tot) + ' · ' + g.length + ' potongan</div></div></div><div class="sess">' +
+      const ids = g.map((r) => r.id).join(",");
+      return '<div class="card sgroup" data-ids="' + ids + '"><div class="row">' +
+        '<input type="checkbox" class="schk' + (selecting ? "" : " hide") + '" tabindex="-1">' +
+        '<div class="av">' + initials(g[0].user_name) + '</div><div class="fx"><h3>' + esc(g[0].user_name || g[0].user_username || "User") + '</h3><div class="mut">' +
+        (ME.role === "headadmin" ? esc(g[0].owner_name) + " · " : "") + hm(g[0].started_at) + ' – ' + hm(g[g.length - 1].started_at + g[g.length - 1].duration_ms) + ' · ' + dur(tot) + ' · ' + g.length + ' potongan</div></div>' +
+        '<button class="ic-btn d" data-delsess title="Hapus sesi ini">' + ic("trash") + '</button></div><div class="sess">' +
         g.map((r) => { const src = "/api/rec/" + r.id + "/audio?token=" + encodeURIComponent(TOKEN);
           return '<div class="rec"><span class="tm">' + hm(r.started_at) + '</span><audio controls preload="none" src="' + src + '"></audio><a class="ic-btn" href="' + src + '" download="JKam-' + r.id + '.m4a" title="Unduh">' + ic("dl") + '</a><button class="ic-btn d" data-del="' + r.id + '" title="Hapus">' + ic("trash") + '</button></div>'; }).join("") +
         '</div></div>';
     }).join("");
     const auds = [...document.querySelectorAll("#rl audio")];
     auds.forEach((a, i) => { a.onplay = () => auds.forEach((b) => b !== a && b.pause()); a.onended = () => { if ($("#ap").checked && auds[i + 1]) auds[i + 1].play(); }; });
+    count();
   };
-  $("#rl").onclick = async (e) => { const b = e.target.closest("[data-del]"); if (b && confirmBox("Hapus potongan rekaman ini?")) { await api("/api/rec/" + b.dataset.del, { method: "DELETE" }); b.parentElement.remove(); toast("Dihapus"); } };
-  pg.querySelectorAll("select,input[type=date]").forEach((s) => s.onchange = load);
+
+  $("#rl").onclick = async (e) => {
+    const card = e.target.closest(".sgroup");
+    if (selecting && card && !e.target.closest("audio, a, button")) {
+      card.classList.toggle("selected");
+      const c = card.querySelector(".schk"); if (c) c.checked = card.classList.contains("selected");
+      count(); return;
+    }
+    const chunk = e.target.closest("[data-del]");
+    if (chunk) { if (confirmBox("Hapus potongan rekaman ini?")) { await api("/api/rec/" + chunk.dataset.del, { method: "DELETE" }); chunk.closest(".rec").remove(); toast("Dihapus"); } return; }
+    const sess = e.target.closest("[data-delsess]");
+    if (sess) { const g = sess.closest(".sgroup"); const ids = g.dataset.ids.split(","); if (confirmBox("Hapus seluruh sesi ini (" + ids.length + " potongan)?")) { const r = await api(delUrl, { method: "POST", body: { ids } }); g.remove(); toast(r.deleted + " potongan dihapus"); } return; }
+  };
+
+  $("#selMode").onclick = () => {
+    selecting = !selecting;
+    $("#selMode").classList.toggle("k", selecting);
+    $("#selbar").classList.toggle("hide", !selecting);
+    pg.querySelectorAll(".schk").forEach((c) => c.classList.toggle("hide", !selecting));
+    if (!selecting) pg.querySelectorAll(".sgroup.selected").forEach((g) => { g.classList.remove("selected"); const c = g.querySelector(".schk"); if (c) c.checked = false; });
+    count();
+  };
+  $("#selAll").onclick = () => { const all = [...pg.querySelectorAll(".sgroup")]; const on = pg.querySelectorAll(".sgroup.selected").length < all.length; all.forEach((g) => { g.classList.toggle("selected", on); const c = g.querySelector(".schk"); if (c) c.checked = on; }); count(); };
+  $("#delSel").onclick = async () => {
+    const ids = selectedIds();
+    if (!ids.length) return toast("Belum ada yang dipilih");
+    if (!confirmBox("Hapus " + ids.length + " potongan rekaman terpilih?")) return;
+    const r = await api(delUrl, { method: "POST", body: { ids } });
+    toast(r.deleted + " potongan dihapus"); load();
+  };
+  $("#delOld").onclick = () => modal("Hapus rekaman lama", [{ label: "Hapus yang lebih lama dari (hari)", name: "days", type: "number", value: 30 }], "Hapus",
+    async (v) => { const d = +v.days; if (!(d > 0)) return toast("Isi jumlah hari"); if (!confirmBox("Hapus semua rekaman lebih lama dari " + d + " hari? Tidak bisa dibatalkan.")) return; const r = await api(delUrl, { method: "POST", body: { before_days: d } }); toast(r.deleted + " potongan dihapus"); load(); });
+
+  pg.querySelectorAll("select, input[type=date]").forEach((s) => s.onchange = load);
   await load();
 }
 

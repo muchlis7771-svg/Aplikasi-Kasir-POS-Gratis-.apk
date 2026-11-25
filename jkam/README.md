@@ -76,5 +76,11 @@ Kartu JKam di halaman promo HomeTech (`jpos/public/promo/index.html`) mengambil 
 - Username: `headadmin`. Password diberikan terpisah. Yang tersimpan di `wrangler.toml` hanya hash PBKDF2-nya.
 - Ganti password lewat menu **Akun** setelah login pertama.
 
+## Kendali jarak jauh (Owner → HP user)
+Owner/Head Admin bisa menekan **Minta mulai rekam** / **Minta stop rekam** pada tiap user. HP user menerima notifikasi; untuk mulai, user mengetuk notifikasi (aplikasi tampil ke depan lalu merekam — indikator rekam tetap terlihat). Perintah stop saat sedang merekam dijalankan otomatis dengan notifikasi pemberitahuan. User bisa mematikan lewat saklar **"Terima permintaan dari Owner"**. Pengiriman: instan saat aplikasi terbuka atau saat sedang merekam; saat aplikasi tertutup, dicek berkala (~15 menit) oleh WorkManager. Untuk push instan saat tertutup diperlukan Firebase (belum dipasang).
+
+## Hapus rekaman (hemat penyimpanan)
+Di tab **Rekaman** (Owner & Head Admin): hapus satu potongan (ikon tempat sampah), **Hapus sesi ini** (satu sesi penuh), mode **Pilih** untuk memilih beberapa sesi lalu **Hapus terpilih**, dan **Hapus lama…** untuk membuang rekaman yang lebih lama dari sekian hari. File dihapus dari R2 dan datanya dari D1 sekaligus. Owner hanya bisa menghapus rekaman miliknya sendiri.
+
 ## Catatan hukum
-Beri tahu orang yang suaranya direkam (misalnya karyawan, lewat pengumuman atau stiker "area direkam"). Notifikasi JKam selalu tampil selama merekam dan sengaja tidak bisa disembunyikan.
+Beri tahu orang yang suaranya direkam (misalnya karyawan, lewat pengumuman atau stiker "area direkam"). Notifikasi JKam selalu tampil selama merekam dan sengaja tidak bisa disembunyikan. Layar pembuka berupa kalkulator hanya mengunci halaman login — proses rekam tetap menampilkan notifikasi dan indikator mikrofon.

@@ -378,6 +378,40 @@ async function deleteRecording(env, acc, id) {
   return json({ ok: true });
 }
 
+// Hapus massal: pilihan (ids), satu sesi, satu user/tanggal, atau lebih lama dari N hari.
+async function bulkDelete(req, env, acc) {
+  const b = await body(req);
+  const where = []; const args = [];
+  const add = (cond, v) => { args.push(v); where.push(cond.replace("?", "?" + args.length)); };
+  if (acc.role === "owner") add("owner_id = ?", acc.id);
+  else if (b.owner_id) add("owner_id = ?", b.owner_id | 0);
+
+  if (Array.isArray(b.ids) && b.ids.length) {
+    const ids = b.ids.slice(0, 3000).map(String);
+    where.push("id IN (" + ids.map((_, i) => "?" + (args.length + i + 1)).join(",") + ")");
+    args.push(...ids);
+  } else {
+    const rng = dayRange(b.date);
+    if (b.user_id) add("user_id = ?", b.user_id | 0);
+    if (b.session_id) add("session_id = ?", String(b.session_id));
+    if (rng) { add("started_at >= ?", rng[0]); add("started_at < ?", rng[1]); }
+    if (b.before_days) add("started_at < ?", Date.now() - (b.before_days | 0) * DAY);
+    if (!(b.user_id || b.session_id || rng || b.before_days)) fail(400, "Pilih rekaman atau filter dulu");
+  }
+  const { results } = await env.DB.prepare(
+    "SELECT id, r2_key FROM recordings WHERE " + where.join(" AND ") + " ORDER BY started_at LIMIT 5000"
+  ).bind(...args).all();
+  if (!results.length) return json({ ok: true, deleted: 0 });
+  const keys = results.map((r) => r.r2_key);
+  for (let i = 0; i < keys.length; i += 1000) await env.AUDIO.delete(keys.slice(i, i + 1000));
+  const ids = results.map((r) => r.id);
+  for (let i = 0; i < ids.length; i += 50) {
+    const chunk = ids.slice(i, i + 50);
+    await env.DB.prepare("DELETE FROM recordings WHERE id IN (" + chunk.map((_, k) => "?" + (k + 1)).join(",") + ")").bind(...chunk).run();
+  }
+  return json({ ok: true, deleted: results.length });
+}
+
 // ---------- HEAD ADMIN ----------
 async function adminSummary(env) {
   const now = Date.now();
@@ -552,7 +586,8 @@ async function route(req, env, url) {
       if (M === "PATCH") return updateUser(req, env, acc, m[1] | 0);
       if (M === "DELETE") return deleteUser(env, acc, m[1] | 0);
     }
-    if (p === "/api/owner/recordings") return listRecordings(env, url, { owner_id: acc.id });
+    if (p === "/api/owner/recordings" && M === "GET") return listRecordings(env, url, { owner_id: acc.id });
+    if (p === "/api/owner/recordings/delete" && M === "POST") return bulkDelete(req, env, acc);
   }
 
   // head admin
@@ -576,7 +611,8 @@ async function route(req, env, url) {
       return adminApprove(req, env, acc, m[1] | 0, m[2] === "approve");
     if (p === "/api/admin/packages") return adminPackages(req, env, null);
     if ((m = /^\/api\/admin\/packages\/(\d+)$/.exec(p)) && M === "PATCH") return adminPackages(req, env, m[1] | 0);
-    if (p === "/api/admin/recordings") return listRecordings(env, url, {});
+    if (p === "/api/admin/recordings" && M === "GET") return listRecordings(env, url, {});
+    if (p === "/api/admin/recordings/delete" && M === "POST") return bulkDelete(req, env, acc);
   }
   fail(404, "Tidak ditemukan");
 }
