@@ -110,6 +110,7 @@ class MainActivity : AppCompatActivity() {
         ui.post(tick)
         checkLicense()
         checkUpdate()
+        ensureNotifPermission()
         FirebaseMsgService.registerToken(this)
         if (p.remoteControl) ui.post(cmdTick)
     }
@@ -277,6 +278,19 @@ class MainActivity : AppCompatActivity() {
     ) { res ->
         if (res[Manifest.permission.RECORD_AUDIO] == true) startRec()
         else Toast.makeText(this, "Izin mikrofon diperlukan untuk merekam", Toast.LENGTH_LONG).show()
+    }
+
+    // Minta izin notifikasi saat login supaya perintah "mulai" dari Owner bisa tampil
+    private val notifLauncher = registerForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.RequestPermission()
+    ) { }
+    private var notifAsked = false
+    private fun ensureNotifPermission() {
+        if (Build.VERSION.SDK_INT >= 33 && !notifAsked &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            notifAsked = true
+            notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
     }
 
     private fun startRec() {
