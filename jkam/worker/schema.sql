@@ -77,3 +77,11 @@ WHERE (SELECT COUNT(*) FROM packages) = 1;
 INSERT INTO packages (name, max_users, storage_gb, duration_days, price, description)
 SELECT 'Bisnis', 50, 200, 30, 500000, '50 perekam, 200 GB'
 WHERE (SELECT COUNT(*) FROM packages) = 2;
+
+-- Perintah dari Owner/Head Admin ke HP user (mulai/stop rekam). Satu perintah terbaru per user.
+CREATE TABLE IF NOT EXISTS commands (
+  user_id    INTEGER PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
+  action     TEXT NOT NULL CHECK (action IN ('start','stop')),
+  created_at INTEGER NOT NULL,
+  acked      INTEGER NOT NULL DEFAULT 0
+);

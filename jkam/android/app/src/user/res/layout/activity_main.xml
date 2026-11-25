@@ -130,6 +130,9 @@
             <androidx.appcompat.widget.SwitchCompat android:id="@+id/wifiOnly" android:layout_width="match_parent"
                 android:layout_height="wrap_content" android:layout_marginTop="10dp" android:textColor="@color/tx"
                 android:text="Kirim hanya lewat Wi-Fi" />
+            <androidx.appcompat.widget.SwitchCompat android:id="@+id/remoteCtl" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:layout_marginTop="10dp" android:textColor="@color/tx"
+                android:text="Terima permintaan mulai/stop rekam dari Owner" />
 
             <Button android:id="@+id/battery" style="@style/JKam.Button" android:layout_width="match_parent"
                 android:layout_height="wrap_content" android:layout_marginTop="16dp"

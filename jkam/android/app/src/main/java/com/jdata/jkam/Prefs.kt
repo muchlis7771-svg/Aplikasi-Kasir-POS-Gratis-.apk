@@ -32,6 +32,9 @@ class Prefs(ctx: Context) {
     var wifiOnly: Boolean
         get() = sp.getBoolean("wifi", false)
         set(v) = sp.edit().putBoolean("wifi", v).apply()
+    var remoteControl: Boolean
+        get() = sp.getBoolean("remote", true)
+        set(v) = sp.edit().putBoolean("remote", v).apply()
     /** 0 = hemat 32k, 1 = standar 48k, 2 = tinggi 96k */
     var quality: Int
         get() = sp.getInt("quality", 1)

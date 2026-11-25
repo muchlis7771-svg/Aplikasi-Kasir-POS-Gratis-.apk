@@ -312,6 +312,32 @@ async function heartbeat(req, env, acc) {
   return json({ ok: true, license_active: !!lic, expires_at: lic ? lic.expires_at : null });
 }
 
+// ---------- perintah mulai/stop dari Owner ----------
+async function setCommand(req, env, acc, userId) {
+  const u = await getUserOf(env, acc, userId); // cek user ini milik owner (admin lolos)
+  const b = await body(req);
+  const action = b.action === "stop" ? "stop" : b.action === "start" ? "start" : null;
+  if (!action) fail(400, "Perintah harus start atau stop");
+  await env.DB.prepare(
+    "INSERT OR REPLACE INTO commands (user_id, action, created_at, acked) VALUES (?1, ?2, ?3, 0)"
+  ).bind(u.id, action, Date.now()).run();
+  return json({ ok: true });
+}
+
+async function getCommand(env, acc) {
+  need(acc, "user");
+  const c = await env.DB.prepare("SELECT action, created_at FROM commands WHERE user_id = ?1 AND acked = 0").bind(acc.id).first();
+  return json({ command: c || null });
+}
+
+async function ackCommand(req, env, acc) {
+  need(acc, "user");
+  const b = await body(req);
+  const ts = Number(b.created_at) || 0; // timestamp ms > 32-bit, jangan pakai | 0
+  await env.DB.prepare("UPDATE commands SET acked = 1 WHERE user_id = ?1 AND created_at = ?2").bind(acc.id, ts).run();
+  return json({ ok: true });
+}
+
 // ---------- rekaman: putar / hapus ----------
 async function recordingFor(env, acc, id) {
   const r = await env.DB.prepare("SELECT * FROM recordings WHERE id = ?1").bind(id).first();
@@ -507,6 +533,8 @@ async function route(req, env, url) {
   // user
   if (p === "/api/upload" && M === "POST") return upload(req, env, acc);
   if (p === "/api/user/heartbeat" && M === "POST") return heartbeat(req, env, acc);
+  if (p === "/api/user/command" && M === "GET") return getCommand(env, acc);
+  if (p === "/api/user/command/ack" && M === "POST") return ackCommand(req, env, acc);
 
   // rekaman
   if ((m = /^\/api\/rec\/([A-Za-z0-9\-]+)\/audio$/.exec(p)) && M === "GET") return streamAudio(req, env, acc, m[1]);
@@ -519,6 +547,7 @@ async function route(req, env, url) {
     if (p === "/api/owner/license" && M === "POST") return ownerRequestLicense(req, env, acc);
     if (p === "/api/owner/users" && M === "GET") return json({ users: await ownerUsers(env, acc.id) });
     if (p === "/api/owner/users" && M === "POST") return ownerCreateUser(req, env, acc);
+    if ((m = /^\/api\/owner\/users\/(\d+)\/command$/.exec(p)) && M === "POST") return setCommand(req, env, acc, m[1] | 0);
     if ((m = /^\/api\/owner\/users\/(\d+)$/.exec(p))) {
       if (M === "PATCH") return updateUser(req, env, acc, m[1] | 0);
       if (M === "DELETE") return deleteUser(env, acc, m[1] | 0);
@@ -537,6 +566,7 @@ async function route(req, env, url) {
     }
     if ((m = /^\/api\/admin\/owners\/(\d+)\/users$/.exec(p))) return json({ users: await ownerUsers(env, m[1] | 0) });
     if ((m = /^\/api\/admin\/owners\/(\d+)\/grant$/.exec(p)) && M === "POST") return adminGrant(req, env, acc, m[1] | 0);
+    if ((m = /^\/api\/admin\/users\/(\d+)\/command$/.exec(p)) && M === "POST") return setCommand(req, env, acc, m[1] | 0);
     if ((m = /^\/api\/admin\/users\/(\d+)$/.exec(p))) {
       if (M === "PATCH") return updateUser(req, env, acc, m[1] | 0);
       if (M === "DELETE") return deleteUser(env, acc, m[1] | 0);

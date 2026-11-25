@@ -79,6 +79,14 @@ class MainActivity : AppCompatActivity() {
             isChecked = p.wifiOnly
             setOnCheckedChangeListener { _, c -> p.wifiOnly = c; UploadWorker.enqueueAll(this@MainActivity, replace = true) }
         }
+        findViewById<SwitchCompat>(R.id.remoteCtl).apply {
+            isChecked = p.remoteControl
+            setOnCheckedChangeListener { _, c ->
+                p.remoteControl = c
+                if (c) { CommandWorker.schedule(this@MainActivity); ui.post(cmdTick) }
+                else { CommandWorker.cancel(this@MainActivity); ui.removeCallbacks(cmdTick) }
+            }
+        }
         findViewById<Button>(R.id.battery).setOnClickListener { askBattery() }
 
         recBtn.setOnClickListener { if (RecorderService.running) confirmStop() else startRec() }
@@ -93,6 +101,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         UploadWorker.enqueueAll(this) // pastikan sisa rekaman terkirim
+        if (p.remoteControl) CommandWorker.schedule(this)
+        handleStartIntent(intent)
     }
 
     override fun onResume() {
@@ -100,11 +110,59 @@ class MainActivity : AppCompatActivity() {
         ui.post(tick)
         checkLicense()
         checkUpdate()
+        if (p.remoteControl) ui.post(cmdTick)
     }
 
     override fun onPause() {
         super.onPause()
         ui.removeCallbacks(tick)
+        ui.removeCallbacks(cmdTick)
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleStartIntent(intent)
+    }
+
+    /** Dibuka dari notifikasi "Owner meminta mulai merekam": langsung mulai (user sudah mengetuk). */
+    private fun handleStartIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra("start_cmd", false) == true) {
+            intent.removeExtra("start_cmd")
+            if (!RecorderService.running) startRec()
+        }
+    }
+
+    // Polling perintah saat aplikasi terbuka & belum merekam (saat merekam, service yang cek)
+    @Volatile private var cmdPolling = false
+    private val cmdTick = object : Runnable {
+        override fun run() {
+            if (p.remoteControl && !RecorderService.running && !cmdPolling) {
+                cmdPolling = true
+                Thread {
+                    val cmd = Api.command(p)
+                    cmdPolling = false
+                    if (cmd != null && cmd.first == "start") {
+                        Api.ackCommand(p, cmd.second)
+                        runOnUiThread { if (!RecorderService.running) promptStartFromOwner() }
+                    }
+                }.start()
+            }
+            ui.postDelayed(this, 15_000)
+        }
+    }
+
+    private var startDialogOpen = false
+    private fun promptStartFromOwner() {
+        if (startDialogOpen || RecorderService.running) return
+        startDialogOpen = true
+        AlertDialog.Builder(this)
+            .setTitle("Owner meminta mulai merekam")
+            .setMessage("Owner Anda meminta perekaman dimulai sekarang. Notifikasi JKam akan tampil selama merekam.")
+            .setPositiveButton("Mulai") { _, _ -> startDialogOpen = false; startRec() }
+            .setNegativeButton("Nanti") { _, _ -> startDialogOpen = false }
+            .setOnCancelListener { startDialogOpen = false }
+            .show()
     }
 
     private fun bindNumber(e: EditText, value: Int, save: (Int) -> Unit) {
@@ -214,6 +272,7 @@ class MainActivity : AppCompatActivity() {
             .setMessage(if (UploadWorker.pendingCount(this) > 0) "Masih ada rekaman yang belum terkirim. Rekaman akan dikirim setelah Anda masuk lagi." else null)
             .setPositiveButton("Keluar") { _, _ ->
                 Thread { Api.call(p.serverUrl, "/api/auth/logout", "POST", p.token) }.start()
+                CommandWorker.cancel(this)
                 p.logout()
                 startActivity(Intent(this, LoginActivity::class.java)); finish()
             }

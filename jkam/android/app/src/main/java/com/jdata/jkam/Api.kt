@@ -41,4 +41,20 @@ object Api {
         call(p.serverUrl, "/api/user/heartbeat", "POST", p.token,
             JSONObject().put("recording", recording).put("device", deviceName))
     }
+
+    /** Perintah mulai/stop dari Owner. Kembalikan Pair(action, createdAt) atau null. */
+    fun command(p: Prefs): Pair<String, Long>? {
+        if (!p.loggedIn) return null
+        val r = call(p.serverUrl, "/api/user/command", token = p.token)
+        if (!r.ok || r.json.isNull("command")) return null
+        val c = r.json.optJSONObject("command") ?: return null
+        val action = c.optString("action", "")
+        if (action.isEmpty()) return null
+        return action to c.optLong("created_at")
+    }
+
+    fun ackCommand(p: Prefs, createdAt: Long) {
+        if (!p.loggedIn) return
+        call(p.serverUrl, "/api/user/command/ack", "POST", p.token, JSONObject().put("created_at", createdAt))
+    }
 }

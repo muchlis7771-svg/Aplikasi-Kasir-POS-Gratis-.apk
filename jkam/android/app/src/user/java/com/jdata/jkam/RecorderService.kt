@@ -124,9 +124,19 @@ class RecorderService : Service() {
         thread = Thread({ recordLoop() }, "jkam-rec").apply { start() }
         Thread({
             val p = Prefs(this)
+            var i = 0
             while (running && !stopFlag) {
-                Api.heartbeat(p, true)
-                try { Thread.sleep(120_000) } catch (_: InterruptedException) { break }
+                if (i % 6 == 0) Api.heartbeat(p, true)   // kabari server tiap ~2 menit
+                if (p.remoteControl) {                    // cek perintah stop dari Owner tiap ~20 dtk
+                    val cmd = Api.command(p)
+                    if (cmd != null && cmd.first == "stop") {
+                        Api.ackCommand(p, cmd.second)
+                        main.post { CommandNotif.show(this, "JKam dihentikan Owner", "Owner meminta rekaman dihentikan.") ; stopRecording() }
+                        break
+                    }
+                }
+                i++
+                try { Thread.sleep(20_000) } catch (_: InterruptedException) { break }
             }
         }, "jkam-hb").apply { isDaemon = true; start() }
     }
