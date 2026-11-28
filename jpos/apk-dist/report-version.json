@@ -1,7 +1,7 @@
 {
- "versionCode": 230,
+ "versionCode": 234,
  "versionName": "1.0",
  "force": true,
  "url": "https://github.com/muchlis7771-svg/Aplikasi-Kasir-POS-Gratis-.apk/raw/main/jpos/apk-dist/JDATA-Report-latest.apk",
- "notes": "SKU Potensi Order: riwayat qty per bulan sesuai periode (3/6/12 bln), tanpa kolom Rp."
+ "notes": "Baru: Hitung Order Sales (teks & foto tulisan tangan \u2192 total Rp dari daftar harga), Lupa password lewat email, kelola SKU daftar harga."
 }
