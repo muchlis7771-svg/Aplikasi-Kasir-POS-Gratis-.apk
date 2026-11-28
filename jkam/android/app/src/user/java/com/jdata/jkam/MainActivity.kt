@@ -83,8 +83,19 @@ class MainActivity : AppCompatActivity() {
             isChecked = p.remoteControl
             setOnCheckedChangeListener { _, c ->
                 p.remoteControl = c
-                if (c) { CommandWorker.schedule(this@MainActivity); ui.post(cmdTick) }
-                else { CommandWorker.cancel(this@MainActivity); ui.removeCallbacks(cmdTick) }
+                if (c) { CommandWorker.schedule(this@MainActivity); applyStandby() }
+                else {
+                    CommandWorker.cancel(this@MainActivity); ui.removeCallbacks(cmdTick)
+                    if (!RecorderService.running) RecorderService.shutdown(this@MainActivity)
+                }
+            }
+        }
+        findViewById<SwitchCompat>(R.id.standbyMode).apply {
+            isChecked = p.standbyMode
+            setOnCheckedChangeListener { _, c ->
+                p.standbyMode = c
+                applyStandby()
+                if (!c && !RecorderService.running) RecorderService.shutdown(this@MainActivity)
             }
         }
         findViewById<Button>(R.id.battery).setOnClickListener { askBattery() }
@@ -112,7 +123,23 @@ class MainActivity : AppCompatActivity() {
         checkUpdate()
         ensureNotifPermission()
         FirebaseMsgService.registerToken(this)
-        if (p.remoteControl) ui.post(cmdTick)
+        applyStandby()
+    }
+
+    /**
+     * Mode Siaga: saat aktif, jalankan RecorderService dalam keadaan siaga (foreground hidup,
+     * mikrofon mati). Owner bisa memulai rekaman dari jauh TANPA user mengetuk apa pun karena
+     * service sudah hidup dari foreground — tidak terkena batasan start-FGS-dari-background
+     * Android 12+. Saat Mode Siaga mati, kembali ke polling lama (perlu konfirmasi user).
+     */
+    private fun applyStandby() {
+        ui.removeCallbacks(cmdTick)
+        val standby = p.remoteControl && p.standbyMode
+        if (standby) {
+            if (!RecorderService.alive) RecorderService.enterStandby(this)
+        } else if (p.remoteControl) {
+            ui.post(cmdTick) // polling + dialog konfirmasi (perilaku lama)
+        }
     }
 
     override fun onPause() {
@@ -188,9 +215,10 @@ class MainActivity : AppCompatActivity() {
             recBtn.setBackgroundResource(R.drawable.bg_rec_on)
             recIcon.setImageResource(R.drawable.ic_stop)
         } else {
-            status.text = RecorderService.lastError ?: "Siap merekam"
-            status.setTextColor(ContextCompat.getColor(this, if (RecorderService.lastError != null) R.color.bad else R.color.mut))
-            hint.text = "Ketuk untuk mulai merekam"
+            val siaga = RecorderService.alive && p.remoteControl && p.standbyMode
+            status.text = RecorderService.lastError ?: if (siaga) "● Siaga — Owner dapat memulai kapan saja" else "Siap merekam"
+            status.setTextColor(ContextCompat.getColor(this, if (RecorderService.lastError != null) R.color.bad else if (siaga) R.color.ok else R.color.mut))
+            hint.text = if (siaga) "Owner bisa mulai dari jauh · ketuk untuk mulai manual" else "Ketuk untuk mulai merekam"
             level.progress = 0
             recBtn.setBackgroundResource(R.drawable.bg_rec_idle)
             recIcon.setImageResource(R.drawable.ic_mic)
@@ -324,6 +352,7 @@ class MainActivity : AppCompatActivity() {
             .setPositiveButton("Keluar") { _, _ ->
                 Thread { Api.call(p.serverUrl, "/api/auth/logout", "POST", p.token) }.start()
                 CommandWorker.cancel(this)
+                RecorderService.shutdown(this)
                 p.logout()
                 startActivity(Intent(this, LoginActivity::class.java)); finish()
             }

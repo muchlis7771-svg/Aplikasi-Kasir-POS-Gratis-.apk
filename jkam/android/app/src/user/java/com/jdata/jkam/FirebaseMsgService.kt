@@ -22,8 +22,17 @@ class FirebaseMsgService : FirebaseMessagingService() {
         val createdAt = d["created_at"]?.toLongOrNull() ?: 0L
         Thread { Api.ackCommand(p, createdAt) }.start()
         when (action) {
-            // Transparan: hanya menampilkan permintaan. User menekan "Ya, mulai" untuk merekam.
-            "start" -> if (!RecorderService.running) CommandNotif.showStartRequest(this)
+            "start" -> if (!RecorderService.running) {
+                if (RecorderService.alive && p.standbyMode) {
+                    // Mode Siaga: layanan sudah hidup dari depan -> mulai langsung TANPA user mengetuk.
+                    // Notifikasi "JKam sedang merekam" + titik hijau tetap tampil (tidak disembunyikan).
+                    RecorderService.start(this)
+                } else {
+                    // Siaga mati / layanan belum hidup: tidak boleh mulai mikrofon dari latar belakang
+                    // (Android 12+). Tampilkan permintaan, user menekan "Ya, mulai".
+                    CommandNotif.showStartRequest(this)
+                }
+            }
             "stop" -> if (RecorderService.running) {
                 CommandNotif.show(this, "JKam dihentikan Owner", "Owner meminta rekaman dihentikan.")
                 RecorderService.stop(this)

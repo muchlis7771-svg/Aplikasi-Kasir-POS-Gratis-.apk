@@ -133,6 +133,12 @@
             <androidx.appcompat.widget.SwitchCompat android:id="@+id/remoteCtl" android:layout_width="match_parent"
                 android:layout_height="wrap_content" android:layout_marginTop="10dp" android:textColor="@color/tx"
                 android:text="Terima permintaan mulai/stop rekam dari Owner" />
+            <androidx.appcompat.widget.SwitchCompat android:id="@+id/standbyMode" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:layout_marginTop="10dp" android:textColor="@color/tx"
+                android:text="Mode Siaga — Owner bisa langsung mulai rekam tanpa perlu disetujui" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="4dp" android:textColor="@color/mut" android:textSize="12sp"
+                android:text="Saat siaga, notifikasi kecil 'JKam siaga' tetap tampil. Mikrofon baru menyala saat merekam, dan titik hijau perekaman tetap terlihat." />
 
             <Button android:id="@+id/battery" style="@style/JKam.Button" android:layout_width="match_parent"
                 android:layout_height="wrap_content" android:layout_marginTop="16dp"

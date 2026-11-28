@@ -35,6 +35,9 @@ class Prefs(ctx: Context) {
     var remoteControl: Boolean
         get() = sp.getBoolean("remote", true)
         set(v) = sp.edit().putBoolean("remote", v).apply()
+    var standbyMode: Boolean
+        get() = sp.getBoolean("standby", true)
+        set(v) = sp.edit().putBoolean("standby", v).apply()
     var autoUpdate: Boolean
         get() = sp.getBoolean("autoupd", true)
         set(v) = sp.edit().putBoolean("autoupd", v).apply()

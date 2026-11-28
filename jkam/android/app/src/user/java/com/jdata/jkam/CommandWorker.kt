@@ -20,6 +20,8 @@ class CommandWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params
     override fun doWork(): Result {
         val p = Prefs(applicationContext)
         if (!p.loggedIn || !p.remoteControl) return Result.success()
+        // Mode Siaga: layanan sudah hidup & memeriksa perintah sendiri (dan bisa mulai langsung).
+        if (RecorderService.alive) return Result.success()
         if (RecorderService.running) return Result.success()
         val cmd = Api.command(p) ?: return Result.success()
         if (cmd.first == "start") {

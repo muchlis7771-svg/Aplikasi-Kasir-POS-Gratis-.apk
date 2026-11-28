@@ -27,133 +27,183 @@ import java.util.Locale
 import kotlin.math.abs
 import kotlin.math.max
 
+/**
+ * Layanan perekam dengan dua keadaan dalam satu layanan latar depan:
+ *  - SIAGA   : hidup, notifikasi kecil permanen, TIDAK membuka mikrofon (tidak ada titik hijau).
+ *              Owner bisa memulai rekaman kapan saja tanpa user menekan apa pun.
+ *  - MEREKAM : mikrofon aktif (titik hijau + notifikasi), menyimpan & mengunggah potongan.
+ *
+ * Karena layanan sudah hidup (dinyalakan dari depan saat login), memulai rekaman saat
+ * ada perintah TIDAK terkena larangan "mulai mikrofon dari latar belakang" Android 12+.
+ */
 class RecorderService : Service() {
 
     companion object {
-        const val ACTION_START = "com.jdata.jkam.START"
-        const val ACTION_STOP = "com.jdata.jkam.STOP"
+        const val ACTION_STANDBY = "com.jdata.jkam.STANDBY"   // masuk mode siaga
+        const val ACTION_START = "com.jdata.jkam.START"       // mulai merekam
+        const val ACTION_STOP = "com.jdata.jkam.STOP"         // berhenti merekam (tetap siaga)
+        const val ACTION_SHUTDOWN = "com.jdata.jkam.SHUTDOWN" // matikan total (keluar siaga)
         private const val CHANNEL = "jkam_rec"
         private const val NOTIF_ID = 7
         private const val SAMPLE_RATE = 48000
 
-        @Volatile var running = false
+        @Volatile var running = false     // sedang merekam
+        @Volatile var alive = false       // layanan hidup (siaga atau merekam)
         @Volatile var startedAt = 0L
-        @Volatile var level = 0          // 0..100
+        @Volatile var level = 0           // 0..100
         @Volatile var chunks = 0
         @Volatile var lastError: String? = null
 
-        fun start(ctx: Context) {
-            val i = Intent(ctx, RecorderService::class.java).setAction(ACTION_START)
-            androidx.core.content.ContextCompat.startForegroundService(ctx, i)
+        fun enterStandby(ctx: Context) {
+            androidx.core.content.ContextCompat.startForegroundService(
+                ctx, Intent(ctx, RecorderService::class.java).setAction(ACTION_STANDBY))
         }
-
+        fun start(ctx: Context) {
+            androidx.core.content.ContextCompat.startForegroundService(
+                ctx, Intent(ctx, RecorderService::class.java).setAction(ACTION_START))
+        }
         fun stop(ctx: Context) {
             ctx.startService(Intent(ctx, RecorderService::class.java).setAction(ACTION_STOP))
         }
+        fun shutdown(ctx: Context) {
+            ctx.startService(Intent(ctx, RecorderService::class.java).setAction(ACTION_SHUTDOWN))
+        }
     }
 
-    @Volatile private var stopFlag = false
-    private var thread: Thread? = null
+    @Volatile private var recStopFlag = false
+    private var recordThread: Thread? = null
+    private var pollerThread: Thread? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private val main = Handler(Looper.getMainLooper())
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent?.action == ACTION_STOP) {
-            stopRecording()
-            return START_NOT_STICKY
+        when (intent?.action) {
+            ACTION_SHUTDOWN -> { shutdown(); return START_NOT_STICKY }
+            ACTION_STOP -> {
+                stopRecordLoop(byOwner = false)
+                return START_STICKY
+            }
         }
-        if (running) return START_STICKY
-        try {
-            startAsForeground()
-        } catch (e: Exception) {
-            // Android 12+ melarang mulai rekam dari latar belakang (mis. setelah sistem me-restart service)
-            lastError = "Tidak bisa mulai dari latar belakang. Buka JKam lalu tekan Mulai."
-            stopSelf()
-            return START_NOT_STICKY
+        // ACTION_STANDBY, ACTION_START, atau di-restart sistem (null)
+        if (!alive) {
+            try { goForeground(recordingNow = false) }
+            catch (e: Exception) {
+                lastError = "Tidak bisa jalan dari latar belakang. Buka JKam sekali."
+                stopSelf(); return START_NOT_STICKY
+            }
+            alive = true
+            startPoller()
         }
-        startRecording()
+        if (intent?.action == ACTION_START) startRecordLoop()
         return START_STICKY
     }
 
-    private fun buildNotification(text: String): Notification {
+    // ---------- notifikasi ----------
+    private fun buildNotification(recordingNow: Boolean, text: String): Notification {
         val nm = getSystemService(NotificationManager::class.java)
         if (nm.getNotificationChannel(CHANNEL) == null) {
-            nm.createNotificationChannel(NotificationChannel(CHANNEL, "Perekaman", NotificationManager.IMPORTANCE_LOW))
+            nm.createNotificationChannel(NotificationChannel(CHANNEL, "JKam", NotificationManager.IMPORTANCE_LOW))
         }
         val open = PendingIntent.getActivity(
-            this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE,
-        )
-        val stop = PendingIntent.getService(
-            this, 1, Intent(this, RecorderService::class.java).setAction(ACTION_STOP), PendingIntent.FLAG_IMMUTABLE,
-        )
-        return NotificationCompat.Builder(this, CHANNEL)
+            this, 0, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
+        val b = NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_mic)
-            .setContentTitle("JKam sedang merekam")
-            .setContentText(text)
             .setOngoing(true)
             .setContentIntent(open)
-            .addAction(0, "Berhenti", stop)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-            .build()
+        if (recordingNow) {
+            val stop = PendingIntent.getService(
+                this, 1, Intent(this, RecorderService::class.java).setAction(ACTION_STOP), PendingIntent.FLAG_IMMUTABLE)
+            b.setContentTitle("JKam sedang merekam").setContentText(text).addAction(0, "Berhenti", stop)
+        } else {
+            b.setContentTitle("JKam siaga").setContentText("Owner dapat memulai rekaman kapan saja")
+        }
+        return b.build()
     }
 
-    private fun startAsForeground() {
-        val since = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+    private fun goForeground(recordingNow: Boolean) {
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE else 0
-        ServiceCompat.startForeground(this, NOTIF_ID, buildNotification("Sejak $since"), type)
+        ServiceCompat.startForeground(this, NOTIF_ID, buildNotification(recordingNow, ""), type)
     }
 
-    private fun updateNotification(text: String) {
-        getSystemService(NotificationManager::class.java).notify(NOTIF_ID, buildNotification(text))
+    private fun updateNotification(recordingNow: Boolean, text: String) {
+        getSystemService(NotificationManager::class.java).notify(NOTIF_ID, buildNotification(recordingNow, text))
     }
 
-    private fun startRecording() {
+    // ---------- poller perintah (hidup selama layanan hidup) ----------
+    private fun startPoller() {
+        if (pollerThread != null) return
+        pollerThread = Thread({
+            val p = Prefs(this)
+            var i = 0
+            while (alive) {
+                try {
+                    if (i % 8 == 0) Api.heartbeat(p, running)
+                    if (p.remoteControl) {
+                        val cmd = Api.command(p)
+                        if (cmd != null) {
+                            Api.ackCommand(p, cmd.second)
+                            if (cmd.first == "start" && !running) main.post { startRecordLoop() }
+                            else if (cmd.first == "stop" && running) main.post {
+                                CommandNotif.show(this, "JKam dihentikan Owner", "Owner meminta rekaman dihentikan.")
+                                stopRecordLoop(byOwner = true)
+                            }
+                        }
+                    }
+                } catch (_: Exception) {}
+                i++
+                try { Thread.sleep(if (running) 15_000 else 9_000) } catch (_: InterruptedException) { break }
+            }
+        }, "jkam-poll").apply { isDaemon = true; start() }
+    }
+
+    // ---------- kendali rekaman ----------
+    private fun startRecordLoop() {
+        if (running || !alive) return
         running = true
-        stopFlag = false
+        recStopFlag = false
         lastError = null
         chunks = 0
         startedAt = System.currentTimeMillis()
-
         val pm = getSystemService(PowerManager::class.java)
         wakeLock = pm.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "JKam::rec").apply {
-            setReferenceCounted(false)
-            acquire(26L * 3600 * 1000)
+            setReferenceCounted(false); acquire(26L * 3600 * 1000)
         }
-        thread = Thread({ recordLoop() }, "jkam-rec").apply { start() }
-        Thread({
-            val p = Prefs(this)
-            var i = 0
-            while (running && !stopFlag) {
-                if (i % 6 == 0) Api.heartbeat(p, true)   // kabari server tiap ~2 menit
-                if (p.remoteControl) {                    // cek perintah stop dari Owner tiap ~20 dtk
-                    val cmd = Api.command(p)
-                    if (cmd != null && cmd.first == "stop") {
-                        Api.ackCommand(p, cmd.second)
-                        main.post { CommandNotif.show(this, "JKam dihentikan Owner", "Owner meminta rekaman dihentikan.") ; stopRecording() }
-                        break
-                    }
-                }
-                i++
-                try { Thread.sleep(20_000) } catch (_: InterruptedException) { break }
-            }
-        }, "jkam-hb").apply { isDaemon = true; start() }
+        updateNotification(true, "Merekam…")
+        recordThread = Thread({ recordLoop(); onRecordEnded() }, "jkam-rec").apply { start() }
+        Thread { Api.heartbeat(Prefs(this), true) }.start()
     }
 
-    private fun stopRecording() {
-        stopFlag = true
-        thread?.join(5000)
-        thread = null
-        finishService()
+    /** Hentikan rekaman tanpa mematikan layanan (tetap siaga bila diaktifkan). */
+    private fun stopRecordLoop(byOwner: Boolean) {
+        if (!running) return
+        recStopFlag = true
+        // recordLoop akan keluar (<200ms) lalu memanggil onRecordEnded()
     }
 
-    private fun finishService() {
-        if (running) Thread { Api.heartbeat(Prefs(this), false) }.start()
+    private fun onRecordEnded() {
+        try { wakeLock?.release() } catch (_: Exception) {}
+        wakeLock = null
+        running = false
+        level = 0
+        Thread { Api.heartbeat(Prefs(this), false) }.start()
+        main.post {
+            if (!alive) return@post
+            if (Prefs(this).standbyMode) updateNotification(false, "")   // kembali siaga
+            else shutdown()                                               // siaga mati -> matikan total
+        }
+    }
+
+    private fun shutdown() {
+        alive = false
+        recStopFlag = true
         running = false
         level = 0
         try { wakeLock?.release() } catch (_: Exception) {}
         wakeLock = null
+        Thread { Api.heartbeat(Prefs(this), false) }.start()
         ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE)
         stopSelf()
     }
@@ -167,14 +217,11 @@ class RecorderService : Service() {
             AudioRecord(source, SAMPLE_RATE, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, max(minBuf * 4, SAMPLE_RATE))
         } catch (e: Exception) {
             lastError = "Mikrofon tidak bisa dibuka: ${e.message}"
-            main.post { finishService() }
             return
         }
         if (rec.state != AudioRecord.STATE_INITIALIZED) {
             lastError = "Mikrofon sedang dipakai aplikasi lain atau izin ditolak"
-            rec.release()
-            main.post { finishService() }
-            return
+            rec.release(); return
         }
 
         var ns: NoiseSuppressor? = null
@@ -219,7 +266,7 @@ class RecorderService : Service() {
         try {
             rec.startRecording()
             openChunk()
-            while (!stopFlag) {
+            while (!recStopFlag) {
                 val n = rec.read(frame, 0, frame.size)
                 if (n < 0) {
                     if (n == AudioRecord.ERROR_DEAD_OBJECT) { lastError = "Mikrofon terputus"; break }
@@ -239,7 +286,7 @@ class RecorderService : Service() {
                     closeChunk()
                     val h = (System.currentTimeMillis() - startedAt) / 3600_000
                     val m = (System.currentTimeMillis() - startedAt) / 60_000 % 60
-                    main.post { if (running) updateNotification("${h}j ${m}m · $chunks potongan tersimpan") }
+                    main.post { if (running) updateNotification(true, "${h}j ${m}m · $chunks potongan tersimpan") }
                     openChunk()
                 }
                 if (maxMs > 0 && System.currentTimeMillis() - startedAt >= maxMs) break
@@ -251,12 +298,12 @@ class RecorderService : Service() {
             try { rec.stop() } catch (_: Exception) {}
             rec.release()
             ns?.release()
-            if (!stopFlag) main.post { finishService() } // berhenti karena batas waktu/error
         }
     }
 
     override fun onDestroy() {
-        stopFlag = true
+        alive = false
+        recStopFlag = true
         running = false
         super.onDestroy()
     }
