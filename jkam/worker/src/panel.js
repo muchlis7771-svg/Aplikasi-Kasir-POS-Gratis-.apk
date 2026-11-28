@@ -422,9 +422,10 @@ function bindUserActions(base) {
   $("#pg").onclick = (e) => {
     const b = e.target.closest("[data-u]"); if (!b) return;
     const id = b.dataset.u, act = b.dataset.st === "active";
-    actionSheet(b.dataset.n, [["start", "mic", "Minta mulai rekam", "", "c-p"], ["stop", "x", "Minta stop rekam", "", "c-a"], ["pw", "key", "Reset password", "", "c-v"], ["st", act ? "ban" : "check", act ? "Nonaktifkan user" : "Aktifkan user", act ? "d" : "k", act ? "c-r" : "c-g"], ["del", "trash", "Hapus user", "d", "c-r"]], async (a) => {
+    actionSheet(b.dataset.n, [["start", "mic", "Minta mulai rekam", "", "c-p"], ["stop", "x", "Minta stop rekam", "", "c-a"], ["release", "shield", "Lepas perangkat (izinkan hapus aplikasi)", "", "c-v"], ["pw", "key", "Reset password", "", "c-v"], ["st", act ? "ban" : "check", act ? "Nonaktifkan user" : "Aktifkan user", act ? "d" : "k", act ? "c-r" : "c-g"], ["del", "trash", "Hapus user", "d", "c-r"]], async (a) => {
       if (a === "start") { const r = await api(base + id + "/command", { method: "POST", body: { action: "start" } }); toast(r.pushed ? "Permintaan mulai terkirim ke HP user" : "Terkirim. HP user akan menerima saat aplikasi JKam dibuka & login (push belum aktif di HP itu)"); }
       if (a === "stop") { const r = await api(base + id + "/command", { method: "POST", body: { action: "stop" } }); toast(r.pushed ? "Permintaan stop terkirim ke HP user" : "Terkirim. HP user akan menerima saat online"); }
+      if (a === "release" && confirmBox("Lepas perangkat ini? PIN dan perlindungan anti-copot di HP user akan dibuka, dan aplikasi JKam bisa dihapus.")) { const r = await api(base + id + "/command", { method: "POST", body: { action: "release" } }); toast(r.pushed ? "Perintah lepas terkirim ke HP user" : "Terkirim. Akan diproses saat HP user online"); }
       if (a === "pw") modal("Reset Password", [{ label: "Password baru", name: "password", ph: "min. 6 karakter" }], "Simpan", async (v) => { await api(base + id, { method: "PATCH", body: v }); toast("Password diubah"); });
       if (a === "st") { await api(base + id, { method: "PATCH", body: { status: act ? "suspended" : "active" } }); reload(); }
       if (a === "del" && confirmBox("Hapus user ini? Rekamannya tetap tersimpan.")) { await api(base + id, { method: "DELETE" }); reload(); }

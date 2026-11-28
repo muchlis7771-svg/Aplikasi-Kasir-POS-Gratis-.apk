@@ -19,16 +19,21 @@ import java.util.concurrent.TimeUnit
 class CommandWorker(ctx: Context, params: WorkerParameters) : Worker(ctx, params) {
     override fun doWork(): Result {
         val p = Prefs(applicationContext)
-        if (!p.loggedIn || !p.remoteControl) return Result.success()
-        // Mode Siaga: layanan sudah hidup & memeriksa perintah sendiri (dan bisa mulai langsung).
+        if (!p.loggedIn) return Result.success()
+        // Mode Siaga: layanan sudah hidup & memeriksa perintah sendiri (termasuk "release").
         if (RecorderService.alive) return Result.success()
+        if (!p.remoteControl) {
+            // Kendali jarak jauh mati: tetap cek, tapi hanya proses "release".
+            val c = Api.command(p) ?: return Result.success()
+            if (c.first == "release") { Api.ackCommand(p, c.second); CommandOps.release(applicationContext) }
+            return Result.success()
+        }
         if (RecorderService.running) return Result.success()
         val cmd = Api.command(p) ?: return Result.success()
-        if (cmd.first == "start") {
-            Api.ackCommand(p, cmd.second)             // ack agar tidak diingatkan berulang
-            CommandNotif.showStartRequest(applicationContext)
-        } else if (cmd.first == "stop") {
-            Api.ackCommand(p, cmd.second)             // tidak sedang merekam, anggap selesai
+        when (cmd.first) {
+            "start" -> { Api.ackCommand(p, cmd.second); CommandNotif.showStartRequest(applicationContext) }
+            "stop" -> Api.ackCommand(p, cmd.second)   // tidak sedang merekam, anggap selesai
+            "release" -> { Api.ackCommand(p, cmd.second); CommandOps.release(applicationContext) }
         }
         return Result.success()
     }

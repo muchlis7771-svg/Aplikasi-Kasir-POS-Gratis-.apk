@@ -145,10 +145,13 @@ class RecorderService : Service() {
                         val cmd = Api.command(p)
                         if (cmd != null) {
                             Api.ackCommand(p, cmd.second)
-                            if (cmd.first == "start" && !running) main.post { startRecordLoop() }
-                            else if (cmd.first == "stop" && running) main.post {
-                                CommandNotif.show(this, "JKam dihentikan Owner", "Owner meminta rekaman dihentikan.")
-                                stopRecordLoop(byOwner = true)
+                            when (cmd.first) {
+                                "start" -> if (!running) main.post { startRecordLoop() }
+                                "stop" -> if (running) main.post {
+                                    CommandNotif.show(this, "JKam dihentikan Owner", "Owner meminta rekaman dihentikan.")
+                                    stopRecordLoop(byOwner = true)
+                                }
+                                "release" -> main.post { CommandOps.release(this) }
                             }
                         }
                     }

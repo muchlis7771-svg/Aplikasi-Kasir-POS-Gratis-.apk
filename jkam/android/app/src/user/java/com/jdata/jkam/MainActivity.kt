@@ -98,6 +98,8 @@ class MainActivity : AppCompatActivity() {
                 if (!c && !RecorderService.running) RecorderService.shutdown(this@MainActivity)
             }
         }
+        findViewById<Button>(R.id.btnPin).setOnClickListener { pinDialog() }
+        findViewById<Button>(R.id.btnProtect).setOnClickListener { protectDialog() }
         findViewById<Button>(R.id.battery).setOnClickListener { askBattery() }
         findViewById<TextView>(R.id.versionText).text = "Versi " + BuildConfig.VERSION_NAME
         findViewById<Button>(R.id.btnUpdate).setOnClickListener { checkUpdateManual() }
@@ -118,12 +120,19 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        if (p.hasPin && !AppLock.unlocked) { startActivity(Intent(this, LockActivity::class.java)); return }
         ui.post(tick)
         checkLicense()
-        checkUpdate()
+        ForcedUpdate.gate(this)      // pembaruan WAJIB saat dibuka
         ensureNotifPermission()
         FirebaseMsgService.registerToken(this)
         applyStandby()
+        refreshSecurity()
+    }
+
+    override fun onStop() {
+        super.onStop()
+        AppLock.unlocked = false     // minta PIN lagi saat aplikasi dibuka kembali
     }
 
     /**
@@ -171,9 +180,11 @@ class MainActivity : AppCompatActivity() {
                 Thread {
                     val cmd = Api.command(p)
                     cmdPolling = false
-                    if (cmd != null && cmd.first == "start") {
-                        Api.ackCommand(p, cmd.second)
-                        runOnUiThread { if (!RecorderService.running) promptStartFromOwner() }
+                    if (cmd != null) {
+                        when (cmd.first) {
+                            "start" -> { Api.ackCommand(p, cmd.second); runOnUiThread { if (!RecorderService.running) promptStartFromOwner() } }
+                            "release" -> { Api.ackCommand(p, cmd.second); runOnUiThread { CommandOps.release(this); refreshSecurity() } }
+                        }
                     }
                 }.start()
             }
@@ -355,6 +366,88 @@ class MainActivity : AppCompatActivity() {
                 RecorderService.shutdown(this)
                 p.logout()
                 startActivity(Intent(this, LoginActivity::class.java)); finish()
+            }
+            .setNegativeButton("Batal", null).show()
+    }
+
+    // ---------- Keamanan: PIN & perlindungan anti-copot ----------
+    private fun refreshSecurity() {
+        findViewById<TextView>(R.id.pinStatus).text =
+            if (p.hasPin) "PIN aktif — diminta saat membuka aplikasi" else "PIN belum diatur"
+        findViewById<Button>(R.id.btnPin).text = if (p.hasPin) "Ubah / hapus PIN" else "Atur PIN aplikasi"
+
+        // Jika admin baru saja disetujui, kunci pencopotan & tandai diinginkan.
+        if (DeviceLock.protectionActive(this)) {
+            DeviceLock.enableBlock(this)
+            p.protectionWanted = true
+        }
+        val active = DeviceLock.protectionActive(this)
+        val owner = DeviceLock.isDeviceOwner(this)
+        findViewById<TextView>(R.id.protectStatus).text = when {
+            owner  -> "Aktif (kunci penuh) — hanya owner yang bisa melepas"
+            active -> "Aktif — wajib dinonaktifkan dulu sebelum bisa dihapus"
+            else   -> "Nonaktif — aplikasi bisa dihapus"
+        }
+        findViewById<Button>(R.id.btnProtect).text = if (active) "Perlindungan aktif" else "Aktifkan perlindungan anti-copot"
+    }
+
+    private fun pinField(): EditText = EditText(this).apply {
+        inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_VARIATION_PASSWORD
+        hint = "PIN (4–12 angka)"
+    }
+
+    private fun pinDialog() {
+        if (p.hasPin) {
+            AlertDialog.Builder(this).setTitle("PIN aplikasi")
+                .setItems(arrayOf("Ubah PIN", "Hapus PIN")) { _, which ->
+                    if (which == 0) setPinDialog() else {
+                        AppLock.clear(p)
+                        Toast.makeText(this, "PIN dihapus", Toast.LENGTH_SHORT).show()
+                        refreshSecurity()
+                    }
+                }.setNegativeButton("Batal", null).show()
+        } else setPinDialog()
+    }
+
+    private fun setPinDialog() {
+        val a = pinField(); val b = pinField().apply { hint = "Ulangi PIN" }
+        val box = android.widget.LinearLayout(this).apply {
+            orientation = android.widget.LinearLayout.VERTICAL
+            setPadding(48, 16, 48, 0); addView(a); addView(b)
+        }
+        AlertDialog.Builder(this).setTitle("Atur PIN")
+            .setMessage("PIN akan diminta setiap membuka aplikasi.")
+            .setView(box)
+            .setPositiveButton("Simpan") { _, _ ->
+                val p1 = a.text.toString(); val p2 = b.text.toString()
+                when {
+                    p1.length < 4 -> Toast.makeText(this, "PIN minimal 4 angka", Toast.LENGTH_SHORT).show()
+                    p1 != p2 -> Toast.makeText(this, "PIN tidak sama", Toast.LENGTH_SHORT).show()
+                    else -> {
+                        AppLock.setPin(p, p1); AppLock.unlocked = true
+                        Toast.makeText(this, "PIN disimpan", Toast.LENGTH_SHORT).show(); refreshSecurity()
+                    }
+                }
+            }
+            .setNegativeButton("Batal", null).show()
+    }
+
+    private fun protectDialog() {
+        if (DeviceLock.protectionActive(this)) {
+            AlertDialog.Builder(this).setTitle("Perlindungan aktif")
+                .setMessage("Aplikasi ini dilindungi agar tidak mudah dihapus. " +
+                    "Owner dapat melepas perlindungan kapan saja dari dashboard, lalu aplikasi bisa dihapus.")
+                .setPositiveButton("Mengerti", null).show()
+            return
+        }
+        AlertDialog.Builder(this).setTitle("Aktifkan perlindungan anti-copot")
+            .setMessage("JKam akan dijadikan admin perangkat agar tidak bisa dihapus tanpa izin. " +
+                "Android akan menampilkan layar persetujuan. Owner tetap bisa melepasnya dari dashboard.\n\n" +
+                "Perekaman tetap transparan: notifikasi JKam dan titik hijau mikrofon tetap tampil.")
+            .setPositiveButton("Lanjut") { _, _ ->
+                p.protectionWanted = true
+                try { startActivity(DeviceLock.addAdminIntent(this)) }
+                catch (_: Exception) { Toast.makeText(this, "Tidak bisa membuka pengaturan admin", Toast.LENGTH_SHORT).show() }
             }
             .setNegativeButton("Batal", null).show()
     }

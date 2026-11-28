@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:background="@color/bg"
+    android:padding="28dp">
+
+    <ImageView
+        android:layout_width="64dp"
+        android:layout_height="64dp"
+        android:src="@drawable/ic_logo"
+        android:layout_marginBottom="18dp" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Masukkan PIN"
+        android:textColor="@color/tx"
+        android:textSize="22sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="PIN diperlukan untuk membuka aplikasi"
+        android:textColor="@color/mut"
+        android:textSize="13sp"
+        android:layout_marginTop="6dp"
+        android:layout_marginBottom="20dp" />
+
+    <EditText
+        android:id="@+id/pin"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/bg_input"
+        android:inputType="numberPassword"
+        android:maxLength="12"
+        android:gravity="center"
+        android:textColor="@color/tx"
+        android:textSize="24sp"
+        android:letterSpacing="0.3"
+        android:padding="16dp"
+        android:hint="••••" />
+
+    <TextView
+        android:id="@+id/err"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textColor="@color/bad"
+        android:textSize="13sp"
+        android:layout_marginTop="10dp" />
+
+    <Button
+        android:id="@+id/unlock"
+        style="@style/JKam.Button"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="18dp"
+        android:text="Buka" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Lupa PIN? Minta owner melepas perangkat dari dashboard."
+        android:textColor="@color/mut"
+        android:textSize="12sp"
+        android:gravity="center"
+        android:layout_marginTop="22dp" />
+</LinearLayout>

@@ -317,8 +317,8 @@ async function heartbeat(req, env, acc) {
 async function setCommand(req, env, acc, userId) {
   const u = await getUserOf(env, acc, userId); // cek user ini milik owner (admin lolos)
   const b = await body(req);
-  const action = b.action === "stop" ? "stop" : b.action === "start" ? "start" : null;
-  if (!action) fail(400, "Perintah harus start atau stop");
+  const action = ["start", "stop", "release"].includes(b.action) ? b.action : null;
+  if (!action) fail(400, "Perintah harus start, stop, atau release");
   const ts = Date.now();
   await env.DB.prepare(
     "INSERT OR REPLACE INTO commands (user_id, action, created_at, acked) VALUES (?1, ?2, ?3, 0)"

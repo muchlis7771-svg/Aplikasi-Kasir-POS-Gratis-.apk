@@ -79,6 +79,23 @@ class PanelActivity : AppCompatActivity() {
         loading = ProgressBar(this).apply { isIndeterminate = true }
         root.addView(web, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
         root.addView(loading, FrameLayout.LayoutParams(120, 120, android.view.Gravity.CENTER))
+
+        // Tombol pembaruan manual (kecil, pojok bawah)
+        val dp = resources.displayMetrics.density
+        val upd = android.widget.TextView(this).apply {
+            text = "⟳ Perbarui"
+            setTextColor(Color.parseColor("#6D28D9"))
+            setBackgroundColor(Color.parseColor("#F1ECFB"))
+            setPadding((14 * dp).toInt(), (8 * dp).toInt(), (14 * dp).toInt(), (8 * dp).toInt())
+            textSize = 13f
+            isClickable = true
+            setOnClickListener { checkUpdateManual() }
+        }
+        root.addView(upd, FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
+            android.view.Gravity.BOTTOM or android.view.Gravity.END).apply {
+            setMargins(0, 0, (12 * dp).toInt(), (14 * dp).toInt())
+        })
         setContentView(root)
 
         onBackPressedDispatcher.addCallback(this, object : OnBackPressedCallback(true) {
@@ -86,6 +103,29 @@ class PanelActivity : AppCompatActivity() {
         })
 
         if (prefs.serverUrl.isBlank()) askServer() else load()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (prefs.serverUrl.isNotBlank()) ForcedUpdate.gate(this) // pembaruan wajib saat dibuka
+    }
+
+    /** Tombol "Perbarui": cek versi; kalau ada yang baru langsung unduh+pasang, kalau tidak beri tahu. */
+    private fun checkUpdateManual() {
+        Toast.makeText(this, "Memeriksa pembaruan…", Toast.LENGTH_SHORT).show()
+        Thread {
+            val r = Api.call(prefs.serverUrl, "/api/public/apps")
+            val server = r.json.optString("version", "")
+            val newer = r.ok && (server.substringAfterLast('.').toIntOrNull() ?: 0) >
+                (BuildConfig.VERSION_NAME.substringAfterLast('.').toIntOrNull() ?: 0)
+            runOnUiThread {
+                when {
+                    !r.ok -> Toast.makeText(this, "Tidak bisa cek pembaruan (offline?)", Toast.LENGTH_SHORT).show()
+                    newer -> ForcedUpdate.gate(this)
+                    else -> Toast.makeText(this, "Sudah versi terbaru (v" + BuildConfig.VERSION_NAME + ")", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }.start()
     }
 
     private fun load() {

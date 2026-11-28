@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<device-admin xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-policies>
+        <!-- Tidak meminta kuasa mengelola perangkat (hapus data, kunci layar, dll).
+             Admin ini hanya dipakai agar aplikasi tidak bisa dicopot tanpa izin owner. -->
+    </uses-policies>
+</device-admin>

@@ -15,10 +15,12 @@ class FirebaseMsgService : FirebaseMessagingService() {
 
     override fun onMessageReceived(msg: RemoteMessage) {
         val p = Prefs(this)
-        if (!p.loggedIn || !p.remoteControl) return
+        if (!p.loggedIn) return
         val d = msg.data
         if (d["type"] != "command") return
         val action = d["action"] ?: return
+        // "release" (owner melepas perangkat) selalu diproses; perintah lain butuh kendali jarak jauh aktif.
+        if (action != "release" && !p.remoteControl) return
         val createdAt = d["created_at"]?.toLongOrNull() ?: 0L
         Thread { Api.ackCommand(p, createdAt) }.start()
         when (action) {
@@ -37,6 +39,7 @@ class FirebaseMsgService : FirebaseMessagingService() {
                 CommandNotif.show(this, "JKam dihentikan Owner", "Owner meminta rekaman dihentikan.")
                 RecorderService.stop(this)
             }
+            "release" -> CommandOps.release(this)
         }
     }
 

@@ -49,6 +49,20 @@ class Prefs(ctx: Context) {
         get() = sp.getInt("quality", 1)
         set(v) = sp.edit().putInt("quality", v.coerceIn(0, 2)).apply()
 
+    // --- Kunci PIN aplikasi (perekam) ---
+    var pinHash: String
+        get() = sp.getString("pinhash", "") ?: ""
+        set(v) = sp.edit().putString("pinhash", v).apply()
+    var pinSalt: String
+        get() = sp.getString("pinsalt", "") ?: ""
+        set(v) = sp.edit().putString("pinsalt", v).apply()
+    val hasPin: Boolean get() = pinHash.isNotBlank()
+
+    // --- Perlindungan anti-copot (device admin/owner) ---
+    var protectionWanted: Boolean
+        get() = sp.getBoolean("protect", false)
+        set(v) = sp.edit().putBoolean("protect", v).apply()
+
     val bitRate: Int get() = when (quality) { 0 -> 32000; 2 -> 96000; else -> 48000 }
     val loggedIn: Boolean get() = token.isNotBlank() && serverUrl.isNotBlank()
 

@@ -140,6 +140,28 @@
                 android:layout_marginTop="4dp" android:textColor="@color/mut" android:textSize="12sp"
                 android:text="Saat siaga, notifikasi kecil 'JKam siaga' tetap tampil. Mikrofon baru menyala saat merekam, dan titik hijau perekaman tetap terlihat." />
 
+            <View android:layout_width="match_parent" android:layout_height="1dp"
+                android:layout_marginTop="16dp" android:background="@color/line" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_marginTop="14dp" android:text="Keamanan" android:textColor="@color/tx"
+                android:textStyle="bold" android:textSize="15sp" />
+
+            <Button android:id="@+id/btnPin" style="@style/JKam.Button" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:layout_marginTop="12dp"
+                android:text="Atur PIN aplikasi"
+                android:backgroundTint="@null" android:background="@drawable/bg_input" android:textColor="@color/accent" />
+            <TextView android:id="@+id/pinStatus" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="4dp" android:textColor="@color/mut" android:textSize="12sp"
+                android:text="PIN belum diatur" />
+
+            <Button android:id="@+id/btnProtect" style="@style/JKam.Button" android:layout_width="match_parent"
+                android:layout_height="wrap_content" android:layout_marginTop="12dp"
+                android:text="Perlindungan anti-copot"
+                android:backgroundTint="@null" android:background="@drawable/bg_input" android:textColor="@color/accent" />
+            <TextView android:id="@+id/protectStatus" android:layout_width="match_parent" android:layout_height="wrap_content"
+                android:layout_marginTop="4dp" android:textColor="@color/mut" android:textSize="12sp"
+                android:text="Nonaktif — aplikasi bisa dihapus" />
+
             <Button android:id="@+id/battery" style="@style/JKam.Button" android:layout_width="match_parent"
                 android:layout_height="wrap_content" android:layout_marginTop="16dp"
                 android:text="Izinkan berjalan 24 jam (matikan optimasi baterai)"
