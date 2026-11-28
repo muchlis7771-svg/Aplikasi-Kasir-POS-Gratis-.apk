@@ -5,7 +5,6 @@ import { HSCHEMA, payHook, hqStore, hqAdmin, leadPost, trailStmt, trailGet, prun
 import { RSCHEMA, RALTER, rptCfg, cleanCfg, dayRange, buildDaily, sendOut, cronDaily, notifNewAR, dueNotify, dueCronCheck, notifRetryRun } from './lapor.js';
 import { TGSCHEMA, tgHook, tgLinkCode, tgSetWebhook } from './tg.js';
 import { backupDaily, backupList, backupGet, backupPreReset } from './backup.js';
-import { OSCHEMA, pinPublic, hordRoutes } from './hord.js';
 // J-POS API v4 — Cloudflare Worker + D1 (SQLite)
 // Multi-tenant: 1 toko = 1 tenant. Data bisnis = LOG KEJADIAN (tabel ev) yang diputar ulang tiap perangkat (offline-first).
 // v4: peran owner/admin/akuntan/kasir/sales, masa aktif toko (trial 30 hari + perpanjangan oleh Head Admin),
@@ -80,7 +79,7 @@ const SCHEMA = [
 let READY = null;
 function ready(env) {
   if (!READY) READY = (async () => {
-    await env.DB.batch([...SCHEMA, ...MSCHEMA, ...SSCHEMA, ...RSCHEMA, ...MSCH2, ...HSCHEMA, ...TGSCHEMA, ...OSCHEMA].map((q) => env.DB.prepare(q)));
+    await env.DB.batch([...SCHEMA, ...MSCHEMA, ...SSCHEMA, ...RSCHEMA, ...MSCH2, ...HSCHEMA, ...TGSCHEMA].map((q) => env.DB.prepare(q)));
     for (const c of [...SALTER, ...RALTER]) { try { await env.DB.prepare('ALTER TABLE ' + c).run(); } catch (e) { } }
     for (const c of ['phone TEXT', 'exp INTEGER', "plan TEXT DEFAULT 'trial'", 'note TEXT', "tier TEXT DEFAULT 'high'", 'perm TEXT', 'ref_by TEXT']) { try { await env.DB.prepare('ALTER TABLE stores ADD COLUMN ' + c).run(); } catch (e) { } }
     for (const c of ['sess TEXT']) { try { await env.DB.prepare('ALTER TABLE staff ADD COLUMN ' + c).run(); } catch (e) { } }
@@ -244,7 +243,6 @@ export default {
         await logAct(env, 'staff', owner, owner, id, 'daftar toko baru' + (ref ? ' (referral dari ' + ref.id + ')' : ''), store);
         return J({ token: await sign(env, { sid: id, name: owner, exp: now + 30 * DAY }), role: 'owner', name: owner, sn: store, exp, plan: 'trial', status: 'active', ...stInfo({ exp, plan: 'trial', status: 'active', name: store, tier }) });
       }
-      if (p == '/api/pin/forgot' || p == '/api/pin/reset') { const r = await pinPublic({ env, p, M, b, J, ip, limited, C: await cfgAll(env), hp, same, logAct }); if (r) return r; }
       if (p == '/api/login' && M == 'POST') {
         const id = String(b.id || '').toLowerCase(), name = String(b.name || '').trim();
         if ((await limited(env, 'login:' + ip, 40, 6e5)) || (await limited(env, 'login:' + id + ':' + name.toLowerCase(), 8, 6e5))) return J({ e: 'Terlalu banyak percobaan, coba lagi 10 menit' }, 429);
@@ -435,7 +433,6 @@ export default {
       if (p == '/api/trk/off') return trkOff({ env, p, M, b, sid, role, J });
       { const hr = await hqStore({ env, p, M, b, J, sid, uname, role, C: await cfgAll(env), pkgAll, sname: me.sn, limited, stInfo }); if (hr) return hr; } // perpanjangan, aktivasi lisensi & komplain (tetap jalan walau masa aktif habis)
 
-      if (p == '/api/me/email' || p == '/api/plist' || p == '/api/ord/read') { if (p == '/api/ord/read' && EXP) return RO(); const r = await hordRoutes({ env, p, M, b, u, J, sid, uname, role, limited, hp, same }); if (r) return r; }
       // ---------- baca foto produk pakai AI → isi nama/kategori/merek/satuan otomatis (perlu ANTHROPIC_API_KEY) ----------
       if (p == '/api/prod/scan' && M == 'POST') {
         if (EXP) return RO();
