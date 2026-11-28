@@ -1,3 +1,4 @@
+import { hordRoutes } from "./hord.js";
 // J-DATA Sync: simpan riwayat penjualan, RO, dan target di Cloudflare D1.
 // Auth: header "Authorization: Bearer <SYNC_TOKEN>" (secret Worker). Data dipisah per "profile".
 const DASH_HTML = `<!doctype html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>J-DATA Dashboard</title>
@@ -253,6 +254,9 @@ export default {
     if (url.pathname === "/health") return J({ ok: true });
     if ((url.pathname === "/report" || url.pathname === "/report/") && req.method === "GET") return new Response(REPORT_HTML, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
     if (url.pathname === "/dash" && req.method === "GET") return new Response(DASH_HTML, { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } });
+    if (req.method === "POST" && (url.pathname.startsWith("/pw/") || url.pathname.startsWith("/ord/"))) {
+      try { return await hordRoutes(url, req, env, authPost); } catch (e) { return J({ error: String(e && e.message || e) }, 500); }
+    }
     if (req.method === "POST" && (url.pathname.startsWith("/usage/") || url.pathname.startsWith("/admin/"))) {
       try { return await usageRoutes(url, req, env); } catch (e) { return J({ error: String(e && e.message || e) }, 500); }
     }
