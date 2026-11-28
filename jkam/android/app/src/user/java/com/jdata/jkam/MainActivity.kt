@@ -183,7 +183,7 @@ class MainActivity : AppCompatActivity() {
                     if (cmd != null) {
                         when (cmd.first) {
                             "start" -> { Api.ackCommand(p, cmd.second); runOnUiThread { if (!RecorderService.running) promptStartFromOwner() } }
-                            "release" -> { Api.ackCommand(p, cmd.second); runOnUiThread { CommandOps.release(this); refreshSecurity() } }
+                            "release" -> { Api.ackCommand(p, cmd.second); runOnUiThread { CommandOps.release(this@MainActivity); refreshSecurity() } }
                         }
                     }
                 }.start()
